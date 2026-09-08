@@ -4,14 +4,41 @@ from flask import request, jsonify
 from ..models.base import User, Deposit, Transaction, Notification
 from ..extensions import db
 from . import main
+from ..services.telegram_service import send_telegram_notification
+
+def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        user = User(
+            telegram_id=telegram_id,
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            balance=0.0,
+            kyc_status='unverified',
+            is_verified=False,
+            role='user',
+            vip_level=0,
+            referral_code=uuid.uuid4().hex[:8].upper(),
+            created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(user)
+        db.session.commit()
+    return user
 
 @main.route("/api/deposits/", methods=["POST"])
 def create_deposit():
     data = request.get_json()
     telegram_id = data.get("telegram_id")
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
+    if not telegram_id:
+        return jsonify({"error": "telegram_id مطلوب"}), 400
+
+    user = get_or_create_user(
+        telegram_id,
+        data.get("first_name", ""),
+        data.get("last_name", ""),
+        data.get("username", "")
+    )
 
     amount = float(data.get("amount", 0))
     method = data.get("method", "")
@@ -39,7 +66,7 @@ def create_deposit():
     db.session.add(deposit)
     db.session.commit()
 
-    # إشعار
+    # إشعار للمستخدم
     notif = Notification(
         user_id=user.id,
         title="إيداع جديد",
@@ -49,11 +76,17 @@ def create_deposit():
     db.session.add(notif)
     db.session.commit()
 
-    return jsonify({"message": "تم إرسال طلب الإيداع بنجاح", "transaction_id": deposit.transaction_id}), 201
+    # محاولة إرسال إشعار تيليجرام
+    send_telegram_notification(user.telegram_id, f"تم استلام طلب الإيداع بقيمة {amount}$ وهو قيد المراجعة")
+
+    return jsonify({
+        "message": "تم إرسال طلب الإيداع بنجاح",
+        "transaction_id": deposit.transaction_id,
+    }), 201
 
 @main.route("/api/deposits/my", methods=["GET"])
 def get_my_deposits():
-    telegram_id = request.args.get("telegram_id")
+    telegram_id = request.args.get("telegram_id", type=int)
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
         return jsonify([])
