@@ -1,29 +1,20 @@
-// admin/js/api.js
-// واجهة الاتصال مع الخادم الخلفي للوحة التحكم
+const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
-const API_BASE_URL = 'https://sanad-plus-backend.onrender.com'; // رابط الخادم المحلي
-
-// دالة مساعدة لجلب التوكن المخزن
 function getToken() {
     return localStorage.getItem('admin_token');
 }
 
-// دالة مساعدة لحفظ التوكن
 function setToken(token) {
     localStorage.setItem('admin_token', token);
 }
 
-// دالة مساعدة لحذف التوكن
 function clearToken() {
     localStorage.removeItem('admin_token');
 }
 
-// دالة مساعدة لإجراء طلبات مع التوكن
 async function apiRequest(url, options = {}) {
     const token = getToken();
-    if (!token) {
-        throw new Error('لا يوجد توكن، يرجى تسجيل الدخول');
-    }
+    if (!token) throw new Error('لا يوجد توكن');
     const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
@@ -33,13 +24,10 @@ async function apiRequest(url, options = {}) {
         ...options,
         headers,
     });
-    if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
     return await response.json();
 }
 
-// تسجيل الدخول
 async function adminLogin(username, password) {
     const res = await fetch(`${API_BASE_URL}/admin/login`, {
         method: 'POST',
@@ -49,17 +37,10 @@ async function adminLogin(username, password) {
     return await res.json();
 }
 
-// جلب إحصائيات لوحة التحكم (يمكن استخدامها لاحقًا)
-async function fetchAdminStats() {
-    return await apiRequest('/admin/api/stats');
-}
-
-// جلب المستخدمين
 async function fetchAdminUsers() {
     return await apiRequest('/admin/api/users');
 }
 
-// تعديل رصيد مستخدم
 async function adjustUserBalance(userId, amount) {
     return await apiRequest(`/admin/api/users/${userId}/balance`, {
         method: 'POST',
@@ -67,19 +48,21 @@ async function adjustUserBalance(userId, amount) {
     });
 }
 
-// حظر/فك حظر مستخدم
 async function toggleUserBan(userId) {
-    return await apiRequest(`/admin/api/users/${userId}/ban`, {
+    return await apiRequest(`/admin/api/users/${userId}/ban`, { method: 'POST' });
+}
+
+async function setUserVIP(userId, vipLevel) {
+    return await apiRequest(`/admin/api/users/${userId}/vip`, {
         method: 'POST',
+        body: JSON.stringify({ vip_level: vipLevel }),
     });
 }
 
-// جلب الأقسام
 async function fetchAdminCategories() {
     return await apiRequest('/admin/api/categories');
 }
 
-// إضافة قسم
 async function createCategory(categoryData) {
     return await apiRequest('/admin/api/categories', {
         method: 'POST',
@@ -87,19 +70,14 @@ async function createCategory(categoryData) {
     });
 }
 
-// حذف قسم
 async function deleteCategory(categoryId) {
-    return await apiRequest(`/admin/api/categories/${categoryId}`, {
-        method: 'DELETE',
-    });
+    return await apiRequest(`/admin/api/categories/${categoryId}`, { method: 'DELETE' });
 }
 
-// جلب المنتجات
 async function fetchAdminProducts() {
     return await apiRequest('/admin/api/products');
 }
 
-// إضافة منتج
 async function createProduct(productData) {
     return await apiRequest('/admin/api/products', {
         method: 'POST',
@@ -107,7 +85,6 @@ async function createProduct(productData) {
     });
 }
 
-// تعديل منتج
 async function updateProduct(productId, productData) {
     return await apiRequest(`/admin/api/products/${productId}`, {
         method: 'PUT',
@@ -115,19 +92,14 @@ async function updateProduct(productId, productData) {
     });
 }
 
-// حذف منتج
 async function deleteProduct(productId) {
-    return await apiRequest(`/admin/api/products/${productId}`, {
-        method: 'DELETE',
-    });
+    return await apiRequest(`/admin/api/products/${productId}`, { method: 'DELETE' });
 }
 
-// جلب باقات منتج
 async function fetchProductBundles(productId) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`);
 }
 
-// إضافة باقة لمنتج
 async function createProductBundle(productId, bundleData) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`, {
         method: 'POST',
@@ -135,12 +107,10 @@ async function createProductBundle(productId, bundleData) {
     });
 }
 
-// جلب طرق الدفع
 async function fetchAdminPaymentMethods() {
     return await apiRequest('/admin/api/payment-methods');
 }
 
-// إضافة طريقة دفع
 async function createPaymentMethod(methodData) {
     return await apiRequest('/admin/api/payment-methods', {
         method: 'POST',
@@ -148,12 +118,14 @@ async function createPaymentMethod(methodData) {
     });
 }
 
-// جلب الطلبات
+async function deletePaymentMethod(methodId) {
+    return await apiRequest(`/admin/api/payment-methods/${methodId}`, { method: 'DELETE' });
+}
+
 async function fetchAdminOrders() {
     return await apiRequest('/admin/api/orders');
 }
 
-// تغيير حالة طلب
 async function updateOrderStatus(orderId, status) {
     return await apiRequest(`/admin/api/orders/${orderId}/status`, {
         method: 'POST',
@@ -161,48 +133,49 @@ async function updateOrderStatus(orderId, status) {
     });
 }
 
-// جلب الإيداعات
 async function fetchAdminDeposits() {
     return await apiRequest('/admin/api/deposits');
 }
 
-// قبول إيداع
 async function approveDeposit(depositId) {
-    return await apiRequest(`/admin/api/deposits/${depositId}/approve`, {
-        method: 'POST',
-    });
+    return await apiRequest(`/admin/api/deposits/${depositId}/approve`, { method: 'POST' });
 }
 
-// رفض إيداع
 async function rejectDeposit(depositId) {
-    return await apiRequest(`/admin/api/deposits/${depositId}/reject`, {
-        method: 'POST',
-    });
+    return await apiRequest(`/admin/api/deposits/${depositId}/reject`, { method: 'POST' });
 }
 
-// جلب طلبات التوثيق KYC
 async function fetchAdminKYC() {
     return await apiRequest('/admin/api/kyc');
 }
 
-// قبول توثيق
 async function approveKYC(kycId) {
-    return await apiRequest(`/admin/api/kyc/${kycId}/approve`, {
-        method: 'POST',
-    });
+    return await apiRequest(`/admin/api/kyc/${kycId}/approve`, { method: 'POST' });
 }
 
-// رفض توثيق
 async function rejectKYC(kycId) {
-    return await apiRequest(`/admin/api/kyc/${kycId}/reject`, {
-        method: 'POST',
-    });
+    return await apiRequest(`/admin/api/kyc/${kycId}/reject`, { method: 'POST' });
 }
 
-// إرسال إشعار
 async function sendNotification(notificationData) {
     return await apiRequest('/admin/api/notifications', {
         method: 'POST',
         body: JSON.stringify(notificationData),
     });
+}
+
+async function fetchServiceRequests() {
+    return await apiRequest('/admin/api/service-requests');
+}
+
+async function updateServiceRequest(requestId, status, response) {
+    return await apiRequest(`/admin/api/service-requests/${requestId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, admin_response: response }),
+    });
+}
+
+function logout() {
+    clearToken();
+    location.reload();
 }
