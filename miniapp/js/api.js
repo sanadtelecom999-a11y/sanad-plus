@@ -2,7 +2,7 @@
 // واجهة الاتصال مع الخادم الخلفي SANAD+
 
 // رابط الخادم المحلي (للتطوير)
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
 // دالة تسجيل الدخول / إنشاء مستخدم عبر Telegram initData
 async function authenticateUser(initData) {
