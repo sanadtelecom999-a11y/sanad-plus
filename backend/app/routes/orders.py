@@ -1,18 +1,38 @@
 import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify
-from ..models.base import User, Product, Order, Transaction, Notification
+from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification
+
+def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        user = User(
+            telegram_id=telegram_id,
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            balance=0.0,
+            kyc_status='unverified',
+            is_verified=False,
+            role='user',
+            vip_level=0,
+            referral_code=uuid.uuid4().hex[:8].upper(),
+            created_at=datetime.now(timezone.utc)
+        )
+        db.session.add(user)
+        db.session.commit()
+    return user
 
 @main.route("/api/orders/", methods=["POST"])
 def create_order():
     data = request.get_json()
     telegram_id = data.get("telegram_id")
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
+    if not telegram_id:
+        return jsonify({"error": "telegram_id مطلوب"}), 400
+    user = get_or_create_user(telegram_id)
     if user.is_banned:
         return jsonify({"error": "أنت محظور"}), 403
 
@@ -21,7 +41,6 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
-    # إدخالات المنتج حسب النوع
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -39,7 +58,6 @@ def create_order():
         total_price = round(unit_price * quantity, 2)
         delivery_data = {}
 
-    # إضافة بيانات الحقل المخصص
     if product.input_type == "id":
         delivery_data["player_id"] = data.get("player_id", "")
     elif product.input_type == "phone":
@@ -48,7 +66,6 @@ def create_order():
     if user.balance < total_price:
         return jsonify({"error": "رصيد غير كافٍ"}), 400
 
-    # إنشاء طلب جديد
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
         user_id=user.id,
@@ -64,10 +81,8 @@ def create_order():
     )
     db.session.add(order)
 
-    # خصم الرصيد
     user.balance -= total_price
 
-    # تسجيل معاملة
     txn = Transaction(
         user_id=user.id,
         type="purchase",
@@ -78,7 +93,6 @@ def create_order():
     )
     db.session.add(txn)
 
-    # إشعار للمستخدم
     notif = Notification(
         user_id=user.id,
         title="طلب جديد",
@@ -86,10 +100,8 @@ def create_order():
         type="info",
     )
     db.session.add(notif)
-
     db.session.commit()
 
-    # محاولة إرسال إشعار تيليجرام
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
 
     return jsonify({
@@ -102,7 +114,7 @@ def create_order():
 
 @main.route("/api/orders/my", methods=["GET"])
 def get_my_orders():
-    telegram_id = request.args.get("telegram_id")
+    telegram_id = request.args.get("telegram_id", type=int)
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
         return jsonify([])
