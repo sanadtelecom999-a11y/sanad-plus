@@ -113,6 +113,7 @@ body {
     font-weight: 700;
     color: var(--primary);
     font-size: 0.9rem;
+    cursor: pointer;
 }
 
 .balance-pill .material-icons {
@@ -281,6 +282,41 @@ body {
 }
 
 /* =========== شاشة الرئيسية =========== */
+.user-greeting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+}
+
+.user-greeting .avatar {
+    font-size: 2.5rem;
+}
+
+.user-greeting h2 {
+    font-size: 1.3rem;
+    font-weight: 800;
+}
+
+.user-greeting p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+#vipBadge, #accountVipBadge {
+    background-color: gold;
+    color: #0D47A1;
+    font-weight: 800;
+    padding: 2px 10px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+}
+
 .section-header {
     display: flex;
     align-items: center;
@@ -327,33 +363,67 @@ body {
     font-size: 0.85rem;
 }
 
-/* =========== شاشة طلباتي =========== */
-.stats-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
-.stat-card {
-    flex: 1;
+.product-card {
     background-color: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.product-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow);
+}
+
+.product-image {
+    width: 100%;
+    height: 120px;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: #ccc;
+    background-size: cover;
+    background-position: center;
+}
+
+.product-name {
+    padding: 8px;
     text-align: center;
+    font-weight: 700;
+    font-size: 0.9rem;
 }
 
-.stat-number {
-    font-size: 1.4rem;
+.product-price {
+    text-align: center;
+    color: var(--primary);
     font-weight: 800;
-    color: var(--primary-dark);
+    padding-bottom: 8px;
 }
 
-.stat-label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+.product-type-badge {
+    display: block;
+    text-align: center;
+    background-color: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 50px;
+    margin: 0 auto 8px;
+    width: fit-content;
 }
 
+/* =========== شاشة طلباتي =========== */
 .orders-list,
 .deposits-list {
     display: flex;
@@ -403,6 +473,11 @@ body {
 .status-badge.pending {
     background-color: var(--warning-bg);
     color: #F57F17;
+}
+
+.status-badge.review, .status-badge.processing {
+    background-color: var(--primary-light);
+    color: var(--primary-dark);
 }
 
 .status-badge.verified {
@@ -549,14 +624,9 @@ body {
     font-size: 1.2rem;
 }
 
-.account-email {
+.account-email, .account-id {
     color: var(--text-secondary);
     font-size: 0.85rem;
-}
-
-.account-id {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
 }
 
 .account-status {
@@ -578,20 +648,16 @@ body {
     text-align: center;
 }
 
-.stat-item .stat-label {
+.stat-label {
     font-size: 0.8rem;
     color: var(--text-secondary);
 }
 
-.stat-item .stat-value {
+.stat-value {
     font-size: 1.2rem;
     font-weight: 800;
     color: var(--primary-dark);
     margin-top: 4px;
-}
-
-.settings-section {
-    margin-top: 20px;
 }
 
 .settings-list {
@@ -684,7 +750,7 @@ input:checked + .toggle-slider:before {
     transform: translateX(18px);
 }
 
-/* =========== شاشة توثيق KYC =========== */
+/* =========== شاشة KYC =========== */
 .kyc-container {
     padding: 20px;
     text-align: center;
@@ -768,64 +834,6 @@ input:checked + .toggle-slider:before {
     overflow: hidden;
     background-size: cover;
     background-position: center;
-}
-
-/* =========== شاشة المنتجات =========== */
-.products-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-}
-
-.product-card {
-    background-color: var(--surface);
-    border: 1px solid var(--primary-light);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.product-card:hover {
-    border-color: var(--primary);
-}
-
-.product-image {
-    width: 100%;
-    height: 150px;
-    background-color: #f0f0f0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 3rem;
-    color: #ccc;
-    background-size: cover;
-    background-position: center;
-}
-
-.product-name {
-    padding: 12px;
-    text-align: center;
-    font-weight: 700;
-    color: var(--text);
-}
-
-.product-price {
-    text-align: center;
-    color: var(--primary);
-    font-weight: 800;
-    padding-bottom: 12px;
-}
-
-.product-type-badge {
-    display: inline-block;
-    background-color: var(--primary-light);
-    color: var(--primary);
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 50px;
-    margin: 4px 0;
 }
 
 /* =========== المودال =========== */
