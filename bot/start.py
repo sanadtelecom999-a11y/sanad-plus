@@ -1,4 +1,4 @@
-from bot.bot import run_polling
+import bot
 
 if __name__ == "__main__":
-    run_polling()
+    bot.run_polling()
