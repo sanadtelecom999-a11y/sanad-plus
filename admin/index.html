@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SANAD+ | لوحة التحكم</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+    <!-- الشريط العلوي -->
+    <header class="admin-topbar">
+        <div class="admin-topbar-right">
+            <button class="icon-btn" onclick="toggleSidebar()">
+                <span class="material-icons">menu</span>
+            </button>
+            <span class="logo-text">SANAD<span class="highlight">+</span></span>
+        </div>
+        <div class="admin-topbar-left">
+            <span class="admin-badge">أدمن</span>
+            <span class="material-icons">notifications</span>
+            <span class="material-icons">account_circle</span>
+        </div>
+    </header>
+
+    <!-- الشريط الجانبي -->
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <button class="sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+                <span class="material-icons">dashboard</span> لوحة التحكم
+            </button>
+            <button class="sidebar-item" data-section="users" onclick="switchSection('users')">
+                <span class="material-icons">people</span> المستخدمون
+            </button>
+            <button class="sidebar-item" data-section="categories" onclick="switchSection('categories')">
+                <span class="material-icons">category</span> الأقسام
+            </button>
+            <button class="sidebar-item" data-section="products" onclick="switchSection('products')">
+                <span class="material-icons">inventory_2</span> المنتجات
+            </button>
+            <button class="sidebar-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
+                <span class="material-icons">payment</span> طرق الدفع
+            </button>
+            <button class="sidebar-item" data-section="orders" onclick="switchSection('orders')">
+                <span class="material-icons">receipt_long</span> الطلبات
+            </button>
+            <button class="sidebar-item" data-section="deposits" onclick="switchSection('deposits')">
+                <span class="material-icons">account_balance_wallet</span> الإيداعات
+            </button>
+            <button class="sidebar-item" data-section="kyc" onclick="switchSection('kyc')">
+                <span class="material-icons">verified_user</span> طلبات التوثيق
+            </button>
+            <button class="sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
+                <span class="material-icons">notifications</span> الإشعارات
+            </button>
+            <button class="sidebar-item" data-section="settings" onclick="switchSection('settings')">
+                <span class="material-icons">settings</span> الإعدادات
+            </button>
+        </nav>
+    </aside>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="admin-content" id="adminContent">
+        <div id="section-container">
+
+            <!-- لوحة التحكم -->
+            <section id="section-dashboard" class="admin-section active">
+                <h2>لوحة التحكم</h2>
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-number">0.00$</div>
+                        <div class="stat-label">إجمالي الأرباح</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">طلبات</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">مستخدمون</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">0</div>
+                        <div class="stat-label">منتجات</div>
+                    </div>
+                </div>
+                <div class="recent-activity">
+                    <h3>آخر العمليات</h3>
+                    <div id="recentActivities">لا توجد عمليات بعد</div>
+                </div>
+            </section>
+
+            <!-- المستخدمون -->
+            <section id="section-users" class="admin-section">
+                <div class="section-header">
+                    <h2>المستخدمون</h2>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Telegram ID</th>
+                                <th>الاسم</th>
+                                <th>الرصيد</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- الأقسام -->
+            <section id="section-categories" class="admin-section">
+                <div class="section-header">
+                    <h2>إدارة الأقسام</h2>
+                    <button class="btn-primary" onclick="openCategoryModal()">
+                        <span class="material-icons">add</span> إضافة قسم
+                    </button>
+                </div>
+                <div class="cards-grid" id="categoriesList"></div>
+            </section>
+
+            <!-- المنتجات -->
+            <section id="section-products" class="admin-section">
+                <div class="section-header">
+                    <h2>إدارة المنتجات</h2>
+                    <button class="btn-primary" onclick="openProductModal()">
+                        <span class="material-icons">add</span> إضافة منتج
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الصورة</th>
+                                <th>الاسم</th>
+                                <th>القسم</th>
+                                <th>السعر</th>
+                                <th>الكمية</th>
+                                <th>النوع</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- طرق الدفع -->
+            <section id="section-payment-methods" class="admin-section">
+                <div class="section-header">
+                    <h2>طرق الدفع</h2>
+                    <button class="btn-primary" onclick="openPaymentMethodModal()">
+                        <span class="material-icons">add</span> إضافة طريقة
+                    </button>
+                </div>
+                <div class="cards-grid" id="paymentMethodsList"></div>
+            </section>
+
+            <!-- الطلبات -->
+            <section id="section-orders" class="admin-section">
+                <h2>الطلبات</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>المنتج</th>
+                                <th>الكمية</th>
+                                <th>السعر</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- الإيداعات -->
+            <section id="section-deposits" class="admin-section">
+                <h2>الإيداعات</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>رقم العملية</th>
+                                <th>المستخدم</th>
+                                <th>المبلغ</th>
+                                <th>الطريقة</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="depositsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- طلبات التوثيق KYC -->
+            <section id="section-kyc" class="admin-section">
+                <h2>طلبات التوثيق</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>معرف المستخدم</th>
+                                <th>الاسم الكامل</th>
+                                <th>الهاتف</th>
+                                <th>الحالة</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="kycTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- الإشعارات -->
+            <section id="section-notifications" class="admin-section">
+                <h2>إرسال إشعار</h2>
+                <div class="notification-form">
+                    <div class="form-group">
+                        <label>نوع الإشعار</label>
+                        <select id="notificationType">
+                            <option value="info">معلومات</option>
+                            <option value="success">نجاح</option>
+                            <option value="warning">تحذير</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>إلى</label>
+                        <select id="notificationTarget">
+                            <option value="all">جميع المستخدمين</option>
+                            <option value="specific">مستخدم محدد</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="specificUserGroup" style="display:none;">
+                        <label>معرف المستخدم</label>
+                        <input type="text" id="notificationUserId" placeholder="Telegram ID">
+                    </div>
+                    <div class="form-group">
+                        <label>نص الإشعار</label>
+                        <textarea id="notificationMessage" rows="4" placeholder="أدخل نص الإشعار..."></textarea>
+                    </div>
+                    <button class="btn-primary" onclick="sendAdminNotification()">إرسال</button>
+                </div>
+            </section>
+
+            <!-- الإعدادات -->
+            <section id="section-settings" class="admin-section">
+                <h2>الإعدادات</h2>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label>اسم المتجر</label>
+                        <input type="text" value="SANAD+">
+                    </div>
+                    <div class="form-group">
+                        <label>رابط الدعم</label>
+                        <input type="text" value="https://t.me/support">
+                    </div>
+                    <button class="btn-primary" onclick="saveSettings()">حفظ الإعدادات</button>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- المودال -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>

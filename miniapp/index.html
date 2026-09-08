@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SANAD+ | سند بلس</title>
+    <!-- خط Tajawal -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- ملف التنسيقات -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- الشريط العلوي (Header) -->
+    <header class="topbar">
+        <div class="topbar-right">
+            <button class="icon-btn" id="backButton" onclick="handleBack()">
+                <span class="material-icons">arrow_forward</span>
+            </button>
+            <button class="icon-btn" id="closeButton" onclick="handleClose()">
+                <span class="material-icons">close</span>
+            </button>
+            <button class="icon-btn" onclick="toggleMenu()">
+                <span class="material-icons">more_vert</span>
+            </button>
+        </div>
+
+        <div class="topbar-center">
+            <span class="logo-text">SANAD<span class="highlight">+</span></span>
+        </div>
+
+        <div class="topbar-left">
+            <button class="icon-btn" onclick="showNotifications()">
+                <span class="material-icons">notifications</span>
+                <span class="badge" id="notificationBadge" style="display:none;">0</span>
+            </button>
+            <div class="balance-pill">
+                <span class="material-icons">add</span>
+                <span id="headerBalance">0.00$</span>
+            </div>
+            <button class="icon-btn" onclick="goToAccount()">
+                <div class="avatar-small" id="headerAvatar">م</div>
+            </button>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="main-content">
+        <!-- شاشة الرئيسية -->
+        <section id="page-home" class="page active">
+            <div class="search-box">
+                <span class="material-icons">search</span>
+                <input type="text" id="searchInput" placeholder="ابحث عن منتج...">
+            </div>
+            <button class="btn-primary btn-large" onclick="requestCustomService()">
+                <span class="material-icons">add</span> طلب خدمة غير موجودة
+            </button>
+            <div class="section-header">
+                <h3>تصنيفات المتجر</h3>
+                <span class="counter-circle" id="categoriesCount">0</span>
+            </div>
+            <div class="categories-grid" id="categoriesGrid">
+                <!-- تُملأ ديناميكياً -->
+            </div>
+        </section>
+
+        <!-- شاشة طلباتي -->
+        <section id="page-orders" class="page">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalOrders">0</div>
+                    <div class="stat-label">إجمالي الطلبات</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completedOrders">0</div>
+                    <div class="stat-label">مكتمل</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="failedOrders">0</div>
+                    <div class="stat-label">ملغي/فشل</div>
+                </div>
+            </div>
+            <div class="search-box">
+                <span class="material-icons">search</span>
+                <input type="text" placeholder="ابحث برقم الطلب...">
+            </div>
+            <div class="filters pills-container" id="orderFilters">
+                <button class="pill active" data-filter="all">الكل</button>
+                <button class="pill" data-filter="review">قيد المراجعة</button>
+                <button class="pill" data-filter="processing">قيد التنفيذ</button>
+                <button class="pill" data-filter="completed">مكتمل</button>
+                <button class="pill" data-filter="failed">فشل</button>
+            </div>
+            <div class="orders-list" id="ordersList">
+                <!-- تُملأ ديناميكياً -->
+            </div>
+        </section>
+
+        <!-- شاشة شحن الرصيد -->
+        <section id="page-charge" class="page">
+            <div class="balance-card-gradient">
+                <span class="material-icons">account_balance_wallet</span>
+                <div class="balance-details">
+                    <div class="balance-label">رصيد الحالي</div>
+                    <div class="balance-value" id="chargeBalance">0.00$</div>
+                </div>
+            </div>
+            <div class="section-header">
+                <h3>طرق الشحن</h3>
+                <span class="counter-circle" id="paymentMethodsCount">0</span>
+            </div>
+            <div class="payment-options" id="paymentMethodsList">
+                <!-- تُملأ ديناميكياً -->
+            </div>
+        </section>
+
+        <!-- شاشة الإيداعات -->
+        <section id="page-deposits" class="page">
+            <div class="page-title">
+                <h2>الإيداعات</h2>
+                <p>سجل عمليات شحن الرصيد وحالتها</p>
+            </div>
+            <div class="search-box">
+                <span class="material-icons">search</span>
+                <input type="text" placeholder="ابحث رقم عملية الدفع...">
+            </div>
+            <div class="filters pills-container" id="depositFilters">
+                <button class="pill active" data-filter="all">الكل</button>
+                <button class="pill" data-filter="pending">معلقة</button>
+                <button class="pill" data-filter="completed">مكتملة</button>
+                <button class="pill" data-filter="rejected">مرفوضة</button>
+            </div>
+            <div class="deposits-list" id="depositsList">
+                <!-- تُملأ ديناميكياً -->
+            </div>
+        </section>
+
+        <!-- شاشة حسابي -->
+        <section id="page-account" class="page">
+            <div class="account-card">
+                <div class="account-avatar">
+                    <span class="material-icons">person</span>
+                </div>
+                <div class="account-info">
+                    <div class="account-name">Admin</div>
+                    <div class="account-email">admin@</div>
+                    <div class="account-id">ID: 8673286954</div>
+                    <div class="account-status">
+                        <span class="status-badge unverified">غير موثق</span>
+                    </div>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">الرصيد</div>
+                    <div class="stat-value" id="accountBalance">0.00$</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">إجمالي الإنفاق</div>
+                    <div class="stat-value" id="totalSpent">0.00$</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">عدد طلباتك</div>
+                    <div class="stat-value" id="orderCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">عدد إيداعاتك</div>
+                    <div class="stat-value" id="depositCount">0</div>
+                </div>
+            </div>
+            <button class="btn-primary btn-large" onclick="navigateTo('page-charge')">
+                <span class="material-icons">bolt</span> شحن الرصيد الآن
+            </button>
+            <div class="settings-section">
+                <div class="section-header">
+                    <h3>الإعدادات</h3>
+                </div>
+                <div class="settings-list" id="settingsList">
+                    <!-- تُملأ ديناميكياً -->
+                </div>
+            </div>
+        </section>
+
+        <!-- شاشة توثيق الحساب (KYC) -->
+        <section id="page-kyc" class="page">
+            <!-- المحتوى سيُملأ ديناميكياً بواسطة JavaScript حسب حالة التوثيق -->
+            <div id="kycDynamicContent"></div>
+        </section>
+
+        <!-- شاشة قائمة المنتجات -->
+        <section id="page-products" class="page">
+            <div class="page-title">
+                <h2 id="productsPageTitle">المنتجات</h2>
+            </div>
+            <div class="products-list" id="productsList">
+                <!-- تُملأ ديناميكياً -->
+            </div>
+        </section>
+    </main>
+
+    <!-- شريط التنقل السفلي -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-page="page-home">
+            <span class="material-icons">home</span>
+            <span>الرئيسية</span>
+        </button>
+        <button class="nav-item" data-page="page-orders">
+            <span class="material-icons">receipt_long</span>
+            <span>طلباتي</span>
+        </button>
+        <button class="nav-item" data-page="page-charge">
+            <span class="material-icons">bolt</span>
+            <span>شحن</span>
+        </button>
+        <button class="nav-item" data-page="page-deposits">
+            <span class="material-icons">account_balance_wallet</span>
+            <span>إيداعات</span>
+        </button>
+        <button class="nav-item" data-page="page-account">
+            <span class="material-icons">person</span>
+            <span>حسابي</span>
+        </button>
+    </nav>
+
+    <!-- المودال العام -->
+    <div id="modal" class="modal">
+        <div class="modal-content" id="modalContent">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- ملفات الجافاسكريبت -->
+    <script src="js/telegram.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
