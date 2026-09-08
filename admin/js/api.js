@@ -1,7 +1,7 @@
 // admin/js/api.js
 // واجهة الاتصال مع الخادم الخلفي للوحة التحكم
 
-const API_BASE_URL = 'http://127.0.0.1:5000'; // رابط الخادم المحلي
+const API_BASE_URL = 'https://sanad-plus-backend.onrender.com'; // رابط الخادم المحلي
 
 // دالة مساعدة لجلب التوكن المخزن
 function getToken() {
