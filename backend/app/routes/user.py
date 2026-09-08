@@ -1,39 +1,62 @@
 from flask import request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import User, KYCRequest, Notification, Transaction
 from ..extensions import db
 from . import main
-import os
+from datetime import datetime, timezone
+import uuid
+
+def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user:
+        user = User(
+            telegram_id=telegram_id,
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            balance=0.0,
+            kyc_status='unverified',
+            is_verified=False,
+            role='user',
+            vip_level=0,
+            referral_code=uuid.uuid4().hex[:8].upper(),
+        )
+        db.session.add(user)
+        db.session.commit()
+    return user
 
 @main.route("/api/user/me", methods=["GET"])
 def get_user():
-    telegram_id = request.args.get("telegram_id")
+    telegram_id = request.args.get("telegram_id", type=int)
     if telegram_id:
-        user = User.query.filter_by(telegram_id=telegram_id).first()
-        if user:
-            return jsonify({
-                "telegram_id": user.telegram_id,
-                "username": user.username,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "balance": user.balance,
-                "kyc_status": user.kyc_status,
-                "is_verified": user.is_verified,
-                "role": user.role,
-                "is_banned": user.is_banned,
-                "vip_level": user.vip_level,
-            })
-    return jsonify({"error": "مستخدم غير موجود"}), 404
+        user = get_or_create_user(telegram_id)
+        return jsonify({
+            "telegram_id": user.telegram_id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "balance": user.balance,
+            "kyc_status": user.kyc_status,
+            "is_verified": user.is_verified,
+            "role": user.role,
+            "is_banned": user.is_banned,
+            "vip_level": user.vip_level,
+        })
+    return jsonify({"error": "telegram_id مطلوب"}), 400
 
 @main.route("/api/kyc/submit", methods=["POST"])
 def submit_kyc():
     data = request.get_json()
     telegram_id = data.get("telegram_id")
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
+    if not telegram_id:
+        return jsonify({"error": "telegram_id مطلوب"}), 400
 
-    # التحقق من عدم وجود طلب قيد المراجعة
+    user = get_or_create_user(
+        telegram_id,
+        data.get("first_name", ""),
+        data.get("last_name", ""),
+        data.get("username", "")
+    )
+
     existing = KYCRequest.query.filter_by(user_id=user.id, status="pending").first()
     if existing:
         return jsonify({"error": "لديك طلب توثيق قيد المراجعة بالفعل"}), 400
@@ -45,12 +68,11 @@ def submit_kyc():
         id_front_image=data.get("id_front_image"),
         id_back_image=data.get("id_back_image"),
         status="pending",
+        submitted_at=datetime.now(timezone.utc),
     )
     user.kyc_status = "pending"
     db.session.add(kyc)
-    db.session.commit()
 
-    # إشعار للمستخدم
     notif = Notification(
         user_id=user.id,
         title="طلب التوثيق",
@@ -64,10 +86,10 @@ def submit_kyc():
 
 @main.route("/api/kyc/my", methods=["GET"])
 def get_my_kyc():
-    telegram_id = request.args.get("telegram_id")
+    telegram_id = request.args.get("telegram_id", type=int)
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
+        return jsonify({"status": "none"})
     kyc = KYCRequest.query.filter_by(user_id=user.id).order_by(KYCRequest.submitted_at.desc()).first()
     if not kyc:
         return jsonify({"status": "none"})
@@ -80,7 +102,7 @@ def get_my_kyc():
 
 @main.route("/api/user/notifications", methods=["GET"])
 def get_notifications():
-    telegram_id = request.args.get("telegram_id")
+    telegram_id = request.args.get("telegram_id", type=int)
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
         return jsonify([])
