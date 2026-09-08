@@ -19,6 +19,7 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
             role='user',
             vip_level=0,
             referral_code=uuid.uuid4().hex[:8].upper(),
+            created_at=datetime.now(timezone.utc)
         )
         db.session.add(user)
         db.session.commit()
@@ -126,3 +127,27 @@ def mark_notification_read():
             notif.is_read = True
             db.session.commit()
     return jsonify({"success": True})
+
+@main.route("/api/user/request-service", methods=["POST"])
+def request_service():
+    data = request.get_json()
+    telegram_id = data.get("telegram_id")
+    if not telegram_id:
+        return jsonify({"error": "telegram_id مطلوب"}), 400
+    user = get_or_create_user(telegram_id)
+    service_name = data.get("service_name")
+    description = data.get("description", "")
+    estimated_price = data.get("estimated_price")
+    if not service_name:
+        return jsonify({"error": "اسم الخدمة مطلوب"}), 400
+    req = ServiceRequest(
+        user_id=user.id,
+        service_name=service_name,
+        description=description,
+        estimated_price=estimated_price,
+        status="pending",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.session.add(req)
+    db.session.commit()
+    return jsonify({"message": "تم إرسال طلب الخدمة المخصصة"}), 200
