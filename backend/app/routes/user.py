@@ -79,8 +79,8 @@ def submit_kyc():
         user_id=user.id,
         full_name=data.get("full_name"),
         phone=data.get("phone"),
-        id_front_image=data.get("id_front_image"),
-        id_back_image=data.get("id_back_image"),
+        address=data.get("address", ""),
+        selfie_image=data.get("selfie_image", ""),
         status="pending",
         submitted_at=datetime.now(timezone.utc),
     )
@@ -111,6 +111,8 @@ def get_my_kyc():
         "status": kyc.status,
         "full_name": kyc.full_name,
         "phone": kyc.phone,
+        "address": kyc.address,
+        "selfie_image": kyc.selfie_image,
         "submitted_at": kyc.submitted_at.isoformat() if kyc.submitted_at else None,
     })
 
