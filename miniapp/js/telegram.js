@@ -9,7 +9,7 @@ function initTelegram() {
         tg.setHeaderColor('#00A0E9');
         tg.setBackgroundColor('#F5F7FA');
 
-        // استخراج بيانات المستخدم مباشرة
+        // استخراج بيانات المستخدم مباشرة بعد الجاهزية
         const user = tg.initDataUnsafe?.user;
         if (user) {
             window.currentUser = {
@@ -19,12 +19,32 @@ function initTelegram() {
                 username: user.username || '',
                 photo_url: user.photo_url || '',
             };
-            console.log('Telegram user data captured:', window.currentUser);
+            console.log('تم التقاط بيانات المستخدم:', window.currentUser);
         } else {
-            console.warn('No user data in initDataUnsafe');
+            console.warn('لا توجد بيانات مستخدم في initDataUnsafe');
+            // محاولة استخراج من initData يدوياً
+            try {
+                const initData = tg.initData || '';
+                const params = new URLSearchParams(initData);
+                const userParam = params.get('user');
+                if (userParam) {
+                    const userData = JSON.parse(userParam);
+                    window.currentUser = {
+                        id: userData.id,
+                        first_name: userData.first_name || '',
+                        last_name: userData.last_name || '',
+                        username: userData.username || '',
+                        photo_url: userData.photo_url || '',
+                    };
+                    console.log('تم استخراج بيانات المستخدم من initData:', window.currentUser);
+                }
+            } catch (e) {
+                console.error('فشل استخراج بيانات المستخدم:', e);
+            }
         }
     } else {
-        console.warn('Telegram WebApp not available');
+        console.warn('Telegram WebApp غير متوفر');
+        // للتطوير فقط
         window.currentUser = {
             id: 8673286954,
             first_name: 'مستخدم تجريبي',
