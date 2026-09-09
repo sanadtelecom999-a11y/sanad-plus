@@ -42,6 +42,7 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
+    # التحقق من الحقول المخصصة
     if product.input_type == "id":
         player_id = data.get("player_id", "")
         if not player_id.strip():
@@ -55,6 +56,7 @@ def create_order():
     else:
         delivery_data = {}
 
+    # تحديد السعر والكمية
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -119,7 +121,7 @@ def create_order():
     # إشعار المستخدم
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
 
-    # إشعار الأدمن بطلب جديد
+    # إشعار الأدمن
     notify_admins(f"🆕 طلب جديد!\nرقم الطلب: {order.order_number}\nالمنتج: {product.name}\nالكمية: {quantity}\nالإجمالي: {total_price}$")
 
     return jsonify({
