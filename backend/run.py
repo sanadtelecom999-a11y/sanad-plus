@@ -14,24 +14,34 @@ app = create_app()
 def upgrade_database():
     """إضافة الأعمدة المفقودة إلى الجداول تلقائياً دون حذف البيانات"""
     with app.app_context():
-        columns_to_add = {
-            'deposits': [
-                ('admin_note', 'TEXT'),
-            ],
-            'kyc_requests': [
-                ('admin_note', 'TEXT'),
-            ],
-            # أضف أي أعمدة أخرى تحتاجها لاحقاً
-        }
         inspector = sa.inspect(db.engine)
-        for table, cols in columns_to_add.items():
-            if not inspector.has_table(table):
+
+        # قائمة الجداول والأعمدة المطلوبة
+        required_columns = {
+            'deposits': {
+                'admin_note': 'TEXT',
+            },
+            'kyc_requests': {
+                'admin_note': 'TEXT',
+            },
+            # أضف أي جدول وعمود آخر هنا إذا لزم
+        }
+
+        for table_name, columns in required_columns.items():
+            if not inspector.has_table(table_name):
                 continue
-            existing_cols = [col['name'] for col in inspector.get_columns(table)]
-            for col_name, col_type in cols:
+            existing_cols = [col['name'] for col in inspector.get_columns(table_name)]
+            for col_name, col_type in columns.items():
                 if col_name not in existing_cols:
-                    db.session.execute(sa.text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col_name} {col_type}'))
+                    try:
+                        db.session.execute(
+                            sa.text(f'ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}')
+                        )
+                        print(f"✔️ تمت إضافة العمود {col_name} إلى جدول {table_name}")
+                    except Exception as e:
+                        print(f"⚠️ فشل إضافة {col_name} إلى {table_name}: {e}")
         db.session.commit()
+        print("✅ اكتملت ترقية قاعدة البيانات")
 
 def run_bot_thread():
     from bot.bot import run_polling
