@@ -1,4 +1,5 @@
 // miniapp/js/app.js
+// النسخة الكاملة مع جميع الإصلاحات
 
 let currentPage = 'page-home';
 let userData = null;
@@ -17,7 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.Telegram?.WebApp?.initData) {
         userData = await authenticateUser(window.Telegram.WebApp.initData);
     } else {
-        userData = await authenticateUser('');
+        // لا نستخدم بيانات وهمية؛ نترك المستخدم غير مسجل حتى يفتح من تيليجرام
+        userData = null;
     }
 
     updateUserUI();
@@ -61,7 +63,12 @@ async function loadInitialData() {
 }
 
 function updateUserUI() {
-    if (!userData) return;
+    if (!userData) {
+        // عرض رسالة تطلب فتح التطبيق من تيليجرام
+        document.getElementById('greetingMessage').textContent = 'الرجاء فتح التطبيق من تيليجرام';
+        document.getElementById('greetingSub').textContent = 'لم يتم التعرف على حسابك';
+        return;
+    }
 
     document.getElementById('headerBalance').textContent = `${userData.balance.toFixed(2)}$`;
     document.getElementById('chargeBalance').textContent = `${userData.balance.toFixed(2)}$`;
@@ -85,7 +92,6 @@ function updateUserUI() {
     document.getElementById('greetingMessage').textContent = `${greeting}، ${userData.first_name || 'مستخدم'}`;
     document.getElementById('greetingSub').textContent = `رصيدك: ${userData.balance.toFixed(2)}$`;
 
-    // تحديث صورة المستخدم في الهيدر
     if (window.currentUser?.photo_url) {
         document.getElementById('headerAvatar').style.backgroundImage = `url(${window.currentUser.photo_url})`;
         document.getElementById('headerAvatar').textContent = '';
@@ -98,7 +104,7 @@ function updateUserUI() {
 
 function updateKYCBadge() {
     const badge = document.getElementById('accountKycBadge');
-    if (!badge) return;
+    if (!badge || !userData) return;
     if (kycStatus === 'verified' || userData.is_verified) {
         badge.innerHTML = '<span class="status-badge verified">موثق <span class="material-icons">verified</span></span>';
     } else if (kycStatus === 'pending') {
@@ -167,7 +173,7 @@ function renderPaymentMethods() {
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if (!list) return;
-    if (!orders.length) {
+    if (!orders || !orders.length) {
         list.innerHTML = '<div class="empty-state">لا توجد طلبات</div>';
         return;
     }
@@ -194,14 +200,14 @@ function getStatusText(status) {
         case 'processing': return 'قيد التنفيذ';
         case 'completed': return 'مكتمل';
         case 'failed': return 'فشل';
-        default: return status;
+        default: return status || 'غير معروف';
     }
 }
 
 function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
-    if (!deposits.length) {
+    if (!deposits || !deposits.length) {
         list.innerHTML = '<div class="empty-state">لا توجد إيداعات</div>';
         return;
     }
@@ -273,7 +279,7 @@ async function submitKYCRequest() {
     }
 
     if (!userData || !userData.telegram_id) {
-        alert('بيانات المستخدم غير متوفرة، حاول إعادة فتح التطبيق');
+        alert('بيانات المستخدم غير متوفرة، افتح التطبيق من تيليجرام');
         return;
     }
 
@@ -315,10 +321,10 @@ async function submitKYCRequest() {
             id_back_image: backBase64,
         });
 
-        if (result.error) {
+        if (result && result.error) {
             alert(result.error);
         } else {
-            alert(result.message || 'تم إرسال طلب التوثيق بنجاح');
+            alert('تم إرسال طلب التوثيق بنجاح');
             kycStatus = 'pending';
             updateKYCUI();
             navigateTo('page-account');
@@ -336,7 +342,7 @@ function openPurchaseModal(productId) {
 
     let modalContent = `
         <div class="purchase-modal">
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center;">
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center; height:150px; border-radius:12px; margin-bottom:12px;">
                 ${product.image ? '' : '📦'}
             </div>
             <h3 style="margin: 12px 0; text-align:center;">${product.name}</h3>
@@ -396,11 +402,8 @@ function openPurchaseModal(productId) {
 
 async function confirmPurchase(productId) {
     const product = productsData.find(p => p.id === productId);
-    if (!product) return;
-
-    if (!userData.is_verified && product.input_type === 'id') {
-        alert('يجب توثيق حسابك أولاً للشراء');
-        navigateTo('page-kyc');
+    if (!product || !userData) {
+        alert('افتح التطبيق من تيليجرام');
         return;
     }
 
@@ -423,10 +426,10 @@ async function confirmPurchase(productId) {
 
     try {
         const result = await createOrder(orderData);
-        if (result.error) {
+        if (result && result.error) {
             alert(result.error);
         } else {
-            alert(result.message || 'طلبك قيد المعالجة');
+            alert('طلبك قيد المعالجة');
             closeModal();
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
@@ -496,10 +499,10 @@ async function submitDeposit(methodId) {
             account_number: accountNumber,
             sender_name: senderName,
         });
-        if (result.error) {
+        if (result && result.error) {
             alert(result.error);
         } else {
-            alert(result.message || 'تم إرسال طلب الإيداع');
+            alert('تم إرسال طلب الإيداع');
             closeModal();
             depositsData = await fetchUserDeposits(userData.telegram_id);
             renderDeposits(depositsData);
@@ -536,9 +539,12 @@ async function submitServiceRequest() {
     if (!service_name) return alert('أدخل اسم الخدمة');
     try {
         const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
-        if (result.error) return alert(result.error);
-        alert(result.message || 'تم إرسال الطلب');
-        closeModal();
+        if (result && result.error) {
+            alert(result.error);
+        } else {
+            alert('تم إرسال الطلب');
+            closeModal();
+        }
     } catch (error) {
         alert(`فشل إرسال الطلب: ${error.message}`);
     }
@@ -549,21 +555,23 @@ function openSupport() {
 }
 
 function openNotificationsPage() {
-    if (userData) {
-        fetchNotifications(userData.telegram_id).then(notifications => {
-            const bodyHTML = `
-                <div style="text-align:center;">
-                    <h3>الإشعارات</h3>
-                    ${notifications.length ? notifications.map(n => `
-                        <div style="text-align:right;background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">
-                            <div style="font-weight:bold;">${n.title}</div>
-                            <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
-                            <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
-                        </div>`).join('') : '<p>لا توجد إشعارات</p>'}
-                </div>`;
-            openModal('الإشعارات', bodyHTML);
-        });
+    if (!userData) {
+        alert('افتح التطبيق من تيليجرام');
+        return;
     }
+    fetchNotifications(userData.telegram_id).then(notifications => {
+        const bodyHTML = `
+            <div style="text-align:center;">
+                <h3>الإشعارات</h3>
+                ${notifications.length ? notifications.map(n => `
+                    <div style="text-align:right;background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">
+                        <div style="font-weight:bold;">${n.title}</div>
+                        <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
+                        <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
+                    </div>`).join('') : '<p>لا توجد إشعارات</p>'}
+            </div>`;
+        openModal('الإشعارات', bodyHTML);
+    });
 }
 
 function updateNotificationBadge() {
