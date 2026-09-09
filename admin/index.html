@@ -53,6 +53,9 @@
             <button class="sidebar-item" data-section="kyc" onclick="switchSection('kyc')">
                 <span class="material-icons">verified_user</span> طلبات التوثيق
             </button>
+            <button class="sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
+                <span class="material-icons">build</span> طلبات الخدمة
+            </button>
             <button class="sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
                 <span class="material-icons">notifications</span> الإشعارات
             </button>
@@ -198,6 +201,25 @@
                         </tr>
                     </thead>
                     <tbody id="kycTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="section-service-requests" class="admin-section">
+            <h2>طلبات الخدمة المخصصة</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>معرف المستخدم</th>
+                            <th>اسم الخدمة</th>
+                            <th>الوصف</th>
+                            <th>السعر المتوقع</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="serviceRequestsTableBody"></tbody>
                 </table>
             </div>
         </section>
