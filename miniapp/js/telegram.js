@@ -1,5 +1,4 @@
-// js/telegram.js
-// التعامل مع Telegram WebApp API
+// miniapp/js/telegram.js
 
 const tg = window.Telegram?.WebApp;
 
@@ -8,23 +7,27 @@ function initTelegram() {
         tg.ready();
         tg.expand();
         tg.setHeaderColor('#00A0E9');
-        tg.setBackgroundColor('#FFFFFF');
+        tg.setBackgroundColor('#F5F7FA');
 
+        // استخراج بيانات المستخدم مباشرة
         const user = tg.initDataUnsafe?.user;
         if (user) {
             window.currentUser = {
                 id: user.id,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                username: user.username,
+                first_name: user.first_name || '',
+                last_name: user.last_name || '',
+                username: user.username || '',
+                photo_url: user.photo_url || '',
             };
         }
     } else {
+        // وضع التطوير خارج تيليجرام
         window.currentUser = {
             id: 8673286954,
-            first_name: 'Admin',
+            first_name: 'مستخدم تجريبي',
             last_name: '',
-            username: 'admin',
+            username: 'tester',
+            photo_url: '',
         };
     }
 }
