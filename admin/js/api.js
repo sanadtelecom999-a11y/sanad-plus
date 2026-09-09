@@ -77,6 +77,13 @@ async function setUserVIP(userId, vipLevel) {
     });
 }
 
+async function toggleUserKYC(userId, status) {
+    return await apiRequest(`/admin/api/users/${userId}/kyc`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+    });
+}
+
 async function fetchAdminCategories() {
     return await apiRequest('/admin/api/categories');
 }
