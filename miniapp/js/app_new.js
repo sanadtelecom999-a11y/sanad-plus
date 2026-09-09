@@ -12,6 +12,12 @@ let notificationsData = [];
 let selectedMethodForDeposit = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // إخفاء شاشة البداية بعد 5 ثوانٍ
+    setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        if (splash) splash.style.display = 'none';
+    }, 5000);
+
     initTelegram();
     applyTelegramTheme();
 
@@ -257,23 +263,12 @@ function updateKYCUI() {
                 <h2>توثيق الحساب</h2>
                 <p style="color:var(--text-secondary); margin-bottom:20px;">يرجى تعبئة البيانات التالية لتفعيل جميع ميزات التطبيق</p>
                 <div class="kyc-form" style="max-width:400px; margin:0 auto; text-align:right;">
-                    <div class="form-group">
-                        <label>الاسم الكامل</label>
-                        <input type="text" id="kycFullName" placeholder="مثال: أحمد محمد" />
-                    </div>
-                    <div class="form-group">
-                        <label>رقم الجوال</label>
-                        <input type="tel" id="kycPhone" placeholder="مثال: 0959921234" />
-                    </div>
-                    <div class="form-group">
-                        <label>العنوان الحالي</label>
-                        <input type="text" id="kycAddress" placeholder="المدينة / المنطقة" />
-                    </div>
+                    <div class="form-group"><label>الاسم الكامل</label><input type="text" id="kycFullName" placeholder="مثال: أحمد محمد" /></div>
+                    <div class="form-group"><label>رقم الجوال</label><input type="tel" id="kycPhone" placeholder="مثال: 0959921234" /></div>
+                    <div class="form-group"><label>العنوان الحالي</label><input type="text" id="kycAddress" placeholder="المدينة / المنطقة" /></div>
                     <div class="form-group">
                         <label>صورة سيلفي مع الهوية</label>
-                        <div class="image-preview" id="kycSelfiePreview" style="height:180px;">
-                            <span style="color:var(--text-secondary); font-size:0.9rem;">اضغط لرفع الصورة</span>
-                        </div>
+                        <div class="image-preview" id="kycSelfiePreview" style="height:180px;"><span style="color:var(--text-secondary); font-size:0.9rem;">اضغط لرفع الصورة</span></div>
                         <input type="file" id="kycSelfieImage" accept="image/*" onchange="previewImage(this,'kycSelfiePreview')" style="margin-top:8px;" />
                     </div>
                     <button class="btn-primary" onclick="submitKYCRequest()">إرسال طلب التوثيق</button>
@@ -327,7 +322,6 @@ async function submitKYCRequest() {
 
     try {
         const selfieBase64 = await compressImage(selfieFile);
-
         const result = await submitKYC({
             telegram_id: userData.telegram_id,
             full_name: fullName,
@@ -360,26 +354,11 @@ function openPurchaseModal(productId) {
     let modalContent = `
         <div class="purchase-modal">
             <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">
-                ${product.image ? '' : '📦'}
-            </div>
-            <div class="form-group">
-                <label>الكمية المطلوبة</label>
-                <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field">
-            </div>
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
+            <div class="form-group"><label>الكمية المطلوبة</label><input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field"></div>
             <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: 0.00$</div>
-            ${product.input_type === 'id' ? `
-                <div class="form-group">
-                    <label>معرف اللاعب (ID)</label>
-                    <input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field">
-                </div>
-            ` : ''}
-            ${product.input_type === 'phone' ? `
-                <div class="form-group">
-                    <label>رقم الهاتف</label>
-                    <input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field">
-                </div>
-            ` : ''}
+            ${product.input_type === 'id' ? `<div class="form-group"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field"></div>` : ''}
+            ${product.input_type === 'phone' ? `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field"></div>` : ''}
             <div style="display:flex; gap:8px; margin-top:16px;">
                 <button class="btn-primary" style="flex:1;" onclick="confirmPurchase(${product.id})">شراء</button>
                 <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
@@ -425,14 +404,10 @@ async function confirmPurchase(productId) {
         telegram_id: userData.telegram_id,
         product_id: productId,
     };
-
     orderData.quantity = parseInt(document.getElementById('purchaseQuantity')?.value);
 
-    if (product.input_type === 'id') {
-        orderData.player_id = document.getElementById('purchasePlayerId')?.value;
-    } else if (product.input_type === 'phone') {
-        orderData.phone = document.getElementById('purchasePhone')?.value;
-    }
+    if (product.input_type === 'id') orderData.player_id = document.getElementById('purchasePlayerId')?.value;
+    else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
 
     try {
         const result = await createOrder(orderData);
@@ -452,43 +427,24 @@ async function confirmPurchase(productId) {
     }
 }
 
-// ========== خطوات الإيداع ==========
-
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
     selectedMethodForDeposit = method;
 
+    // فصل تام بين اللوجو وQR
     const qrCode = method.qr_image ? `<img src="${method.qr_image}" style="width:180px;height:180px;border-radius:16px;object-fit:cover;" />` : '<span class="material-icons" style="font-size:100px;">qr_code_2</span>';
     const logo = method.icon ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '💳';
 
     const body = `
         <div style="text-align:center;">
-            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">
-                ${logo}
-                <h3 style="margin:0;">${method.name}</h3>
-            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${method.name}</h3></div>
             <p style="color:var(--text-secondary); margin-bottom:16px;">${method.description || ''}</p>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; text-align:right;">
-                <div style="margin-bottom:12px;">
-                    <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span id="copyAccountName">${method.account_name || '-'}</span>
-                        <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
-                    </div>
-                </div>
-                <div>
-                    <div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span id="copyAccountNumber">${method.account || '-'}</span>
-                        <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
-                    </div>
-                </div>
+                <div style="margin-bottom:12px;"><div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><span id="copyAccountName">${method.account_name || '-'}</span><button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button></div></div>
+                <div><div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><span id="copyAccountNumber">${method.account || '-'}</span><button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button></div></div>
             </div>
-            <div style="margin-bottom:16px;">
-                <div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>
-                ${qrCode}
-            </div>
+            <div style="margin-bottom:16px;"><div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>${qrCode}</div>
             <button class="btn-primary" onclick="showDepositStep2()">التالي</button>
         </div>
     `;
@@ -501,19 +457,9 @@ function showDepositStep2() {
     const body = `
         <div style="text-align:right;">
             <h3>إتمام الإيداع</h3>
-            <div class="form-group">
-                <label>المبلغ بالدولار</label>
-                <input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field">
-            </div>
-            <div class="form-group">
-                <label>اسم المرسل</label>
-                <input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field">
-            </div>
-            <div class="form-group">
-                <label>إثبات التحويل (صورة)</label>
-                <div class="image-preview" id="depositProofPreview">📷</div>
-                <input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field">
-            </div>
+            <div class="form-group"><label>المبلغ بالدولار</label><input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field"></div>
+            <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field"></div>
+            <div class="form-group"><label>إثبات التحويل (صورة)</label><div class="image-preview" id="depositProofPreview">📷</div><input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field"></div>
             <button class="btn-primary" onclick="submitDeposit()">إرسال</button>
         </div>
     `;
@@ -524,11 +470,7 @@ function copyText(elementId) {
     const text = document.getElementById(elementId)?.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert('تم النسخ');
-        }).catch(() => {
-            fallbackCopy(text);
-        });
+        navigator.clipboard.writeText(text).then(() => alert('تم النسخ')).catch(() => fallbackCopy(text));
     } else {
         fallbackCopy(text);
     }
@@ -539,35 +481,20 @@ function fallbackCopy(text) {
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
-    try {
-        document.execCommand('copy');
-        alert('تم النسخ');
-    } catch (e) {
-        alert('تعذر النسخ');
-    }
+    try { document.execCommand('copy'); alert('تم النسخ'); } catch (e) { alert('تعذر النسخ'); }
     document.body.removeChild(textarea);
 }
 
 async function submitDeposit() {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
-
     const amount = parseFloat(document.getElementById('depositAmount')?.value);
     const senderName = document.getElementById('depositSenderName')?.value;
     const proofFile = document.getElementById('depositProofImage')?.files[0];
 
-    if (!amount || amount <= 0) {
-        alert('أدخل مبلغ صحيح');
-        return;
-    }
-    if (!senderName || !senderName.trim()) {
-        alert('أدخل اسم المرسل');
-        return;
-    }
-    if (!proofFile) {
-        alert('ارفع صورة الإثبات');
-        return;
-    }
+    if (!amount || amount <= 0) { alert('أدخل مبلغ صحيح'); return; }
+    if (!senderName || !senderName.trim()) { alert('أدخل اسم المرسل'); return; }
+    if (!proofFile) { alert('ارفع صورة الإثبات'); return; }
 
     const toBase64 = file => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -585,9 +512,8 @@ async function submitDeposit() {
             proof_image: proofBase64,
             sender_name: senderName,
         });
-        if (result && result.error) {
-            alert(result.error);
-        } else {
+        if (result && result.error) { alert(result.error); }
+        else {
             alert('تم إرسال طلب الإيداع');
             closeModal();
             selectedMethodForDeposit = null;
@@ -602,18 +528,9 @@ async function submitDeposit() {
 
 function requestCustomService() {
     openModal('طلب خدمة مخصصة', `
-        <div class="form-group">
-            <label>اسم الخدمة</label>
-            <input type="text" id="serviceName" placeholder="مثال: تصميم شعار">
-        </div>
-        <div class="form-group">
-            <label>وصف الخدمة</label>
-            <textarea id="serviceDesc" rows="3" placeholder="اكتب تفاصيل الخدمة"></textarea>
-        </div>
-        <div class="form-group">
-            <label>السعر المتوقع (اختياري)</label>
-            <input type="number" id="servicePrice" placeholder="0.00">
-        </div>
+        <div class="form-group"><label>اسم الخدمة</label><input type="text" id="serviceName" placeholder="مثال: تصميم شعار"></div>
+        <div class="form-group"><label>وصف الخدمة</label><textarea id="serviceDesc" rows="3" placeholder="اكتب تفاصيل الخدمة"></textarea></div>
+        <div class="form-group"><label>السعر المتوقع (اختياري)</label><input type="number" id="servicePrice" placeholder="0.00"></div>
         <button class="btn-primary" onclick="submitServiceRequest()">إرسال الطلب</button>
         <button class="btn-outline" onclick="closeModal()">إلغاء</button>
     `);
@@ -626,12 +543,8 @@ async function submitServiceRequest() {
     if (!service_name) return alert('أدخل اسم الخدمة');
     try {
         const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
-        if (result && result.error) {
-            alert(result.error);
-        } else {
-            alert('تم إرسال الطلب');
-            closeModal();
-        }
+        if (result && result.error) { alert(result.error); }
+        else { alert('تم إرسال الطلب'); closeModal(); }
     } catch (error) {
         alert(`فشل إرسال الطلب: ${error.message}`);
     }
@@ -642,10 +555,7 @@ function openSupport() {
 }
 
 function openNotificationsPage() {
-    if (!userData) {
-        alert('افتح التطبيق من تيليجرام');
-        return;
-    }
+    if (!userData) { alert('افتح التطبيق من تيليجرام'); return; }
     fetchNotifications(userData.telegram_id).then(notifications => {
         const bodyHTML = `
             <div style="text-align:center;">
@@ -666,9 +576,7 @@ async function markAllNotificationsRead() {
     if (!userData) return;
     try {
         for (let n of notificationsData) {
-            if (!n.is_read) {
-                await markNotificationRead(n.id);
-            }
+            if (!n.is_read) await markNotificationRead(n.id);
         }
         notificationsData = await fetchNotifications(userData.telegram_id);
         updateNotificationBadge();
@@ -682,12 +590,8 @@ async function markAllNotificationsRead() {
 function updateNotificationBadge() {
     const unread = notificationsData.filter(n => !n.is_read).length;
     const badge = document.getElementById('notificationBadge');
-    if (unread > 0) {
-        badge.style.display = 'inline';
-        badge.textContent = unread;
-    } else {
-        badge.style.display = 'none';
-    }
+    if (unread > 0) { badge.style.display = 'inline'; badge.textContent = unread; }
+    else { badge.style.display = 'none'; }
 }
 
 function setupNavigation() {
@@ -714,7 +618,6 @@ function setupFilters() {
             });
         });
     }
-
     const depositFilters = document.getElementById('depositFilters');
     if (depositFilters) {
         depositFilters.querySelectorAll('.pill').forEach(pill => {
@@ -735,9 +638,7 @@ function setupSearch() {
         searchInput.addEventListener('input', () => {
             const query = searchInput.value.toLowerCase();
             const filtered = productsData.filter(p => p.name.toLowerCase().includes(query));
-            if (currentPage === 'page-products') {
-                renderProductsList(filtered);
-            }
+            if (currentPage === 'page-products') renderProductsList(filtered);
         });
     }
 }
