@@ -32,6 +32,7 @@ def create_order():
     telegram_id = data.get("telegram_id")
     if not telegram_id:
         return jsonify({"error": "telegram_id مطلوب"}), 400
+
     user = get_or_create_user(telegram_id)
     if user.is_banned:
         return jsonify({"error": "أنت محظور"}), 403
@@ -41,6 +42,7 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
+    # تحديد السعر والكمية حسب نوع المنتج
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -54,10 +56,17 @@ def create_order():
         quantity = int(data.get("quantity", 0))
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
-        unit_price = product.base_price
-        total_price = round(unit_price * quantity, 2)
+
+        # حساب سعر الوحدة الصحيح
+        if product.base_quantity > 0:
+            unit_price = product.base_price / product.base_quantity
+        else:
+            unit_price = product.base_price
+
+        total_price = round(unit_price * quantity, 4)  # دقة 4 أرقام
         delivery_data = {}
 
+    # الحقول المخصصة
     if product.input_type == "id":
         delivery_data["player_id"] = data.get("player_id", "")
     elif product.input_type == "phone":
@@ -81,6 +90,7 @@ def create_order():
     )
     db.session.add(order)
 
+    # خصم الرصيد
     user.balance -= total_price
 
     txn = Transaction(
