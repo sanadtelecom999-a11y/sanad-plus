@@ -128,7 +128,7 @@ function renderUsers(users = usersData) {
             <td>${user.username || user.first_name || 'مستخدم'}</td>
             <td>${user.balance.toFixed(2)}$</td>
             <td><span class="status-badge ${user.is_banned ? 'failed' : 'completed'}">${user.is_banned ? 'محظور' : 'نشط'}</span></td>
-            <td>${user.vip_level > 0 ? `<span class="vip-badge">👑 VIP${user.vip_level}</span>` : '-'}</td>
+            <td>${user.vip_level > 0 ? `<span class="vip-badge">⭐ VIP${user.vip_level}</span>` : '-'}</td>
             <td>
                 <button class="btn-outline" onclick="adjustBalance(${user.id})">رصيد</button>
                 <button class="btn-outline" onclick="toggleBan(${user.id})">${user.is_banned ? 'فك الحظر' : 'حظر'}</button>
