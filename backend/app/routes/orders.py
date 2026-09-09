@@ -4,7 +4,7 @@ from flask import request, jsonify
 from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification
 from ..extensions import db
 from . import main
-from ..services.telegram_service import send_telegram_notification
+from ..services.telegram_service import send_telegram_notification, notify_admins
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -42,7 +42,6 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
-    # التحقق من الحقول المخصصة حسب نوع المنتج
     if product.input_type == "id":
         player_id = data.get("player_id", "")
         if not player_id.strip():
@@ -56,7 +55,6 @@ def create_order():
     else:
         delivery_data = {}
 
-    # تحديد السعر والكمية
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -118,7 +116,11 @@ def create_order():
     db.session.add(notif)
     db.session.commit()
 
+    # إشعار المستخدم
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
+
+    # إشعار الأدمن بطلب جديد
+    notify_admins(f"🆕 طلب جديد!\nرقم الطلب: {order.order_number}\nالمنتج: {product.name}\nالكمية: {quantity}\nالإجمالي: {total_price}$")
 
     return jsonify({
         "order_id": order.id,
