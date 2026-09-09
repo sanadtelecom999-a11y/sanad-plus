@@ -502,9 +502,12 @@ function renderKYC() {
     `).join('');
 }
 
+// ملاحظة: لا نعرّف دوال approveKYCRequest أو rejectKYCRequest هنا،
+// بل نستدعي الدوال العامة من api.js مباشرة.
+
 async function approveKYCRequest(kycId) {
     try {
-        await approveKYCRequest(kycId);
+        await window.approveKYCRequest(kycId);  // استدعاء دالة API من api.js
         await loadAllData();
         renderKYC();
     } catch (error) {
@@ -515,7 +518,7 @@ async function approveKYCRequest(kycId) {
 
 async function rejectKYCRequest(kycId) {
     try {
-        await rejectKYCRequest(kycId);
+        await window.rejectKYCRequest(kycId);  // استدعاء دالة API من api.js
         await loadAllData();
         renderKYC();
     } catch (error) {
