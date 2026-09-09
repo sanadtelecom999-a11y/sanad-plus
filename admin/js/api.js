@@ -30,7 +30,9 @@ async function apiRequest(url, options = {}) {
     });
     if (response.status === 401) {
         clearToken();
-        showLogin();
+        if (typeof showLogin === 'function') {
+            showLogin();
+        }
         throw new Error('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
     }
     if (!response.ok) {
@@ -57,10 +59,10 @@ async function fetchAdminUsers() {
     return await apiRequest('/admin/api/users');
 }
 
-async function adjustUserBalance(userId, amount) {
+async function adjustUserBalance(userId, amount, note) {
     return await apiRequest(`/admin/api/users/${userId}/balance`, {
         method: 'POST',
-        body: JSON.stringify({ amount }),
+        body: JSON.stringify({ amount, note }),
     });
 }
 
