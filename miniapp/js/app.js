@@ -1,5 +1,4 @@
 // miniapp/js/app.js
-// النسخة الكاملة بعد التعديلات المطلوبة
 
 let currentPage = 'page-home';
 let userData = null;
@@ -15,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
     applyTelegramTheme();
 
-    // تحميل بيانات المستخدم
     if (window.Telegram?.WebApp?.initData) {
         userData = await authenticateUser(window.Telegram.WebApp.initData);
     } else {
@@ -28,7 +26,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupFilters();
     setupSearch();
 
-    // تفعيل الوضع الليلي المحفوظ
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
@@ -59,6 +56,7 @@ async function loadInitialData() {
         updateNotificationBadge();
     } catch (error) {
         console.error('Error loading data:', error);
+        alert('حدث خطأ أثناء تحميل البيانات');
     }
 }
 
@@ -86,6 +84,14 @@ function updateUserUI() {
 
     document.getElementById('greetingMessage').textContent = `${greeting}، ${userData.first_name || 'مستخدم'}`;
     document.getElementById('greetingSub').textContent = `رصيدك: ${userData.balance.toFixed(2)}$`;
+
+    // تحديث صورة المستخدم في الهيدر
+    if (window.currentUser?.photo_url) {
+        document.getElementById('headerAvatar').style.backgroundImage = `url(${window.currentUser.photo_url})`;
+        document.getElementById('headerAvatar').textContent = '';
+    } else {
+        document.getElementById('headerAvatar').textContent = (userData.first_name || 'م')[0];
+    }
 
     updateKYCBadge();
 }
@@ -208,6 +214,7 @@ function renderDeposits(deposits) {
             <div class="order-details">
                 <div>المبلغ: ${d.amount}$</div>
                 <div>الطريقة: ${d.method}</div>
+                ${d.admin_note ? `<div>ملاحظة: ${d.admin_note}</div>` : ''}
                 <div>التاريخ: ${d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''}</div>
             </div>
         </div>
@@ -265,13 +272,11 @@ async function submitKYCRequest() {
         return;
     }
 
-    // التحقق من وجود telegram_id
     if (!userData || !userData.telegram_id) {
         alert('بيانات المستخدم غير متوفرة، حاول إعادة فتح التطبيق');
         return;
     }
 
-    // ضغط الصور إلى أبعاد أصغر (اختياري لتقليل الحجم)
     const compressImage = (file, maxWidth = 800) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -321,7 +326,7 @@ async function submitKYCRequest() {
         }
     } catch (error) {
         console.error('KYC submit error:', error);
-        alert('فشل إرسال الطلب، حاول مرة أخرى');
+        alert(`فشل إرسال الطلب: ${error.message}`);
     }
 }
 
@@ -330,33 +335,36 @@ function openPurchaseModal(productId) {
     if (!product) return;
 
     let modalContent = `
-        <div style="text-align:center;">
-            <div style="width:100%;height:150px;background-color:#f0f0f0;border-radius:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;font-size:3rem;">
-                ${product.image ? `<img src="${product.image}" style="max-height:100%;max-width:100%;border-radius:12px;" />` : '📦'}
+        <div class="purchase-modal">
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center;">
+                ${product.image ? '' : '📦'}
             </div>
-            <h3 style="margin-bottom:8px;">${product.name}</h3>
-            <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:16px;">عادة ما تتم المراجعة خلال 15-5 دقيقة</p>
-    `;
-
-    if (product.product_type === 'bundle') {
-        modalContent += `<div style="text-align:right;margin-bottom:12px;"><label>اختر الباقة</label><select id="purchaseBundleId" style="margin-top:4px;">`;
-        product.bundles.forEach(b => {
-            modalContent += `<option value="${b.id}">${b.name} - ${b.quantity} ${product.unit_name} - ${b.price_usd}$</option>`;
-        });
-        modalContent += `</select></div>`;
-    } else {
-        modalContent += `<div style="text-align:right;margin-bottom:12px;"><label>الكمية</label><input type="number" id="purchaseQuantity" value="1" min="1" style="margin-top:4px;"></div>`;
-    }
-
-    if (product.input_type === 'id') {
-        modalContent += `<div style="text-align:right;margin-bottom:12px;"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" style="margin-top:4px;"></div>`;
-    } else if (product.input_type === 'phone') {
-        modalContent += `<div style="text-align:right;margin-bottom:12px;"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" style="margin-top:4px;"></div>`;
-    }
-
-    modalContent += `
-            <div style="font-weight:bold;font-size:1.2rem;margin-top:8px;" id="purchaseTotal">الإجمالي: 0.00$</div>
-            <div style="display:flex;gap:8px;margin-top:16px;">
+            <h3 style="margin: 12px 0; text-align:center;">${product.name}</h3>
+            <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem;">عادة ما تتم المراجعة خلال 15-5 دقيقة</p>
+            <div class="form-group">
+                <label>${product.product_type === 'bundle' ? 'اختر الباقة' : 'الكمية'}</label>
+                ${product.product_type === 'bundle' ? `
+                    <select id="purchaseBundleId" class="input-field">
+                        ${product.bundles.map(b => `<option value="${b.id}">${b.name} - ${b.quantity} ${product.unit_name} - ${b.price_usd}$</option>`).join('')}
+                    </select>
+                ` : `
+                    <input type="number" id="purchaseQuantity" value="1" min="1" class="input-field">
+                `}
+            </div>
+            ${product.input_type === 'id' ? `
+                <div class="form-group">
+                    <label>معرف اللاعب (ID)</label>
+                    <input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field">
+                </div>
+            ` : ''}
+            ${product.input_type === 'phone' ? `
+                <div class="form-group">
+                    <label>رقم الهاتف</label>
+                    <input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field">
+                </div>
+            ` : ''}
+            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: 0.00$</div>
+            <div style="display:flex; gap:8px;">
                 <button class="btn-primary" style="flex:1;" onclick="confirmPurchase(${product.id})">شراء</button>
                 <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
             </div>
@@ -427,7 +435,7 @@ async function confirmPurchase(productId) {
         }
     } catch (error) {
         console.error('Order error:', error);
-        alert('فشل إرسال الطلب');
+        alert(`فشل إرسال الطلب: ${error.message}`);
     }
 }
 
@@ -498,7 +506,7 @@ async function submitDeposit(methodId) {
         }
     } catch (error) {
         console.error('Deposit error:', error);
-        alert('فشل إرسال الإيداع');
+        alert(`فشل إرسال الإيداع: ${error.message}`);
     }
 }
 
@@ -526,10 +534,14 @@ async function submitServiceRequest() {
     const description = document.getElementById('serviceDesc').value;
     const estimated_price = parseFloat(document.getElementById('servicePrice').value) || 0;
     if (!service_name) return alert('أدخل اسم الخدمة');
-    const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
-    if (result.error) return alert(result.error);
-    alert(result.message || 'تم إرسال الطلب');
-    closeModal();
+    try {
+        const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
+        if (result.error) return alert(result.error);
+        alert(result.message || 'تم إرسال الطلب');
+        closeModal();
+    } catch (error) {
+        alert(`فشل إرسال الطلب: ${error.message}`);
+    }
 }
 
 function openSupport() {
