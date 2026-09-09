@@ -28,7 +28,7 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.Text)           # تم التغيير من String(255) إلى Text
+    image = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
     products = db.relationship("Product", backref="category", lazy=True)
@@ -39,7 +39,7 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.Text)           # تم التغيير من String(255) إلى Text
+    image = db.Column(db.Text)
     product_type = db.Column(db.String(20), default="quantity")
     base_quantity = db.Column(db.Integer, default=0)
     base_price = db.Column(db.Float, nullable=False, default=0.0)
@@ -84,7 +84,7 @@ class Deposit(db.Model):
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(10), default="USD")
     method = db.Column(db.String(100))
-    proof_image = db.Column(db.Text)     # تغيير إلى Text للسماح بالصور الكبيرة
+    proof_image = db.Column(db.Text)
     account_number = db.Column(db.String(100))
     sender_name = db.Column(db.String(100))
     txid = db.Column(db.String(100))
@@ -99,9 +99,10 @@ class PaymentMethod(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255))
-    account = db.Column(db.String(255))
     account_name = db.Column(db.String(100))
-    icon = db.Column(db.Text)            # تم التغيير من String(255) إلى Text
+    account = db.Column(db.Text)
+    icon = db.Column(db.Text)          # لوجو الطريقة
+    qr_image = db.Column(db.Text)      # صورة QR
     min_amount = db.Column(db.Float, default=0)
     fee = db.Column(db.Float, default=0)
     requires_kyc = db.Column(db.Boolean, default=False)
