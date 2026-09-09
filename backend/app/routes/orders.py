@@ -42,7 +42,21 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
-    # تحديد السعر والكمية حسب نوع المنتج
+    # التحقق من الحقول المخصصة حسب نوع المنتج
+    if product.input_type == "id":
+        player_id = data.get("player_id", "")
+        if not player_id.strip():
+            return jsonify({"error": "يرجى إدخال معرف اللاعب (ID)"}), 400
+        delivery_data = {"player_id": player_id}
+    elif product.input_type == "phone":
+        phone = data.get("phone", "")
+        if not phone.strip():
+            return jsonify({"error": "يرجى إدخال رقم الهاتف"}), 400
+        delivery_data = {"phone": phone}
+    else:
+        delivery_data = {}
+
+    # تحديد السعر والكمية
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -51,26 +65,19 @@ def create_order():
         quantity = bundle.quantity
         unit_price = bundle.price_usd
         total_price = unit_price
-        delivery_data = {"bundle_id": bundle.id, "bundle_name": bundle.name}
+        delivery_data["bundle_id"] = bundle.id
+        delivery_data["bundle_name"] = bundle.name
     else:
         quantity = int(data.get("quantity", 0))
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
 
-        # حساب سعر الوحدة الصحيح
         if product.base_quantity > 0:
             unit_price = product.base_price / product.base_quantity
         else:
             unit_price = product.base_price
 
-        total_price = round(unit_price * quantity, 4)  # دقة 4 أرقام
-        delivery_data = {}
-
-    # الحقول المخصصة
-    if product.input_type == "id":
-        delivery_data["player_id"] = data.get("player_id", "")
-    elif product.input_type == "phone":
-        delivery_data["phone"] = data.get("phone", "")
+        total_price = round(unit_price * quantity, 4)
 
     if user.balance < total_price:
         return jsonify({"error": "رصيد غير كافٍ"}), 400
@@ -90,7 +97,6 @@ def create_order():
     )
     db.session.add(order)
 
-    # خصم الرصيد
     user.balance -= total_price
 
     txn = Transaction(
