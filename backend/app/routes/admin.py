@@ -14,6 +14,18 @@ ADMIN_PASSWORD = "admin123"
 def is_admin_user(identity):
     return identity == "admin"
 
+# دالة تحويل حالة الطلب إلى نص عربي
+def get_arabic_status(status):
+    status_map = {
+        "pending": "قيد المعالجة",
+        "review": "قيد المراجعة",
+        "processing": "قيد التنفيذ",
+        "completed": "مكتمل",
+        "failed": "فشل",
+        "cancelled": "ملغي"
+    }
+    return status_map.get(status, status)
+
 @main.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json()
@@ -326,18 +338,49 @@ def admin_orders():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     orders = Order.query.order_by(Order.created_at.desc()).all()
-    return jsonify([{
-        "id": o.id,
-        "order_number": o.order_number,
-        "user_id": o.user_id,
-        "product_id": o.product_id,
-        "quantity": o.quantity,
-        "unit_price": o.unit_price,
-        "total_price": o.total_price,
-        "status": o.status,
-        "delivery_data": o.delivery_data,
-        "created_at": o.created_at.isoformat() if o.created_at else None,
-    } for o in orders])
+    result = []
+    for o in orders:
+        product = Product.query.get(o.product_id)
+        product_name = product.name if product else "منتج محذوف"
+        delivery_data = o.delivery_data
+        result.append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "user_id": o.user_id,
+            "product_id": o.product_id,
+            "product_name": product_name,
+            "quantity": o.quantity,
+            "unit_price": o.unit_price,
+            "total_price": o.total_price,
+            "status": o.status,
+            "delivery_data": delivery_data,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+        })
+    return jsonify(result)
+
+@main.route("/admin/api/orders/<int:order_id>", methods=["GET"])
+@jwt_required()
+def admin_order_detail(order_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"error": "طلب غير موجود"}), 404
+    product = Product.query.get(order.product_id)
+    return jsonify({
+        "id": order.id,
+        "order_number": order.order_number,
+        "user_id": order.user_id,
+        "product_id": order.product_id,
+        "product_name": product.name if product else "منتج محذوف",
+        "quantity": order.quantity,
+        "unit_price": order.unit_price,
+        "total_price": order.total_price,
+        "status": order.status,
+        "status_arabic": get_arabic_status(order.status),
+        "delivery_data": order.delivery_data,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+    })
 
 @main.route("/admin/api/orders/<int:order_id>/status", methods=["POST"])
 @jwt_required()
@@ -355,17 +398,18 @@ def admin_update_order_status(order_id):
 
     user = User.query.get(order.user_id)
     if user:
+        status_arabic = get_arabic_status(new_status)
         notif = Notification(
             user_id=user.id,
             title="تحديث حالة الطلب",
-            message=f"طلبك {order.order_number} أصبح {new_status}",
+            message=f"طلبك {order.order_number} أصبح {status_arabic}",
             type="info",
         )
         db.session.add(notif)
         db.session.commit()
-        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} أصبح {new_status}")
+        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} أصبح {status_arabic}")
 
-    return jsonify({"status": order.status})
+    return jsonify({"status": order.status, "message": f"تم تحديث الحالة إلى {get_arabic_status(new_status)}"})
 
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
