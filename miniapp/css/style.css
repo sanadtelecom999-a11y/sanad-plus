@@ -13,6 +13,8 @@
     --danger: #F44336;
     --warning: #FFC107;
     --warning-bg: #FFF8E1;
+    --vip-bg: #FFF9C4;          /* خلفية ذهبية فاتحة */
+    --vip-text: #B8860B;        /* نص ذهبي داكن */
     --radius-lg: 24px;
     --radius-md: 16px;
     --radius-sm: 12px;
@@ -29,6 +31,8 @@
     --text-secondary: #8B949E;
     --border: #30363D;
     --primary-light: #1E2A35;
+    --vip-bg: #4A3F00;
+    --vip-text: #FFD54F;
 }
 
 * {
@@ -308,15 +312,28 @@ body {
     font-size: 0.9rem;
 }
 
+/* شارة VIP محسّنة */
 #vipBadge, #accountVipBadge {
-    background-color: gold;
-    color: #0D47A1;
+    background-color: var(--vip-bg);
+    color: var(--vip-text);
     font-weight: 800;
-    padding: 2px 10px;
+    padding: 4px 12px;
     border-radius: 50px;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    border: 1px solid var(--vip-text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 
+#vipBadge .material-icons,
+#accountVipBadge .material-icons {
+    font-size: 16px;
+}
+
+/* =========== شاشة طلباتي =========== */
 .section-header {
     display: flex;
     align-items: center;
