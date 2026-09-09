@@ -174,11 +174,11 @@ async function fetchAdminKYC() {
     return await apiRequest('/admin/api/kyc');
 }
 
-async function approveKYC(kycId) {
+async function approveKYCRequest(kycId) {
     return await apiRequest(`/admin/api/kyc/${kycId}/approve`, { method: 'POST' });
 }
 
-async function rejectKYC(kycId) {
+async function rejectKYCRequest(kycId) {
     return await apiRequest(`/admin/api/kyc/${kycId}/reject`, { method: 'POST' });
 }
 
