@@ -421,11 +421,42 @@ def admin_update_order_status(order_id):
     order = Order.query.get(order_id)
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
+
+    # قفل الحالة: لا يمكن التغيير إذا لم تكن الحالة pending أو إذا كانت failed بالفعل
+    if order.status != "pending" and order.status != "failed":
+        return jsonify({"error": "لا يمكن تغيير حالة هذا الطلب"}), 400
+
+    old_status = order.status
     order.status = new_status
     order.updated_at = datetime.now(timezone.utc)
-    db.session.commit()
 
     user = User.query.get(order.user_id)
+
+    # إذا كانت الحالة الجديدة failed، نسترجع المبلغ
+    if new_status == "failed" and old_status != "failed":
+        if user:
+            user.balance += order.total_price
+            txn = Transaction(
+                user_id=user.id,
+                type="refund",
+                amount=order.total_price,
+                balance_after=user.balance,
+                reference_type="order_refund",
+                reference_id=order.id,
+            )
+            db.session.add(txn)
+            notif = Notification(
+                user_id=user.id,
+                title="استرداد مبلغ",
+                message=f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}",
+                type="success",
+            )
+            db.session.add(notif)
+            db.session.commit()
+            send_telegram_notification(user.telegram_id, f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}")
+
+    db.session.commit()
+
     if user:
         status_arabic = get_arabic_status(new_status)
         notif = Notification(
