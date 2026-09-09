@@ -9,7 +9,7 @@ let depositsData = [];
 let paymentMethodsData = [];
 let kycStatus = 'none';
 let notificationsData = [];
-let selectedMethodForDeposit = null; // لتخزين طريقة الدفع المختارة
+let selectedMethodForDeposit = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
@@ -407,7 +407,6 @@ async function confirmPurchase(productId) {
         return;
     }
 
-    // التحقق من الحقول المخصصة
     if (product.input_type === 'id') {
         const playerId = document.getElementById('purchasePlayerId')?.value;
         if (!playerId || !playerId.trim()) {
@@ -460,23 +459,27 @@ function showDepositStep1(methodId) {
     if (!method) return;
     selectedMethodForDeposit = method;
 
-    const qrCode = method.icon ? `<img src="${method.icon}" style="width:150px;height:150px;border-radius:16px;object-fit:cover;" />` : '<span class="material-icons" style="font-size:100px;">qr_code_2</span>';
+    const qrCode = method.qr_image ? `<img src="${method.qr_image}" style="width:180px;height:180px;border-radius:16px;object-fit:cover;" />` : '<span class="material-icons" style="font-size:100px;">qr_code_2</span>';
+    const logo = method.icon ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '💳';
 
     const body = `
         <div style="text-align:center;">
-            <h3>${method.name}</h3>
+            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">
+                ${logo}
+                <h3 style="margin:0;">${method.name}</h3>
+            </div>
             <p style="color:var(--text-secondary); margin-bottom:16px;">${method.description || ''}</p>
-            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px;">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; text-align:right;">
                 <div style="margin-bottom:12px;">
-                    <div style="font-weight:bold;">اسم الحساب</div>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px;">
+                    <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <span id="copyAccountName">${method.account_name || '-'}</span>
                         <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
                     </div>
                 </div>
                 <div>
-                    <div style="font-weight:bold;">رقم الحساب</div>
-                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px;">
+                    <div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <span id="copyAccountNumber">${method.account || '-'}</span>
                         <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
                     </div>
