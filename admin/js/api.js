@@ -1,3 +1,5 @@
+// admin/js/api.js
+
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
 function getToken() {
@@ -14,7 +16,9 @@ function clearToken() {
 
 async function apiRequest(url, options = {}) {
     const token = getToken();
-    if (!token) throw new Error('لا يوجد توكن');
+    if (!token) {
+        throw new Error('لا يوجد توكن، يرجى تسجيل الدخول');
+    }
     const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
@@ -24,7 +28,14 @@ async function apiRequest(url, options = {}) {
         ...options,
         headers,
     });
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    if (!response.ok) {
+        let errorMessage = `خطأ ${response.status}`;
+        try {
+            const errorData = await response.json();
+            if (errorData.error) errorMessage = errorData.error;
+        } catch (e) {}
+        throw new Error(errorMessage);
+    }
     return await response.json();
 }
 
