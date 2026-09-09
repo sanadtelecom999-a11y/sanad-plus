@@ -193,7 +193,7 @@ function renderCategories() {
             <div class="card-icon">${cat.image ? `<img src="${cat.image}" style="width:50px;height:50px;border-radius:12px;object-fit:cover;">` : '📁'}</div>
             <div class="card-title">${cat.name}</div>
             <div class="card-actions">
-                <button class="btn-danger" onclick="deleteCategory(${cat.id})">حذف</button>
+                <button class="btn-danger" onclick="deleteCategoryHandler(${cat.id})">حذف</button>
             </div>
         </div>
     `).join('');
@@ -237,7 +237,7 @@ async function saveCategory() {
     }
 }
 
-async function deleteCategory(categoryId) {
+async function deleteCategoryHandler(categoryId) {
     if (confirm('حذف القسم؟')) {
         try {
             await deleteCategory(categoryId);
@@ -261,7 +261,7 @@ function renderProducts() {
             <td>${prod.base_quantity}</td>
             <td><span class="status-badge ${prod.product_type === 'bundle' ? 'pending' : prod.product_type === 'topup' ? 'verified' : 'completed'}">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span></td>
             <td>
-                <button class="btn-danger" onclick="deleteProduct(${prod.id})">حذف</button>
+                <button class="btn-danger" onclick="deleteProductHandler(${prod.id})">حذف</button>
             </td>
         </tr>
     `).join('');
@@ -317,7 +317,7 @@ async function saveProduct() {
     }
 }
 
-async function deleteProduct(productId) {
+async function deleteProductHandler(productId) {
     if (confirm('حذف المنتج؟')) {
         try {
             await deleteProduct(productId);
@@ -338,7 +338,7 @@ function renderPaymentMethods() {
             <div class="card-title">${m.name}</div>
             <div style="font-size:0.8rem;color:var(--text-secondary);">${m.description || ''}</div>
             <div class="card-actions">
-                <button class="btn-danger" onclick="deletePaymentMethod(${m.id})">حذف</button>
+                <button class="btn-danger" onclick="deletePaymentMethodHandler(${m.id})">حذف</button>
             </div>
         </div>
     `).join('');
@@ -382,7 +382,7 @@ async function savePaymentMethod() {
     }
 }
 
-async function deletePaymentMethod(methodId) {
+async function deletePaymentMethodHandler(methodId) {
     if (confirm('حذف طريقة الدفع؟')) {
         try {
             await deletePaymentMethod(methodId);
