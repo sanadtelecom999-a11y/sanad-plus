@@ -8,8 +8,9 @@ from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification
 
+# قراءة كلمة المرور من متغير البيئة ADMIN_PASSWORD، وإلا استخدام الافتراضية admin123
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 def is_admin_user(identity):
     return identity == "admin"
