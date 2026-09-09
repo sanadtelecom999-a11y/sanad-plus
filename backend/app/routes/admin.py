@@ -14,7 +14,6 @@ ADMIN_PASSWORD = "admin123"
 def is_admin_user(identity):
     return identity == "admin"
 
-# دالة تحويل حالة الطلب إلى نص عربي
 def get_arabic_status(status):
     status_map = {
         "pending": "قيد المعالجة",
@@ -189,9 +188,23 @@ def admin_delete_category(cat_id):
     cat = Category.query.get(cat_id)
     if not cat:
         return jsonify({"error": "قسم غير موجود"}), 404
-    db.session.delete(cat)
-    db.session.commit()
-    return jsonify({"success": True})
+
+    try:
+        # حذف جميع المنتجات المرتبطة بالقسم
+        products = Product.query.filter_by(category_id=cat_id).all()
+        for product in products:
+            # حذف الباقات المرتبطة
+            ProductBundle.query.filter_by(product_id=product.id).delete()
+            # حذف الطلبات المرتبطة
+            Order.query.filter_by(product_id=product.id).delete()
+            db.session.delete(product)
+
+        db.session.delete(cat)
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"فشل حذف القسم: {str(e)}"}), 500
 
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
@@ -253,9 +266,17 @@ def admin_product_actions(product_id):
         db.session.commit()
         return jsonify({"success": True})
     elif request.method == "DELETE":
-        db.session.delete(product)
-        db.session.commit()
-        return jsonify({"success": True})
+        try:
+            # حذف الباقات المرتبطة
+            ProductBundle.query.filter_by(product_id=product.id).delete()
+            # حذف الطلبات المرتبطة
+            Order.query.filter_by(product_id=product.id).delete()
+            db.session.delete(product)
+            db.session.commit()
+            return jsonify({"success": True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"error": f"فشل حذف المنتج: {str(e)}"}), 500
 
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
 @jwt_required()
@@ -342,7 +363,6 @@ def admin_orders():
     for o in orders:
         product = Product.query.get(o.product_id)
         product_name = product.name if product else "منتج محذوف"
-        delivery_data = o.delivery_data
         result.append({
             "id": o.id,
             "order_number": o.order_number,
@@ -353,7 +373,7 @@ def admin_orders():
             "unit_price": o.unit_price,
             "total_price": o.total_price,
             "status": o.status,
-            "delivery_data": delivery_data,
+            "delivery_data": o.delivery_data,
             "created_at": o.created_at.isoformat() if o.created_at else None,
         })
     return jsonify(result)
