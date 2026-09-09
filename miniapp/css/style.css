@@ -13,8 +13,8 @@
     --danger: #F44336;
     --warning: #FFC107;
     --warning-bg: #FFF8E1;
-    --vip-bg: #FFF9C4;          /* خلفية ذهبية فاتحة */
-    --vip-text: #B8860B;        /* نص ذهبي داكن */
+    --vip-bg: #FFF9C4;
+    --vip-text: #B8860B;
     --radius-lg: 24px;
     --radius-md: 16px;
     --radius-sm: 12px;
@@ -49,6 +49,78 @@ body {
     transition: var(--transition);
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+}
+
+/* =========== شاشة البداية Splash Screen =========== */
+#splashScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: splashFadeOut 0.5s ease 4.5s forwards;
+}
+
+@keyframes splashFadeOut {
+    to { opacity: 0; visibility: hidden; }
+}
+
+.splash-shield {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #00A0E9, #0D47A1);
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 30px rgba(0,160,233,0.3);
+    animation: shieldPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes shieldPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.splash-plus {
+    font-size: 70px;
+    color: white;
+    font-weight: 800;
+}
+
+.splash-title {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-top: 20px;
+    letter-spacing: -1px;
+}
+
+.splash-sub {
+    font-size: 1.2rem;
+    color: var(--primary);
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.splash-loader {
+    width: 40px;
+    height: 40px;
+    margin-top: 30px;
+    border: 3px solid var(--primary-light);
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* =========== الشريط العلوي =========== */
@@ -312,7 +384,6 @@ body {
     font-size: 0.9rem;
 }
 
-/* شارة VIP محسّنة */
 #vipBadge, #accountVipBadge {
     background-color: var(--vip-bg);
     color: var(--vip-text);
@@ -333,7 +404,6 @@ body {
     font-size: 16px;
 }
 
-/* =========== شاشة طلباتي =========== */
 .section-header {
     display: flex;
     align-items: center;
