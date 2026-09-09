@@ -225,7 +225,7 @@ async function saveCategory() {
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
     if (imageFile) {
-        image = await fileToBase64(imageFile, 120);
+        image = await fileToBase64(imageFile, 512); // جودة أعلى
     }
     try {
         await createCategory({ name, icon, image });
@@ -306,7 +306,7 @@ async function saveProduct() {
     if (!name || !categoryId) return alert('أدخل البيانات');
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
-    if (imageFile) image = await fileToBase64(imageFile, 120);
+    if (imageFile) image = await fileToBase64(imageFile, 512);
     try {
         await createProduct({ name, category_id: categoryId, product_type: type, base_price: price, base_quantity: baseQuantity, input_type: inputType, image });
         closeModal();
@@ -348,13 +348,18 @@ function renderPaymentMethods() {
 function openPaymentMethodModal() {
     const body = `
         <h3>إضافة طريقة دفع</h3>
-        <div class="form-group"><label>اسم الطريقة</label><input type="text" id="paymentName"></div>
-        <div class="form-group"><label>الوصف</label><input type="text" id="paymentDesc" value="شحن فوري"></div>
+        <div class="form-group"><label>اسم طريقة الدفع</label><input type="text" id="paymentName"></div>
+        <div class="form-group"><label>اسم الحساب</label><input type="text" id="paymentAccountName"></div>
         <div class="form-group"><label>رقم الحساب</label><input type="text" id="paymentAccount"></div>
         <div class="form-group">
-            <label>صورة/أيقونة طريقة الدفع</label>
-            <div class="image-preview" id="paymentIconPreview">لا صورة</div>
-            <input type="file" id="paymentIcon" accept="image/*" onchange="previewImage(this,'paymentIconPreview')">
+            <label>صورة QR</label>
+            <div class="image-preview" id="paymentQRPreview">لا صورة</div>
+            <input type="file" id="paymentQR" accept="image/*" onchange="previewImage(this,'paymentQRPreview')">
+        </div>
+        <div class="form-group">
+            <label>صورة طريقة الدفع (لوجو)</label>
+            <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
+            <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="savePaymentMethod()">حفظ</button>
@@ -366,14 +371,25 @@ function openPaymentMethodModal() {
 
 async function savePaymentMethod() {
     const name = document.getElementById('paymentName').value;
-    const desc = document.getElementById('paymentDesc').value;
+    const account_name = document.getElementById('paymentAccountName').value;
     const account = document.getElementById('paymentAccount').value;
     if (!name) return alert('أدخل اسم الطريقة');
-    const iconFile = document.getElementById('paymentIcon').files[0];
-    let icon = '';
-    if (iconFile) icon = await fileToBase64(iconFile, 120);
+    const qrFile = document.getElementById('paymentQR').files[0];
+    const logoFile = document.getElementById('paymentLogo').files[0];
+    let qr_image = '';
+    let logo_image = '';
+    if (qrFile) qr_image = await fileToBase64(qrFile, 512);
+    if (logoFile) logo_image = await fileToBase64(logoFile, 512);
     try {
-        await createPaymentMethod({ name, description: desc, account, icon, is_active: true });
+        await createPaymentMethod({
+            name,
+            description: '',
+            account_name,
+            account,
+            icon: logo_image,
+            qr_image,
+            is_active: true
+        });
         closeModal();
         await loadAllData();
         renderPaymentMethods();
@@ -588,7 +604,7 @@ function previewImage(input, previewId) {
     }
 }
 
-function fileToBase64(file, maxWidth = 120) {
+function fileToBase64(file, maxWidth = 512) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -605,7 +621,7 @@ function fileToBase64(file, maxWidth = 120) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // جودة أعلى
                 resolve(dataUrl);
             };
             img.onerror = reject;
