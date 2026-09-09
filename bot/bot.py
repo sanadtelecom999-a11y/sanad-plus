@@ -2,7 +2,6 @@ import os
 import logging
 from typing import List
 import requests
-from datetime import datetime
 
 try:
     from dotenv import load_dotenv
@@ -40,7 +39,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def register_or_update_user(user_id, first_name, last_name, username):
-    """استدعاء Backend لتسجيل أو تحديث المستخدم وإرجاع بياناته"""
+    """تسجيل أو تحديث المستخدم في قاعدة البيانات عبر الـ Backend"""
     try:
         payload = {
             "telegram_id": user_id,
@@ -52,6 +51,7 @@ def register_or_update_user(user_id, first_name, last_name, username):
         if response.ok:
             return response.json()
         else:
+            logger.warning(f"Backend returned {response.status_code}")
             return None
     except Exception as e:
         logger.error(f"Error registering user: {e}")
@@ -63,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_name = update.effective_user.last_name or ""
     username = update.effective_user.username or ""
 
-    # تسجيل أو تحديث المستخدم في قاعدة البيانات
+    # تسجيل أو تحديث المستخدم تلقائياً
     user_data = register_or_update_user(user_id, first_name, last_name, username)
 
     keyboard = [
