@@ -12,15 +12,15 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """تحويل أعمدة الصور إلى TEXT وإضافة الأعمدة المفقودة"""
+    """ترقية قاعدة البيانات: إضافة الأعمدة الجديدة وتحويل الصور إلى TEXT"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # تحويل حقول الصور من VARCHAR إلى TEXT
+        # 1) تحويل حقول الصور إلى TEXT إذا كانت VARCHAR
         image_columns = {
             'categories': ['image'],
             'products': ['image'],
-            'payment_methods': ['icon'],
+            'payment_methods': ['icon', 'qr_image'],
             'deposits': ['proof_image'],
             'kyc_requests': ['selfie_image'],
         }
@@ -28,22 +28,21 @@ def upgrade_database():
         for table, cols in image_columns.items():
             if not inspector.has_table(table):
                 continue
-            existing_cols = {col['name']: col['type'] for col in inspector.get_columns(table)}
+            existing_cols = {col['name']: str(col['type']).upper() for col in inspector.get_columns(table)}
             for col in cols:
-                if col in existing_cols:
-                    col_type = str(existing_cols[col]).upper()
-                    if 'VARCHAR' in col_type or 'CHAR' in col_type:
-                        try:
-                            db.session.execute(sa.text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
-                            db.session.commit()
-                            print(f"✔️ تم تحويل {table}.{col} إلى TEXT")
-                        except Exception as e:
-                            print(f"⚠️ فشل تحويل {table}.{col}: {e}")
+                if col in existing_cols and ('VARCHAR' in existing_cols[col] or 'CHAR' in existing_cols[col]):
+                    try:
+                        db.session.execute(sa.text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
+                        db.session.commit()
+                        print(f"✔️ تم تحويل {table}.{col} إلى TEXT")
+                    except Exception as e:
+                        print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
-        # إضافة الأعمدة المفقودة
+        # 2) إضافة الأعمدة المفقودة
         required_columns = {
             'deposits': {'admin_note': 'TEXT'},
             'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
+            'payment_methods': {'account_name': 'VARCHAR(100)', 'qr_image': 'TEXT'},
         }
 
         for table, cols in required_columns.items():
