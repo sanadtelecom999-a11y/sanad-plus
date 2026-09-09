@@ -35,7 +35,7 @@ async function authenticateUser(initData) {
         let last_name = '';
         let username = '';
 
-        // محاولة استخراج البيانات من Telegram WebApp مباشرة
+        // الحصول على بيانات المستخدم من Telegram WebApp أو window.currentUser
         if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
             const u = window.Telegram.WebApp.initDataUnsafe.user;
             telegram_id = u.id;
@@ -50,10 +50,7 @@ async function authenticateUser(initData) {
         }
 
         if (!telegram_id) {
-            console.warn('لم يتم العثور على Telegram ID، استخدام الحساب التجريبي');
-            telegram_id = 8673286954;
-            first_name = 'مستخدم تجريبي';
-            username = 'tester';
+            throw new Error('لم يتم العثور على Telegram ID');
         }
 
         const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
@@ -70,16 +67,7 @@ async function authenticateUser(initData) {
         return data;
     } catch (error) {
         console.error('Auth error:', error);
-        return {
-            telegram_id: window.currentUser?.id || 8673286954,
-            username: window.currentUser?.username || 'tester',
-            first_name: window.currentUser?.first_name || 'مستخدم تجريبي',
-            balance: 0,
-            kyc_status: 'unverified',
-            is_verified: false,
-            role: 'user',
-            vip_level: 0,
-        };
+        return null; // نعيد null بدلاً من بيانات وهمية
     }
 }
 
@@ -88,9 +76,7 @@ async function fetchCategories() {
 }
 
 async function fetchProducts(categoryId = null) {
-    const url = categoryId
-        ? `${API_BASE_URL}/api/products/?category_id=${categoryId}`
-        : `${API_BASE_URL}/api/products/`;
+    const url = categoryId ? `${API_BASE_URL}/api/products/?category_id=${categoryId}` : `${API_BASE_URL}/api/products/`;
     return await apiFetch(url);
 }
 
