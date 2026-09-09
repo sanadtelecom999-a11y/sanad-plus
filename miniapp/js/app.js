@@ -1,5 +1,5 @@
 // miniapp/js/app.js
-// النسخة الكاملة مع جميع الميزات
+// النسخة الكاملة بعد التعديلات المطلوبة
 
 let currentPage = 'page-home';
 let userData = null;
@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadInitialData() {
     try {
-        showSkeletonLoader();
         categoriesData = await fetchCategories();
         productsData = await fetchProducts();
         paymentMethodsData = await fetchPaymentMethods();
@@ -53,25 +52,14 @@ async function loadInitialData() {
         }
 
         renderCategories();
-        renderLatestProducts();
         renderPaymentMethods();
         renderOrders(ordersData);
         renderDeposits(depositsData);
         updateKYCUI();
         updateNotificationBadge();
-        hideSkeletonLoader();
     } catch (error) {
         console.error('Error loading data:', error);
-        hideSkeletonLoader();
     }
-}
-
-function showSkeletonLoader() {
-    // يمكن إضافة عناصر هيكلية هنا
-}
-
-function hideSkeletonLoader() {
-    // إخفاء الهيكل
 }
 
 function updateUserUI() {
@@ -99,7 +87,6 @@ function updateUserUI() {
     document.getElementById('greetingMessage').textContent = `${greeting}، ${userData.first_name || 'مستخدم'}`;
     document.getElementById('greetingSub').textContent = `رصيدك: ${userData.balance.toFixed(2)}$`;
 
-    // تحديث شارة KYC
     updateKYCBadge();
 }
 
@@ -126,20 +113,6 @@ function renderCategories() {
         </div>
     `).join('');
     if (countEl) countEl.textContent = categoriesData.length;
-}
-
-function renderLatestProducts() {
-    const grid = document.getElementById('latestProducts');
-    if (!grid) return;
-    const latest = productsData.slice(0, 6);
-    grid.innerHTML = latest.map(prod => `
-        <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
-            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">${prod.image ? '' : '📦'}</div>
-            <div class="product-name">${prod.name}</div>
-            <div class="product-price">${prod.base_price}$</div>
-            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
-        </div>
-    `).join('');
 }
 
 function showCategoryProducts(categoryId) {
@@ -292,16 +265,42 @@ async function submitKYCRequest() {
         return;
     }
 
-    const toBase64 = file => new Promise((resolve, reject) => {
+    // التحقق من وجود telegram_id
+    if (!userData || !userData.telegram_id) {
+        alert('بيانات المستخدم غير متوفرة، حاول إعادة فتح التطبيق');
+        return;
+    }
+
+    // ضغط الصور إلى أبعاد أصغر (اختياري لتقليل الحجم)
+    const compressImage = (file, maxWidth = 800) => new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height;
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = reader.result;
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
 
     try {
-        const frontBase64 = await toBase64(frontFile);
-        const backBase64 = await toBase64(backFile);
+        const frontBase64 = await compressImage(frontFile);
+        const backBase64 = await compressImage(backFile);
 
         const result = await submitKYC({
             telegram_id: userData.telegram_id,
@@ -322,7 +321,7 @@ async function submitKYCRequest() {
         }
     } catch (error) {
         console.error('KYC submit error:', error);
-        alert('فشل إرسال الطلب');
+        alert('فشل إرسال الطلب، حاول مرة أخرى');
     }
 }
 
@@ -611,9 +610,7 @@ function setupSearch() {
         searchInput.addEventListener('input', () => {
             const query = searchInput.value.toLowerCase();
             const filtered = productsData.filter(p => p.name.toLowerCase().includes(query));
-            if (currentPage === 'page-home') {
-                renderLatestProducts();
-            } else if (currentPage === 'page-products') {
+            if (currentPage === 'page-products') {
                 renderProductsList(filtered);
             }
         });
@@ -625,7 +622,7 @@ function navigateTo(pageId) {
     document.getElementById(pageId).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
     currentPage = pageId;
-    if (pageId === 'page-home') { renderCategories(); renderLatestProducts(); }
+    if (pageId === 'page-home') renderCategories();
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);
