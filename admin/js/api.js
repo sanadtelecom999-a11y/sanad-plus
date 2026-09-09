@@ -151,6 +151,10 @@ async function fetchAdminOrders() {
     return await apiRequest('/admin/api/orders');
 }
 
+async function fetchAdminOrderDetail(orderId) {
+    return await apiRequest(`/admin/api/orders/${orderId}`);
+}
+
 async function updateOrderStatus(orderId, status) {
     return await apiRequest(`/admin/api/orders/${orderId}/status`, {
         method: 'POST',
