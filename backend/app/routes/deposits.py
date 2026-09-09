@@ -4,7 +4,7 @@ from flask import request, jsonify
 from ..models.base import User, Deposit, Transaction, Notification
 from ..extensions import db
 from . import main
-from ..services.telegram_service import send_telegram_notification
+from ..services.telegram_service import send_telegram_notification, notify_admins
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -33,12 +33,7 @@ def create_deposit():
     if not telegram_id:
         return jsonify({"error": "telegram_id مطلوب"}), 400
 
-    user = get_or_create_user(
-        telegram_id,
-        data.get("first_name", ""),
-        data.get("last_name", ""),
-        data.get("username", "")
-    )
+    user = get_or_create_user(telegram_id)
 
     amount = float(data.get("amount", 0))
     method = data.get("method", "")
@@ -66,7 +61,6 @@ def create_deposit():
     db.session.add(deposit)
     db.session.commit()
 
-    # إشعار للمستخدم
     notif = Notification(
         user_id=user.id,
         title="إيداع جديد",
@@ -76,8 +70,11 @@ def create_deposit():
     db.session.add(notif)
     db.session.commit()
 
-    # محاولة إرسال إشعار تيليجرام
+    # إشعار المستخدم
     send_telegram_notification(user.telegram_id, f"تم استلام طلب الإيداع بقيمة {amount}$ وهو قيد المراجعة")
+
+    # إشعار الأدمن
+    notify_admins(f"💰 إيداع جديد!\nالمستخدم: {user.telegram_id}\nالمبلغ: {amount}$\nالطريقة: {method}")
 
     return jsonify({
         "message": "تم إرسال طلب الإيداع بنجاح",
@@ -97,5 +94,6 @@ def get_my_deposits():
         "method": d.method,
         "status": d.status,
         "transaction_id": d.transaction_id,
+        "admin_note": d.admin_note,
         "created_at": d.created_at.isoformat() if d.created_at else None,
     } for d in deposits])
