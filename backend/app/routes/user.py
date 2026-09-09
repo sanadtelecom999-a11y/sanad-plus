@@ -4,6 +4,7 @@ from flask import request, jsonify
 from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRequest
 from ..extensions import db
 from . import main
+from ..services.telegram_service import send_telegram_notification, notify_admins
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -96,6 +97,9 @@ def submit_kyc():
     db.session.add(notif)
     db.session.commit()
 
+    send_telegram_notification(user.telegram_id, "تم إرسال طلب التوثيق بنجاح")
+    notify_admins(f"🪪 طلب توثيق جديد!\nالمستخدم: {user.telegram_id}\nالاسم: {data.get('full_name')}\nالهاتف: {data.get('phone')}")
+
     return jsonify({"message": "تم إرسال طلب التوثيق بنجاح"}), 200
 
 @main.route("/api/kyc/my", methods=["GET"])
@@ -165,4 +169,7 @@ def request_service():
     )
     db.session.add(req)
     db.session.commit()
+
+    notify_admins(f"🛠️ طلب خدمة مخصصة جديد!\nالمستخدم: {user.telegram_id}\nالخدمة: {service_name}")
+
     return jsonify({"message": "تم إرسال طلب الخدمة المخصصة"}), 200
