@@ -19,9 +19,12 @@ function initTelegram() {
                 username: user.username || '',
                 photo_url: user.photo_url || '',
             };
+            console.log('Telegram user data captured:', window.currentUser);
+        } else {
+            console.warn('No user data in initDataUnsafe');
         }
     } else {
-        // وضع التطوير خارج تيليجرام
+        console.warn('Telegram WebApp not available');
         window.currentUser = {
             id: 8673286954,
             first_name: 'مستخدم تجريبي',
