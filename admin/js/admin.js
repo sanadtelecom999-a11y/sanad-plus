@@ -140,14 +140,14 @@ function renderUsers(users = usersData) {
 
 async function adjustBalance(userId) {
     const amount = prompt('أدخل المبلغ (سالب للخصم):');
-    if (amount !== null) {
-        try {
-            await adjustUserBalance(userId, parseFloat(amount));
-            await loadAllData();
-            renderUsers();
-        } catch (error) {
-            alert(`فشل تعديل الرصيد: ${error.message}`);
-        }
+    if (amount === null) return;
+    const note = prompt('أدخل ملاحظة (اختياري):') || '';
+    try {
+        await adjustUserBalance(userId, parseFloat(amount), note);
+        await loadAllData();
+        renderUsers();
+    } catch (error) {
+        alert(`فشل تعديل الرصيد: ${error.message}`);
     }
 }
 
@@ -212,7 +212,7 @@ async function saveCategory() {
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
     if (imageFile) {
-        image = await fileToBase64(imageFile);
+        image = await fileToBase64(imageFile, 200);
     }
     try {
         await createCategory({ name, icon, image });
@@ -293,7 +293,7 @@ async function saveProduct() {
     if (!name || !categoryId) return alert('أدخل البيانات');
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
-    if (imageFile) image = await fileToBase64(imageFile);
+    if (imageFile) image = await fileToBase64(imageFile, 200);
     try {
         await createProduct({ name, category_id: categoryId, product_type: type, base_price: price, base_quantity: baseQuantity, input_type: inputType, image });
         closeModal();
@@ -358,7 +358,7 @@ async function savePaymentMethod() {
     if (!name) return alert('أدخل اسم الطريقة');
     const iconFile = document.getElementById('paymentIcon').files[0];
     let icon = '';
-    if (iconFile) icon = await fileToBase64(iconFile);
+    if (iconFile) icon = await fileToBase64(iconFile, 100);
     try {
         await createPaymentMethod({ name, description: desc, account, icon, is_active: true });
         closeModal();
@@ -536,10 +536,29 @@ function previewImage(input, previewId) {
     }
 }
 
-function fileToBase64(file) {
+function fileToBase64(file, maxWidth = 200) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (maxWidth / width) * height;
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = reader.result;
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
