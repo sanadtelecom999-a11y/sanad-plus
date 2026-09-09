@@ -102,6 +102,7 @@ function switchSection(sectionId) {
     if (sectionId === 'orders') renderOrders(ordersData);
     if (sectionId === 'deposits') renderDeposits(depositsData);
     if (sectionId === 'kyc') renderKYC();
+    if (sectionId === 'service-requests') renderServiceRequests();
 }
 
 function renderDashboard() {
@@ -522,6 +523,42 @@ function renderKYC() {
             </td>
         </tr>
     `).join('');
+}
+
+function renderServiceRequests() {
+    const tbody = document.getElementById('serviceRequestsTableBody');
+    if (!serviceRequestsData.length) {
+        tbody.innerHTML = '<tr><td colspan="6">لا توجد طلبات خدمة</td></tr>';
+        return;
+    }
+    tbody.innerHTML = serviceRequestsData.map(r => `
+        <tr>
+            <td>${r.user_id}</td>
+            <td>${r.service_name}</td>
+            <td>${r.description || '-'}</td>
+            <td>${r.estimated_price ? r.estimated_price + '$' : '-'}</td>
+            <td><span class="status-badge ${r.status === 'pending' ? 'pending' : r.status === 'completed' ? 'completed' : 'failed'}">${r.status}</span></td>
+            <td>
+                <button class="btn-outline" onclick="viewServiceRequest(${r.id})">عرض</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function viewServiceRequest(reqId) {
+    const req = serviceRequestsData.find(r => r.id === reqId);
+    if (!req) return;
+    const body = `
+        <div style="text-align:right;">
+            <h3>تفاصيل طلب الخدمة</h3>
+            <p><strong>اسم الخدمة:</strong> ${req.service_name}</p>
+            <p><strong>الوصف:</strong> ${req.description || '-'}</p>
+            <p><strong>السعر المتوقع:</strong> ${req.estimated_price ? req.estimated_price + '$' : '-'}</p>
+            <p><strong>الحالة:</strong> ${req.status}</p>
+            <p><strong>التاريخ:</strong> ${req.created_at ? new Date(req.created_at).toLocaleString('ar') : ''}</p>
+        </div>
+    `;
+    openModal('تفاصيل طلب الخدمة', body);
 }
 
 function sendAdminNotification() {
