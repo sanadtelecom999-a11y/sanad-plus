@@ -25,25 +25,6 @@ def admin_login():
         return jsonify({"token": token}), 200
     return jsonify({"error": "بيانات غير صحيحة"}), 401
 
-# ============ الإحصائيات ============
-@main.route("/admin/api/stats", methods=["GET"])
-@jwt_required()
-def admin_stats():
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    total_users = User.query.count()
-    total_products = Product.query.count()
-    total_orders = Order.query.count()
-    total_deposits = Deposit.query.count()
-    total_revenue = db.session.query(db.func.sum(Transaction.amount)).filter(Transaction.type == "deposit").scalar() or 0
-    return jsonify({
-        "users": total_users,
-        "products": total_products,
-        "orders": total_orders,
-        "deposits": total_deposits,
-        "revenue": total_revenue,
-    })
-
 # ============ المستخدمون ============
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
@@ -67,6 +48,25 @@ def admin_get_users():
         "created_at": u.created_at.isoformat() if u.created_at else None,
     } for u in users])
 
+@main.route("/admin/api/users/<int:user_id>/kyc", methods=["POST"])
+@jwt_required()
+def admin_toggle_kyc(user_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    data = request.get_json()
+    new_status = data.get("status")
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+    if new_status == "verified":
+        user.kyc_status = "verified"
+        user.is_verified = True
+    elif new_status == "unverified":
+        user.kyc_status = "unverified"
+        user.is_verified = False
+    db.session.commit()
+    return jsonify({"kyc_status": user.kyc_status, "is_verified": user.is_verified})
+
 @main.route("/admin/api/users/<int:user_id>/balance", methods=["POST"])
 @jwt_required()
 def admin_adjust_balance(user_id):
@@ -79,10 +79,8 @@ def admin_adjust_balance(user_id):
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
-    # تحديث الرصيد
     user.balance += amount
 
-    # إنشاء سجل إيداع يدوي
     deposit = Deposit(
         user_id=user.id,
         amount=amount,
@@ -95,7 +93,6 @@ def admin_adjust_balance(user_id):
     )
     db.session.add(deposit)
 
-    # تسجيل معاملة
     txn = Transaction(
         user_id=user.id,
         type="adjustment",
@@ -106,7 +103,6 @@ def admin_adjust_balance(user_id):
     )
     db.session.add(txn)
 
-    # إشعار للمستخدم
     notif = Notification(
         user_id=user.id,
         title="تعديل الرصيد",
@@ -117,7 +113,6 @@ def admin_adjust_balance(user_id):
 
     db.session.commit()
 
-    # إرسال إشعار تيليجرام
     send_telegram_notification(user.telegram_id, f"تم تعديل رصيدك بمقدار {amount}$")
 
     return jsonify({"balance": user.balance})
