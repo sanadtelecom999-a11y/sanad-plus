@@ -159,6 +159,7 @@ def request_service():
     estimated_price = data.get("estimated_price")
     if not service_name:
         return jsonify({"error": "اسم الخدمة مطلوب"}), 400
+
     req = ServiceRequest(
         user_id=user.id,
         service_name=service_name,
@@ -170,6 +171,7 @@ def request_service():
     db.session.add(req)
     db.session.commit()
 
+    # إشعار الأدمن بطلب الخدمة الجديد
     notify_admins(f"🛠️ طلب خدمة مخصصة جديد!\nالمستخدم: {user.telegram_id}\nالخدمة: {service_name}")
 
     return jsonify({"message": "تم إرسال طلب الخدمة المخصصة"}), 200
