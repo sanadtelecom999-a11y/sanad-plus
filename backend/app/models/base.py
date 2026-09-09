@@ -113,9 +113,9 @@ class KYCRequest(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
-    id_front_image = db.Column(db.String(255), nullable=False)
-    id_back_image = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.String(20), default="pending")  # pending, approved, rejected
+    address = db.Column(db.String(255), nullable=True)       # العنوان الحالي
+    selfie_image = db.Column(db.Text, nullable=True)         # صورة سيلفي مع الهوية
+    status = db.Column(db.String(20), default="pending")     # pending, approved, rejected
     admin_note = db.Column(db.Text)
     submitted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at = db.Column(db.DateTime)
