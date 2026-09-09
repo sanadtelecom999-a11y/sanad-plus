@@ -12,11 +12,11 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """إصلاح جدول kyc_requests عن طريق حذفه وإعادة إنشائه"""
+    """إصلاح قاعدة البيانات: حذف جدول kyc_requests القديم وإنشاء الجداول المفقودة"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # 1) حذف جدول kyc_requests إذا كان موجودًا
+        # 1) حذف جدول kyc_requests إذا كان موجوداً
         if inspector.has_table('kyc_requests'):
             try:
                 db.session.execute(sa.text('DROP TABLE kyc_requests CASCADE'))
@@ -25,16 +25,15 @@ def upgrade_database():
             except Exception as e:
                 print(f"⚠️ فشل حذف جدول kyc_requests: {e}")
 
-        # 2) إنشاء جدول kyc_requests من جديد حسب النموذج الحالي
+        # 2) إنشاء جميع الجداول المفقودة (بما فيها kyc_requests بالنموذج الجديد)
         try:
-            from app.models.base import KYCRequest
-            KYCRequest.__table__.create(db.session.bind, checkfirst=True)
+            db.create_all()
             db.session.commit()
-            print("✅ تم إنشاء جدول kyc_requests الجديد")
+            print("✅ تم إنشاء جميع الجداول المفقودة")
         except Exception as e:
-            print(f"⚠️ فشل إنشاء جدول kyc_requests: {e}")
+            print(f"⚠️ فشل إنشاء الجداول: {e}")
 
-        # 3) إضافة عمود admin_note إلى deposits إذا لم يكن موجودًا
+        # 3) إضافة عمود admin_note إلى deposits إذا لم يكن موجوداً
         if inspector.has_table('deposits'):
             existing_cols = [col['name'] for col in inspector.get_columns('deposits')]
             if 'admin_note' not in existing_cols:
@@ -52,10 +51,13 @@ def run_flask():
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
+    # ترقية قاعدة البيانات قبل تشغيل الخادم
     upgrade_database()
 
+    # تشغيل Flask في خيط منفصل
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
+    # تشغيل البوت في الخيط الرئيسي
     from bot.bot import run_polling
     run_polling()
