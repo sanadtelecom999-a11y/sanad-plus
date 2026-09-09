@@ -133,9 +133,24 @@ function renderUsers(users = usersData) {
                 <button class="btn-outline" onclick="adjustBalance(${user.id})">رصيد</button>
                 <button class="btn-outline" onclick="toggleBan(${user.id})">${user.is_banned ? 'فك الحظر' : 'حظر'}</button>
                 <button class="btn-outline" onclick="setVIP(${user.id}, ${user.vip_level})">VIP</button>
+                <button class="btn-outline" onclick="toggleKYC(${user.id}, '${user.kyc_status}')">${user.kyc_status === 'verified' ? 'إلغاء توثيق' : 'توثيق'}</button>
             </td>
         </tr>
     `).join('');
+}
+
+async function toggleKYC(userId, currentStatus) {
+    try {
+        const newStatus = currentStatus === 'verified' ? 'unverified' : 'verified';
+        await apiRequest(`/admin/api/users/${userId}/kyc`, {
+            method: 'POST',
+            body: JSON.stringify({ status: newStatus }),
+        });
+        await loadAllData();
+        renderUsers();
+    } catch (error) {
+        alert(`فشل تحديث التوثيق: ${error.message}`);
+    }
 }
 
 async function adjustBalance(userId) {
@@ -434,10 +449,11 @@ function renderDeposits(deposits) {
             <td>${d.method}</td>
             <td><span class="status-badge ${d.status === 'approved' ? 'completed' : d.status === 'rejected' ? 'failed' : 'pending'}">${d.status}</span></td>
             <td>
+                ${d.admin_note ? `<div><small>${d.admin_note}</small></div>` : '-'}
                 ${d.status === 'pending' ? `
                     <button class="btn-outline" onclick="approveDeposit(${d.id})">قبول</button>
                     <button class="btn-outline" onclick="rejectDeposit(${d.id})">رفض</button>
-                ` : '-'}
+                ` : ''}
             </td>
         </tr>
     `).join('');
