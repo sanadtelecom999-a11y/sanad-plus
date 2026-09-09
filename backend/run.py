@@ -12,17 +12,21 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """إضافة الأعمدة المفقودة بأمان دون حذف البيانات"""
+    """إضافة الأعمدة المفقودة إلى الجداول تلقائياً دون حذف البيانات"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
+        # قائمة الجداول والأعمدة المطلوبة
         required_columns = {
             'deposits': {
                 'admin_note': 'TEXT',
             },
             'kyc_requests': {
                 'admin_note': 'TEXT',
+                'address': 'VARCHAR(255)',
+                'selfie_image': 'TEXT',
             },
+            # أضف أي جدول وعمود آخر هنا إذا لزم
         }
 
         for table_name, columns in required_columns.items():
@@ -47,7 +51,7 @@ def run_flask():
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    # ترقية قاعدة البيانات
+    # ترقية قاعدة البيانات أولاً
     upgrade_database()
 
     # تشغيل Flask في خيط منفصل
