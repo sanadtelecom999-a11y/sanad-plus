@@ -12,52 +12,50 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """إضافة الأعمدة المفقودة إلى الجداول تلقائياً دون حذف البيانات"""
+    """إصلاح جدول kyc_requests عن طريق حذفه وإعادة إنشائه"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # قائمة الجداول والأعمدة المطلوبة
-        required_columns = {
-            'deposits': {
-                'admin_note': 'TEXT',
-            },
-            'kyc_requests': {
-                'admin_note': 'TEXT',
-                'address': 'VARCHAR(255)',
-                'selfie_image': 'TEXT',
-            },
-            # أضف أي جدول وعمود آخر هنا إذا لزم
-        }
+        # 1) حذف جدول kyc_requests إذا كان موجودًا
+        if inspector.has_table('kyc_requests'):
+            try:
+                db.session.execute(sa.text('DROP TABLE kyc_requests CASCADE'))
+                db.session.commit()
+                print("🗑️ تم حذف جدول kyc_requests القديم")
+            except Exception as e:
+                print(f"⚠️ فشل حذف جدول kyc_requests: {e}")
 
-        for table_name, columns in required_columns.items():
-            if not inspector.has_table(table_name):
-                continue
-            existing_cols = [col['name'] for col in inspector.get_columns(table_name)]
-            for col_name, col_type in columns.items():
-                if col_name not in existing_cols:
-                    try:
-                        db.session.execute(
-                            sa.text(f'ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}')
-                        )
-                        print(f"✔️ تمت إضافة العمود {col_name} إلى جدول {table_name}")
-                    except Exception as e:
-                        print(f"⚠️ فشل إضافة {col_name} إلى {table_name}: {e}")
-        db.session.commit()
+        # 2) إنشاء جدول kyc_requests من جديد حسب النموذج الحالي
+        try:
+            from app.models.base import KYCRequest
+            KYCRequest.__table__.create(db.session.bind, checkfirst=True)
+            db.session.commit()
+            print("✅ تم إنشاء جدول kyc_requests الجديد")
+        except Exception as e:
+            print(f"⚠️ فشل إنشاء جدول kyc_requests: {e}")
+
+        # 3) إضافة عمود admin_note إلى deposits إذا لم يكن موجودًا
+        if inspector.has_table('deposits'):
+            existing_cols = [col['name'] for col in inspector.get_columns('deposits')]
+            if 'admin_note' not in existing_cols:
+                try:
+                    db.session.execute(sa.text('ALTER TABLE deposits ADD COLUMN admin_note TEXT'))
+                    db.session.commit()
+                    print("✔️ تمت إضافة عمود admin_note إلى deposits")
+                except Exception as e:
+                    print(f"⚠️ فشل إضافة admin_note إلى deposits: {e}")
+
         print("✅ اكتملت ترقية قاعدة البيانات")
 
 def run_flask():
-    """تشغيل Flask في خيط منفصل"""
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    # ترقية قاعدة البيانات أولاً
     upgrade_database()
 
-    # تشغيل Flask في خيط منفصل
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
-    # تشغيل البوت في الخيط الرئيسي (حتى يعمل Polling بشكل صحيح)
     from bot.bot import run_polling
     run_polling()
