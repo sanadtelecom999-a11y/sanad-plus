@@ -6,9 +6,8 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from ..models.base import User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod, KYCRequest, Notification, Setting, AdminActivity, ServiceRequest, Transaction
 from ..extensions import db
 from . import main
-from ..services.telegram_service import send_telegram_notification
+from ..services.telegram_service import send_telegram_notification, notify_admins
 
-# قراءة كلمة المرور من متغير البيئة ADMIN_PASSWORD، وإلا استخدام الافتراضية admin123
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
@@ -75,6 +74,7 @@ def admin_toggle_kyc(user_id):
         user.kyc_status = "unverified"
         user.is_verified = False
     db.session.commit()
+    notify_admins(f"🔄 تم تغيير حالة توثيق المستخدم {user.telegram_id} إلى {new_status}")
     return jsonify({"kyc_status": user.kyc_status, "is_verified": user.is_verified})
 
 @main.route("/admin/api/users/<int:user_id>/balance", methods=["POST"])
@@ -124,6 +124,7 @@ def admin_adjust_balance(user_id):
     db.session.commit()
 
     send_telegram_notification(user.telegram_id, f"تم تعديل رصيدك بمقدار {amount}$")
+    notify_admins(f"💵 تم تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
 
     return jsonify({"balance": user.balance})
 
@@ -137,6 +138,7 @@ def admin_ban_user(user_id):
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.is_banned = not user.is_banned
     db.session.commit()
+    notify_admins(f"🚫 تم تغيير حالة الحظر للمستخدم {user.telegram_id} إلى {user.is_banned}")
     return jsonify({"is_banned": user.is_banned})
 
 @main.route("/admin/api/users/<int:user_id>/vip", methods=["POST"])
@@ -151,6 +153,7 @@ def admin_set_vip(user_id):
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.vip_level = vip_level
     db.session.commit()
+    notify_admins(f"⭐ تم تغيير VIP المستخدم {user.telegram_id} إلى {vip_level}")
     return jsonify({"vip_level": user.vip_level})
 
 @main.route("/admin/api/categories", methods=["GET", "POST"])
@@ -179,6 +182,7 @@ def admin_categories():
         )
         db.session.add(cat)
         db.session.commit()
+        notify_admins(f"🗂️ تم إضافة قسم جديد: {cat.name}")
         return jsonify({"id": cat.id}), 201
 
 @main.route("/admin/api/categories/<int:cat_id>", methods=["DELETE"])
@@ -199,6 +203,7 @@ def admin_delete_category(cat_id):
 
         db.session.delete(cat)
         db.session.commit()
+        notify_admins(f"🗑️ تم حذف القسم: {cat.name}")
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()
@@ -246,6 +251,7 @@ def admin_products():
         )
         db.session.add(product)
         db.session.commit()
+        notify_admins(f"📦 تم إضافة منتج جديد: {product.name}")
         return jsonify({"id": product.id}), 201
 
 @main.route("/admin/api/products/<int:product_id>", methods=["PUT", "DELETE"])
@@ -262,6 +268,7 @@ def admin_product_actions(product_id):
             if hasattr(product, key):
                 setattr(product, key, value)
         db.session.commit()
+        notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True})
     elif request.method == "DELETE":
         try:
@@ -269,6 +276,7 @@ def admin_product_actions(product_id):
             Order.query.filter_by(product_id=product.id).delete()
             db.session.delete(product)
             db.session.commit()
+            notify_admins(f"🗑️ تم حذف المنتج: {product.name}")
             return jsonify({"success": True})
         except Exception as e:
             db.session.rollback()
@@ -299,6 +307,7 @@ def admin_bundles(product_id):
         )
         db.session.add(bundle)
         db.session.commit()
+        notify_admins(f"📦 تم إضافة باقة: {bundle.name}")
         return jsonify({"id": bundle.id}), 201
 
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
@@ -337,6 +346,7 @@ def admin_payment_methods():
         )
         db.session.add(method)
         db.session.commit()
+        notify_admins(f"💳 تم إضافة طريقة دفع: {method.name}")
         return jsonify({"id": method.id}), 201
 
 @main.route("/admin/api/payment-methods/<int:method_id>", methods=["DELETE"])
@@ -349,6 +359,7 @@ def admin_delete_payment_method(method_id):
         return jsonify({"error": "طريقة دفع غير موجودة"}), 404
     db.session.delete(method)
     db.session.commit()
+    notify_admins(f"🗑️ تم حذف طريقة دفع: {method.name}")
     return jsonify({"success": True})
 
 @main.route("/admin/api/orders", methods=["GET"])
@@ -427,6 +438,8 @@ def admin_update_order_status(order_id):
         db.session.commit()
         send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} أصبح {status_arabic}")
 
+    notify_admins(f"🔄 طلب {order.order_number} أصبح {get_arabic_status(new_status)}")
+
     return jsonify({"status": order.status, "message": f"تم تحديث الحالة إلى {get_arabic_status(new_status)}"})
 
 @main.route("/admin/api/deposits", methods=["GET"])
@@ -473,6 +486,7 @@ def admin_approve_deposit(deposit_id):
             db.session.add(notif)
             db.session.commit()
             send_telegram_notification(user.telegram_id, f"تم قبول إيداعك بقيمة {deposit.amount}$")
+    notify_admins(f"✅ تم قبول إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
     return jsonify({"status": deposit.status})
 
 @main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST"])
@@ -491,6 +505,7 @@ def admin_reject_deposit(deposit_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, f"تم رفض إيداعك بقيمة {deposit.amount}$")
+    notify_admins(f"❌ تم رفض إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
     return jsonify({"status": deposit.status})
 
 @main.route("/admin/api/kyc", methods=["GET"])
@@ -528,6 +543,7 @@ def admin_approve_kyc(kyc_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, "تم توثيق حسابك بنجاح")
+    notify_admins(f"✅ تم قبول توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "approved"})
 
 @main.route("/admin/api/kyc/<int:kyc_id>/reject", methods=["POST"])
@@ -548,6 +564,7 @@ def admin_reject_kyc(kyc_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, "تم رفض طلب التوثيق")
+    notify_admins(f"❌ تم رفض توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "rejected"})
 
 @main.route("/admin/api/notifications", methods=["POST"])
@@ -602,6 +619,7 @@ def admin_update_service_request(req_id):
     req.status = data.get("status", req.status)
     req.admin_response = data.get("admin_response", req.admin_response)
     db.session.commit()
+    notify_admins(f"🛠️ تم تحديث طلب الخدمة {req.id} إلى {req.status}")
     return jsonify({"success": True})
 
 @main.route("/admin/api/settings", methods=["GET", "PUT"])
