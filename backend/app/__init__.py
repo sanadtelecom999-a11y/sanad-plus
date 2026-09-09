@@ -8,8 +8,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # تفعيل CORS للسماح بالاتصال من أي مصدر
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     db.init_app(app)
     jwt.init_app(app)
@@ -18,6 +17,8 @@ def create_app():
     app.register_blueprint(main)
 
     with app.app_context():
+        # إعادة إنشاء الجداول مع الحقول الجديدة (للتطوير فقط)
+        db.drop_all()
         db.create_all()
 
     return app
