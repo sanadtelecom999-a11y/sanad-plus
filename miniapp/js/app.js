@@ -1,33 +1,4 @@
-document.addEventListener('DOMContentLoaded', async () => {
-    initTelegram();
-    applyTelegramTheme();
-
-    // انتظر قليلاً لضمان جاهزية Telegram
-    setTimeout(async () => {
-        // استخدم window.currentUser أو initDataUnsafe مباشرة
-        let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-        if (telegram_id) {
-            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
-        } else {
-            userData = null;
-        }
-
-        updateUserUI();
-        await loadInitialData();
-        setupNavigation();
-        setupFilters();
-        setupSearch();
-
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            const darkToggle = document.getElementById('darkModeToggle');
-            if (darkToggle) darkToggle.checked = savedTheme === 'dark';
-        }
-    }, 300);
-});
 // miniapp/js/app.js
-// النسخة الكاملة مع جميع الإصلاحات
 
 let currentPage = 'page-home';
 let userData = null;
@@ -43,10 +14,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
     applyTelegramTheme();
 
-    if (window.Telegram?.WebApp?.initData) {
-        userData = await authenticateUser(window.Telegram.WebApp.initData);
+    // التحقق من توفر بيانات تيليجرام
+    let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (telegram_id) {
+        userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
     } else {
-        // لا نستخدم بيانات وهمية؛ نترك المستخدم غير مسجل حتى يفتح من تيليجرام
+        alert('لا يمكن الوصول لبيانات تيليجرام.\nتأكد أنك فتحت التطبيق من زر "افتح المتجر" داخل البوت وليس كرابط خارجي.');
         userData = null;
     }
 
@@ -92,7 +65,6 @@ async function loadInitialData() {
 
 function updateUserUI() {
     if (!userData) {
-        // عرض رسالة تطلب فتح التطبيق من تيليجرام
         document.getElementById('greetingMessage').textContent = 'الرجاء فتح التطبيق من تيليجرام';
         document.getElementById('greetingSub').textContent = 'لم يتم التعرف على حسابك';
         return;
