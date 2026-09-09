@@ -1,3 +1,5 @@
+// admin/js/admin.js
+
 let currentSection = 'dashboard';
 let usersData = [];
 let categoriesData = [];
@@ -6,7 +8,6 @@ let paymentMethodsData = [];
 let ordersData = [];
 let depositsData = [];
 let kycData = [];
-let serviceRequestsData = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!getToken()) {
@@ -66,7 +67,6 @@ async function loadAllData() {
         ordersData = await fetchAdminOrders();
         depositsData = await fetchAdminDeposits();
         kycData = await fetchAdminKYC();
-        serviceRequestsData = await fetchServiceRequests();
     } catch (error) {
         console.error('خطأ في تحميل البيانات:', error);
     }
@@ -200,10 +200,14 @@ async function saveCategory() {
     if (imageFile) {
         image = await fileToBase64(imageFile);
     }
-    await createCategory({ name, icon, image });
-    closeModal();
-    await loadAllData();
-    renderCategories();
+    try {
+        await createCategory({ name, icon, image });
+        closeModal();
+        await loadAllData();
+        renderCategories();
+    } catch (error) {
+        alert('فشل إضافة القسم');
+    }
 }
 
 async function deleteCategory(categoryId) {
@@ -270,10 +274,14 @@ async function saveProduct() {
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
     if (imageFile) image = await fileToBase64(imageFile);
-    await createProduct({ name, category_id: categoryId, product_type: type, base_price: price, base_quantity: baseQuantity, input_type: inputType, image });
-    closeModal();
-    await loadAllData();
-    renderProducts();
+    try {
+        await createProduct({ name, category_id: categoryId, product_type: type, base_price: price, base_quantity: baseQuantity, input_type: inputType, image });
+        closeModal();
+        await loadAllData();
+        renderProducts();
+    } catch (error) {
+        alert('فشل إضافة المنتج');
+    }
 }
 
 async function deleteProduct(productId) {
@@ -305,7 +313,7 @@ function openPaymentMethodModal() {
         <div class="form-group"><label>الوصف</label><input type="text" id="paymentDesc" value="شحن فوري"></div>
         <div class="form-group"><label>رقم الحساب</label><input type="text" id="paymentAccount"></div>
         <div class="form-group">
-            <label>صورة/أيقونة طريقة الدفع (48×48 بكسل مناسب)</label>
+            <label>صورة/أيقونة طريقة الدفع</label>
             <div class="image-preview" id="paymentIconPreview">لا صورة</div>
             <input type="file" id="paymentIcon" accept="image/*" onchange="previewImage(this,'paymentIconPreview')">
         </div>
@@ -325,10 +333,14 @@ async function savePaymentMethod() {
     const iconFile = document.getElementById('paymentIcon').files[0];
     let icon = '';
     if (iconFile) icon = await fileToBase64(iconFile);
-    await createPaymentMethod({ name, description: desc, account, icon, is_active: true });
-    closeModal();
-    await loadAllData();
-    renderPaymentMethods();
+    try {
+        await createPaymentMethod({ name, description: desc, account, icon, is_active: true });
+        closeModal();
+        await loadAllData();
+        renderPaymentMethods();
+    } catch (error) {
+        alert('فشل إضافة طريقة الدفع');
+    }
 }
 
 async function deletePaymentMethod(methodId) {
