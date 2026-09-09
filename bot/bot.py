@@ -9,7 +9,6 @@ try:
 except ImportError:
     load_dotenv = None
 
-# تحميل .env من مجلد backend أو الجذر
 ENV_PATHS = [
     os.path.join(os.path.dirname(__file__), '..', 'backend', '.env'),
     os.path.join(os.path.dirname(__file__), '..', '.env'),
@@ -40,9 +39,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def register_or_update_user(user_id, first_name, last_name, username):
+    """استدعاء Backend لتسجيل أو تحديث المستخدم وإرجاع بياناته"""
+    try:
+        payload = {
+            "telegram_id": user_id,
+            "first_name": first_name or "",
+            "last_name": last_name or "",
+            "username": username or "",
+        }
+        response = requests.post(f"{BACKEND_URL}/api/auth/telegram", json=payload, timeout=5)
+        if response.ok:
+            return response.json()
+        else:
+            return None
+    except Exception as e:
+        logger.error(f"Error registering user: {e}")
+        return None
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     first_name = update.effective_user.first_name or "مستخدم"
+    last_name = update.effective_user.last_name or ""
+    username = update.effective_user.username or ""
+
+    # تسجيل أو تحديث المستخدم في قاعدة البيانات
+    user_data = register_or_update_user(user_id, first_name, last_name, username)
 
     keyboard = [
         [InlineKeyboardButton("🛍️ افتح المتجر", web_app=WebAppInfo(url=MINIAPP_URL))]
@@ -53,56 +75,45 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # محاولة جلب بيانات المستخدم من الـ Backend
-    vip_text = ""
-    try:
-        response = requests.get(f"{BACKEND_URL}/api/user/me", params={"telegram_id": user_id}, timeout=3)
-        if response.ok:
-            user_data = response.json()
-            vip_level = user_data.get("vip_level", 0)
-            if vip_level > 0:
-                vip_text = f" 👑 VIP{vip_level}"
-            balance = user_data.get("balance", 0)
-            await update.message.reply_text(
-                f"مرحبًا {first_name}{vip_text} 👋\n\n"
-                f"رصيدك: {balance:.2f}$\n\n"
-                "أهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
-                reply_markup=reply_markup,
-            )
-            return
-    except Exception as e:
-        logger.error(f"Error fetching user data: {e}")
-
-    await update.message.reply_text(
-        f"مرحبًا {first_name} 👋\n\n"
-        "أهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
-        reply_markup=reply_markup,
-    )
+    if user_data:
+        vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}" if user_data.get('vip_level', 0) > 0 else ""
+        balance = user_data.get('balance', 0)
+        await update.message.reply_text(
+            f"مرحبًا {first_name}{vip_text} 👋\n\n"
+            f"رصيدك: {balance:.2f}$\n\n"
+            "أهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
+            reply_markup=reply_markup,
+        )
+    else:
+        await update.message.reply_text(
+            f"مرحبًا {first_name} 👋\n\n"
+            "أهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
+            reply_markup=reply_markup,
+        )
 
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    try:
-        response = requests.get(f"{BACKEND_URL}/api/user/me", params={"telegram_id": user_id}, timeout=5)
-        if response.ok:
-            user_data = response.json()
-            vip_level = user_data.get("vip_level", 0)
-            vip_text = f" 👑 VIP{vip_level}" if vip_level > 0 else ""
-            kyc_status = user_data.get("kyc_status", "غير موثق")
-            balance = user_data.get("balance", 0)
-            message = (
-                f"👤 معلوماتك:\n"
-                f"الاسم: {user_data.get('first_name', '')} {user_data.get('last_name', '')}\n"
-                f"Telegram ID: {user_id}\n"
-                f"الرصيد: {balance:.2f}$\n"
-                f"الحالة KYC: {kyc_status}\n"
-                f"مستوى VIP: {vip_level}{vip_text}\n"
-            )
-            await update.message.reply_text(message)
-        else:
-            await update.message.reply_text("تعذر جلب معلوماتك. حاول لاحقًا.")
-    except Exception as e:
-        logger.error(f"Error in /me: {e}")
-        await update.message.reply_text("حدث خطأ أثناء جلب البيانات.")
+    user_data = register_or_update_user(
+        user_id,
+        update.effective_user.first_name or "",
+        update.effective_user.last_name or "",
+        update.effective_user.username or ""
+    )
+    if user_data:
+        vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}" if user_data.get('vip_level', 0) > 0 else ""
+        kyc_status = user_data.get('kyc_status', 'غير موثق')
+        balance = user_data.get('balance', 0)
+        message = (
+            f"👤 معلوماتك:\n"
+            f"الاسم: {user_data.get('first_name', '')} {user_data.get('last_name', '')}\n"
+            f"Telegram ID: {user_id}\n"
+            f"الرصيد: {balance:.2f}$\n"
+            f"الحالة KYC: {kyc_status}\n"
+            f"مستوى VIP: {user_data.get('vip_level', 0)}{vip_text}\n"
+        )
+        await update.message.reply_text(message)
+    else:
+        await update.message.reply_text("تعذر جلب معلوماتك. حاول لاحقًا.")
 
 def create_application() -> Application:
     if not BOT_TOKEN:
