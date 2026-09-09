@@ -30,7 +30,6 @@ def upgrade_database():
             for col_name, col_type in columns.items():
                 if col_name not in existing_cols:
                     try:
-                        # استخدام sa.text() بشكل صحيح
                         db.session.execute(
                             sa.text(f'ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}')
                         )
