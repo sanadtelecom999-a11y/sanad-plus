@@ -12,13 +12,12 @@
 </head>
 <body>
 
+    <!-- الشريط العلوي -->
     <header class="topbar">
         <div class="topbar-right">
-            <button class="icon-btn" id="backButton" onclick="handleBack()">
-                <span class="material-icons">arrow_forward</span>
-            </button>
-            <button class="icon-btn" id="closeButton" onclick="handleClose()">
-                <span class="material-icons">close</span>
+            <!-- صورة المستخدم دائرية في أقصى اليمين -->
+            <button class="icon-btn" onclick="goToAccount()" style="padding:0;">
+                <div class="avatar-small" id="headerAvatar" style="background-image: url(''); background-size: cover; background-position: center;">م</div>
             </button>
         </div>
         <div class="topbar-center">
@@ -33,13 +32,12 @@
                 <span class="material-icons">add</span>
                 <span id="headerBalance">0.00$</span>
             </div>
-            <button class="icon-btn" onclick="goToAccount()">
-                <div class="avatar-small" id="headerAvatar">م</div>
-            </button>
         </div>
     </header>
 
+    <!-- المحتوى الرئيسي -->
     <main class="main-content">
+        <!-- شاشة الرئيسية -->
         <section id="page-home" class="page active">
             <div class="user-greeting">
                 <div class="avatar" id="greetingAvatar">👤</div>
@@ -63,6 +61,7 @@
             <div class="categories-grid" id="categoriesGrid"></div>
         </section>
 
+        <!-- شاشة طلباتي -->
         <section id="page-orders" class="page">
             <h2>طلباتي</h2>
             <div class="filters pills-container" id="orderFilters">
@@ -76,6 +75,7 @@
             <div class="orders-list" id="ordersList"></div>
         </section>
 
+        <!-- شاشة شحن الرصيد -->
         <section id="page-charge" class="page">
             <div class="balance-card-gradient">
                 <span class="material-icons">account_balance_wallet</span>
@@ -88,6 +88,7 @@
             <div class="payment-options" id="paymentMethodsList"></div>
         </section>
 
+        <!-- شاشة الإيداعات -->
         <section id="page-deposits" class="page">
             <h2>الإيداعات</h2>
             <p class="text-secondary">سجل عمليات شحن الرصيد وحالتها</p>
@@ -100,6 +101,7 @@
             <div class="orders-list" id="depositsList"></div>
         </section>
 
+        <!-- شاشة حسابي -->
         <section id="page-account" class="page">
             <div class="account-card">
                 <div class="account-avatar" id="accountAvatar">👤</div>
@@ -141,16 +143,19 @@
             </div>
         </section>
 
+        <!-- شاشة توثيق الحساب -->
         <section id="page-kyc" class="page">
             <div id="kycDynamicContent"></div>
         </section>
 
+        <!-- شاشة المنتجات -->
         <section id="page-products" class="page">
             <h2 id="productsPageTitle">المنتجات</h2>
             <div class="products-grid" id="productsList"></div>
         </section>
     </main>
 
+    <!-- شريط التنقل السفلي -->
     <nav class="bottom-nav">
         <button class="nav-item active" data-page="page-home"><span class="material-icons">home</span><span>الرئيسية</span></button>
         <button class="nav-item" data-page="page-orders"><span class="material-icons">receipt_long</span><span>طلباتي</span></button>
@@ -159,6 +164,7 @@
         <button class="nav-item" data-page="page-account"><span class="material-icons">person</span><span>حسابي</span></button>
     </nav>
 
+    <!-- المودال -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
