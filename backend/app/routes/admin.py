@@ -14,6 +14,7 @@ ADMIN_PASSWORD = "admin123"
 def is_admin_user(identity):
     return identity == "admin"
 
+# ============ تسجيل الدخول ============
 @main.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json()
@@ -24,6 +25,7 @@ def admin_login():
         return jsonify({"token": token}), 200
     return jsonify({"error": "بيانات غير صحيحة"}), 401
 
+# ============ المستخدمون ============
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
 def admin_get_users():
@@ -141,6 +143,7 @@ def admin_set_vip(user_id):
     db.session.commit()
     return jsonify({"vip_level": user.vip_level})
 
+# ============ الأقسام ============
 @main.route("/admin/api/categories", methods=["GET", "POST"])
 @jwt_required()
 def admin_categories():
@@ -181,6 +184,7 @@ def admin_delete_category(cat_id):
     db.session.commit()
     return jsonify({"success": True})
 
+# ============ المنتجات ============
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
 def admin_products():
@@ -245,6 +249,7 @@ def admin_product_actions(product_id):
         db.session.commit()
         return jsonify({"success": True})
 
+# ============ الباقات ============
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
 @jwt_required()
 def admin_bundles(product_id):
@@ -272,6 +277,7 @@ def admin_bundles(product_id):
         db.session.commit()
         return jsonify({"id": bundle.id}), 201
 
+# ============ طرق الدفع ============
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
 def admin_payment_methods():
@@ -320,6 +326,7 @@ def admin_delete_payment_method(method_id):
     db.session.commit()
     return jsonify({"success": True})
 
+# ============ الطلبات ============
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
 def admin_orders():
@@ -367,6 +374,7 @@ def admin_update_order_status(order_id):
 
     return jsonify({"status": order.status})
 
+# ============ الإيداعات ============
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
 def admin_deposits():
@@ -431,6 +439,7 @@ def admin_reject_deposit(deposit_id):
         send_telegram_notification(user.telegram_id, f"تم رفض إيداعك بقيمة {deposit.amount}$")
     return jsonify({"status": deposit.status})
 
+# ============ KYC ============
 @main.route("/admin/api/kyc", methods=["GET"])
 @jwt_required()
 def admin_kyc():
@@ -488,6 +497,7 @@ def admin_reject_kyc(kyc_id):
         send_telegram_notification(user.telegram_id, "تم رفض طلب التوثيق")
     return jsonify({"status": "rejected"})
 
+# ============ الإشعارات ============
 @main.route("/admin/api/notifications", methods=["POST"])
 @jwt_required()
 def admin_send_notification():
@@ -511,6 +521,7 @@ def admin_send_notification():
     db.session.commit()
     return jsonify({"success": True})
 
+# ============ طلبات الخدمة المخصصة ============
 @main.route("/admin/api/service-requests", methods=["GET"])
 @jwt_required()
 def admin_service_requests():
@@ -542,6 +553,7 @@ def admin_update_service_request(req_id):
     db.session.commit()
     return jsonify({"success": True})
 
+# ============ الإعدادات ============
 @main.route("/admin/api/settings", methods=["GET", "PUT"])
 @jwt_required()
 def admin_settings():
