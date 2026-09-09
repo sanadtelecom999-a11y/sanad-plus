@@ -1,9 +1,9 @@
+import uuid
+from datetime import datetime, timezone
 from flask import request, jsonify
-from ..models.base import User, KYCRequest, Notification, Transaction
+from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRequest
 from ..extensions import db
 from . import main
-from datetime import datetime, timezone
-import uuid
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -23,6 +23,19 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
         )
         db.session.add(user)
         db.session.commit()
+    else:
+        changed = False
+        if user.first_name != first_name:
+            user.first_name = first_name
+            changed = True
+        if user.last_name != last_name:
+            user.last_name = last_name
+            changed = True
+        if user.username != username:
+            user.username = username
+            changed = True
+        if changed:
+            db.session.commit()
     return user
 
 @main.route("/api/user/me", methods=["GET"])
