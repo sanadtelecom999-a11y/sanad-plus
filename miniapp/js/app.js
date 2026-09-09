@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
     applyTelegramTheme();
 
-    // التحقق من توفر بيانات تيليجرام
     let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
     if (telegram_id) {
         userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
@@ -245,36 +244,46 @@ function updateKYCUI() {
                 <p class="kyc-message">طلب التوثيق قيد التدقيق يرجى انتظار رد الإدارة</p>
             </div>`;
     } else {
+        // نموذج التوثيق الجديد
         container.innerHTML = `
-        <div class="kyc-container">
-            <h2>توثيق الحساب (KYC)</h2>
-            <div class="kyc-form">
-                <div class="form-group"><label>الاسم الكامل</label><input type="text" id="kycFullName" placeholder="أدخل اسمك الكامل"></div>
-                <div class="form-group"><label>رقم الجوال</label><input type="tel" id="kycPhone" placeholder="أدخل رقم الجوال"></div>
-                <div class="form-group">
-                    <label>صورة الهوية الأمامية</label>
-                    <div class="image-preview" id="kycFrontPreview">📷</div>
-                    <input type="file" id="kycFrontImage" accept="image/*" onchange="previewImage(this,'kycFrontPreview')">
+            <div class="kyc-container">
+                <h2>توثيق الحساب</h2>
+                <p style="color:var(--text-secondary); margin-bottom:20px;">يرجى تعبئة البيانات التالية لتفعيل جميع ميزات التطبيق</p>
+                <div class="kyc-form" style="max-width:400px; margin:0 auto; text-align:right;">
+                    <div class="form-group">
+                        <label>الاسم الكامل</label>
+                        <input type="text" id="kycFullName" placeholder="مثال: أحمد محمد" />
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الجوال</label>
+                        <input type="tel" id="kycPhone" placeholder="مثال: 0959921234" />
+                    </div>
+                    <div class="form-group">
+                        <label>العنوان الحالي</label>
+                        <input type="text" id="kycAddress" placeholder="المدينة / المنطقة" />
+                    </div>
+                    <div class="form-group">
+                        <label>صورة سيلفي مع الهوية</label>
+                        <div class="image-preview" id="kycSelfiePreview" style="height:180px;">
+                            <span style="color:var(--text-secondary); font-size:0.9rem;">اضغط لرفع الصورة</span>
+                        </div>
+                        <input type="file" id="kycSelfieImage" accept="image/*" onchange="previewImage(this,'kycSelfiePreview')" style="margin-top:8px;" />
+                    </div>
+                    <button class="btn-primary" onclick="submitKYCRequest()">إرسال طلب التوثيق</button>
                 </div>
-                <div class="form-group">
-                    <label>صورة الهوية الخلفية</label>
-                    <div class="image-preview" id="kycBackPreview">📷</div>
-                    <input type="file" id="kycBackImage" accept="image/*" onchange="previewImage(this,'kycBackPreview')">
-                </div>
-                <button class="btn-primary" onclick="submitKYCRequest()">إرسال طلب التوثيق</button>
             </div>
-        </div>`;
+        `;
     }
 }
 
 async function submitKYCRequest() {
     const fullName = document.getElementById('kycFullName')?.value;
     const phone = document.getElementById('kycPhone')?.value;
-    const frontFile = document.getElementById('kycFrontImage')?.files[0];
-    const backFile = document.getElementById('kycBackImage')?.files[0];
+    const address = document.getElementById('kycAddress')?.value;
+    const selfieFile = document.getElementById('kycSelfieImage')?.files[0];
 
-    if (!fullName || !phone || !frontFile || !backFile) {
-        alert('يرجى تعبئة جميع الحقول ورفع الصور');
+    if (!fullName || !phone || !address || !selfieFile) {
+        alert('يرجى تعبئة جميع الحقول ورفع الصورة');
         return;
     }
 
@@ -283,7 +292,7 @@ async function submitKYCRequest() {
         return;
     }
 
-    const compressImage = (file, maxWidth = 800) => new Promise((resolve, reject) => {
+    const compressImage = (file, maxWidth = 600) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
             const img = new Image();
@@ -299,7 +308,7 @@ async function submitKYCRequest() {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
                 resolve(dataUrl);
             };
             img.onerror = reject;
@@ -310,15 +319,14 @@ async function submitKYCRequest() {
     });
 
     try {
-        const frontBase64 = await compressImage(frontFile);
-        const backBase64 = await compressImage(backFile);
+        const selfieBase64 = await compressImage(selfieFile);
 
         const result = await submitKYC({
             telegram_id: userData.telegram_id,
             full_name: fullName,
             phone: phone,
-            id_front_image: frontBase64,
-            id_back_image: backBase64,
+            address: address,
+            selfie_image: selfieBase64,
         });
 
         if (result && result.error) {
@@ -336,6 +344,7 @@ async function submitKYCRequest() {
     }
 }
 
+// ... بقية الدوال كما في النسخة السابقة (نفس الشيء) ...
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
