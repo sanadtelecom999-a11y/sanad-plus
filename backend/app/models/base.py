@@ -9,9 +9,9 @@ class User(db.Model):
     first_name = db.Column(db.String(100))
     last_name = db.Column(db.String(100))
     balance = db.Column(db.Float, default=0.0)
-    kyc_status = db.Column(db.String(20), default="unverified")  # unverified, pending, verified, rejected
+    kyc_status = db.Column(db.String(20), default="unverified")
     is_verified = db.Column(db.Boolean, default=False)
-    role = db.Column(db.String(20), default="user")  # user, admin
+    role = db.Column(db.String(20), default="user")
     is_banned = db.Column(db.Boolean, default=False)
     vip_level = db.Column(db.Integer, default=0)
     referral_code = db.Column(db.String(50), unique=True)
@@ -28,7 +28,7 @@ class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.String(255))
+    image = db.Column(db.Text)           # تم التغيير من String(255) إلى Text
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
     products = db.relationship("Product", backref="category", lazy=True)
@@ -39,12 +39,12 @@ class Product(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    image = db.Column(db.String(255))
-    product_type = db.Column(db.String(20), default="quantity")  # quantity, bundle, topup
+    image = db.Column(db.Text)           # تم التغيير من String(255) إلى Text
+    product_type = db.Column(db.String(20), default="quantity")
     base_quantity = db.Column(db.Integer, default=0)
     base_price = db.Column(db.Float, nullable=False, default=0.0)
     unit_name = db.Column(db.String(50), default="قطعة")
-    input_type = db.Column(db.String(20), default="id")  # id, phone, none, custom
+    input_type = db.Column(db.String(20), default="id")
     custom_input_label = db.Column(db.String(100))
     stock = db.Column(db.Integer, default=0)
     is_bundle = db.Column(db.Boolean, default=False)
@@ -70,9 +70,9 @@ class Order(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Float, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(20), default="pending")  # pending, review, processing, completed, failed, cancelled
+    status = db.Column(db.String(20), default="pending")
     payment_method = db.Column(db.String(50))
-    delivery_data = db.Column(db.Text)  # JSON string for custom input (id, phone, etc.)
+    delivery_data = db.Column(db.Text)
     idempotency_key = db.Column(db.String(100), unique=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -84,13 +84,13 @@ class Deposit(db.Model):
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(10), default="USD")
     method = db.Column(db.String(100))
-    proof_image = db.Column(db.String(255))
+    proof_image = db.Column(db.Text)     # تغيير إلى Text للسماح بالصور الكبيرة
     account_number = db.Column(db.String(100))
     sender_name = db.Column(db.String(100))
     txid = db.Column(db.String(100))
     transaction_id = db.Column(db.String(100), unique=True)
     fee = db.Column(db.Float, default=0.0)
-    status = db.Column(db.String(20), default="pending")  # pending, approved, rejected
+    status = db.Column(db.String(20), default="pending")
     admin_note = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -101,7 +101,7 @@ class PaymentMethod(db.Model):
     description = db.Column(db.String(255))
     account = db.Column(db.String(255))
     account_name = db.Column(db.String(100))
-    icon = db.Column(db.String(255))
+    icon = db.Column(db.Text)            # تم التغيير من String(255) إلى Text
     min_amount = db.Column(db.Float, default=0)
     fee = db.Column(db.Float, default=0)
     requires_kyc = db.Column(db.Boolean, default=False)
@@ -113,9 +113,9 @@ class KYCRequest(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
-    address = db.Column(db.String(255), nullable=True)       # العنوان الحالي
-    selfie_image = db.Column(db.Text, nullable=True)         # صورة سيلفي مع الهوية
-    status = db.Column(db.String(20), default="pending")     # pending, approved, rejected
+    address = db.Column(db.String(255), nullable=True)
+    selfie_image = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default="pending")
     admin_note = db.Column(db.Text)
     submitted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at = db.Column(db.DateTime)
@@ -123,18 +123,18 @@ class KYCRequest(db.Model):
 class Notification(db.Model):
     __tablename__ = "notifications"
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)  # null for broadcast
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     title = db.Column(db.String(100))
     message = db.Column(db.Text)
     is_read = db.Column(db.Boolean, default=False)
-    type = db.Column(db.String(50), default="info")  # info, success, warning
+    type = db.Column(db.String(50), default="info")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Transaction(db.Model):
     __tablename__ = "transactions"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    type = db.Column(db.String(50))  # deposit, purchase, refund, adjustment
+    type = db.Column(db.String(50))
     amount = db.Column(db.Float, nullable=False)
     balance_after = db.Column(db.Float)
     reference_type = db.Column(db.String(50))
