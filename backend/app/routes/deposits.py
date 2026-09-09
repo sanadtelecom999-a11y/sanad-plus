@@ -70,10 +70,7 @@ def create_deposit():
     db.session.add(notif)
     db.session.commit()
 
-    # إشعار المستخدم
     send_telegram_notification(user.telegram_id, f"تم استلام طلب الإيداع بقيمة {amount}$ وهو قيد المراجعة")
-
-    # إشعار الأدمن
     notify_admins(f"💰 إيداع جديد!\nالمستخدم: {user.telegram_id}\nالمبلغ: {amount}$\nالطريقة: {method}")
 
     return jsonify({
