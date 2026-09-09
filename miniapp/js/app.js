@@ -1,3 +1,31 @@
+document.addEventListener('DOMContentLoaded', async () => {
+    initTelegram();
+    applyTelegramTheme();
+
+    // انتظر قليلاً لضمان جاهزية Telegram
+    setTimeout(async () => {
+        // استخدم window.currentUser أو initDataUnsafe مباشرة
+        let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+        if (telegram_id) {
+            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
+        } else {
+            userData = null;
+        }
+
+        updateUserUI();
+        await loadInitialData();
+        setupNavigation();
+        setupFilters();
+        setupSearch();
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const darkToggle = document.getElementById('darkModeToggle');
+            if (darkToggle) darkToggle.checked = savedTheme === 'dark';
+        }
+    }, 300);
+});
 // miniapp/js/app.js
 // النسخة الكاملة مع جميع الإصلاحات
 
