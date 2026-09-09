@@ -3,6 +3,7 @@ import sys
 import threading
 import sqlalchemy as sa
 
+# إضافة جذر المشروع للمسار
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import create_app
@@ -11,6 +12,7 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
+    """إضافة الأعمدة المفقودة بأمان دون حذف البيانات"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
@@ -39,15 +41,19 @@ def upgrade_database():
         db.session.commit()
         print("✅ اكتملت ترقية قاعدة البيانات")
 
-def run_bot_thread():
-    from bot.bot import run_polling
-    run_polling()
+def run_flask():
+    """تشغيل Flask في خيط منفصل"""
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
+    # ترقية قاعدة البيانات
     upgrade_database()
 
-    bot_thread = threading.Thread(target=run_bot_thread, daemon=True)
-    bot_thread.start()
+    # تشغيل Flask في خيط منفصل
+    flask_thread = threading.Thread(target=run_flask, daemon=True)
+    flask_thread.start()
 
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    # تشغيل البوت في الخيط الرئيسي (حتى يعمل Polling بشكل صحيح)
+    from bot.bot import run_polling
+    run_polling()
