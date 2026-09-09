@@ -224,7 +224,7 @@ async function saveCategory() {
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
     if (imageFile) {
-        image = await fileToBase64(imageFile, 120);  // ضغط قوي
+        image = await fileToBase64(imageFile, 120);
     }
     try {
         await createCategory({ name, icon, image });
@@ -305,7 +305,7 @@ async function saveProduct() {
     if (!name || !categoryId) return alert('أدخل البيانات');
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
-    if (imageFile) image = await fileToBase64(imageFile, 120);  // ضغط قوي
+    if (imageFile) image = await fileToBase64(imageFile, 120);
     try {
         await createProduct({ name, category_id: categoryId, product_type: type, base_price: price, base_quantity: baseQuantity, input_type: inputType, image });
         closeModal();
@@ -370,7 +370,7 @@ async function savePaymentMethod() {
     if (!name) return alert('أدخل اسم الطريقة');
     const iconFile = document.getElementById('paymentIcon').files[0];
     let icon = '';
-    if (iconFile) icon = await fileToBase64(iconFile, 120);  // ضغط قوي
+    if (iconFile) icon = await fileToBase64(iconFile, 120);
     try {
         await createPaymentMethod({ name, description: desc, account, icon, is_active: true });
         closeModal();
@@ -400,7 +400,7 @@ function renderOrders(orders) {
     tbody.innerHTML = orders.map(order => `
         <tr>
             <td>${order.order_number}</td>
-            <td>${order.product_id}</td>
+            <td>${order.product_name || order.product_id}</td>
             <td>${order.quantity}</td>
             <td>${order.total_price}$</td>
             <td>
@@ -429,7 +429,29 @@ async function changeOrderStatus(orderId, status) {
 
 function viewOrderDetails(orderId) {
     const order = ordersData.find(o => o.id === orderId);
-    if (order) openModal('تفاصيل الطلب', `<pre>${JSON.stringify(order, null, 2)}</pre>`);
+    if (!order) return;
+    let deliveryInfo = '';
+    try {
+        const delivery = JSON.parse(order.delivery_data || '{}');
+        if (delivery.player_id) deliveryInfo += `<div><strong>معرف اللاعب (ID):</strong> ${delivery.player_id}</div>`;
+        if (delivery.phone) deliveryInfo += `<div><strong>رقم الهاتف:</strong> ${delivery.phone}</div>`;
+        if (delivery.bundle_name) deliveryInfo += `<div><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
+    } catch (e) {
+        deliveryInfo = `<div>${order.delivery_data || '-'}</div>`;
+    }
+    const body = `
+        <div style="text-align:right;">
+            <h3>تفاصيل الطلب</h3>
+            <p><strong>رقم الطلب:</strong> ${order.order_number}</p>
+            <p><strong>المنتج:</strong> ${order.product_name || order.product_id}</p>
+            <p><strong>الكمية:</strong> ${order.quantity}</p>
+            <p><strong>السعر الإجمالي:</strong> ${order.total_price}$</p>
+            <p><strong>الحالة:</strong> ${order.status}</p>
+            ${deliveryInfo}
+            <p><strong>التاريخ:</strong> ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</p>
+        </div>
+    `;
+    openModal('تفاصيل الطلب', body);
 }
 
 function renderDeposits(deposits) {
