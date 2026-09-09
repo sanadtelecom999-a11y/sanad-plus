@@ -28,6 +28,11 @@ async function apiRequest(url, options = {}) {
         ...options,
         headers,
     });
+    if (response.status === 401) {
+        clearToken();
+        showLogin();
+        throw new Error('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
+    }
     if (!response.ok) {
         let errorMessage = `خطأ ${response.status}`;
         try {
