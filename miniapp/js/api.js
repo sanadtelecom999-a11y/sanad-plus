@@ -1,20 +1,67 @@
+// miniapp/js/api.js
+
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
 async function authenticateUser(initData) {
     try {
+        let telegram_id = null;
+        let first_name = '';
+        let last_name = '';
+        let username = '';
+
+        // محاولة استخراج البيانات من Telegram WebApp مباشرة
+        if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+            const u = window.Telegram.WebApp.initDataUnsafe.user;
+            telegram_id = u.id;
+            first_name = u.first_name || '';
+            last_name = u.last_name || '';
+            username = u.username || '';
+        } else if (window.currentUser) {
+            telegram_id = window.currentUser.id;
+            first_name = window.currentUser.first_name;
+            last_name = window.currentUser.last_name;
+            username = window.currentUser.username;
+        }
+
+        if (!telegram_id) {
+            console.warn('لم يتم العثور على Telegram ID، استخدام الحساب التجريبي');
+            telegram_id = 8673286954;
+            first_name = 'مستخدم تجريبي';
+            username = 'tester';
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData }),
+            body: JSON.stringify({
+                telegram_id,
+                first_name,
+                last_name,
+                username,
+                initData: initData || '',
+            }),
         });
-        if (!response.ok) throw new Error('Auth failed');
+
+        if (!response.ok) {
+            return {
+                telegram_id,
+                first_name,
+                last_name,
+                username,
+                balance: 0,
+                kyc_status: 'unverified',
+                is_verified: false,
+                role: 'user',
+                vip_level: 0,
+            };
+        }
         return await response.json();
     } catch (error) {
         console.error('Auth error:', error);
         return {
-            telegram_id: 8673286954,
-            username: 'Admin',
-            first_name: 'مستخدم',
+            telegram_id: window.currentUser?.id || 8673286954,
+            username: window.currentUser?.username || 'tester',
+            first_name: window.currentUser?.first_name || 'مستخدم تجريبي',
             balance: 0,
             kyc_status: 'unverified',
             is_verified: false,
@@ -30,7 +77,9 @@ async function fetchCategories() {
 }
 
 async function fetchProducts(categoryId = null) {
-    const url = categoryId ? `${API_BASE_URL}/api/products/?category_id=${categoryId}` : `${API_BASE_URL}/api/products/`;
+    const url = categoryId
+        ? `${API_BASE_URL}/api/products/?category_id=${categoryId}`
+        : `${API_BASE_URL}/api/products/`;
     const res = await fetch(url);
     return await res.json();
 }
