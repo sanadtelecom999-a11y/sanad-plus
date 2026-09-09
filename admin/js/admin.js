@@ -8,6 +8,7 @@ let paymentMethodsData = [];
 let ordersData = [];
 let depositsData = [];
 let kycData = [];
+let serviceRequestsData = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!getToken()) {
@@ -67,6 +68,7 @@ async function loadAllData() {
         ordersData = await fetchAdminOrders();
         depositsData = await fetchAdminDeposits();
         kycData = await fetchAdminKYC();
+        serviceRequestsData = await fetchServiceRequests();
     } catch (error) {
         console.error('خطأ في تحميل البيانات:', error);
     }
@@ -139,24 +141,36 @@ function renderUsers(users = usersData) {
 async function adjustBalance(userId) {
     const amount = prompt('أدخل المبلغ (سالب للخصم):');
     if (amount !== null) {
-        await adjustUserBalance(userId, parseFloat(amount));
-        await loadAllData();
-        renderUsers();
+        try {
+            await adjustUserBalance(userId, parseFloat(amount));
+            await loadAllData();
+            renderUsers();
+        } catch (error) {
+            alert(`فشل تعديل الرصيد: ${error.message}`);
+        }
     }
 }
 
 async function toggleBan(userId) {
-    await toggleUserBan(userId);
-    await loadAllData();
-    renderUsers();
+    try {
+        await toggleUserBan(userId);
+        await loadAllData();
+        renderUsers();
+    } catch (error) {
+        alert(`فشل تغيير حالة الحظر: ${error.message}`);
+    }
 }
 
 async function setVIP(userId, currentLevel) {
     const level = prompt('أدخل مستوى VIP (0 لإلغاء، 1-3):', currentLevel);
     if (level !== null) {
-        await setUserVIP(userId, parseInt(level));
-        await loadAllData();
-        renderUsers();
+        try {
+            await setUserVIP(userId, parseInt(level));
+            await loadAllData();
+            renderUsers();
+        } catch (error) {
+            alert(`فشل تعيين VIP: ${error.message}`);
+        }
     }
 }
 
@@ -206,15 +220,20 @@ async function saveCategory() {
         await loadAllData();
         renderCategories();
     } catch (error) {
-        alert('فشل إضافة القسم');
+        console.error('خطأ إضافة القسم:', error);
+        alert(`فشل إضافة القسم: ${error.message}`);
     }
 }
 
 async function deleteCategory(categoryId) {
     if (confirm('حذف القسم؟')) {
-        await deleteCategory(categoryId);
-        await loadAllData();
-        renderCategories();
+        try {
+            await deleteCategory(categoryId);
+            await loadAllData();
+            renderCategories();
+        } catch (error) {
+            alert(`فشل حذف القسم: ${error.message}`);
+        }
     }
 }
 
@@ -280,15 +299,20 @@ async function saveProduct() {
         await loadAllData();
         renderProducts();
     } catch (error) {
-        alert('فشل إضافة المنتج');
+        console.error('خطأ إضافة المنتج:', error);
+        alert(`فشل إضافة المنتج: ${error.message}`);
     }
 }
 
 async function deleteProduct(productId) {
     if (confirm('حذف المنتج؟')) {
-        await deleteProduct(productId);
-        await loadAllData();
-        renderProducts();
+        try {
+            await deleteProduct(productId);
+            await loadAllData();
+            renderProducts();
+        } catch (error) {
+            alert(`فشل حذف المنتج: ${error.message}`);
+        }
     }
 }
 
@@ -339,15 +363,20 @@ async function savePaymentMethod() {
         await loadAllData();
         renderPaymentMethods();
     } catch (error) {
-        alert('فشل إضافة طريقة الدفع');
+        console.error('خطأ إضافة طريقة الدفع:', error);
+        alert(`فشل إضافة طريقة الدفع: ${error.message}`);
     }
 }
 
 async function deletePaymentMethod(methodId) {
     if (confirm('حذف طريقة الدفع؟')) {
-        await deletePaymentMethod(methodId);
-        await loadAllData();
-        renderPaymentMethods();
+        try {
+            await deletePaymentMethod(methodId);
+            await loadAllData();
+            renderPaymentMethods();
+        } catch (error) {
+            alert(`فشل حذف طريقة الدفع: ${error.message}`);
+        }
     }
 }
 
@@ -374,9 +403,13 @@ function renderOrders(orders) {
 }
 
 async function changeOrderStatus(orderId, status) {
-    await updateOrderStatus(orderId, status);
-    await loadAllData();
-    renderOrders(ordersData);
+    try {
+        await updateOrderStatus(orderId, status);
+        await loadAllData();
+        renderOrders(ordersData);
+    } catch (error) {
+        alert(`فشل تغيير حالة الطلب: ${error.message}`);
+    }
 }
 
 function viewOrderDetails(orderId) {
@@ -408,15 +441,23 @@ function renderDeposits(deposits) {
 }
 
 async function approveDeposit(depositId) {
-    await approveDeposit(depositId);
-    await loadAllData();
-    renderDeposits(depositsData);
+    try {
+        await approveDeposit(depositId);
+        await loadAllData();
+        renderDeposits(depositsData);
+    } catch (error) {
+        alert(`فشل قبول الإيداع: ${error.message}`);
+    }
 }
 
 async function rejectDeposit(depositId) {
-    await rejectDeposit(depositId);
-    await loadAllData();
-    renderDeposits(depositsData);
+    try {
+        await rejectDeposit(depositId);
+        await loadAllData();
+        renderDeposits(depositsData);
+    } catch (error) {
+        alert(`فشل رفض الإيداع: ${error.message}`);
+    }
 }
 
 function renderKYC() {
@@ -446,15 +487,23 @@ function renderKYC() {
 }
 
 async function approveKYC(kycId) {
-    await approveKYC(kycId);
-    await loadAllData();
-    renderKYC();
+    try {
+        await approveKYC(kycId);
+        await loadAllData();
+        renderKYC();
+    } catch (error) {
+        alert(`فشل قبول التوثيق: ${error.message}`);
+    }
 }
 
 async function rejectKYC(kycId) {
-    await rejectKYC(kycId);
-    await loadAllData();
-    renderKYC();
+    try {
+        await rejectKYC(kycId);
+        await loadAllData();
+        renderKYC();
+    } catch (error) {
+        alert(`فشل رفض التوثيق: ${error.message}`);
+    }
 }
 
 function sendAdminNotification() {
@@ -464,7 +513,7 @@ function sendAdminNotification() {
     const type = document.getElementById('notificationType').value;
     const data = { target, title: 'إشعار من الإدارة', message, type };
     if (target === 'specific') data.user_id = document.getElementById('notificationUserId').value;
-    sendNotification(data).then(() => alert('تم الإرسال')).catch(() => alert('فشل'));
+    sendNotification(data).then(() => alert('تم الإرسال')).catch(error => alert(`فشل الإرسال: ${error.message}`));
 }
 
 function openModal(title, bodyHTML) {
