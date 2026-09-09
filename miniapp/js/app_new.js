@@ -1,4 +1,4 @@
-// miniapp/js/app.js
+// miniapp/js/app_new.js
 
 let currentPage = 'page-home';
 let userData = null;
@@ -78,8 +78,11 @@ function updateUserUI() {
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
     if (userData.vip_level > 0) {
-        document.getElementById('vipBadge').style.display = 'inline';
-        document.getElementById('accountVipBadge').style.display = 'inline';
+        const vipBadge = document.getElementById('vipBadge');
+        vipBadge.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
+        vipBadge.style.display = 'inline-block';
+        document.getElementById('accountVipBadge').innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
+        document.getElementById('accountVipBadge').style.display = 'inline-block';
     }
 
     const hour = new Date().getHours();
@@ -104,9 +107,9 @@ function updateUserUI() {
 function updateKYCBadge() {
     const badge = document.getElementById('accountKycBadge');
     if (!badge || !userData) return;
-    if (kycStatus === 'verified' || userData.is_verified) {
+    if (userData.kyc_status === 'verified' || userData.is_verified) {
         badge.innerHTML = '<span class="status-badge verified">موثق <span class="material-icons">verified</span></span>';
-    } else if (kycStatus === 'pending') {
+    } else if (userData.kyc_status === 'pending' || kycStatus === 'pending') {
         badge.innerHTML = '<span class="status-badge pending">قيد المراجعة</span>';
     } else {
         badge.innerHTML = '<span class="status-badge unverified">غير موثق</span>';
@@ -229,14 +232,16 @@ function renderDeposits(deposits) {
 function updateKYCUI() {
     const container = document.getElementById('kycDynamicContent');
     if (!container) return;
-    if (kycStatus === 'verified') {
+    const isVerified = (userData && (userData.kyc_status === 'verified' || userData.is_verified)) || kycStatus === 'verified';
+    const isPending = (userData && userData.kyc_status === 'pending') || kycStatus === 'pending';
+    if (isVerified) {
         container.innerHTML = `
             <div class="kyc-container">
                 <h2>توثيق الحساب (KYC)</h2>
                 <div class="kyc-icon"><span class="material-icons">verified</span></div>
                 <p class="kyc-message">حسابك موثق بالفعل</p>
             </div>`;
-    } else if (kycStatus === 'pending') {
+    } else if (isPending) {
         container.innerHTML = `
             <div class="kyc-container">
                 <h2>توثيق الحساب (KYC)</h2>
@@ -244,7 +249,6 @@ function updateKYCUI() {
                 <p class="kyc-message">طلب التوثيق قيد التدقيق يرجى انتظار رد الإدارة</p>
             </div>`;
     } else {
-        // نموذج التوثيق الجديد
         container.innerHTML = `
             <div class="kyc-container">
                 <h2>توثيق الحساب</h2>
@@ -344,7 +348,6 @@ async function submitKYCRequest() {
     }
 }
 
-// ... بقية الدوال كما في النسخة السابقة (نفس الشيء) ...
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
