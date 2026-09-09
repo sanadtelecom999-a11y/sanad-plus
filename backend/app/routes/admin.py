@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -13,7 +14,6 @@ ADMIN_PASSWORD = "admin123"
 def is_admin_user(identity):
     return identity == "admin"
 
-# ============ تسجيل الدخول ============
 @main.route("/admin/login", methods=["POST"])
 def admin_login():
     data = request.get_json()
@@ -24,7 +24,6 @@ def admin_login():
         return jsonify({"token": token}), 200
     return jsonify({"error": "بيانات غير صحيحة"}), 401
 
-# ============ المستخدمون ============
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
 def admin_get_users():
@@ -54,10 +53,28 @@ def admin_adjust_balance(user_id):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json()
     amount = float(data.get("amount", 0))
+    note = data.get("note", "")
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    # تحديث الرصيد
     user.balance += amount
+
+    # إنشاء سجل إيداع يدوي
+    deposit = Deposit(
+        user_id=user.id,
+        amount=amount,
+        currency="USD",
+        method="إيداع يدوي",
+        status="approved",
+        transaction_id="ADJ-" + uuid.uuid4().hex[:8].upper(),
+        created_at=datetime.now(timezone.utc),
+        admin_note=note,
+    )
+    db.session.add(deposit)
+
+    # تسجيل معاملة
     txn = Transaction(
         user_id=user.id,
         type="adjustment",
@@ -67,7 +84,20 @@ def admin_adjust_balance(user_id):
         reference_id=user.id,
     )
     db.session.add(txn)
+
+    # إشعار للمستخدم
+    notif = Notification(
+        user_id=user.id,
+        title="تعديل الرصيد",
+        message=f"تم تعديل رصيدك بمقدار {amount}$" + (f" ({note})" if note else ""),
+        type="info",
+    )
+    db.session.add(notif)
+
     db.session.commit()
+
+    send_telegram_notification(user.telegram_id, f"تم تعديل رصيدك بمقدار {amount}$")
+
     return jsonify({"balance": user.balance})
 
 @main.route("/admin/api/users/<int:user_id>/ban", methods=["POST"])
@@ -96,7 +126,6 @@ def admin_set_vip(user_id):
     db.session.commit()
     return jsonify({"vip_level": user.vip_level})
 
-# ============ الأقسام ============
 @main.route("/admin/api/categories", methods=["GET", "POST"])
 @jwt_required()
 def admin_categories():
@@ -105,12 +134,8 @@ def admin_categories():
     if request.method == "GET":
         categories = Category.query.all()
         return jsonify([{
-            "id": c.id,
-            "name": c.name,
-            "description": c.description,
-            "image": c.image,
-            "is_active": c.is_active,
-            "order": c.order,
+            "id": c.id, "name": c.name, "description": c.description,
+            "image": c.image, "is_active": c.is_active, "order": c.order,
         } for c in categories])
     else:
         data = request.get_json()
@@ -137,7 +162,6 @@ def admin_delete_category(cat_id):
     db.session.commit()
     return jsonify({"success": True})
 
-# ============ المنتجات ============
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
 def admin_products():
@@ -146,20 +170,12 @@ def admin_products():
     if request.method == "GET":
         products = Product.query.all()
         return jsonify([{
-            "id": p.id,
-            "category_id": p.category_id,
-            "name": p.name,
-            "description": p.description,
-            "image": p.image,
-            "product_type": p.product_type,
-            "base_quantity": p.base_quantity,
-            "base_price": p.base_price,
-            "unit_name": p.unit_name,
-            "input_type": p.input_type,
-            "custom_input_label": p.custom_input_label,
-            "stock": p.stock,
-            "is_bundle": p.is_bundle,
-            "is_active": p.is_active,
+            "id": p.id, "category_id": p.category_id, "name": p.name,
+            "description": p.description, "image": p.image,
+            "product_type": p.product_type, "base_quantity": p.base_quantity,
+            "base_price": p.base_price, "unit_name": p.unit_name,
+            "input_type": p.input_type, "custom_input_label": p.custom_input_label,
+            "stock": p.stock, "is_bundle": p.is_bundle, "is_active": p.is_active,
         } for p in products])
     else:
         data = request.get_json()
@@ -202,7 +218,30 @@ def admin_product_actions(product_id):
         db.session.commit()
         return jsonify({"success": True})
 
-# ============ طرق الدفع ============
+@main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
+@jwt_required()
+def admin_bundles(product_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    if request.method == "GET":
+        bundles = ProductBundle.query.filter_by(product_id=product_id).all()
+        return jsonify([{
+            "id": b.id, "name": b.name, "quantity": b.quantity,
+            "price_usd": b.price_usd, "is_active": b.is_active,
+        } for b in bundles])
+    else:
+        data = request.get_json()
+        bundle = ProductBundle(
+            product_id=product_id,
+            name=data.get("name"),
+            quantity=data.get("quantity"),
+            price_usd=data.get("price_usd"),
+            is_active=data.get("is_active", True),
+        )
+        db.session.add(bundle)
+        db.session.commit()
+        return jsonify({"id": bundle.id}), 201
+
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
 def admin_payment_methods():
@@ -211,16 +250,10 @@ def admin_payment_methods():
     if request.method == "GET":
         methods = PaymentMethod.query.all()
         return jsonify([{
-            "id": m.id,
-            "name": m.name,
-            "description": m.description,
-            "account": m.account,
-            "account_name": m.account_name,
-            "icon": m.icon,
-            "min_amount": m.min_amount,
-            "fee": m.fee,
-            "requires_kyc": m.requires_kyc,
-            "is_active": m.is_active,
+            "id": m.id, "name": m.name, "description": m.description,
+            "account": m.account, "account_name": m.account_name,
+            "icon": m.icon, "min_amount": m.min_amount,
+            "fee": m.fee, "requires_kyc": m.requires_kyc, "is_active": m.is_active,
         } for m in methods])
     else:
         data = request.get_json()
@@ -251,35 +284,6 @@ def admin_delete_payment_method(method_id):
     db.session.commit()
     return jsonify({"success": True})
 
-# ============ الباقات ============
-@main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
-@jwt_required()
-def admin_bundles(product_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    if request.method == "GET":
-        bundles = ProductBundle.query.filter_by(product_id=product_id).all()
-        return jsonify([{
-            "id": b.id,
-            "name": b.name,
-            "quantity": b.quantity,
-            "price_usd": b.price_usd,
-            "is_active": b.is_active,
-        } for b in bundles])
-    else:
-        data = request.get_json()
-        bundle = ProductBundle(
-            product_id=product_id,
-            name=data.get("name"),
-            quantity=data.get("quantity"),
-            price_usd=data.get("price_usd"),
-            is_active=data.get("is_active", True),
-        )
-        db.session.add(bundle)
-        db.session.commit()
-        return jsonify({"id": bundle.id}), 201
-
-# ============ الطلبات ============
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
 def admin_orders():
@@ -287,15 +291,10 @@ def admin_orders():
         return jsonify({"error": "غير مصرح"}), 403
     orders = Order.query.order_by(Order.created_at.desc()).all()
     return jsonify([{
-        "id": o.id,
-        "order_number": o.order_number,
-        "user_id": o.user_id,
-        "product_id": o.product_id,
-        "quantity": o.quantity,
-        "unit_price": o.unit_price,
-        "total_price": o.total_price,
-        "status": o.status,
-        "delivery_data": o.delivery_data,
+        "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
+        "product_id": o.product_id, "quantity": o.quantity,
+        "unit_price": o.unit_price, "total_price": o.total_price,
+        "status": o.status, "delivery_data": o.delivery_data,
         "created_at": o.created_at.isoformat() if o.created_at else None,
     } for o in orders])
 
@@ -312,7 +311,6 @@ def admin_update_order_status(order_id):
     order.status = new_status
     order.updated_at = datetime.now(timezone.utc)
     db.session.commit()
-
     user = User.query.get(order.user_id)
     if user:
         notif = Notification(
@@ -324,10 +322,8 @@ def admin_update_order_status(order_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} أصبح {new_status}")
-
     return jsonify({"status": order.status})
 
-# ============ الإيداعات ============
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
 def admin_deposits():
@@ -335,13 +331,10 @@ def admin_deposits():
         return jsonify({"error": "غير مصرح"}), 403
     deposits = Deposit.query.order_by(Deposit.created_at.desc()).all()
     return jsonify([{
-        "id": d.id,
-        "user_id": d.user_id,
-        "amount": d.amount,
-        "method": d.method,
-        "proof_image": d.proof_image,
-        "status": d.status,
-        "transaction_id": d.transaction_id,
+        "id": d.id, "user_id": d.user_id, "amount": d.amount,
+        "method": d.method, "proof_image": d.proof_image,
+        "status": d.status, "transaction_id": d.transaction_id,
+        "admin_note": d.admin_note,
         "created_at": d.created_at.isoformat() if d.created_at else None,
     } for d in deposits])
 
@@ -359,12 +352,8 @@ def admin_approve_deposit(deposit_id):
         if user:
             user.balance += deposit.amount
             txn = Transaction(
-                user_id=user.id,
-                type="deposit",
-                amount=deposit.amount,
-                balance_after=user.balance,
-                reference_type="deposit",
-                reference_id=deposit.id,
+                user_id=user.id, type="deposit", amount=deposit.amount,
+                balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
             )
             db.session.add(txn)
             notif = Notification(user_id=user.id, title="إيداع مقبول", message=f"تم قبول إيداعك بقيمة {deposit.amount}$", type="success")
@@ -391,7 +380,6 @@ def admin_reject_deposit(deposit_id):
         send_telegram_notification(user.telegram_id, f"تم رفض إيداعك بقيمة {deposit.amount}$")
     return jsonify({"status": deposit.status})
 
-# ============ KYC ============
 @main.route("/admin/api/kyc", methods=["GET"])
 @jwt_required()
 def admin_kyc():
@@ -399,13 +387,9 @@ def admin_kyc():
         return jsonify({"error": "غير مصرح"}), 403
     kycs = KYCRequest.query.order_by(KYCRequest.submitted_at.desc()).all()
     return jsonify([{
-        "id": k.id,
-        "user_id": k.user_id,
-        "full_name": k.full_name,
-        "phone": k.phone,
-        "id_front_image": k.id_front_image,
-        "id_back_image": k.id_back_image,
-        "status": k.status,
+        "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
+        "phone": k.phone, "id_front_image": k.id_front_image,
+        "id_back_image": k.id_back_image, "status": k.status,
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
     } for k in kycs])
 
@@ -449,7 +433,6 @@ def admin_reject_kyc(kyc_id):
         send_telegram_notification(user.telegram_id, "تم رفض طلب التوثيق")
     return jsonify({"status": "rejected"})
 
-# ============ الإشعارات ============
 @main.route("/admin/api/notifications", methods=["POST"])
 @jwt_required()
 def admin_send_notification():
@@ -473,7 +456,6 @@ def admin_send_notification():
     db.session.commit()
     return jsonify({"success": True})
 
-# ============ طلبات الخدمة المخصصة ============
 @main.route("/admin/api/service-requests", methods=["GET"])
 @jwt_required()
 def admin_service_requests():
@@ -481,13 +463,9 @@ def admin_service_requests():
         return jsonify({"error": "غير مصرح"}), 403
     requests = ServiceRequest.query.order_by(ServiceRequest.created_at.desc()).all()
     return jsonify([{
-        "id": r.id,
-        "user_id": r.user_id,
-        "service_name": r.service_name,
-        "description": r.description,
-        "estimated_price": r.estimated_price,
-        "status": r.status,
-        "admin_response": r.admin_response,
+        "id": r.id, "user_id": r.user_id, "service_name": r.service_name,
+        "description": r.description, "estimated_price": r.estimated_price,
+        "status": r.status, "admin_response": r.admin_response,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     } for r in requests])
 
@@ -505,7 +483,6 @@ def admin_update_service_request(req_id):
     db.session.commit()
     return jsonify({"success": True})
 
-# ============ الإعدادات ============
 @main.route("/admin/api/settings", methods=["GET", "PUT"])
 @jwt_required()
 def admin_settings():
