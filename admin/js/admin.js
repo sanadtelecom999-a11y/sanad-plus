@@ -511,6 +511,7 @@ async function approveKYC(kycId) {
         await loadAllData();
         renderKYC();
     } catch (error) {
+        console.error('فشل قبول التوثيق:', error);
         alert(`فشل قبول التوثيق: ${error.message}`);
     }
 }
@@ -521,6 +522,7 @@ async function rejectKYC(kycId) {
         await loadAllData();
         renderKYC();
     } catch (error) {
+        console.error('فشل رفض التوثيق:', error);
         alert(`فشل رفض التوثيق: ${error.message}`);
     }
 }
