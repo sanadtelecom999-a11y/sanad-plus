@@ -146,6 +146,7 @@ async function toggleKYC(userId, currentStatus) {
         await toggleUserKYC(userId, newStatus);
         await loadAllData();
         renderUsers();
+        alert('تم تحديث حالة التوثيق بنجاح');
     } catch (error) {
         alert(`فشل تحديث التوثيق: ${error.message}`);
     }
@@ -159,6 +160,7 @@ async function adjustBalance(userId) {
         await adjustUserBalance(userId, parseFloat(amount), note);
         await loadAllData();
         renderUsers();
+        alert('تم تعديل الرصيد بنجاح');
     } catch (error) {
         alert(`فشل تعديل الرصيد: ${error.message}`);
     }
@@ -169,6 +171,7 @@ async function toggleBan(userId) {
         await toggleUserBan(userId);
         await loadAllData();
         renderUsers();
+        alert('تم تحديث حالة الحظر');
     } catch (error) {
         alert(`فشل تغيير حالة الحظر: ${error.message}`);
     }
@@ -181,6 +184,7 @@ async function setVIP(userId, currentLevel) {
             await setUserVIP(userId, parseInt(level));
             await loadAllData();
             renderUsers();
+            alert('تم تحديث مستوى VIP');
         } catch (error) {
             alert(`فشل تعيين VIP: ${error.message}`);
         }
@@ -225,13 +229,14 @@ async function saveCategory() {
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
     if (imageFile) {
-        image = await fileToBase64(imageFile, 512); // جودة أعلى
+        image = await fileToBase64(imageFile, 512);
     }
     try {
         await createCategory({ name, icon, image });
         closeModal();
         await loadAllData();
         renderCategories();
+        alert('تم إضافة القسم بنجاح');
     } catch (error) {
         console.error('خطأ إضافة القسم:', error);
         alert(`فشل إضافة القسم: ${error.message}`);
@@ -244,6 +249,7 @@ async function deleteCategoryHandler(categoryId) {
             await deleteCategory(categoryId);
             await loadAllData();
             renderCategories();
+            alert('تم حذف القسم');
         } catch (error) {
             console.error('خطأ حذف القسم:', error);
             alert(`فشل حذف القسم: ${error.message}`);
@@ -312,6 +318,7 @@ async function saveProduct() {
         closeModal();
         await loadAllData();
         renderProducts();
+        alert('تم إضافة المنتج بنجاح');
     } catch (error) {
         console.error('خطأ إضافة المنتج:', error);
         alert(`فشل إضافة المنتج: ${error.message}`);
@@ -324,6 +331,7 @@ async function deleteProductHandler(productId) {
             await deleteProduct(productId);
             await loadAllData();
             renderProducts();
+            alert('تم حذف المنتج');
         } catch (error) {
             console.error('خطأ حذف المنتج:', error);
             alert(`فشل حذف المنتج: ${error.message}`);
@@ -393,6 +401,7 @@ async function savePaymentMethod() {
         closeModal();
         await loadAllData();
         renderPaymentMethods();
+        alert('تم إضافة طريقة الدفع بنجاح');
     } catch (error) {
         console.error('خطأ إضافة طريقة الدفع:', error);
         alert(`فشل إضافة طريقة الدفع: ${error.message}`);
@@ -405,6 +414,7 @@ async function deletePaymentMethodHandler(methodId) {
             await deletePaymentMethod(methodId);
             await loadAllData();
             renderPaymentMethods();
+            alert('تم حذف طريقة الدفع');
         } catch (error) {
             console.error('خطأ حذف طريقة الدفع:', error);
             alert(`فشل حذف طريقة الدفع: ${error.message}`);
@@ -439,6 +449,7 @@ async function changeOrderStatus(orderId, status) {
         await updateOrderStatus(orderId, status);
         await loadAllData();
         renderOrders(ordersData);
+        alert('تم تحديث حالة الطلب');
     } catch (error) {
         alert(`فشل تغيير حالة الطلب: ${error.message}`);
     }
@@ -500,6 +511,7 @@ async function approveDeposit(depositId) {
         await approveDeposit(depositId);
         await loadAllData();
         renderDeposits(depositsData);
+        alert('تم قبول الإيداع');
     } catch (error) {
         alert(`فشل قبول الإيداع: ${error.message}`);
     }
@@ -510,6 +522,7 @@ async function rejectDeposit(depositId) {
         await rejectDeposit(depositId);
         await loadAllData();
         renderDeposits(depositsData);
+        alert('تم رفض الإيداع');
     } catch (error) {
         alert(`فشل رفض الإيداع: ${error.message}`);
     }
@@ -621,7 +634,7 @@ function fileToBase64(file, maxWidth = 512) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8); // جودة أعلى
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
                 resolve(dataUrl);
             };
             img.onerror = reject;
