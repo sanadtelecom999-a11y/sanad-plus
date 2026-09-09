@@ -232,6 +232,7 @@ async function deleteCategory(categoryId) {
             await loadAllData();
             renderCategories();
         } catch (error) {
+            console.error('خطأ حذف القسم:', error);
             alert(`فشل حذف القسم: ${error.message}`);
         }
     }
@@ -311,6 +312,7 @@ async function deleteProduct(productId) {
             await loadAllData();
             renderProducts();
         } catch (error) {
+            console.error('خطأ حذف المنتج:', error);
             alert(`فشل حذف المنتج: ${error.message}`);
         }
     }
@@ -375,6 +377,7 @@ async function deletePaymentMethod(methodId) {
             await loadAllData();
             renderPaymentMethods();
         } catch (error) {
+            console.error('خطأ حذف طريقة الدفع:', error);
             alert(`فشل حذف طريقة الدفع: ${error.message}`);
         }
     }
