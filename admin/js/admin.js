@@ -494,37 +494,12 @@ function renderKYC() {
             <td><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status}</span></td>
             <td>
                 ${k.status === 'pending' ? `
-                    <button class="btn-outline" onclick="approveKYCRequest(${k.id})">قبول</button>
-                    <button class="btn-outline" onclick="rejectKYCRequest(${k.id})">رفض</button>
+                    <button class="btn-outline" onclick="window.approveKYCRequest(${k.id})">قبول</button>
+                    <button class="btn-outline" onclick="window.rejectKYCRequest(${k.id})">رفض</button>
                 ` : '-'}
             </td>
         </tr>
     `).join('');
-}
-
-// ملاحظة: لا نعرّف دوال approveKYCRequest أو rejectKYCRequest هنا،
-// بل نستدعي الدوال العامة من api.js مباشرة.
-
-async function approveKYCRequest(kycId) {
-    try {
-        await window.approveKYCRequest(kycId);  // استدعاء دالة API من api.js
-        await loadAllData();
-        renderKYC();
-    } catch (error) {
-        console.error('فشل قبول التوثيق:', error);
-        alert(`فشل قبول التوثيق: ${error.message}`);
-    }
-}
-
-async function rejectKYCRequest(kycId) {
-    try {
-        await window.rejectKYCRequest(kycId);  // استدعاء دالة API من api.js
-        await loadAllData();
-        renderKYC();
-    } catch (error) {
-        console.error('فشل رفض التوثيق:', error);
-        alert(`فشل رفض التوثيق: ${error.message}`);
-    }
 }
 
 function sendAdminNotification() {
