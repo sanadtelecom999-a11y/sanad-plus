@@ -490,9 +490,9 @@ function renderKYC() {
             <td>${k.user_id}</td>
             <td>${k.full_name}</td>
             <td>${k.phone}</td>
+            <td>${k.address || '-'}</td>
             <td>
-                ${k.id_front_image ? `<a href="${k.id_front_image}" target="_blank">أمامية</a>` : '-'}
-                ${k.id_back_image ? `<a href="${k.id_back_image}" target="_blank">خلفية</a>` : '-'}
+                ${k.selfie_image ? `<a href="${k.selfie_image}" target="_blank">عرض الصورة</a>` : '-'}
             </td>
             <td><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status}</span></td>
             <td>
