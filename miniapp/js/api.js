@@ -1,3 +1,5 @@
+// miniapp/js/api.js
+
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
 async function apiFetch(url, options = {}) {
@@ -33,6 +35,7 @@ async function authenticateUser(initData) {
         let last_name = '';
         let username = '';
 
+        // محاولة استخراج البيانات من Telegram WebApp مباشرة
         if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
             const u = window.Telegram.WebApp.initDataUnsafe.user;
             telegram_id = u.id;
@@ -56,7 +59,13 @@ async function authenticateUser(initData) {
         const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id, first_name, last_name, username, initData: initData || '' }),
+            body: JSON.stringify({
+                telegram_id,
+                first_name,
+                last_name,
+                username,
+                initData: initData || '',
+            }),
         });
         return data;
     } catch (error) {
@@ -79,7 +88,9 @@ async function fetchCategories() {
 }
 
 async function fetchProducts(categoryId = null) {
-    const url = categoryId ? `${API_BASE_URL}/api/products/?category_id=${categoryId}` : `${API_BASE_URL}/api/products/`;
+    const url = categoryId
+        ? `${API_BASE_URL}/api/products/?category_id=${categoryId}`
+        : `${API_BASE_URL}/api/products/`;
     return await apiFetch(url);
 }
 
