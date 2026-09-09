@@ -8,6 +8,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # تفعيل CORS للسماح بالاتصال من أي مصدر
     CORS(app, resources={r"/*": {"origins": "*"}})
 
     db.init_app(app)
@@ -17,8 +18,14 @@ def create_app():
     app.register_blueprint(main)
 
     with app.app_context():
-        # إعادة إنشاء الجداول مع الحقول الجديدة (للتطوير فقط)
-        db.drop_all()
+        # إنشاء الجداول إذا لم تكن موجودة
         db.create_all()
+
+        # محاولة إضافة الأعمدة الجديدة إذا لم تكن موجودة (تحديث آمن)
+        try:
+            db.session.execute('ALTER TABLE deposits ADD COLUMN IF NOT EXISTS admin_note TEXT')
+            db.session.commit()
+        except Exception as e:
+            print(f"تحديث قاعدة البيانات: {e}")
 
     return app
