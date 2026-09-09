@@ -12,37 +12,52 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """إصلاح قاعدة البيانات: حذف جدول kyc_requests القديم وإنشاء الجداول المفقودة"""
+    """تحويل أعمدة الصور إلى TEXT وإضافة الأعمدة المفقودة"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # 1) حذف جدول kyc_requests إذا كان موجوداً
-        if inspector.has_table('kyc_requests'):
-            try:
-                db.session.execute(sa.text('DROP TABLE kyc_requests CASCADE'))
-                db.session.commit()
-                print("🗑️ تم حذف جدول kyc_requests القديم")
-            except Exception as e:
-                print(f"⚠️ فشل حذف جدول kyc_requests: {e}")
+        # تحويل حقول الصور من VARCHAR إلى TEXT
+        image_columns = {
+            'categories': ['image'],
+            'products': ['image'],
+            'payment_methods': ['icon'],
+            'deposits': ['proof_image'],
+            'kyc_requests': ['selfie_image'],
+        }
 
-        # 2) إنشاء جميع الجداول المفقودة (بما فيها kyc_requests بالنموذج الجديد)
-        try:
-            db.create_all()
-            db.session.commit()
-            print("✅ تم إنشاء جميع الجداول المفقودة")
-        except Exception as e:
-            print(f"⚠️ فشل إنشاء الجداول: {e}")
+        for table, cols in image_columns.items():
+            if not inspector.has_table(table):
+                continue
+            existing_cols = {col['name']: col['type'] for col in inspector.get_columns(table)}
+            for col in cols:
+                if col in existing_cols:
+                    col_type = str(existing_cols[col]).upper()
+                    if 'VARCHAR' in col_type or 'CHAR' in col_type:
+                        try:
+                            db.session.execute(sa.text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
+                            db.session.commit()
+                            print(f"✔️ تم تحويل {table}.{col} إلى TEXT")
+                        except Exception as e:
+                            print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
-        # 3) إضافة عمود admin_note إلى deposits إذا لم يكن موجوداً
-        if inspector.has_table('deposits'):
-            existing_cols = [col['name'] for col in inspector.get_columns('deposits')]
-            if 'admin_note' not in existing_cols:
-                try:
-                    db.session.execute(sa.text('ALTER TABLE deposits ADD COLUMN admin_note TEXT'))
-                    db.session.commit()
-                    print("✔️ تمت إضافة عمود admin_note إلى deposits")
-                except Exception as e:
-                    print(f"⚠️ فشل إضافة admin_note إلى deposits: {e}")
+        # إضافة الأعمدة المفقودة
+        required_columns = {
+            'deposits': {'admin_note': 'TEXT'},
+            'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
+        }
+
+        for table, cols in required_columns.items():
+            if not inspector.has_table(table):
+                continue
+            existing_cols = [col['name'] for col in inspector.get_columns(table)]
+            for col_name, col_type in cols.items():
+                if col_name not in existing_cols:
+                    try:
+                        db.session.execute(sa.text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_type}'))
+                        db.session.commit()
+                        print(f"✔️ تمت إضافة {col_name} إلى {table}")
+                    except Exception as e:
+                        print(f"⚠️ فشل إضافة {col_name} إلى {table}: {e}")
 
         print("✅ اكتملت ترقية قاعدة البيانات")
 
@@ -51,13 +66,10 @@ def run_flask():
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    # ترقية قاعدة البيانات قبل تشغيل الخادم
     upgrade_database()
 
-    # تشغيل Flask في خيط منفصل
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
 
-    # تشغيل البوت في الخيط الرئيسي
     from bot.bot import run_polling
     run_polling()
