@@ -19,3 +19,14 @@ def send_telegram_notification(chat_id, message):
     except Exception as e:
         logger.error(f"فشل إرسال إشعار تيليجرام: {e}")
         return False
+
+def notify_admins(message):
+    """إرسال إشعار لجميع معرفات الأدمن المحددة في TELEGRAM_ADMIN_IDS"""
+    admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "8673286954")
+    try:
+        admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
+    except ValueError:
+        admin_ids = [8673286954]
+
+    for admin_id in admin_ids:
+        send_telegram_notification(admin_id, message)
