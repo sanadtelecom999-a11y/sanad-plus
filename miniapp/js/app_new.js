@@ -352,21 +352,25 @@ function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
 
+    const unitPrice = product.base_quantity > 0 ? product.base_price / product.base_quantity : product.base_price;
+
     let modalContent = `
         <div class="purchase-modal">
             <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center; height:150px; border-radius:12px; margin-bottom:12px;">
                 ${product.image ? '' : '📦'}
             </div>
             <h3 style="margin: 12px 0; text-align:center;">${product.name}</h3>
-            <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem;">عادة ما تتم المراجعة خلال 15-5 دقيقة</p>
+            <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem;">
+                ${product.product_type === 'bundle' ? 'اختر الباقة' : `سعر الحزمة: ${product.base_quantity} ${product.unit_name || ''} = ${product.base_price}$`}
+            </p>
             <div class="form-group">
-                <label>${product.product_type === 'bundle' ? 'اختر الباقة' : 'الكمية'}</label>
+                <label>${product.product_type === 'bundle' ? 'اختر الباقة' : 'الكمية المطلوبة'}</label>
                 ${product.product_type === 'bundle' ? `
                     <select id="purchaseBundleId" class="input-field">
                         ${product.bundles.map(b => `<option value="${b.id}">${b.name} - ${b.quantity} ${product.unit_name} - ${b.price_usd}$</option>`).join('')}
                     </select>
                 ` : `
-                    <input type="number" id="purchaseQuantity" value="1" min="1" class="input-field">
+                    <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field">
                 `}
             </div>
             ${product.input_type === 'id' ? `
@@ -398,10 +402,10 @@ function openPurchaseModal(productId) {
             if (bundle) total = bundle.price_usd;
         } else {
             const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
-            total = product.base_price * qty;
+            total = unitPrice * qty;
         }
         const totalEl = document.getElementById('purchaseTotal');
-        if (totalEl) totalEl.textContent = `الإجمالي: ${total.toFixed(2)}$`;
+        if (totalEl) totalEl.textContent = `الإجمالي: ${total.toFixed(4)}$`;
     };
 
     if (product.product_type === 'bundle') {
@@ -581,9 +585,27 @@ function openNotificationsPage() {
                         <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
                         <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
                     </div>`).join('') : '<p>لا توجد إشعارات</p>'}
+                <button class="btn-outline" style="width:100%;" onclick="markAllNotificationsRead()">تعليم الكل كمقروء</button>
             </div>`;
         openModal('الإشعارات', bodyHTML);
     });
+}
+
+async function markAllNotificationsRead() {
+    if (!userData) return;
+    try {
+        for (let n of notificationsData) {
+            if (!n.is_read) {
+                await markNotificationRead(n.id);
+            }
+        }
+        notificationsData = await fetchNotifications(userData.telegram_id);
+        updateNotificationBadge();
+        closeModal();
+        openNotificationsPage(); // إعادة فتح لعرض التحديث
+    } catch (error) {
+        console.error('mark all read error:', error);
+    }
 }
 
 function updateNotificationBadge() {
