@@ -122,7 +122,9 @@ function renderCategories() {
     if (!grid) return;
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
-            <div class="category-icon">${cat.image || '📁'}</div>
+            <div class="category-icon">
+                ${cat.image ? `<img src="${cat.image}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '📁'}
+            </div>
             <div class="category-name">${cat.name}</div>
         </div>
     `).join('');
@@ -356,23 +358,15 @@ function openPurchaseModal(productId) {
 
     let modalContent = `
         <div class="purchase-modal">
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center; height:150px; border-radius:12px; margin-bottom:12px;">
+            <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">
                 ${product.image ? '' : '📦'}
             </div>
-            <h3 style="margin: 12px 0; text-align:center;">${product.name}</h3>
-            <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem;">
-                ${product.product_type === 'bundle' ? 'اختر الباقة' : `سعر الحزمة: ${product.base_quantity} ${product.unit_name || ''} = ${product.base_price}$`}
-            </p>
             <div class="form-group">
-                <label>${product.product_type === 'bundle' ? 'اختر الباقة' : 'الكمية المطلوبة'}</label>
-                ${product.product_type === 'bundle' ? `
-                    <select id="purchaseBundleId" class="input-field">
-                        ${product.bundles.map(b => `<option value="${b.id}">${b.name} - ${b.quantity} ${product.unit_name} - ${b.price_usd}$</option>`).join('')}
-                    </select>
-                ` : `
-                    <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field">
-                `}
+                <label>الكمية المطلوبة</label>
+                <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field">
             </div>
+            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: 0.00$</div>
             ${product.input_type === 'id' ? `
                 <div class="form-group">
                     <label>معرف اللاعب (ID)</label>
@@ -385,8 +379,7 @@ function openPurchaseModal(productId) {
                     <input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field">
                 </div>
             ` : ''}
-            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: 0.00$</div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; margin-top:16px;">
                 <button class="btn-primary" style="flex:1;" onclick="confirmPurchase(${product.id})">شراء</button>
                 <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
             </div>
@@ -396,23 +389,13 @@ function openPurchaseModal(productId) {
 
     const updateTotal = () => {
         let total = 0;
-        if (product.product_type === 'bundle') {
-            const bundleId = document.getElementById('purchaseBundleId')?.value;
-            const bundle = product.bundles?.find(b => b.id == bundleId);
-            if (bundle) total = bundle.price_usd;
-        } else {
-            const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
-            total = unitPrice * qty;
-        }
+        const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
+        total = unitPrice * qty;
         const totalEl = document.getElementById('purchaseTotal');
         if (totalEl) totalEl.textContent = `الإجمالي: ${total.toFixed(4)}$`;
     };
 
-    if (product.product_type === 'bundle') {
-        document.getElementById('purchaseBundleId')?.addEventListener('change', updateTotal);
-    } else {
-        document.getElementById('purchaseQuantity')?.addEventListener('input', updateTotal);
-    }
+    document.getElementById('purchaseQuantity')?.addEventListener('input', updateTotal);
     updateTotal();
 }
 
@@ -428,11 +411,7 @@ async function confirmPurchase(productId) {
         product_id: productId,
     };
 
-    if (product.product_type === 'bundle') {
-        orderData.bundle_id = parseInt(document.getElementById('purchaseBundleId')?.value);
-    } else {
-        orderData.quantity = parseInt(document.getElementById('purchaseQuantity')?.value);
-    }
+    orderData.quantity = parseInt(document.getElementById('purchaseQuantity')?.value);
 
     if (product.input_type === 'id') {
         orderData.player_id = document.getElementById('purchasePlayerId')?.value;
@@ -602,7 +581,7 @@ async function markAllNotificationsRead() {
         notificationsData = await fetchNotifications(userData.telegram_id);
         updateNotificationBadge();
         closeModal();
-        openNotificationsPage(); // إعادة فتح لعرض التحديث
+        openNotificationsPage();
     } catch (error) {
         console.error('mark all read error:', error);
     }
