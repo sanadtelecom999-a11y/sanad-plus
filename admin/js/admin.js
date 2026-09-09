@@ -142,10 +142,7 @@ function renderUsers(users = usersData) {
 async function toggleKYC(userId, currentStatus) {
     try {
         const newStatus = currentStatus === 'verified' ? 'unverified' : 'verified';
-        await apiRequest(`/admin/api/users/${userId}/kyc`, {
-            method: 'POST',
-            body: JSON.stringify({ status: newStatus }),
-        });
+        await toggleUserKYC(userId, newStatus);
         await loadAllData();
         renderUsers();
     } catch (error) {
@@ -497,17 +494,17 @@ function renderKYC() {
             <td><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status}</span></td>
             <td>
                 ${k.status === 'pending' ? `
-                    <button class="btn-outline" onclick="approveKYC(${k.id})">قبول</button>
-                    <button class="btn-outline" onclick="rejectKYC(${k.id})">رفض</button>
+                    <button class="btn-outline" onclick="approveKYCRequest(${k.id})">قبول</button>
+                    <button class="btn-outline" onclick="rejectKYCRequest(${k.id})">رفض</button>
                 ` : '-'}
             </td>
         </tr>
     `).join('');
 }
 
-async function approveKYC(kycId) {
+async function approveKYCRequest(kycId) {
     try {
-        await approveKYC(kycId);
+        await approveKYCRequest(kycId);
         await loadAllData();
         renderKYC();
     } catch (error) {
@@ -516,9 +513,9 @@ async function approveKYC(kycId) {
     }
 }
 
-async function rejectKYC(kycId) {
+async function rejectKYCRequest(kycId) {
     try {
-        await rejectKYC(kycId);
+        await rejectKYCRequest(kycId);
         await loadAllData();
         renderKYC();
     } catch (error) {
