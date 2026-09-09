@@ -190,12 +190,9 @@ def admin_delete_category(cat_id):
         return jsonify({"error": "قسم غير موجود"}), 404
 
     try:
-        # حذف جميع المنتجات المرتبطة بالقسم
         products = Product.query.filter_by(category_id=cat_id).all()
         for product in products:
-            # حذف الباقات المرتبطة
             ProductBundle.query.filter_by(product_id=product.id).delete()
-            # حذف الطلبات المرتبطة
             Order.query.filter_by(product_id=product.id).delete()
             db.session.delete(product)
 
@@ -267,9 +264,7 @@ def admin_product_actions(product_id):
         return jsonify({"success": True})
     elif request.method == "DELETE":
         try:
-            # حذف الباقات المرتبطة
             ProductBundle.query.filter_by(product_id=product.id).delete()
-            # حذف الطلبات المرتبطة
             Order.query.filter_by(product_id=product.id).delete()
             db.session.delete(product)
             db.session.commit()
@@ -316,9 +311,10 @@ def admin_payment_methods():
             "id": m.id,
             "name": m.name,
             "description": m.description,
-            "account": m.account,
             "account_name": m.account_name,
+            "account": m.account,
             "icon": m.icon,
+            "qr_image": m.qr_image,
             "min_amount": m.min_amount,
             "fee": m.fee,
             "requires_kyc": m.requires_kyc,
@@ -329,9 +325,10 @@ def admin_payment_methods():
         method = PaymentMethod(
             name=data.get("name"),
             description=data.get("description", ""),
-            account=data.get("account", ""),
             account_name=data.get("account_name", ""),
+            account=data.get("account", ""),
             icon=data.get("icon", ""),
+            qr_image=data.get("qr_image", ""),
             min_amount=data.get("min_amount", 0),
             fee=data.get("fee", 0),
             requires_kyc=data.get("requires_kyc", False),
