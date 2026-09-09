@@ -24,25 +24,6 @@ def admin_login():
         return jsonify({"token": token}), 200
     return jsonify({"error": "بيانات غير صحيحة"}), 401
 
-# ============ الإحصائيات ============
-@main.route("/admin/api/stats", methods=["GET"])
-@jwt_required()
-def admin_stats():
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    total_users = User.query.count()
-    total_products = Product.query.count()
-    total_orders = Order.query.count()
-    total_deposits = Deposit.query.count()
-    total_revenue = db.session.query(db.func.sum(Transaction.amount)).filter(Transaction.type == "deposit").scalar() or 0
-    return jsonify({
-        "users": total_users,
-        "products": total_products,
-        "orders": total_orders,
-        "deposits": total_deposits,
-        "revenue": total_revenue,
-    })
-
 # ============ المستخدمون ============
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
@@ -221,34 +202,6 @@ def admin_product_actions(product_id):
         db.session.commit()
         return jsonify({"success": True})
 
-# ============ الباقات ============
-@main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
-@jwt_required()
-def admin_bundles(product_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    if request.method == "GET":
-        bundles = ProductBundle.query.filter_by(product_id=product_id).all()
-        return jsonify([{
-            "id": b.id,
-            "name": b.name,
-            "quantity": b.quantity,
-            "price_usd": b.price_usd,
-            "is_active": b.is_active,
-        } for b in bundles])
-    else:
-        data = request.get_json()
-        bundle = ProductBundle(
-            product_id=product_id,
-            name=data.get("name"),
-            quantity=data.get("quantity"),
-            price_usd=data.get("price_usd"),
-            is_active=data.get("is_active", True),
-        )
-        db.session.add(bundle)
-        db.session.commit()
-        return jsonify({"id": bundle.id}), 201
-
 # ============ طرق الدفع ============
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
@@ -297,6 +250,34 @@ def admin_delete_payment_method(method_id):
     db.session.delete(method)
     db.session.commit()
     return jsonify({"success": True})
+
+# ============ الباقات ============
+@main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
+@jwt_required()
+def admin_bundles(product_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    if request.method == "GET":
+        bundles = ProductBundle.query.filter_by(product_id=product_id).all()
+        return jsonify([{
+            "id": b.id,
+            "name": b.name,
+            "quantity": b.quantity,
+            "price_usd": b.price_usd,
+            "is_active": b.is_active,
+        } for b in bundles])
+    else:
+        data = request.get_json()
+        bundle = ProductBundle(
+            product_id=product_id,
+            name=data.get("name"),
+            quantity=data.get("quantity"),
+            price_usd=data.get("price_usd"),
+            is_active=data.get("is_active", True),
+        )
+        db.session.add(bundle)
+        db.session.commit()
+        return jsonify({"id": bundle.id}), 201
 
 # ============ الطلبات ============
 @main.route("/admin/api/orders", methods=["GET"])
