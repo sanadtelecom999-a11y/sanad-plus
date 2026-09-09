@@ -9,6 +9,7 @@ let depositsData = [];
 let paymentMethodsData = [];
 let kycStatus = 'none';
 let notificationsData = [];
+let selectedMethodForDeposit = null; // لتخزين طريقة الدفع المختارة
 
 document.addEventListener('DOMContentLoaded', async () => {
     initTelegram();
@@ -161,7 +162,7 @@ function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     if (!container) return;
     container.innerHTML = paymentMethodsData.map(m => `
-        <div class="payment-method" data-id="${m.id}" onclick="showDepositForm(${m.id})">
+        <div class="payment-method" data-id="${m.id}" onclick="showDepositStep1(${m.id})">
             <div class="payment-method-info">
                 ${m.icon ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
                 <div>
@@ -406,6 +407,21 @@ async function confirmPurchase(productId) {
         return;
     }
 
+    // التحقق من الحقول المخصصة
+    if (product.input_type === 'id') {
+        const playerId = document.getElementById('purchasePlayerId')?.value;
+        if (!playerId || !playerId.trim()) {
+            alert('يرجى إدخال معرف اللاعب (ID)');
+            return;
+        }
+    } else if (product.input_type === 'phone') {
+        const phone = document.getElementById('purchasePhone')?.value;
+        if (!phone || !phone.trim()) {
+            alert('يرجى إدخال رقم الهاتف');
+            return;
+        }
+    }
+
     const orderData = {
         telegram_id: userData.telegram_id,
         product_id: productId,
@@ -437,39 +453,112 @@ async function confirmPurchase(productId) {
     }
 }
 
-function showDepositForm(methodId) {
+// ========== خطوات الإيداع ==========
+
+function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
-    openModal('إيداع', `
-        <div class="form-group">
-            <label>المبلغ (دولار)</label>
-            <input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01">
+    selectedMethodForDeposit = method;
+
+    const qrCode = method.icon ? `<img src="${method.icon}" style="width:150px;height:150px;border-radius:16px;object-fit:cover;" />` : '<span class="material-icons" style="font-size:100px;">qr_code_2</span>';
+
+    const body = `
+        <div style="text-align:center;">
+            <h3>${method.name}</h3>
+            <p style="color:var(--text-secondary); margin-bottom:16px;">${method.description || ''}</p>
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px;">
+                <div style="margin-bottom:12px;">
+                    <div style="font-weight:bold;">اسم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px;">
+                        <span id="copyAccountName">${method.account_name || '-'}</span>
+                        <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-weight:bold;">رقم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-top:4px;">
+                        <span id="copyAccountNumber">${method.account || '-'}</span>
+                        <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>
+                ${qrCode}
+            </div>
+            <button class="btn-primary" onclick="showDepositStep2()">التالي</button>
         </div>
-        <div class="form-group">
-            <label>رقم الحساب / المحفظة</label>
-            <input type="text" id="depositAccountNumber" placeholder="أدخل رقم الحساب">
-        </div>
-        <div class="form-group">
-            <label>اسم المرسل</label>
-            <input type="text" id="depositSenderName" placeholder="اسم المرسل">
-        </div>
-        <div class="form-group">
-            <label>إثبات التحويل (صورة)</label>
-            <div class="image-preview" id="depositProofPreview">📷</div>
-            <input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')">
-        </div>
-        <button class="btn-primary" onclick="submitDeposit('${method.id}')">إرسال</button>
-    `);
+    `;
+    openModal('طريقة الدفع', body);
 }
 
-async function submitDeposit(methodId) {
+function showDepositStep2() {
+    if (!selectedMethodForDeposit) return;
+    const method = selectedMethodForDeposit;
+    const body = `
+        <div style="text-align:right;">
+            <h3>إتمام الإيداع</h3>
+            <div class="form-group">
+                <label>المبلغ بالدولار</label>
+                <input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field">
+            </div>
+            <div class="form-group">
+                <label>اسم المرسل</label>
+                <input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field">
+            </div>
+            <div class="form-group">
+                <label>إثبات التحويل (صورة)</label>
+                <div class="image-preview" id="depositProofPreview">📷</div>
+                <input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field">
+            </div>
+            <button class="btn-primary" onclick="submitDeposit()">إرسال</button>
+        </div>
+    `;
+    openModal('إتمام الإيداع', body);
+}
+
+function copyText(elementId) {
+    const text = document.getElementById(elementId)?.innerText || '';
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('تم النسخ');
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
+        alert('تم النسخ');
+    } catch (e) {
+        alert('تعذر النسخ');
+    }
+    document.body.removeChild(textarea);
+}
+
+async function submitDeposit() {
+    if (!selectedMethodForDeposit) return;
+    const method = selectedMethodForDeposit;
+
     const amount = parseFloat(document.getElementById('depositAmount')?.value);
-    const accountNumber = document.getElementById('depositAccountNumber')?.value;
     const senderName = document.getElementById('depositSenderName')?.value;
     const proofFile = document.getElementById('depositProofImage')?.files[0];
 
     if (!amount || amount <= 0) {
         alert('أدخل مبلغ صحيح');
+        return;
+    }
+    if (!senderName || !senderName.trim()) {
+        alert('أدخل اسم المرسل');
         return;
     }
     if (!proofFile) {
@@ -489,9 +578,8 @@ async function submitDeposit(methodId) {
         const result = await createDeposit({
             telegram_id: userData.telegram_id,
             amount,
-            method: methodId,
+            method: method.id,
             proof_image: proofBase64,
-            account_number: accountNumber,
             sender_name: senderName,
         });
         if (result && result.error) {
@@ -499,6 +587,7 @@ async function submitDeposit(methodId) {
         } else {
             alert('تم إرسال طلب الإيداع');
             closeModal();
+            selectedMethodForDeposit = null;
             depositsData = await fetchUserDeposits(userData.telegram_id);
             renderDeposits(depositsData);
         }
