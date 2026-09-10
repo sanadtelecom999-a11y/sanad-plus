@@ -58,79 +58,104 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #FFFFFF;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 100%);
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    animation: splashFadeOut 0.5s ease 4.5s forwards;
+    overflow: hidden;
+    animation: splashFadeOut 0.8s ease 7.2s forwards;
 }
 
 @keyframes splashFadeOut {
     to { opacity: 0; visibility: hidden; }
 }
 
-.splash-shield {
-    position: relative;
-    width: 120px;
-    height: 120px;
+.splash-bg-decoration {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.splash-circle {
+    position: absolute;
+    border-radius: 50%;
+    background-color: var(--primary);
+    opacity: 0.04;
+}
+
+.circle-1 {
+    width: 300px;
+    height: 300px;
+    top: -80px;
+    left: -80px;
+}
+
+.circle-2 {
+    width: 250px;
+    height: 250px;
+    bottom: -60px;
+    right: -60px;
+}
+
+.circle-3 {
+    width: 150px;
+    height: 150px;
+    top: 30%;
+    right: 10%;
+}
+
+.splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+}
+
+.splash-diamond {
+    width: 100px;
+    height: 100px;
     background: linear-gradient(135deg, #00A0E9, #0D47A1);
-    border-radius: 30px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 30px rgba(0,160,233,0.3);
-    animation: shieldPulse 1.5s ease-in-out infinite;
+    box-shadow: 0 10px 30px rgba(0,160,233,0.25);
 }
 
-@keyframes shieldPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-}
-
-.splash-shield-icon {
-    font-size: 70px;
+.splash-diamond .material-icons {
+    font-size: 56px;
     color: white;
-    opacity: 0.3;
-    position: absolute;
-}
-
-.splash-plus {
-    position: relative;
-    font-size: 48px;
-    color: white;
-    font-weight: 800;
-    z-index: 2;
 }
 
 .splash-title {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 800;
     color: var(--primary-dark);
-    margin-top: 20px;
     letter-spacing: -1px;
 }
 
-.splash-sub {
-    font-size: 1.2rem;
+.splash-plus {
     color: var(--primary);
-    font-weight: 600;
-    margin-top: 4px;
+    font-size: 2rem;
 }
 
-.splash-loader {
-    width: 40px;
-    height: 40px;
-    margin-top: 30px;
-    border: 3px solid var(--primary-light);
-    border-top: 3px solid var(--primary);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+.splash-desc {
+    font-size: 1.1rem;
+    color: #6B8A9E;
+    font-weight: 500;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.splash-footer {
+    font-size: 0.85rem;
+    color: #9E9E9E;
+    margin-top: 24px;
 }
 
 /* =========== الشريط العلوي =========== */
