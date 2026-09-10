@@ -722,6 +722,7 @@ body {
     color: var(--text);
 }
 
+/* =========== الأقسام — صور أكبر =========== */
 .categories-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -733,10 +734,14 @@ body {
     background-color: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 16px;
+    padding: 12px 8px;
     text-align: center;
     cursor: pointer;
     transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
 .category-item:hover {
@@ -747,16 +752,60 @@ body {
 
 .category-icon {
     font-size: 2rem;
-    margin-bottom: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 52px;
+    min-height: 76px;
+    width: 76px;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+/* ✅ صورة القسم — أكبر */
+.category-icon img,
+.category-img {
+    width: 76px;
+    height: 76px;
+    border-radius: 18px;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    background-color: #FFFFFF;
 }
 
 .category-name {
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* شاشات صغيرة جداً */
+@media (max-width: 380px) {
+    .categories-grid {
+        gap: 10px;
+    }
+
+    .category-item {
+        padding: 10px 6px;
+    }
+
+    .category-icon,
+    .category-icon img,
+    .category-img {
+        width: 64px;
+        height: 64px;
+        min-height: 64px;
+        border-radius: 16px;
+    }
+
+    .category-name {
+        font-size: 0.8rem;
+    }
 }
 
 /* =========== شبكة المنتجات — بطاقة مصغّرة (الاسم فقط) =========== */
@@ -788,7 +837,6 @@ body {
     transform: translateY(-2px);
 }
 
-/* منطقة صورة المنتج */
 .product-image {
     position: relative;
     width: 100%;
@@ -873,7 +921,6 @@ body {
     background-color: rgba(255,255,255,1);
 }
 
-/* اسم المنتج فقط */
 .product-name {
     padding: 12px 10px;
     text-align: center;
@@ -886,7 +933,6 @@ body {
     line-height: 1.4;
 }
 
-/* الشاشات الصغيرة جداً */
 @media (max-width: 380px) {
     .products-grid {
         gap: 10px;
@@ -903,7 +949,6 @@ body {
     }
 }
 
-/* الشاشات الكبيرة */
 @media (min-width: 600px) {
     .products-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
