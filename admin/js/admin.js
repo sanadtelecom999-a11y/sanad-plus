@@ -64,7 +64,6 @@ function showConfirm(options) {
         _confirmResolver = resolve;
         const modal = document.getElementById('confirmModal');
         if (!modal) {
-            // Fallback for very old HTML
             resolve(window.confirm(options.message || 'تأكيد؟'));
             return;
         }
@@ -98,7 +97,7 @@ function closeConfirm(result) {
 }
 
 // ============================================================
-// ============ Sidebar (Mobile Drawer) ============
+// ============ Sidebar ============
 // ============================================================
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
@@ -122,9 +121,6 @@ function closeSidebar() {
     document.body.style.overflow = '';
 }
 
-// ============================================================
-// ============ Toggle Specific User Field ============
-// ============================================================
 function toggleSpecificUser() {
     const target = document.getElementById('notificationTarget');
     const group = document.getElementById('specificUserGroup');
@@ -234,7 +230,6 @@ function switchSection(sectionId) {
 
     currentSection = sectionId;
 
-    // إغلاق Sidebar تلقائياً على الهاتف
     if (window.innerWidth < 1024) {
         closeSidebar();
     }
@@ -389,7 +384,6 @@ async function confirmAdjustBalance(userId) {
     }
 
     const amount = type === 'add' ? rawAmount : -rawAmount;
-    const user = usersData.find(u => u.id === userId);
 
     const confirmed = await showConfirm({
         title: 'تأكيد تعديل الرصيد',
@@ -478,6 +472,7 @@ function openCategoryModal() {
             <label>صورة القسم</label>
             <div class="image-preview" id="categoryImagePreview">لا صورة</div>
             <input type="file" id="categoryImage" accept="image/*" onchange="previewImage(this,'categoryImagePreview')">
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="saveCategory(this)">حفظ</button>
@@ -493,7 +488,7 @@ async function saveCategory(btn) {
     if (!name) { showToast('أدخل اسم القسم', 'warning'); return; }
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
-    if (imageFile) image = await fileToBase64(imageFile, 512);
+    if (imageFile) image = await fileToSquareBase64(imageFile, 512);
 
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
@@ -564,6 +559,7 @@ function openProductModal() {
             <label>صورة المنتج</label>
             <div class="image-preview" id="productImagePreview">لا صورة</div>
             <input type="file" id="productImage" accept="image/*" onchange="previewImage(this,'productImagePreview')">
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="saveProduct(this)">حفظ</button>
@@ -590,7 +586,7 @@ async function saveProduct(btn) {
     if (!name || !categoryId) { showToast('أدخل البيانات المطلوبة', 'warning'); return; }
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
-    if (imageFile) image = await fileToBase64(imageFile, 512);
+    if (imageFile) image = await fileToSquareBase64(imageFile, 512);
 
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
@@ -660,6 +656,7 @@ function openPaymentMethodModal() {
             <label>لوجو الطريقة</label>
             <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
             <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="savePaymentMethod(this)">حفظ</button>
@@ -679,7 +676,7 @@ async function savePaymentMethod(btn) {
     let qr_image = '';
     let logo_image = '';
     if (qrFile) qr_image = await fileToBase64(qrFile, 512);
-    if (logoFile) logo_image = await fileToBase64(logoFile, 512);
+    if (logoFile) logo_image = await fileToSquareBase64(logoFile, 512);
 
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
@@ -780,21 +777,21 @@ function viewOrderDetails(orderId) {
     let deliveryInfo = '';
     try {
         const delivery = JSON.parse(order.delivery_data || '{}');
-        if (delivery.player_id) deliveryInfo += `<div><strong>معرف اللاعب:</strong> <span class="ltr">${delivery.player_id}</span></div>`;
-        if (delivery.phone) deliveryInfo += `<div><strong>رقم الهاتف:</strong> <span class="ltr">${delivery.phone}</span></div>`;
-        if (delivery.bundle_name) deliveryInfo += `<div><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
+        if (delivery.player_id) deliveryInfo += `<div style="margin-bottom:6px;"><strong>معرف اللاعب:</strong> <span class="ltr">${delivery.player_id}</span></div>`;
+        if (delivery.phone) deliveryInfo += `<div style="margin-bottom:6px;"><strong>رقم الهاتف:</strong> <span class="ltr">${delivery.phone}</span></div>`;
+        if (delivery.bundle_name) deliveryInfo += `<div style="margin-bottom:6px;"><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
     } catch (e) {
         deliveryInfo = `<div>${order.delivery_data || '-'}</div>`;
     }
     const body = `
         <div style="text-align:right;">
-            <h3 style="margin-bottom:12px;">تفاصيل الطلب</h3>
+            <h3>تفاصيل الطلب</h3>
             <p><strong>رقم الطلب:</strong> <span class="ltr">${order.order_number}</span></p>
             <p><strong>المنتج:</strong> ${order.product_name || order.product_id}</p>
             <p><strong>الكمية:</strong> ${order.quantity}</p>
             <p><strong>السعر الإجمالي:</strong> ${order.total_price}$</p>
             ${order.discount_amount ? `<p><strong>الخصم:</strong> ${order.discount_amount}$ (${order.coupon_code || ''})</p>` : ''}
-            <p><strong>الحالة:</strong> ${getStatusArabic(order.status)}</p>
+            <p><strong>الحالة:</strong> ${order.status}</p>
             ${deliveryInfo}
             <p><strong>التاريخ:</strong> ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</p>
         </div>
@@ -920,11 +917,11 @@ function viewServiceRequest(reqId) {
     if (!req) return;
     const body = `
         <div style="text-align:right;">
-            <h3 style="margin-bottom:12px;">تفاصيل طلب الخدمة</h3>
+            <h3>تفاصيل طلب الخدمة</h3>
             <p><strong>اسم الخدمة:</strong> ${req.service_name}</p>
             <p><strong>الوصف:</strong> ${req.description || '-'}</p>
             <p><strong>السعر المتوقع:</strong> ${req.estimated_price ? req.estimated_price + '$' : '-'}</p>
-            <p><strong>الحالة:</strong> ${getStatusArabic(req.status)}</p>
+            <p><strong>الحالة:</strong> ${req.status}</p>
             <p><strong>التاريخ:</strong> ${req.created_at ? new Date(req.created_at).toLocaleString('ar') : ''}</p>
         </div>
     `;
@@ -1310,6 +1307,10 @@ function previewImage(input, previewId) {
     }
 }
 
+/**
+ * ضغط الصورة مع الحفاظ على الأبعاد الأصلية
+ * (للصور التي قد تكون مستطيلة - مثل QR و KYC)
+ */
 function fileToBase64(file, maxWidth = 512) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1328,6 +1329,54 @@ function fileToBase64(file, maxWidth = 512) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+/**
+ * ✅ قص الصورة إلى مربع (1:1) من المنتصف ثم ضغطها
+ * (للأقسام، المنتجات، لوجو طرق الدفع)
+ *
+ * يحل مشكلة الفراغات البيضاء حول العنصر في الصورة المرفوعة
+ */
+function fileToSquareBase64(file, size = 512) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // حجم المربع الصغير
+                const minSide = Math.min(img.width, img.height);
+
+                // موضع البداية (من المنتصف)
+                const sx = (img.width - minSide) / 2;
+                const sy = (img.height - minSide) / 2;
+
+                // حجم الخروج
+                canvas.width = size;
+                canvas.height = size;
+
+                // خلفية بيضاء
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, size, size);
+
+                // قص + رسم المربع على كامل الإطار
+                ctx.drawImage(
+                    img,
+                    sx, sy, minSide, minSide,   // المصدر (المربع المركزي)
+                    0, 0, size, size            // الهدف (يملأ الإطار)
+                );
+
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 resolve(dataUrl);
             };
             img.onerror = reject;
