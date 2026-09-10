@@ -72,6 +72,7 @@ body {
 }
 
 .splash-shield {
+    position: relative;
     width: 120px;
     height: 120px;
     background: linear-gradient(135deg, #00A0E9, #0D47A1);
@@ -88,10 +89,19 @@ body {
     50% { transform: scale(1.05); }
 }
 
-.splash-plus {
+.splash-shield-icon {
     font-size: 70px;
     color: white;
+    opacity: 0.3;
+    position: absolute;
+}
+
+.splash-plus {
+    position: relative;
+    font-size: 48px;
+    color: white;
     font-weight: 800;
+    z-index: 2;
 }
 
 .splash-title {
