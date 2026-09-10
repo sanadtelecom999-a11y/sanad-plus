@@ -56,6 +56,9 @@
             <button class="sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
                 <span class="material-icons">build</span> طلبات الخدمة
             </button>
+            <button class="sidebar-item" data-section="activities" onclick="switchSection('activities')">
+                <span class="material-icons">history</span> سجل النشاطات
+            </button>
             <button class="sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
                 <span class="material-icons">notifications</span> الإشعارات
             </button>
@@ -66,6 +69,8 @@
     </aside>
 
     <main class="admin-content">
+
+        <!-- ==================== لوحة التحكم ==================== -->
         <section id="section-dashboard" class="admin-section active">
             <h2>لوحة التحكم</h2>
             <div class="stats-cards">
@@ -80,11 +85,17 @@
             </div>
         </section>
 
+        <!-- ==================== المستخدمون ==================== -->
         <section id="section-users" class="admin-section">
             <h2>المستخدمون</h2>
             <div class="search-box">
                 <span class="material-icons">search</span>
                 <input type="text" id="userSearch" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
+            </div>
+            <div style="margin-bottom:12px; display:flex; justify-content:flex-end;">
+                <button class="btn-outline" onclick="exportUsersCSV()">
+                    <span class="material-icons">download</span> تصدير CSV
+                </button>
             </div>
             <div class="table-container">
                 <table>
@@ -103,6 +114,7 @@
             </div>
         </section>
 
+        <!-- ==================== الأقسام ==================== -->
         <section id="section-categories" class="admin-section">
             <div class="section-header">
                 <h2>الأقسام</h2>
@@ -113,6 +125,7 @@
             <div class="cards-grid" id="categoriesList"></div>
         </section>
 
+        <!-- ==================== المنتجات ==================== -->
         <section id="section-products" class="admin-section">
             <div class="section-header">
                 <h2>المنتجات</h2>
@@ -138,6 +151,7 @@
             </div>
         </section>
 
+        <!-- ==================== طرق الدفع ==================== -->
         <section id="section-payment-methods" class="admin-section">
             <div class="section-header">
                 <h2>طرق الدفع</h2>
@@ -148,8 +162,54 @@
             <div class="cards-grid" id="paymentMethodsList"></div>
         </section>
 
+        <!-- ==================== الطلبات مع فلاتر متقدمة ==================== -->
         <section id="section-orders" class="admin-section">
-            <h2>الطلبات</h2>
+            <div class="section-header">
+                <h2>الطلبات</h2>
+                <button class="btn-outline" onclick="exportOrdersCSV()">
+                    <span class="material-icons">download</span> تصدير CSV
+                </button>
+            </div>
+
+            <div class="advanced-filters">
+                <div class="filter-group">
+                    <label>بحث</label>
+                    <input type="text" id="orderSearchQuery" placeholder="رقم الطلب أو معرف المستخدم" oninput="applyOrderFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>الحالة</label>
+                    <select id="orderStatusFilter" onchange="applyOrderFilters()">
+                        <option value="all">الكل</option>
+                        <option value="pending">قيد المعالجة</option>
+                        <option value="review">قيد المراجعة</option>
+                        <option value="processing">قيد التنفيذ</option>
+                        <option value="completed">مكتمل</option>
+                        <option value="failed">فشل</option>
+                        <option value="cancelled">ملغي</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>من تاريخ</label>
+                    <input type="date" id="orderFromDate" onchange="applyOrderFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>إلى تاريخ</label>
+                    <input type="date" id="orderToDate" onchange="applyOrderFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>ترتيب</label>
+                    <select id="orderSortFilter" onchange="applyOrderFilters()">
+                        <option value="newest">الأحدث أولاً</option>
+                        <option value="oldest">الأقدم أولاً</option>
+                        <option value="price_high">الأعلى سعراً</option>
+                        <option value="price_low">الأقل سعراً</option>
+                    </select>
+                </div>
+                <button class="btn-outline" onclick="resetOrderFilters()">
+                    <span class="material-icons">refresh</span> إعادة تعيين
+                </button>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -167,8 +227,14 @@
             </div>
         </section>
 
+        <!-- ==================== الإيداعات ==================== -->
         <section id="section-deposits" class="admin-section">
-            <h2>الإيداعات</h2>
+            <div class="section-header">
+                <h2>الإيداعات</h2>
+                <button class="btn-outline" onclick="exportDepositsCSV()">
+                    <span class="material-icons">download</span> تصدير CSV
+                </button>
+            </div>
             <div class="table-container">
                 <table>
                     <thead>
@@ -186,6 +252,7 @@
             </div>
         </section>
 
+        <!-- ==================== KYC ==================== -->
         <section id="section-kyc" class="admin-section">
             <h2>طلبات التوثيق</h2>
             <div class="table-container">
@@ -195,7 +262,8 @@
                             <th>معرف المستخدم</th>
                             <th>الاسم الكامل</th>
                             <th>الهاتف</th>
-                            <th>الصور</th>
+                            <th>العنوان</th>
+                            <th>الصورة</th>
                             <th>الحالة</th>
                             <th>إجراءات</th>
                         </tr>
@@ -205,6 +273,7 @@
             </div>
         </section>
 
+        <!-- ==================== طلبات الخدمة ==================== -->
         <section id="section-service-requests" class="admin-section">
             <h2>طلبات الخدمة المخصصة</h2>
             <div class="table-container">
@@ -224,6 +293,31 @@
             </div>
         </section>
 
+        <!-- ==================== سجل النشاطات ==================== -->
+        <section id="section-activities" class="admin-section">
+            <div class="section-header">
+                <h2>سجل نشاطات الأدمن</h2>
+                <button class="btn-outline" onclick="loadActivities()">
+                    <span class="material-icons">refresh</span> تحديث
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>النشاط</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activitiesTableBody">
+                        <tr><td colspan="3" style="text-align:center;">جار التحميل...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ==================== الإشعارات ==================== -->
         <section id="section-notifications" class="admin-section">
             <h2>إرسال إشعار</h2>
             <div class="notification-form">
@@ -254,6 +348,7 @@
             </div>
         </section>
 
+        <!-- ==================== الإعدادات ==================== -->
         <section id="section-settings" class="admin-section">
             <h2>الإعدادات</h2>
             <div class="settings-form">
@@ -268,6 +363,7 @@
                 <button class="btn-primary" onclick="saveSettings()">حفظ الإعدادات</button>
             </div>
         </section>
+
     </main>
 
     <div id="modal" class="modal">
