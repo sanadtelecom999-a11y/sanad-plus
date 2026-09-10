@@ -10,6 +10,8 @@ let depositsData = [];
 let kycData = [];
 let serviceRequestsData = [];
 let activitiesData = [];
+let couponsData = [];
+let referralsData = [];
 let filteredOrders = [];
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -71,6 +73,7 @@ async function loadAllData() {
         depositsData = await fetchAdminDeposits();
         kycData = await fetchAdminKYC();
         serviceRequestsData = await fetchServiceRequests();
+        couponsData = await fetchAdminCoupons();
     } catch (error) {
         console.error('خطأ في تحميل البيانات:', error);
     }
@@ -105,6 +108,8 @@ function switchSection(sectionId) {
     if (sectionId === 'deposits') renderDeposits(depositsData);
     if (sectionId === 'kyc') renderKYC();
     if (sectionId === 'service-requests') renderServiceRequests();
+    if (sectionId === 'coupons') renderCoupons();
+    if (sectionId === 'referrals') loadReferrals();
     if (sectionId === 'activities') loadActivities();
 }
 
@@ -194,6 +199,7 @@ async function setVIP(userId, currentLevel) {
     }
 }
 
+// ==================== الأقسام ====================
 function renderCategories() {
     const container = document.getElementById('categoriesList');
     container.innerHTML = categoriesData.map(cat => `
@@ -231,9 +237,7 @@ async function saveCategory() {
     if (!name) return alert('أدخل اسم القسم');
     const imageFile = document.getElementById('categoryImage').files[0];
     let image = '';
-    if (imageFile) {
-        image = await fileToBase64(imageFile, 512);
-    }
+    if (imageFile) image = await fileToBase64(imageFile, 512);
     try {
         await createCategory({ name, icon, image });
         closeModal();
@@ -241,7 +245,6 @@ async function saveCategory() {
         renderCategories();
         alert('تم إضافة القسم بنجاح');
     } catch (error) {
-        console.error('خطأ إضافة القسم:', error);
         alert(`فشل إضافة القسم: ${error.message}`);
     }
 }
@@ -254,12 +257,12 @@ async function deleteCategoryHandler(categoryId) {
             renderCategories();
             alert('تم حذف القسم');
         } catch (error) {
-            console.error('خطأ حذف القسم:', error);
             alert(`فشل حذف القسم: ${error.message}`);
         }
     }
 }
 
+// ==================== المنتجات ====================
 function renderProducts() {
     const tbody = document.getElementById('productsTableBody');
     tbody.innerHTML = productsData.map(prod => `
@@ -323,7 +326,6 @@ async function saveProduct() {
         renderProducts();
         alert('تم إضافة المنتج بنجاح');
     } catch (error) {
-        console.error('خطأ إضافة المنتج:', error);
         alert(`فشل إضافة المنتج: ${error.message}`);
     }
 }
@@ -336,12 +338,12 @@ async function deleteProductHandler(productId) {
             renderProducts();
             alert('تم حذف المنتج');
         } catch (error) {
-            console.error('خطأ حذف المنتج:', error);
             alert(`فشل حذف المنتج: ${error.message}`);
         }
     }
 }
 
+// ==================== طرق الدفع ====================
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     container.innerHTML = paymentMethodsData.map(m => `
@@ -406,7 +408,6 @@ async function savePaymentMethod() {
         renderPaymentMethods();
         alert('تم إضافة طريقة الدفع بنجاح');
     } catch (error) {
-        console.error('خطأ إضافة طريقة الدفع:', error);
         alert(`فشل إضافة طريقة الدفع: ${error.message}`);
     }
 }
@@ -419,12 +420,12 @@ async function deletePaymentMethodHandler(methodId) {
             renderPaymentMethods();
             alert('تم حذف طريقة الدفع');
         } catch (error) {
-            console.error('خطأ حذف طريقة الدفع:', error);
             alert(`فشل حذف طريقة الدفع: ${error.message}`);
         }
     }
 }
 
+// ==================== الطلبات ====================
 function renderOrders(orders) {
     const tbody = document.getElementById('ordersTableBody');
     tbody.innerHTML = orders.map(order => `
@@ -479,6 +480,7 @@ function viewOrderDetails(orderId) {
             <p><strong>المنتج:</strong> ${order.product_name || order.product_id}</p>
             <p><strong>الكمية:</strong> ${order.quantity}</p>
             <p><strong>السعر الإجمالي:</strong> ${order.total_price}$</p>
+            ${order.discount_amount ? `<p><strong>الخصم:</strong> ${order.discount_amount}$ (${order.coupon_code || ''})</p>` : ''}
             <p><strong>الحالة:</strong> ${order.status}</p>
             ${deliveryInfo}
             <p><strong>التاريخ:</strong> ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</p>
@@ -487,6 +489,7 @@ function viewOrderDetails(orderId) {
     openModal('تفاصيل الطلب', body);
 }
 
+// ==================== الإيداعات ====================
 function renderDeposits(deposits) {
     const tbody = document.getElementById('depositsTableBody');
     if (!deposits.length) {
@@ -533,6 +536,7 @@ async function rejectDepositHandler(depositId) {
     }
 }
 
+// ==================== KYC ====================
 function renderKYC() {
     const tbody = document.getElementById('kycTableBody');
     if (!kycData.length) {
@@ -545,9 +549,7 @@ function renderKYC() {
             <td>${k.full_name}</td>
             <td>${k.phone}</td>
             <td>${k.address || '-'}</td>
-            <td>
-                ${k.selfie_image ? `<a href="${k.selfie_image}" target="_blank">عرض الصورة</a>` : '-'}
-            </td>
+            <td>${k.selfie_image ? `<a href="${k.selfie_image}" target="_blank">عرض الصورة</a>` : '-'}</td>
             <td><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status}</span></td>
             <td>
                 ${k.status === 'pending' ? `
@@ -559,6 +561,7 @@ function renderKYC() {
     `).join('');
 }
 
+// ==================== طلبات الخدمة ====================
 function renderServiceRequests() {
     const tbody = document.getElementById('serviceRequestsTableBody');
     if (!serviceRequestsData.length) {
@@ -572,9 +575,7 @@ function renderServiceRequests() {
             <td>${r.description || '-'}</td>
             <td>${r.estimated_price ? r.estimated_price + '$' : '-'}</td>
             <td><span class="status-badge ${r.status === 'pending' ? 'pending' : r.status === 'completed' ? 'completed' : 'failed'}">${r.status}</span></td>
-            <td>
-                <button class="btn-outline" onclick="viewServiceRequest(${r.id})">عرض</button>
-            </td>
+            <td><button class="btn-outline" onclick="viewServiceRequest(${r.id})">عرض</button></td>
         </tr>
     `).join('');
 }
@@ -595,7 +596,158 @@ function viewServiceRequest(reqId) {
     openModal('تفاصيل طلب الخدمة', body);
 }
 
-// ============ سجل النشاطات ============
+// ==================== كودات الخصم ====================
+function renderCoupons() {
+    const tbody = document.getElementById('couponsTableBody');
+    if (!couponsData.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">لا توجد كودات خصم</td></tr>';
+        return;
+    }
+    tbody.innerHTML = couponsData.map(c => {
+        const typeLabel = c.discount_type === 'percentage' ? `${c.discount_value}%` : `${c.discount_value}$`;
+        const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('ar') : 'بلا نهاية';
+        return `
+            <tr>
+                <td><strong>${c.code}</strong></td>
+                <td>${c.discount_type === 'percentage' ? 'نسبة' : 'مبلغ ثابت'}</td>
+                <td>${typeLabel}</td>
+                <td>${c.min_amount || 0}$</td>
+                <td>${c.used_count || 0} / ${c.max_uses || '∞'}</td>
+                <td>${expiry}</td>
+                <td><span class="status-badge ${c.is_active ? 'completed' : 'failed'}">${c.is_active ? 'مفعّل' : 'معطّل'}</span></td>
+                <td>
+                    <button class="btn-outline" onclick="toggleCoupon(${c.id}, ${c.is_active})">${c.is_active ? 'تعطيل' : 'تفعيل'}</button>
+                    <button class="btn-danger" onclick="deleteCouponHandler(${c.id})">حذف</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openCouponModal() {
+    const body = `
+        <h3>إضافة كود خصم</h3>
+        <div class="form-group"><label>الكود</label><input type="text" id="couponCode" placeholder="مثال: WELCOME10"></div>
+        <div class="form-group"><label>الوصف (اختياري)</label><input type="text" id="couponDescription" placeholder="مثال: خصم ترحيبي"></div>
+        <div class="form-group">
+            <label>نوع الخصم</label>
+            <select id="couponType">
+                <option value="percentage">نسبة مئوية (%)</option>
+                <option value="fixed">مبلغ ثابت ($)</option>
+            </select>
+        </div>
+        <div class="form-group"><label>قيمة الخصم</label><input type="number" id="couponValue" value="10" step="0.01"></div>
+        <div class="form-group"><label>الحد الأدنى للطلب ($)</label><input type="number" id="couponMinAmount" value="0" step="0.01"></div>
+        <div class="form-group"><label>أقصى مبلغ خصم ($) - 0 = بلا حد</label><input type="number" id="couponMaxDiscount" value="0" step="0.01"></div>
+        <div class="form-group"><label>عدد الاستخدامات - 0 = بلا حد</label><input type="number" id="couponMaxUses" value="0"></div>
+        <div class="form-group"><label>تاريخ الانتهاء (اختياري)</label><input type="date" id="couponExpiry"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button class="btn-primary" onclick="saveCoupon()">حفظ</button>
+            <button class="btn-outline" onclick="closeModal()">إلغاء</button>
+        </div>
+    `;
+    openModal('إضافة كود خصم', body);
+}
+
+async function saveCoupon() {
+    const code = document.getElementById('couponCode').value.trim().toUpperCase();
+    const description = document.getElementById('couponDescription').value;
+    const discount_type = document.getElementById('couponType').value;
+    const discount_value = parseFloat(document.getElementById('couponValue').value);
+    const min_amount = parseFloat(document.getElementById('couponMinAmount').value) || 0;
+    const max_discount = parseFloat(document.getElementById('couponMaxDiscount').value) || 0;
+    const max_uses = parseInt(document.getElementById('couponMaxUses').value) || 0;
+    const expiryDate = document.getElementById('couponExpiry').value;
+
+    if (!code) return alert('أدخل الكود');
+    if (!discount_value || discount_value <= 0) return alert('أدخل قيمة خصم صحيحة');
+
+    const couponData = {
+        code,
+        description,
+        discount_type,
+        discount_value,
+        min_amount,
+        max_discount,
+        max_uses,
+        is_active: true,
+    };
+    if (expiryDate) couponData.expires_at = new Date(expiryDate).toISOString();
+
+    try {
+        await createCoupon(couponData);
+        closeModal();
+        await loadAllData();
+        renderCoupons();
+        alert('تم إضافة كود الخصم بنجاح');
+    } catch (error) {
+        alert(`فشل إضافة الكود: ${error.message}`);
+    }
+}
+
+async function toggleCoupon(couponId, currentStatus) {
+    try {
+        await updateCoupon(couponId, { is_active: !currentStatus });
+        await loadAllData();
+        renderCoupons();
+    } catch (error) {
+        alert(`فشل تغيير حالة الكود: ${error.message}`);
+    }
+}
+
+async function deleteCouponHandler(couponId) {
+    if (confirm('حذف كود الخصم؟')) {
+        try {
+            await deleteCoupon(couponId);
+            await loadAllData();
+            renderCoupons();
+            alert('تم حذف الكود');
+        } catch (error) {
+            alert(`فشل حذف الكود: ${error.message}`);
+        }
+    }
+}
+
+// ==================== الإحالات ====================
+async function loadReferrals() {
+    const tbody = document.getElementById('referralsTableBody');
+    try {
+        referralsData = await fetchAdminReferrals();
+        if (!referralsData.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">لا توجد إحالات</td></tr>';
+            return;
+        }
+        tbody.innerHTML = referralsData.map(r => `
+            <tr>
+                <td>${r.id}</td>
+                <td>${r.referrer_telegram || r.referrer_id}</td>
+                <td>${r.referred_telegram || r.referred_user_id}</td>
+                <td>${r.reward_amount}$</td>
+                <td><span class="status-badge ${r.status === 'completed' ? 'completed' : 'pending'}">${r.status === 'completed' ? 'مكتملة' : 'قيد الانتظار'}</span></td>
+                <td>${r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#F44336;">فشل التحميل: ${error.message}</td></tr>`;
+    }
+}
+
+function exportReferralsCSV() {
+    const rows = [['#', 'المُحيل', 'المُحال', 'المكافأة', 'الحالة', 'التاريخ']];
+    referralsData.forEach(r => {
+        rows.push([
+            r.id,
+            r.referrer_telegram || r.referrer_id,
+            r.referred_telegram || r.referred_user_id,
+            r.reward_amount + '$',
+            r.status,
+            r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''
+        ]);
+    });
+    downloadCSV('referrals.csv', rows);
+}
+
+// ==================== سجل النشاطات ====================
 async function loadActivities() {
     const tbody = document.getElementById('activitiesTableBody');
     try {
@@ -616,7 +768,7 @@ async function loadActivities() {
     }
 }
 
-// ============ الفلاتر المتقدمة ============
+// ==================== الفلاتر المتقدمة ====================
 function applyOrderFilters() {
     const searchQuery = (document.getElementById('orderSearchQuery')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('orderStatusFilter')?.value || 'all';
@@ -678,7 +830,7 @@ function resetOrderFilters() {
     renderOrders(ordersData);
 }
 
-// ============ تصدير CSV ============
+// ==================== تصدير CSV ====================
 function downloadCSV(filename, rows) {
     const csvContent = rows.map(row =>
         row.map(cell => {
@@ -715,7 +867,7 @@ function exportUsersCSV() {
 }
 
 function exportOrdersCSV() {
-    const rows = [['رقم الطلب', 'المنتج', 'الكمية', 'السعر الإجمالي', 'الحالة', 'التاريخ']];
+    const rows = [['رقم الطلب', 'المنتج', 'الكمية', 'السعر الإجمالي', 'الخصم', 'الحالة', 'التاريخ']];
     const dataToExport = filteredOrders.length ? filteredOrders : ordersData;
     dataToExport.forEach(o => {
         rows.push([
@@ -723,6 +875,7 @@ function exportOrdersCSV() {
             o.product_name || o.product_id,
             o.quantity,
             o.total_price + '$',
+            (o.discount_amount || 0) + '$',
             o.status,
             o.created_at ? new Date(o.created_at).toLocaleString('ar') : ''
         ]);
@@ -745,7 +898,7 @@ function exportDepositsCSV() {
     downloadCSV('deposits.csv', rows);
 }
 
-// ============ أدوات عامة ============
+// ==================== أدوات عامة ====================
 function sendAdminNotification() {
     const message = document.getElementById('notificationMessage').value;
     if (!message) return alert('أدخل نص الإشعار');

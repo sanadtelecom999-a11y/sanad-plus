@@ -209,6 +209,34 @@ async function fetchActivities() {
     return await apiRequest('/admin/api/activities');
 }
 
+// ============ كودات الخصم ============
+async function fetchAdminCoupons() {
+    return await apiRequest('/admin/api/coupons');
+}
+
+async function createCoupon(couponData) {
+    return await apiRequest('/admin/api/coupons', {
+        method: 'POST',
+        body: JSON.stringify(couponData),
+    });
+}
+
+async function updateCoupon(couponId, couponData) {
+    return await apiRequest(`/admin/api/coupons/${couponId}`, {
+        method: 'PUT',
+        body: JSON.stringify(couponData),
+    });
+}
+
+async function deleteCoupon(couponId) {
+    return await apiRequest(`/admin/api/coupons/${couponId}`, { method: 'DELETE' });
+}
+
+// ============ الإحالات ============
+async function fetchAdminReferrals() {
+    return await apiRequest('/admin/api/referrals');
+}
+
 function logout() {
     clearToken();
     location.reload();

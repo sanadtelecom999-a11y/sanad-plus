@@ -11,9 +11,10 @@ let kycStatus = 'none';
 let notificationsData = [];
 let selectedMethodForDeposit = null;
 let notificationPollerId = null;
+let cancelTimers = {};
 
 // ============ إعدادات العملة ============
-const USD_TO_SYP = 132; // سعر الصرف
+const USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
 function formatPrice(usdAmount) {
@@ -28,18 +29,62 @@ function toggleCurrency() {
     currentCurrency = currentCurrency === 'USD' ? 'SYP' : 'USD';
     localStorage.setItem('currency', currentCurrency);
     updateCurrencyUI();
-    // إعادة رسم كل الأجزاء التي تعرض أسعار
     updateUserUI();
     renderOrders(ordersData);
+    renderLatestOrders();
     renderDeposits(depositsData);
     renderCategories();
     renderProductsList(productsData);
+    renderFavorites();
     renderPaymentMethods();
 }
 
 function updateCurrencyUI() {
     const label = document.getElementById('currencyLabel');
     if (label) label.textContent = currentCurrency;
+}
+
+// ============ المفضلة ============
+function getFavorites() {
+    try {
+        return JSON.parse(localStorage.getItem('favorites') || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function saveFavorites(list) {
+    localStorage.setItem('favorites', JSON.stringify(list));
+}
+
+function isFavorite(productId) {
+    return getFavorites().includes(productId);
+}
+
+function toggleFavorite(productId, event) {
+    if (event) event.stopPropagation();
+    let favorites = getFavorites();
+    if (favorites.includes(productId)) {
+        favorites = favorites.filter(id => id !== productId);
+    } else {
+        favorites.push(productId);
+    }
+    saveFavorites(favorites);
+    renderCategories();
+    renderProductsList(productsData);
+    renderFavorites();
+}
+
+function renderFavorites() {
+    const list = document.getElementById('favoritesList');
+    if (!list) return;
+    const favorites = getFavorites();
+    if (!favorites.length) {
+        list.innerHTML = '<div class="empty-state"><span class="material-icons">favorite_border</span>لا توجد منتجات في المفضلة بعد</div>';
+        return;
+    }
+    const favProducts = productsData.filter(p => favorites.includes(p.id));
+    list.innerHTML = favProducts.map(prod => renderProductCard(prod)).join('');
 }
 
 // ============ تهيئة التطبيق ============
@@ -56,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (telegram_id) {
         userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
     } else {
-        alert('لا يمكن الوصول لبيانات تيليجرام.\nتأكد أنك فتحت التطبيق من زر "افتح المتجر" داخل البوت وليس كرابط خارجي.');
+        showSuccessScreen('خطأ', 'لا يمكن الوصول لبيانات تيليجرام. افتح التطبيق من البوت.');
         userData = null;
     }
 
@@ -66,6 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavigation();
     setupFilters();
     setupSearch();
+    setupFAQ();
 
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
@@ -74,11 +120,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (darkToggle) darkToggle.checked = savedTheme === 'dark';
     }
 
-    // بدء المراقبة الفورية للإشعارات
+    // استعادة آخر صفحة
+    const savedPage = localStorage.getItem('lastPage');
+    if (savedPage && document.getElementById(savedPage)) {
+        navigateTo(savedPage);
+    }
+
     startNotificationPolling();
 });
 
 async function loadInitialData() {
+    showSkeletons();
     try {
         categoriesData = await fetchCategories();
         productsData = await fetchProducts();
@@ -90,26 +142,33 @@ async function loadInitialData() {
             notificationsData = await fetchNotifications(userData.telegram_id);
             const kycInfo = await getMyKYC(userData.telegram_id);
             kycStatus = kycInfo.status || 'none';
-            // تخزين آخر معرف إشعار
             saveLastSeenNotificationId();
         }
 
         renderCategories();
         renderPaymentMethods();
         renderOrders(ordersData);
+        renderLatestOrders();
         renderDeposits(depositsData);
+        renderFavorites();
         updateKYCUI();
         updateNotificationBadge();
     } catch (error) {
         console.error('Error loading data:', error);
-        alert('حدث خطأ أثناء تحميل البيانات');
+        showSuccessScreen('خطأ', 'حدث خطأ أثناء تحميل البيانات');
+    }
+}
+
+function showSkeletons() {
+    const categoriesGrid = document.getElementById('categoriesGrid');
+    if (categoriesGrid) {
+        categoriesGrid.innerHTML = Array(6).fill('<div class="skeleton-card"></div>').join('');
     }
 }
 
 // ============ المراقبة الفورية للإشعارات ============
 function startNotificationPolling() {
     if (notificationPollerId) clearInterval(notificationPollerId);
-    // تحقق كل 30 ثانية
     notificationPollerId = setInterval(checkForNewNotifications, 30000);
 }
 
@@ -121,13 +180,10 @@ async function checkForNewNotifications() {
         const newOnes = notifications.filter(n => n.id > lastSeen);
 
         if (newOnes.length > 0) {
-            // إظهار الإشعار الفوري
             playNotificationSound();
             flashScreen();
-            // تحديث البيانات
             notificationsData = notifications;
             updateNotificationBadge();
-            // حفظ آخر معرف
             const maxId = Math.max(...notifications.map(n => n.id));
             localStorage.setItem('lastSeenNotificationId', maxId);
         }
@@ -144,7 +200,6 @@ function saveLastSeenNotificationId() {
 
 function playNotificationSound() {
     try {
-        // استخدام Web Audio API لتوليد صوت بسيط (بدون ملف خارجي)
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
@@ -171,7 +226,6 @@ function flashScreen() {
     const overlay = document.getElementById('flashOverlay');
     if (!overlay) return;
     overlay.classList.remove('active');
-    // إعادة تشغيل الأنيميشن
     void overlay.offsetWidth;
     overlay.classList.add('active');
     setTimeout(() => overlay.classList.remove('active'), 1300);
@@ -180,8 +234,10 @@ function flashScreen() {
 // ============ واجهة المستخدم ============
 function updateUserUI() {
     if (!userData) {
-        document.getElementById('greetingMessage').textContent = 'الرجاء فتح التطبيق من تيليجرام';
-        document.getElementById('greetingSub').textContent = 'لم يتم التعرف على حسابك';
+        const gm = document.getElementById('greetingMessage');
+        const gs = document.getElementById('greetingSub');
+        if (gm) gm.textContent = 'الرجاء فتح التطبيق من تيليجرام';
+        if (gs) gs.textContent = 'لم يتم التعرف على حسابك';
         return;
     }
 
@@ -196,10 +252,15 @@ function updateUserUI() {
 
     if (userData.vip_level > 0) {
         const vipBadge = document.getElementById('vipBadge');
-        vipBadge.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
-        vipBadge.style.display = 'inline-block';
-        document.getElementById('accountVipBadge').innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
-        document.getElementById('accountVipBadge').style.display = 'inline-block';
+        if (vipBadge) {
+            vipBadge.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
+            vipBadge.style.display = 'inline-block';
+        }
+        const avb = document.getElementById('accountVipBadge');
+        if (avb) {
+            avb.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
+            avb.style.display = 'inline-block';
+        }
     }
 
     const hour = new Date().getHours();
@@ -208,16 +269,18 @@ function updateUserUI() {
     else if (hour < 18) greeting = 'مساء الخير';
     else greeting = 'مساء النور';
 
-    document.getElementById('greetingMessage').textContent =
-        `${greeting}، ${userData.first_name || userData.username || 'مستخدم'}`;
-    document.getElementById('greetingSub').textContent = `رصيدك: ${formatPrice(userData.balance)}`;
+    const gm = document.getElementById('greetingMessage');
+    if (gm) gm.textContent = `${greeting}، ${userData.first_name || userData.username || 'مستخدم'}`;
+    const gs = document.getElementById('greetingSub');
+    if (gs) gs.textContent = `رصيدك: ${formatPrice(userData.balance)}`;
 
     if (window.currentUser?.photo_url) {
-        document.getElementById('headerAvatar').style.backgroundImage = `url(${window.currentUser.photo_url})`;
-        document.getElementById('headerAvatar').textContent = '';
+        const ha = document.getElementById('headerAvatar');
+        ha.style.backgroundImage = `url(${window.currentUser.photo_url})`;
+        ha.textContent = '';
     } else {
-        document.getElementById('headerAvatar').textContent =
-            (userData.first_name || userData.username || 'م')[0];
+        const ha = document.getElementById('headerAvatar');
+        if (ha) ha.textContent = (userData.first_name || userData.username || 'م')[0];
     }
 
     updateKYCBadge();
@@ -236,10 +299,36 @@ function updateKYCBadge() {
     }
 }
 
+// ============ البطاقات ============
+function renderProductCard(prod) {
+    const fav = isFavorite(prod.id);
+    const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    return `
+        <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
+            <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
+                <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
+            </button>
+            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">
+                ${prod.image ? '' : '📦'}
+                <div class="product-badges">
+                    ${isNew ? '<span class="badge-new">جديد</span>' : ''}
+                </div>
+            </div>
+            <div class="product-name">${prod.name}</div>
+            <div class="product-price">${formatPrice(prod.base_price)}</div>
+            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
+        </div>
+    `;
+}
+
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
     if (!grid) return;
+    if (!categoriesData.length) {
+        grid.innerHTML = '<div class="skeleton-card"></div>'.repeat(6);
+        return;
+    }
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
             <div class="category-icon">
@@ -264,17 +353,10 @@ function renderProductsList(products) {
     const list = document.getElementById('productsList');
     if (!list) return;
     if (!products.length) {
-        list.innerHTML = '<div class="empty-state">لا توجد منتجات في هذا القسم</div>';
+        list.innerHTML = '<div class="empty-state"><span class="material-icons">inbox</span>لا توجد منتجات في هذا القسم</div>';
         return;
     }
-    list.innerHTML = products.map(prod => `
-        <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
-            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">${prod.image ? '' : '📦'}</div>
-            <div class="product-name">${prod.name}</div>
-            <div class="product-price">${formatPrice(prod.base_price)}</div>
-            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
-        </div>
-    `).join('');
+    list.innerHTML = products.map(prod => renderProductCard(prod)).join('');
 }
 
 function renderPaymentMethods() {
@@ -294,34 +376,103 @@ function renderPaymentMethods() {
     `).join('');
 }
 
+// ============ رسم حالة الطلب ============
+function renderOrderProgress(status) {
+    const steps = [
+        { key: 'pending', label: 'قيد المعالجة' },
+        { key: 'review', label: 'قيد المراجعة' },
+        { key: 'processing', label: 'قيد التنفيذ' },
+        { key: 'completed', label: 'مكتمل' }
+    ];
+    const order = ['pending', 'review', 'processing', 'completed'];
+    const currentIndex = order.indexOf(status);
+    if (currentIndex === -1) return '';
+
+    return `
+        <div class="order-progress">
+            ${steps.map((s, i) => `
+                <div class="progress-step ${i < currentIndex ? 'completed' : ''} ${i === currentIndex ? 'active' : ''}">
+                    <div class="step-circle">
+                        ${i < currentIndex ? '<span class="material-icons" style="font-size:14px;">check</span>' : (i + 1)}
+                    </div>
+                    <div>${s.label}</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if (!list) return;
     if (!orders || !orders.length) {
-        list.innerHTML = '<div class="empty-state">لا توجد طلبات</div>';
+        list.innerHTML = '<div class="empty-state"><span class="material-icons">receipt_long</span>لا توجد طلبات</div>';
         return;
     }
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         return `
-        <div class="order-card" data-status="${order.status}">
+        <div class="order-card" data-status="${order.status}" data-id="${order.id}">
             <div class="order-header">
                 <span class="order-number">${order.order_number}</span>
                 <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
             </div>
             <div class="order-details">
-                <div>المنتج: ${order.product_id}</div>
+                <div>المنتج: ${order.product_name || order.product_id}</div>
                 <div>الكمية: ${order.quantity}</div>
                 <div>السعر: ${formatPrice(order.total_price)}</div>
                 <div>التاريخ: ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
             </div>
+            ${renderOrderProgress(order.status)}
             ${canCancel ? `
-                <div style="margin-top:12px;">
+                <div class="cancel-timer" id="timer-${order.id}">
+                    <span class="material-icons">timer</span>
+                    <span class="timer-text">120</span> ثانية للإلغاء
+                </div>
+                <div style="margin-top:8px;">
                     <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
+                </div>
+            ` : ''}
+            ${order.status === 'completed' ? `
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn-outline" style="flex:1;" onclick="orderAgain(${order.product_id})">إعادة الطلب</button>
+                    <button class="btn-outline" style="flex:1;" onclick="shareProduct(${order.product_id})">مشاركة</button>
                 </div>
             ` : ''}
         </div>
     `}).join('');
+
+    // بدء العدادات التنازلية
+    orders.forEach(order => {
+        if (order.status === 'pending' && isWithinCancelWindow(order.created_at)) {
+            startCancelCountdown(order.id, order.created_at);
+        }
+    });
+}
+
+function renderLatestOrders() {
+    const header = document.getElementById('latestOrdersHeader');
+    const list = document.getElementById('latestOrdersList');
+    if (!header || !list) return;
+    if (!ordersData.length) {
+        header.style.display = 'none';
+        list.innerHTML = '';
+        return;
+    }
+    header.style.display = 'flex';
+    list.innerHTML = ordersData.slice(0, 3).map(order => `
+        <div class="order-card">
+            <div class="order-header">
+                <span class="order-number">${order.order_number}</span>
+                <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
+            </div>
+            <div class="order-details">
+                <div>المنتج: ${order.product_name || order.product_id}</div>
+                <div>الكمية: ${order.quantity}</div>
+                <div>السعر: ${formatPrice(order.total_price)}</div>
+            </div>
+        </div>
+    `).join('');
 }
 
 function isWithinCancelWindow(createdAt) {
@@ -329,6 +480,25 @@ function isWithinCancelWindow(createdAt) {
     const created = new Date(createdAt).getTime();
     const now = Date.now();
     return (now - created) < 120000;
+}
+
+function startCancelCountdown(orderId, createdAt) {
+    if (cancelTimers[orderId]) clearInterval(cancelTimers[orderId]);
+    const createdTime = new Date(createdAt).getTime();
+    cancelTimers[orderId] = setInterval(() => {
+        const elapsed = Date.now() - createdTime;
+        const remaining = Math.max(0, 120 - Math.floor(elapsed / 1000));
+        const timerEl = document.querySelector(`#timer-${orderId} .timer-text`);
+        if (timerEl) {
+            timerEl.textContent = remaining;
+        }
+        if (remaining <= 0) {
+            clearInterval(cancelTimers[orderId]);
+            delete cancelTimers[orderId];
+            ordersData = ordersData.map(o => o.id === orderId ? { ...o } : o);
+            renderOrders(ordersData);
+        }
+    }, 1000);
 }
 
 async function cancelOrder(orderId) {
@@ -340,16 +510,32 @@ async function cancelOrder(orderId) {
             body: JSON.stringify({ telegram_id: userData.telegram_id }),
         });
         if (result && result.error) {
-            alert(result.error);
+            showSuccessScreen('خطأ', result.error);
         } else {
-            alert('تم إلغاء الطلب واسترداد المبلغ');
+            showSuccessScreen('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك');
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
+            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
     } catch (error) {
-        alert(`فشل إلغاء الطلب: ${error.message}`);
+        showSuccessScreen('خطأ', `فشل إلغاء الطلب: ${error.message}`);
+    }
+}
+
+function orderAgain(productId) {
+    openPurchaseModal(productId);
+}
+
+function shareProduct(productId) {
+    const product = productsData.find(p => p.id === productId);
+    if (!product) return;
+    const text = `شاهد هذا المنتج: ${product.name} بسعر ${formatPrice(product.base_price)}`;
+    if (navigator.share) {
+        navigator.share({ title: product.name, text: text });
+    } else {
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`, '_blank');
     }
 }
 
@@ -369,7 +555,7 @@ function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
     if (!deposits || !deposits.length) {
-        list.innerHTML = '<div class="empty-state">لا توجد إيداعات</div>';
+        list.innerHTML = '<div class="empty-state"><span class="material-icons">account_balance_wallet</span>لا توجد إيداعات</div>';
         return;
     }
     list.innerHTML = deposits.map(d => `
@@ -388,6 +574,7 @@ function renderDeposits(deposits) {
     `).join('');
 }
 
+// ============ KYC ============
 function updateKYCUI() {
     const container = document.getElementById('kycDynamicContent');
     if (!container) return;
@@ -421,28 +608,30 @@ function updateKYCUI() {
                         <div class="image-preview" id="kycSelfiePreview" style="height:180px;"><span style="color:var(--text-secondary); font-size:0.9rem;">اضغط لرفع الصورة</span></div>
                         <input type="file" id="kycSelfieImage" accept="image/*" onchange="previewImage(this,'kycSelfiePreview')" style="margin-top:8px;" />
                     </div>
-                    <button class="btn-primary" onclick="submitKYCRequest()">إرسال طلب التوثيق</button>
+                    <button class="btn-primary" onclick="submitKYCRequest(this)">إرسال طلب التوثيق</button>
                 </div>
             </div>
         `;
     }
 }
 
-async function submitKYCRequest() {
+async function submitKYCRequest(btn) {
     const fullName = document.getElementById('kycFullName')?.value;
     const phone = document.getElementById('kycPhone')?.value;
     const address = document.getElementById('kycAddress')?.value;
     const selfieFile = document.getElementById('kycSelfieImage')?.files[0];
 
     if (!fullName || !phone || !address || !selfieFile) {
-        alert('يرجى تعبئة جميع الحقول ورفع الصورة');
+        showSuccessScreen('تنبيه', 'يرجى تعبئة جميع الحقول ورفع الصورة');
         return;
     }
 
     if (!userData || !userData.telegram_id) {
-        alert('بيانات المستخدم غير متوفرة، افتح التطبيق من تيليجرام');
+        showSuccessScreen('خطأ', 'بيانات المستخدم غير متوفرة');
         return;
     }
+
+    setButtonLoading(btn, true);
 
     const compressImage = (file, maxWidth = 600) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -481,9 +670,9 @@ async function submitKYCRequest() {
         });
 
         if (result && result.error) {
-            alert(result.error);
+            showSuccessScreen('خطأ', result.error);
         } else {
-            alert('تم إرسال طلب التوثيق بنجاح');
+            showSuccessScreen('تم الإرسال', 'تم إرسال طلب التوثيق بنجاح، انتظر المراجعة');
             kycStatus = 'pending';
             updateKYCUI();
             navigateTo('page-account');
@@ -491,10 +680,43 @@ async function submitKYCRequest() {
         }
     } catch (error) {
         console.error('KYC submit error:', error);
-        alert(`فشل إرسال الطلب: ${error.message}`);
+        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
+// ============ حالة تحميل الأزرار ============
+function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    if (loading) {
+        btn.disabled = true;
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="btn-loading"></span> جارٍ التنفيذ...';
+    } else {
+        btn.disabled = false;
+        if (btn.dataset.originalHtml) {
+            btn.innerHTML = btn.dataset.originalHtml;
+            delete btn.dataset.originalHtml;
+        }
+    }
+}
+
+// ============ شاشة النجاح ============
+function showSuccessScreen(title, message) {
+    const overlay = document.getElementById('successOverlay');
+    const titleEl = document.getElementById('successTitle');
+    const msgEl = document.getElementById('successMessage');
+    if (!overlay) return;
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    overlay.classList.add('active');
+    setTimeout(() => {
+        overlay.classList.remove('active');
+    }, 2200);
+}
+
+// ============ شراء منتج ============
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
@@ -506,11 +728,12 @@ function openPurchaseModal(productId) {
             <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
             <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
             <div class="form-group"><label>الكمية المطلوبة</label><input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field"></div>
-            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: 0.00$</div>
+            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: ${formatPrice(unitPrice * (product.base_quantity || 1))}</div>
+            <div class="form-group"><label>كود الخصم (اختياري)</label><input type="text" id="purchaseCoupon" placeholder="أدخل كود الخصم"></div>
             ${product.input_type === 'id' ? `<div class="form-group"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field"></div>` : ''}
             ${product.input_type === 'phone' ? `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field"></div>` : ''}
             <div style="display:flex; gap:8px; margin-top:16px;">
-                <button class="btn-primary" style="flex:1;" onclick="confirmPurchase(${product.id})">شراء</button>
+                <button class="btn-primary" style="flex:1;" onclick="confirmPurchaseDialog(${product.id}, this)">شراء</button>
                 <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
             </div>
         </div>
@@ -529,26 +752,38 @@ function openPurchaseModal(productId) {
     updateTotal();
 }
 
-async function confirmPurchase(productId) {
+function confirmPurchaseDialog(productId, btn) {
     const product = productsData.find(p => p.id === productId);
-    if (!product || !userData) {
-        alert('افتح التطبيق من تيليجرام');
-        return;
-    }
+    if (!product) return;
 
     if (product.input_type === 'id') {
         const playerId = document.getElementById('purchasePlayerId')?.value;
         if (!playerId || !playerId.trim()) {
-            alert('يرجى إدخال معرف اللاعب (ID)');
+            showSuccessScreen('تنبيه', 'يرجى إدخال معرف اللاعب (ID)');
             return;
         }
     } else if (product.input_type === 'phone') {
         const phone = document.getElementById('purchasePhone')?.value;
         if (!phone || !phone.trim()) {
-            alert('يرجى إدخال رقم الهاتف');
+            showSuccessScreen('تنبيه', 'يرجى إدخال رقم الهاتف');
             return;
         }
     }
+
+    const qty = parseInt(document.getElementById('purchaseQuantity')?.value) || 1;
+    const total = product.base_quantity > 0
+        ? (product.base_price / product.base_quantity) * qty
+        : product.base_price * qty;
+
+    const confirmed = confirm(`هل أنت متأكد من شراء ${qty} من ${product.name}؟\nالإجمالي: ${formatPrice(total)}`);
+    if (!confirmed) return;
+
+    executeConfirmPurchase(productId, btn);
+}
+
+async function executeConfirmPurchase(productId, btn) {
+    const product = productsData.find(p => p.id === productId);
+    if (!product || !userData) return;
 
     const orderData = {
         telegram_id: userData.telegram_id,
@@ -559,24 +794,30 @@ async function confirmPurchase(productId) {
     if (product.input_type === 'id') orderData.player_id = document.getElementById('purchasePlayerId')?.value;
     else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
 
+    if (btn) setButtonLoading(btn, true);
+
     try {
         const result = await createOrder(orderData);
         if (result && result.error) {
-            alert(result.error);
+            showSuccessScreen('خطأ', result.error);
         } else {
-            alert('طلبك قيد المعالجة');
+            showSuccessScreen('تم الطلب', 'طلبك قيد المعالجة');
             closeModal();
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
+            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
     } catch (error) {
         console.error('Order error:', error);
-        alert(`فشل إرسال الطلب: ${error.message}`);
+        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+    } finally {
+        if (btn) setButtonLoading(btn, false);
     }
 }
 
+// ============ الإيداع ============
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
@@ -614,7 +855,7 @@ function showDepositStep2() {
             <div class="form-group"><label>المبلغ بالدولار</label><input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field"></div>
             <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field"></div>
             <div class="form-group"><label>إثبات التحويل (صورة)</label><div class="image-preview" id="depositProofPreview">📷</div><input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field"></div>
-            <button class="btn-primary" onclick="submitDeposit()">إرسال</button>
+            <button class="btn-primary" onclick="submitDeposit(this)">إرسال</button>
         </div>
     `;
     openModal('إتمام الإيداع', body);
@@ -624,7 +865,7 @@ function copyText(elementId) {
     const text = document.getElementById(elementId)?.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => alert('تم النسخ')).catch(() => fallbackCopy(text));
+        navigator.clipboard.writeText(text).then(() => showSuccessScreen('تم النسخ', 'تم نسخ النص بنجاح')).catch(() => fallbackCopy(text));
     } else {
         fallbackCopy(text);
     }
@@ -635,20 +876,22 @@ function fallbackCopy(text) {
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
-    try { document.execCommand('copy'); alert('تم النسخ'); } catch (e) { alert('تعذر النسخ'); }
+    try { document.execCommand('copy'); showSuccessScreen('تم النسخ', 'تم نسخ النص بنجاح'); } catch (e) { showSuccessScreen('خطأ', 'تعذر النسخ'); }
     document.body.removeChild(textarea);
 }
 
-async function submitDeposit() {
+async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
     const amount = parseFloat(document.getElementById('depositAmount')?.value);
     const senderName = document.getElementById('depositSenderName')?.value;
     const proofFile = document.getElementById('depositProofImage')?.files[0];
 
-    if (!amount || amount <= 0) { alert('أدخل مبلغ صحيح'); return; }
-    if (!senderName || !senderName.trim()) { alert('أدخل اسم المرسل'); return; }
-    if (!proofFile) { alert('ارفع صورة الإثبات'); return; }
+    if (!amount || amount <= 0) { showSuccessScreen('تنبيه', 'أدخل مبلغ صحيح'); return; }
+    if (!senderName || !senderName.trim()) { showSuccessScreen('تنبيه', 'أدخل اسم المرسل'); return; }
+    if (!proofFile) { showSuccessScreen('تنبيه', 'ارفع صورة الإثبات'); return; }
+
+    setButtonLoading(btn, true);
 
     const toBase64 = file => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -666,9 +909,10 @@ async function submitDeposit() {
             proof_image: proofBase64,
             sender_name: senderName,
         });
-        if (result && result.error) { alert(result.error); }
-        else {
-            alert('تم إرسال طلب الإيداع');
+        if (result && result.error) {
+            showSuccessScreen('خطأ', result.error);
+        } else {
+            showSuccessScreen('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح');
             closeModal();
             selectedMethodForDeposit = null;
             depositsData = await fetchUserDeposits(userData.telegram_id);
@@ -676,40 +920,120 @@ async function submitDeposit() {
         }
     } catch (error) {
         console.error('Deposit error:', error);
-        alert(`فشل إرسال الإيداع: ${error.message}`);
+        showSuccessScreen('خطأ', `فشل إرسال الإيداع: ${error.message}`);
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
+// ============ الخدمة المخصصة ============
 function requestCustomService() {
     openModal('طلب خدمة مخصصة', `
         <div class="form-group"><label>اسم الخدمة</label><input type="text" id="serviceName" placeholder="مثال: تصميم شعار"></div>
         <div class="form-group"><label>وصف الخدمة</label><textarea id="serviceDesc" rows="3" placeholder="اكتب تفاصيل الخدمة"></textarea></div>
         <div class="form-group"><label>السعر المتوقع (اختياري)</label><input type="number" id="servicePrice" placeholder="0.00"></div>
-        <button class="btn-primary" onclick="submitServiceRequest()">إرسال الطلب</button>
+        <button class="btn-primary" onclick="submitServiceRequest(this)">إرسال الطلب</button>
         <button class="btn-outline" onclick="closeModal()">إلغاء</button>
     `);
 }
 
-async function submitServiceRequest() {
+async function submitServiceRequest(btn) {
     const service_name = document.getElementById('serviceName').value;
     const description = document.getElementById('serviceDesc').value;
     const estimated_price = parseFloat(document.getElementById('servicePrice').value) || 0;
-    if (!service_name) return alert('أدخل اسم الخدمة');
+    if (!service_name) { showSuccessScreen('تنبيه', 'أدخل اسم الخدمة'); return; }
+
+    setButtonLoading(btn, true);
     try {
         const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
-        if (result && result.error) { alert(result.error); }
-        else { alert('تم إرسال الطلب'); closeModal(); }
+        if (result && result.error) {
+            showSuccessScreen('خطأ', result.error);
+        } else {
+            showSuccessScreen('تم الإرسال', 'تم إرسال طلب الخدمة بنجاح');
+            closeModal();
+        }
     } catch (error) {
-        alert(`فشل إرسال الطلب: ${error.message}`);
+        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+    } finally {
+        setButtonLoading(btn, false);
     }
 }
 
+// ============ الإحالات ============
+function openReferralModal() {
+    if (!userData) return;
+    const referralCode = `SANAD${userData.telegram_id}`;
+    const referralLink = `https://t.me/YOUR_BOT_USERNAME?start=${referralCode}`;
+    openModal('الإحالات', `
+        <div style="text-align:center;">
+            <div class="kyc-icon" style="background:var(--primary);">
+                <span class="material-icons" style="font-size:3rem;">card_giftcard</span>
+            </div>
+            <h3 style="margin-bottom:12px;">ادعُ أصدقاءك واربح</h3>
+            <p style="color:var(--text-secondary); margin-bottom:16px; font-size:0.9rem;">
+                عند انضمام صديق برابطك، ستحصل على مكافأة رصيد
+            </p>
+            <div style="background:var(--primary-light); border-radius:12px; padding:12px; margin-bottom:16px;">
+                <div style="font-weight:bold; margin-bottom:6px;">كود الإحالة الخاص بك</div>
+                <div style="font-size:1.2rem; font-weight:800; color:var(--primary); letter-spacing:1px;" id="referralCode">${referralCode}</div>
+            </div>
+            <button class="btn-primary" onclick="copyText('referralCode')">
+                <span class="material-icons">content_copy</span> نسخ الكود
+            </button>
+            <button class="btn-outline" style="margin-top:8px;width:100%;" onclick="shareReferral('${referralLink}')">
+                <span class="material-icons">share</span> مشاركة الرابط
+            </button>
+        </div>
+    `);
+}
+
+function shareReferral(link) {
+    const text = 'انضم إلى سند بلس واحصل على خدمات رقمية بسهولة!';
+    if (navigator.share) {
+        navigator.share({ title: 'SANAD+', text, url: link });
+    } else {
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, '_blank');
+    }
+}
+
+// ============ الأسئلة الشائعة ============
+const faqData = [
+    { q: 'كيف أشحن رصيدي؟', a: 'اذهب إلى قسم "شحن" في الأسفل، اختر طريقة الدفع، ثم اتبع التعليمات.' },
+    { q: 'كم يستغرق تنفيذ الطلب؟', a: 'عادة ما يتم تنفيذ الطلب خلال 5-15 دقيقة، لكن قد يتأخر في بعض الحالات.' },
+    { q: 'ما هو KYC ولماذا أحتاجه؟', a: 'KYC هو توثيق الهوية، يمنحك وصولاً لجميع طرق الدفع ويزيد حدود الاستخدام.' },
+    { q: 'كيف ألغي طلباً؟', a: 'يمكنك إلغاء الطلب خلال 120 ثانية من إنشائه، عبر زر "إلغاء الطلب" في قسم طلباتي.' },
+    { q: 'ماذا يحدث إذا فشل الطلب؟', a: 'في حال فشل الطلب، يتم استرداد المبلغ تلقائياً إلى رصيدك.' },
+    { q: 'كيف أتواصل مع الدعم؟', a: 'استخدم زر الدعم العائم أسفل الشاشة للتواصل معنا مباشرة.' }
+];
+
+function setupFAQ() {
+    const list = document.getElementById('faqList');
+    if (!list) return;
+    list.innerHTML = faqData.map((item, i) => `
+        <div class="faq-item" onclick="toggleFAQ(${i})">
+            <div class="faq-question">
+                <span>${item.q}</span>
+                <span class="material-icons">expand_more</span>
+            </div>
+            <div class="faq-answer">${item.a}</div>
+        </div>
+    `).join('');
+}
+
+function toggleFAQ(index) {
+    const items = document.querySelectorAll('.faq-item');
+    if (items[index]) {
+        items[index].classList.toggle('open');
+    }
+}
+
+// ============ الدعم والإشعارات ============
 function openSupport() {
     window.open('https://t.me/SANADST', '_blank');
 }
 
 function openNotificationsPage() {
-    if (!userData) { alert('افتح التطبيق من تيليجرام'); return; }
+    if (!userData) { showSuccessScreen('تنبيه', 'افتح التطبيق من تيليجرام'); return; }
     fetchNotifications(userData.telegram_id).then(notifications => {
         const bodyHTML = `
             <div style="text-align:center;">
@@ -748,6 +1072,7 @@ function updateNotificationBadge() {
     else { badge.style.display = 'none'; }
 }
 
+// ============ التنقل ============
 function setupNavigation() {
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -799,17 +1124,23 @@ function setupSearch() {
 
 function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
+    const target = document.getElementById(pageId);
+    if (target) target.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
     currentPage = pageId;
-    if (pageId === 'page-home') renderCategories();
+    localStorage.setItem('lastPage', pageId);
+
+    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); }
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);
     if (pageId === 'page-account') updateUserUI();
     if (pageId === 'page-kyc') updateKYCUI();
+    if (pageId === 'page-favorites') renderFavorites();
+    if (pageId === 'page-faq') setupFAQ();
 }
 
+// ============ أدوات عامة ============
 function previewImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();

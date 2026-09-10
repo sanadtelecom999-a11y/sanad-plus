@@ -56,6 +56,12 @@
             <button class="sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
                 <span class="material-icons">build</span> طلبات الخدمة
             </button>
+            <button class="sidebar-item" data-section="coupons" onclick="switchSection('coupons')">
+                <span class="material-icons">local_offer</span> كودات الخصم
+            </button>
+            <button class="sidebar-item" data-section="referrals" onclick="switchSection('referrals')">
+                <span class="material-icons">card_giftcard</span> الإحالات
+            </button>
             <button class="sidebar-item" data-section="activities" onclick="switchSection('activities')">
                 <span class="material-icons">history</span> سجل النشاطات
             </button>
@@ -70,7 +76,7 @@
 
     <main class="admin-content">
 
-        <!-- ==================== لوحة التحكم ==================== -->
+        <!-- لوحة التحكم -->
         <section id="section-dashboard" class="admin-section active">
             <h2>لوحة التحكم</h2>
             <div class="stats-cards">
@@ -85,7 +91,7 @@
             </div>
         </section>
 
-        <!-- ==================== المستخدمون ==================== -->
+        <!-- المستخدمون -->
         <section id="section-users" class="admin-section">
             <h2>المستخدمون</h2>
             <div class="search-box">
@@ -114,7 +120,7 @@
             </div>
         </section>
 
-        <!-- ==================== الأقسام ==================== -->
+        <!-- الأقسام -->
         <section id="section-categories" class="admin-section">
             <div class="section-header">
                 <h2>الأقسام</h2>
@@ -125,7 +131,7 @@
             <div class="cards-grid" id="categoriesList"></div>
         </section>
 
-        <!-- ==================== المنتجات ==================== -->
+        <!-- المنتجات -->
         <section id="section-products" class="admin-section">
             <div class="section-header">
                 <h2>المنتجات</h2>
@@ -151,7 +157,7 @@
             </div>
         </section>
 
-        <!-- ==================== طرق الدفع ==================== -->
+        <!-- طرق الدفع -->
         <section id="section-payment-methods" class="admin-section">
             <div class="section-header">
                 <h2>طرق الدفع</h2>
@@ -162,7 +168,7 @@
             <div class="cards-grid" id="paymentMethodsList"></div>
         </section>
 
-        <!-- ==================== الطلبات مع فلاتر متقدمة ==================== -->
+        <!-- الطلبات مع فلاتر متقدمة -->
         <section id="section-orders" class="admin-section">
             <div class="section-header">
                 <h2>الطلبات</h2>
@@ -227,7 +233,7 @@
             </div>
         </section>
 
-        <!-- ==================== الإيداعات ==================== -->
+        <!-- الإيداعات -->
         <section id="section-deposits" class="admin-section">
             <div class="section-header">
                 <h2>الإيداعات</h2>
@@ -252,7 +258,7 @@
             </div>
         </section>
 
-        <!-- ==================== KYC ==================== -->
+        <!-- KYC -->
         <section id="section-kyc" class="admin-section">
             <h2>طلبات التوثيق</h2>
             <div class="table-container">
@@ -273,7 +279,7 @@
             </div>
         </section>
 
-        <!-- ==================== طلبات الخدمة ==================== -->
+        <!-- طلبات الخدمة -->
         <section id="section-service-requests" class="admin-section">
             <h2>طلبات الخدمة المخصصة</h2>
             <div class="table-container">
@@ -293,7 +299,61 @@
             </div>
         </section>
 
-        <!-- ==================== سجل النشاطات ==================== -->
+        <!-- كودات الخصم -->
+        <section id="section-coupons" class="admin-section">
+            <div class="section-header">
+                <h2>كودات الخصم</h2>
+                <button class="btn-primary" onclick="openCouponModal()">
+                    <span class="material-icons">add</span> إضافة كود
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الكود</th>
+                            <th>النوع</th>
+                            <th>القيمة</th>
+                            <th>الحد الأدنى</th>
+                            <th>الاستخدامات</th>
+                            <th>الصلاحية</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="couponsTableBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- الإحالات -->
+        <section id="section-referrals" class="admin-section">
+            <div class="section-header">
+                <h2>الإحالات</h2>
+                <button class="btn-outline" onclick="exportReferralsCSV()">
+                    <span class="material-icons">download</span> تصدير CSV
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>المُحيل</th>
+                            <th>المُحال</th>
+                            <th>المكافأة</th>
+                            <th>الحالة</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="referralsTableBody">
+                        <tr><td colspan="6" style="text-align:center;">جار التحميل...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- سجل النشاطات -->
         <section id="section-activities" class="admin-section">
             <div class="section-header">
                 <h2>سجل نشاطات الأدمن</h2>
@@ -317,7 +377,7 @@
             </div>
         </section>
 
-        <!-- ==================== الإشعارات ==================== -->
+        <!-- الإشعارات -->
         <section id="section-notifications" class="admin-section">
             <h2>إرسال إشعار</h2>
             <div class="notification-form">
@@ -348,7 +408,7 @@
             </div>
         </section>
 
-        <!-- ==================== الإعدادات ==================== -->
+        <!-- الإعدادات -->
         <section id="section-settings" class="admin-section">
             <h2>الإعدادات</h2>
             <div class="settings-form">

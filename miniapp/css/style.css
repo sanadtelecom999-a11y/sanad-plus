@@ -21,6 +21,7 @@
     --nav-height: 70px;
     --topbar-height: 60px;
     --shadow: 0 4px 12px rgba(0,0,0,0.05);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
     --transition: all 0.3s ease;
 }
 
@@ -33,6 +34,8 @@
     --primary-light: #1E2A35;
     --vip-bg: #4A3F00;
     --vip-text: #FFD54F;
+    --shadow: 0 4px 12px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
 }
 
 * {
@@ -153,10 +156,18 @@ body {
 }
 
 .splash-footer {
-    font-size: 0.8rem;
-    color: #9E9E9E;
-    font-weight: 400;
-    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+.splash-footer-line {
+    font-size: 1rem;
+    color: #6B8A9E;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.5;
 }
 
 /* =========== الشريط العلوي =========== */
@@ -226,6 +237,11 @@ body {
     color: var(--primary);
     font-size: 0.9rem;
     cursor: pointer;
+    transition: var(--transition);
+}
+
+.balance-pill:hover {
+    transform: scale(1.05);
 }
 
 .balance-pill .material-icons {
@@ -258,6 +274,12 @@ body {
     padding: 2px 5px;
     min-width: 18px;
     text-align: center;
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
 }
 
 /* =========== المحتوى الرئيسي =========== */
@@ -277,6 +299,12 @@ body {
 
 .page.active {
     display: block;
+    animation: pageSlideIn 0.3s ease;
+}
+
+@keyframes pageSlideIn {
+    from { opacity: 0; transform: translateX(-15px); }
+    to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes fadeIn {
@@ -326,10 +354,22 @@ body {
     gap: 8px;
     width: 100%;
     font-family: inherit;
+    position: relative;
 }
 
 .btn-primary:hover {
     background-color: #0088cc;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-primary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
 }
 
 .btn-large {
@@ -352,6 +392,17 @@ body {
 .btn-outline:hover {
     background-color: var(--primary);
     color: white;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
 }
 
 .counter-circle {
@@ -391,6 +442,50 @@ body {
     background-color: var(--primary);
     color: white;
     border-color: var(--primary);
+}
+
+/* =========== حالة تحميل داخل الأزرار =========== */
+.btn-loading {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* =========== Skeleton Loading =========== */
+.skeleton-card {
+    background: linear-gradient(90deg, var(--border) 25%, var(--primary-light) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s infinite;
+    border-radius: var(--radius-md);
+    height: 120px;
+}
+
+@keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.skeleton-list-item {
+    background: linear-gradient(90deg, var(--border) 25%, var(--primary-light) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s infinite;
+    border-radius: var(--radius-md);
+    height: 80px;
+    margin-bottom: 12px;
 }
 
 /* =========== شاشة الرئيسية =========== */
@@ -499,6 +594,7 @@ body {
     overflow: hidden;
     cursor: pointer;
     transition: var(--transition);
+    position: relative;
 }
 
 .product-card:hover {
@@ -517,6 +613,64 @@ body {
     color: #ccc;
     background-size: cover;
     background-position: center;
+    position: relative;
+}
+
+.product-badges {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.badge-new, .badge-best {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 50px;
+    font-size: 0.65rem;
+    font-weight: 800;
+}
+
+.badge-new {
+    background-color: var(--primary);
+    color: white;
+}
+
+.badge-best {
+    background-color: #FF9800;
+    color: white;
+}
+
+.favorite-btn {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,0.9);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    z-index: 2;
+}
+
+.favorite-btn .material-icons {
+    font-size: 18px;
+    color: var(--text-secondary);
+}
+
+.favorite-btn.active .material-icons {
+    color: #E91E63;
+}
+
+.favorite-btn:hover {
+    transform: scale(1.1);
 }
 
 .product-name {
@@ -629,6 +783,101 @@ body {
     color: var(--text-secondary);
 }
 
+/* =========== شريط تقدم حالة الطلب =========== */
+.order-progress {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding: 8px 0;
+}
+
+.progress-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.progress-step .step-circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: var(--border);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    z-index: 2;
+}
+
+.progress-step.active .step-circle {
+    background-color: var(--primary);
+    color: white;
+}
+
+.progress-step.completed .step-circle {
+    background-color: var(--success);
+    color: white;
+}
+
+.progress-step::before {
+    content: '';
+    position: absolute;
+    top: 11px;
+    left: 0;
+    right: 50%;
+    height: 2px;
+    background-color: var(--border);
+    z-index: 1;
+}
+
+.progress-step::after {
+    content: '';
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    right: 0;
+    height: 2px;
+    background-color: var(--border);
+    z-index: 1;
+}
+
+.progress-step:first-child::before,
+.progress-step:last-child::after {
+    display: none;
+}
+
+.progress-step.completed::before,
+.progress-step.completed::after {
+    background-color: var(--success);
+}
+
+/* =========== عداد الإلغاء التنازلي =========== */
+.cancel-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: var(--warning-bg);
+    color: #F57F17;
+    padding: 6px 12px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-top: 12px;
+}
+
+.cancel-timer .material-icons {
+    font-size: 16px;
+}
+
 /* =========== شاشة شحن الرصيد =========== */
 .balance-card-gradient {
     background: linear-gradient(135deg, #00A0E9, #0D47A1);
@@ -675,6 +924,7 @@ body {
 
 .payment-method:hover {
     border-color: var(--primary);
+    transform: translateX(-4px);
 }
 
 .payment-method-info {
@@ -716,6 +966,13 @@ body {
     color: var(--text-secondary);
     border: 2px dashed var(--border);
     border-radius: var(--radius-md);
+}
+
+.empty-state .material-icons {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 12px;
+    color: var(--border);
 }
 
 /* =========== شاشة حسابي =========== */
@@ -808,6 +1065,7 @@ body {
 
 .setting-item:hover {
     border-color: var(--primary);
+    transform: translateX(-4px);
 }
 
 .setting-icon {
@@ -964,6 +1222,84 @@ input:checked + .toggle-slider:before {
     background-position: center;
 }
 
+/* =========== الأسئلة الشائعة =========== */
+.faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.faq-item {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.faq-question {
+    padding: 14px 16px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text);
+}
+
+.faq-answer {
+    padding: 0 16px 14px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    display: none;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.faq-item.open .faq-answer {
+    display: block;
+}
+
+.faq-item.open .faq-question .material-icons {
+    transform: rotate(180deg);
+}
+
+/* =========== زر الدعم العائم =========== */
+.floating-support-btn {
+    position: fixed;
+    bottom: calc(var(--nav-height) + 16px);
+    left: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99;
+    transition: var(--transition);
+    animation: floatBtn 3s ease-in-out infinite;
+}
+
+@keyframes floatBtn {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+.floating-support-btn:hover {
+    background-color: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.floating-support-btn .material-icons {
+    font-size: 26px;
+}
+
 /* =========== المودال =========== */
 .modal {
     display: none;
@@ -1038,6 +1374,71 @@ input:checked + .toggle-slider:before {
 .form-group select:focus,
 .form-group textarea:focus {
     border-color: var(--primary);
+}
+
+/* =========== شاشة النجاح Overlay =========== */
+.success-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.success-overlay.active {
+    display: flex;
+}
+
+.success-content {
+    background-color: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 320px;
+    width: 85%;
+    box-shadow: var(--shadow-lg);
+    animation: successPop 0.4s ease;
+}
+
+@keyframes successPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--success-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.success-icon .material-icons {
+    font-size: 3.5rem;
+    color: var(--success);
+}
+
+.success-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin-bottom: 8px;
+}
+
+.success-message {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
 }
 
 /* =========== شريط التنقل السفلي =========== */
@@ -1115,6 +1516,7 @@ input:checked + .toggle-slider:before {
 
 .currency-toggle:hover {
     opacity: 0.85;
+    transform: scale(1.05);
 }
 
 .currency-toggle .material-icons {

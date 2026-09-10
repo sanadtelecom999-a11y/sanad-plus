@@ -1,10 +1,12 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from flask import request, jsonify
-from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification
+from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification, Coupon, CouponUsage, Referral
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
+
+REFERRAL_REWARD = 1.0
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -26,6 +28,75 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
         db.session.commit()
     return user
 
+def apply_coupon_to_order(user, coupon_code, order_amount):
+    """التحقق من الكود وحساب الخصم. تعيد (discount, coupon_obj) أو (0, None)"""
+    if not coupon_code:
+        return 0, None
+    code = coupon_code.strip().upper()
+    coupon = Coupon.query.filter_by(code=code).first()
+    if not coupon or not coupon.is_active:
+        return 0, None
+    if coupon.expires_at and coupon.expires_at < datetime.now(timezone.utc):
+        return 0, None
+    if coupon.max_uses > 0 and coupon.used_count >= coupon.max_uses:
+        return 0, None
+    if order_amount < coupon.min_amount:
+        return 0, None
+    existing = CouponUsage.query.filter_by(coupon_id=coupon.id, user_id=user.id).first()
+    if existing:
+        return 0, None
+    if coupon.discount_type == "percentage":
+        discount = order_amount * (coupon.discount_value / 100)
+        if coupon.max_discount > 0 and discount > coupon.max_discount:
+            discount = coupon.max_discount
+    else:
+        discount = coupon.discount_value
+        if discount > order_amount:
+            discount = order_amount
+    return round(discount, 4), coupon
+
+def complete_referral_if_first_order(user):
+    """منح مكافأة الإحالة عند أول طلب للمستخدم"""
+    if not user.referred_by:
+        return
+    # التحقق أن هذا أول طلب
+    order_count = Order.query.filter_by(user_id=user.id).count()
+    if order_count > 1:
+        return
+    referrer = User.query.filter_by(telegram_id=user.referred_by).first()
+    if not referrer:
+        return
+    referral = Referral.query.filter_by(
+        referrer_id=referrer.id,
+        referred_user_id=user.id,
+        status="pending"
+    ).first()
+    if not referral:
+        return
+    referrer.balance += REFERRAL_REWARD
+    referrer.referral_earnings = (referrer.referral_earnings or 0) + REFERRAL_REWARD
+    referrer.referral_count = (referrer.referral_count or 0) + 1
+    txn = Transaction(
+        user_id=referrer.id,
+        type="referral_reward",
+        amount=REFERRAL_REWARD,
+        balance_after=referrer.balance,
+        reference_type="referral",
+        reference_id=referral.id,
+    )
+    db.session.add(txn)
+    referral.reward_amount = REFERRAL_REWARD
+    referral.status = "completed"
+    referral.completed_at = datetime.now(timezone.utc)
+    notif = Notification(
+        user_id=referrer.id,
+        title="مكافأة إحالة",
+        message=f"حصلت على مكافأة {REFERRAL_REWARD}$ من إحالة",
+        type="success",
+    )
+    db.session.add(notif)
+    send_telegram_notification(referrer.telegram_id, f"🎁 حصلت على مكافأة إحالة بقيمة {REFERRAL_REWARD}$")
+
 @main.route("/api/orders/", methods=["POST"])
 def create_order():
     data = request.get_json()
@@ -42,6 +113,7 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
+    # التحقق من الحقول المخصصة
     if product.input_type == "id":
         player_id = data.get("player_id", "")
         if not player_id.strip():
@@ -55,6 +127,7 @@ def create_order():
     else:
         delivery_data = {}
 
+    # تحديد السعر والكمية
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -69,13 +142,20 @@ def create_order():
         quantity = int(data.get("quantity", 0))
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
-
         if product.base_quantity > 0:
             unit_price = product.base_price / product.base_quantity
         else:
             unit_price = product.base_price
-
         total_price = round(unit_price * quantity, 4)
+
+    # تطبيق كود الخصم
+    coupon_code = data.get("coupon_code", "").strip()
+    discount_amount = 0
+    coupon_obj = None
+    if coupon_code:
+        discount_amount, coupon_obj = apply_coupon_to_order(user, coupon_code, total_price)
+        if coupon_obj:
+            total_price = round(total_price - discount_amount, 4)
 
     if user.balance < total_price:
         return jsonify({"error": "رصيد غير كافٍ"}), 400
@@ -87,6 +167,8 @@ def create_order():
         quantity=quantity,
         unit_price=unit_price,
         total_price=total_price,
+        discount_amount=discount_amount,
+        coupon_code=coupon_obj.code if coupon_obj else None,
         status="pending",
         delivery_data=str(delivery_data),
         idempotency_key=data.get("idempotency_key", uuid.uuid4().hex),
@@ -116,6 +198,22 @@ def create_order():
     db.session.add(notif)
     db.session.commit()
 
+    # تسجيل استخدام الكود
+    if coupon_obj:
+        coupon_obj.used_count = (coupon_obj.used_count or 0) + 1
+        usage = CouponUsage(
+            coupon_id=coupon_obj.id,
+            user_id=user.id,
+            order_id=order.id,
+            used_at=datetime.now(timezone.utc),
+        )
+        db.session.add(usage)
+        db.session.commit()
+
+    # إتمام الإحالة إذا كان أول طلب
+    complete_referral_if_first_order(user)
+
+    # إشعارات
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
     notify_admins(f"🆕 طلب جديد!\nرقم الطلب: {order.order_number}\nالمنتج: {product.name}\nالكمية: {quantity}\nالإجمالي: {total_price}$")
 
@@ -124,6 +222,7 @@ def create_order():
         "order_number": order.order_number,
         "status": order.status,
         "total_price": total_price,
+        "discount_amount": discount_amount,
         "message": "طلبك قيد المعالجة",
     }), 201
 
@@ -145,12 +244,10 @@ def cancel_order(order_id):
     if order.status != "pending":
         return jsonify({"error": "لا يمكن إلغاء هذا الطلب"}), 400
 
-    # التحقق من مرور أقل من 120 ثانية
     elapsed = datetime.now(timezone.utc) - order.created_at
     if elapsed > timedelta(seconds=120):
         return jsonify({"error": "انتهت مهلة الإلغاء"}), 400
 
-    # استرداد المبلغ
     user.balance += order.total_price
     txn = Transaction(
         user_id=user.id,
@@ -186,14 +283,21 @@ def get_my_orders():
     if not user:
         return jsonify([])
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
-    return jsonify([{
-        "id": o.id,
-        "order_number": o.order_number,
-        "product_id": o.product_id,
-        "quantity": o.quantity,
-        "unit_price": o.unit_price,
-        "total_price": o.total_price,
-        "status": o.status,
-        "delivery_data": o.delivery_data,
-        "created_at": o.created_at.isoformat() if o.created_at else None,
-    } for o in orders])
+    result = []
+    for o in orders:
+        product = Product.query.get(o.product_id)
+        result.append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "product_id": o.product_id,
+            "product_name": product.name if product else "منتج محذوف",
+            "quantity": o.quantity,
+            "unit_price": o.unit_price,
+            "total_price": o.total_price,
+            "discount_amount": o.discount_amount or 0,
+            "coupon_code": o.coupon_code,
+            "status": o.status,
+            "delivery_data": o.delivery_data,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+        })
+    return jsonify(result)

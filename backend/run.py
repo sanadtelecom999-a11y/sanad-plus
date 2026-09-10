@@ -12,7 +12,7 @@ from app.extensions import db
 app = create_app()
 
 def upgrade_database():
-    """ترقية قاعدة البيانات: إضافة الأعمدة الجديدة وتحويل الصور إلى TEXT"""
+    """ترقية قاعدة البيانات: إضافة الأعمدة الجديدة وتحويل الصور إلى TEXT وإنشاء الجداول المفقودة"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
@@ -38,11 +38,24 @@ def upgrade_database():
                     except Exception as e:
                         print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
-        # 2) إضافة الأعمدة المفقودة
+        # 2) إضافة الأعمدة المفقودة إلى الجداول الموجودة
         required_columns = {
             'deposits': {'admin_note': 'TEXT'},
             'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
             'payment_methods': {'account_name': 'VARCHAR(100)', 'qr_image': 'TEXT'},
+            'users': {
+                'referral_earnings': 'FLOAT DEFAULT 0',
+                'referral_count': 'INTEGER DEFAULT 0',
+            },
+            'products': {
+                'rating_sum': 'INTEGER DEFAULT 0',
+                'rating_count': 'INTEGER DEFAULT 0',
+            },
+            'orders': {
+                'discount_amount': 'FLOAT DEFAULT 0',
+                'coupon_code': 'VARCHAR(50)',
+                'is_rated': 'BOOLEAN DEFAULT FALSE',
+            },
         }
 
         for table, cols in required_columns.items():
@@ -57,6 +70,14 @@ def upgrade_database():
                         print(f"✔️ تمت إضافة {col_name} إلى {table}")
                     except Exception as e:
                         print(f"⚠️ فشل إضافة {col_name} إلى {table}: {e}")
+
+        # 3) إنشاء الجداول الجديدة إذا لم تكن موجودة
+        try:
+            db.create_all()
+            db.session.commit()
+            print("✅ تم إنشاء/التحقق من جميع الجداول")
+        except Exception as e:
+            print(f"⚠️ فشل إنشاء الجداول: {e}")
 
         print("✅ اكتملت ترقية قاعدة البيانات")
 

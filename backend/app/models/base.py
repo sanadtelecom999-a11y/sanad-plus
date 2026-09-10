@@ -16,6 +16,8 @@ class User(db.Model):
     vip_level = db.Column(db.Integer, default=0)
     referral_code = db.Column(db.String(50), unique=True)
     referred_by = db.Column(db.BigInteger)
+    referral_earnings = db.Column(db.Float, default=0.0)
+    referral_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     orders = db.relationship("Order", backref="user", lazy=True)
@@ -70,6 +72,8 @@ class Order(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     unit_price = db.Column(db.Float, nullable=False)
     total_price = db.Column(db.Float, nullable=False)
+    discount_amount = db.Column(db.Float, default=0.0)
+    coupon_code = db.Column(db.String(50))
     status = db.Column(db.String(20), default="pending")
     payment_method = db.Column(db.String(50))
     delivery_data = db.Column(db.Text)
@@ -101,8 +105,8 @@ class PaymentMethod(db.Model):
     description = db.Column(db.String(255))
     account_name = db.Column(db.String(100))
     account = db.Column(db.Text)
-    icon = db.Column(db.Text)          # لوجو الطريقة
-    qr_image = db.Column(db.Text)      # صورة QR
+    icon = db.Column(db.Text)
+    qr_image = db.Column(db.Text)
     min_amount = db.Column(db.Float, default=0)
     fee = db.Column(db.Float, default=0)
     requires_kyc = db.Column(db.Boolean, default=False)
@@ -171,3 +175,36 @@ class ServiceRequest(db.Model):
     status = db.Column(db.String(20), default="pending")
     admin_response = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Coupon(db.Model):
+    __tablename__ = "coupons"
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, nullable=False)
+    description = db.Column(db.String(255))
+    discount_type = db.Column(db.String(20), default="percentage")
+    discount_value = db.Column(db.Float, nullable=False)
+    min_amount = db.Column(db.Float, default=0)
+    max_discount = db.Column(db.Float, default=0)
+    max_uses = db.Column(db.Integer, default=0)
+    used_count = db.Column(db.Integer, default=0)
+    expires_at = db.Column(db.DateTime)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class CouponUsage(db.Model):
+    __tablename__ = "coupon_usages"
+    id = db.Column(db.Integer, primary_key=True)
+    coupon_id = db.Column(db.Integer, db.ForeignKey("coupons.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"))
+    used_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Referral(db.Model):
+    __tablename__ = "referrals"
+    id = db.Column(db.Integer, primary_key=True)
+    referrer_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    referred_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    reward_amount = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default="pending")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    completed_at = db.Column(db.DateTime)
