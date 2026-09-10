@@ -2,57 +2,61 @@
 
 const tg = window.Telegram?.WebApp;
 
+/**
+ * تهيئة Telegram WebApp مع انتظار تحميل البيانات
+ * @returns {Promise<boolean>} true إذا نجح تحميل بيانات المستخدم
+ */
 function initTelegram() {
-    if (tg) {
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor('#00A0E9');
-        tg.setBackgroundColor('#F5F7FA');
-
-        // استخراج بيانات المستخدم مباشرة بعد الجاهزية
-        const user = tg.initDataUnsafe?.user;
-        if (user) {
-            window.currentUser = {
-                id: user.id,
-                first_name: user.first_name || '',
-                last_name: user.last_name || '',
-                username: user.username || '',
-                photo_url: user.photo_url || '',
-            };
-            console.log('تم التقاط بيانات المستخدم:', window.currentUser);
-        } else {
-            console.warn('لا توجد بيانات مستخدم في initDataUnsafe');
-            // محاولة استخراج من initData يدوياً
-            try {
-                const initData = tg.initData || '';
-                const params = new URLSearchParams(initData);
-                const userParam = params.get('user');
-                if (userParam) {
-                    const userData = JSON.parse(userParam);
-                    window.currentUser = {
-                        id: userData.id,
-                        first_name: userData.first_name || '',
-                        last_name: userData.last_name || '',
-                        username: userData.username || '',
-                        photo_url: userData.photo_url || '',
-                    };
-                    console.log('تم استخراج بيانات المستخدم من initData:', window.currentUser);
-                }
-            } catch (e) {
-                console.error('فشل استخراج بيانات المستخدم:', e);
-            }
+    return new Promise((resolve) => {
+        if (!tg) {
+            console.error('❌ Telegram WebApp API غير متاح — التطبيق لم يُفتح من داخل تيليجرام');
+            resolve(false);
+            return;
         }
-    } else {
-        console.warn('Telegram WebApp غير متوفر');
-        // للتطوير فقط
-        window.currentUser = {
-            id: 8673286954,
-            first_name: 'مستخدم تجريبي',
-            last_name: '',
-            username: 'tester',
-            photo_url: '',
+
+        try {
+            tg.ready();
+            tg.expand();
+            try { tg.setHeaderColor('#00A0E9'); } catch (e) {}
+            try { tg.setBackgroundColor('#F5F7FA'); } catch (e) {}
+        } catch (e) {
+            console.warn('⚠️ خطأ في تهيئة tg:', e);
+        }
+
+        // انتظار قصير حتى تكتمل بيانات initDataUnsafe
+        let attempts = 0;
+        const maxAttempts = 10; // 10 × 100ms = 1 ثانية
+
+        const checkUser = () => {
+            const user = tg.initDataUnsafe?.user;
+
+            if (user && user.id) {
+                window.currentUser = {
+                    id: user.id,
+                    first_name: user.first_name || '',
+                    last_name: user.last_name || '',
+                    username: user.username || '',
+                    photo_url: user.photo_url || '',
+                    language_code: user.language_code || 'ar',
+                    is_premium: user.is_premium || false,
+                };
+                console.log('✅ تم التعرف على المستخدم من تيليجرام:', window.currentUser.id);
+                resolve(true);
+                return;
+            }
+
+            attempts++;
+            if (attempts >= maxAttempts) {
+                console.error('❌ لم يتم الحصول على بيانات المستخدم من تيليجرام بعد ' + (maxAttempts * 100) + 'ms');
+                resolve(false);
+                return;
+            }
+
+            setTimeout(checkUser, 100);
         };
-    }
+
+        checkUser();
+    });
 }
 
 function applyTelegramTheme() {
@@ -74,8 +78,3 @@ function hideBackButton() {
         tg.BackButton.hide();
     }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    initTelegram();
-    applyTelegramTheme();
-});

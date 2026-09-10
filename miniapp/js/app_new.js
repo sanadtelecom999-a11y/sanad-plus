@@ -90,15 +90,30 @@ function renderFavorites() {
 document.addEventListener('DOMContentLoaded', async () => {
     initSplashScreen();
 
-    initTelegram();
+    // ⚠️ انتظر تحميل Telegram WebApp قبل أي شيء
+    const telegramReady = await initTelegram();
     applyTelegramTheme();
 
-    let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (telegram_id) {
+    if (!telegramReady || !window.currentUser?.id) {
+        console.error('❌ لا يمكن تشغيل التطبيق خارج تيليجرام');
+        showTelegramError();
+        return;
+    }
+
+    console.log('✅ المستخدم الحالي:', window.currentUser.id, window.currentUser.first_name);
+
+    // مصادقة المستخدم
+    try {
         userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
-    } else {
-        showSuccessScreen('خطأ', 'لا يمكن الوصول لبيانات تيليجرام. افتح التطبيق من البوت.');
-        userData = null;
+        console.log('✅ تم الحصول على بيانات المستخدم:', userData.telegram_id);
+    } catch (error) {
+        console.error('❌ فشل المصادقة:', error);
+        if (error.message === 'TELEGRAM_ID_MISSING') {
+            showTelegramError();
+        } else {
+            showSuccessScreen('خطأ في الاتصال', 'تعذر الاتصال بالخادم، حاول مرة أخرى');
+        }
+        return;
     }
 
     updateCurrencyUI();
@@ -123,6 +138,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     startNotificationPolling();
 });
+
+// ============ شاشة خطأ تيليجرام ============
+function showTelegramError() {
+    document.body.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; background:linear-gradient(180deg, #F0F9FF 0%, #FFFFFF 100%);">
+            <div style="max-width:400px; text-align:center; background:#FFFFFF; border-radius:20px; padding:32px 24px; box-shadow:0 8px 32px rgba(14,165,233,0.12); border:1px solid #EAF5FC;">
+                <div style="width:80px; height:80px; margin:0 auto 20px; background:#FFF8E1; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                    <span class="material-icons" style="font-size:40px; color:#F59E0B;">warning</span>
+                </div>
+                <h2 style="font-size:1.3rem; font-weight:800; color:#0F172A; margin-bottom:12px;">افتح التطبيق من تيليجرام</h2>
+                <p style="font-size:0.95rem; color:#64748B; line-height:1.7; margin-bottom:24px;">
+                    هذا التطبيق يعمل فقط من داخل تيليجرام.<br>
+                    يرجى فتحه من البوت الرسمي.
+                </p>
+                <a href="https://t.me/YOUR_BOT_USERNAME" style="display:inline-block; background:#0EA5E9; color:white; padding:12px 28px; border-radius:50px; text-decoration:none; font-weight:700; font-size:0.95rem;">
+                    فتح البوت
+                </a>
+            </div>
+        </div>
+    `;
+}
 
 // ============ تهيئة شاشة البداية ============
 function initSplashScreen() {
@@ -304,8 +340,8 @@ function updateUserUI() {
 
     document.getElementById('accountName').textContent =
         userData.first_name || userData.username || 'مستخدم';
-    document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
-    document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
+    document.getElementById('accountId').innerHTML = `<span class="ltr">ID: ${userData.telegram_id}</span>`;
+    document.getElementById('accountEmail').innerHTML = userData.username ? `<span class="ltr">@${userData.username}</span>` : '';
 
     if (userData.vip_level > 0) {
         const vipBadge = document.getElementById('vipBadge');

@@ -28,47 +28,51 @@ async function apiFetch(url, options = {}) {
     }
 }
 
+/**
+ * مصادقة المستخدم مع Backend
+ * ⚠️ لا يوجد fallback — إذا لم نتعرف على المستخدم، نرفض المصادقة
+ */
 async function authenticateUser(initData) {
-    try {
-        let telegram_id = null;
-        let first_name = '';
-        let last_name = '';
-        let username = '';
+    let telegram_id = null;
+    let first_name = '';
+    let last_name = '';
+    let username = '';
 
-        // الحصول على بيانات المستخدم من Telegram WebApp أو window.currentUser
-        if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-            const u = window.Telegram.WebApp.initDataUnsafe.user;
-            telegram_id = u.id;
-            first_name = u.first_name || '';
-            last_name = u.last_name || '';
-            username = u.username || '';
-        } else if (window.currentUser) {
-            telegram_id = window.currentUser.id;
-            first_name = window.currentUser.first_name;
-            last_name = window.currentUser.last_name;
-            username = window.currentUser.username;
-        }
-
-        if (!telegram_id) {
-            throw new Error('لم يتم العثور على Telegram ID');
-        }
-
-        const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                telegram_id,
-                first_name,
-                last_name,
-                username,
-                initData: initData || '',
-            }),
-        });
-        return data;
-    } catch (error) {
-        console.error('Auth error:', error);
-        return null; // نعيد null بدلاً من بيانات وهمية
+    // المصدر الوحيد الموثوق: Telegram WebApp
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+        const u = window.Telegram.WebApp.initDataUnsafe.user;
+        telegram_id = u.id;
+        first_name = u.first_name || '';
+        last_name = u.last_name || '';
+        username = u.username || '';
+    } else if (window.currentUser && window.currentUser.id) {
+        telegram_id = window.currentUser.id;
+        first_name = window.currentUser.first_name || '';
+        last_name = window.currentUser.last_name || '';
+        username = window.currentUser.username || '';
     }
+
+    // إذا لم نجد telegram_id → نرفض بدلاً من استخدام مستخدم تجريبي
+    if (!telegram_id) {
+        console.error('❌ لا يمكن المصادقة: لم يتم العثور على telegram_id');
+        throw new Error('TELEGRAM_ID_MISSING');
+    }
+
+    console.log('🔐 المصادقة للمستخدم:', telegram_id);
+
+    const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            telegram_id,
+            first_name,
+            last_name,
+            username,
+            initData: initData || '',
+        }),
+    });
+
+    return data;
 }
 
 async function fetchCategories() {
@@ -76,7 +80,9 @@ async function fetchCategories() {
 }
 
 async function fetchProducts(categoryId = null) {
-    const url = categoryId ? `${API_BASE_URL}/api/products/?category_id=${categoryId}` : `${API_BASE_URL}/api/products/`;
+    const url = categoryId
+        ? `${API_BASE_URL}/api/products/?category_id=${categoryId}`
+        : `${API_BASE_URL}/api/products/`;
     return await apiFetch(url);
 }
 
