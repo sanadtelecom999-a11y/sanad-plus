@@ -390,7 +390,7 @@ function updateKYCBadge() {
     }
 }
 
-// ============ بطاقة المنتج — الاسم فقط (بدون سعر أو كمية) ============
+// ============ بطاقة المنتج — الاسم فقط ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -410,6 +410,7 @@ function renderProductCard(prod) {
     `;
 }
 
+// ============ الأقسام — صور أكبر ============
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -421,7 +422,7 @@ function renderCategories() {
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
             <div class="category-icon">
-                ${cat.image ? `<img src="${cat.image}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '📁'}
+                ${cat.image ? `<img src="${cat.image}" alt="${cat.name}" class="category-img" />` : '📁'}
             </div>
             <div class="category-name">${cat.name}</div>
         </div>

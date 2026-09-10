@@ -467,12 +467,15 @@ function openCategoryModal() {
     const body = `
         <h3 style="margin-bottom:14px;">إضافة قسم جديد</h3>
         <div class="form-group"><label>اسم القسم</label><input type="text" id="categoryName"></div>
-        <div class="form-group"><label>أيقونة (إيموجي)</label><input type="text" id="categoryIcon" value="📁"></div>
+        <div class="form-group"><label>أيقونة (إيموجي) - اختياري</label><input type="text" id="categoryIcon" value="📁"></div>
         <div class="form-group">
             <label>صورة القسم</label>
             <div class="image-preview" id="categoryImagePreview">لا صورة</div>
             <input type="file" id="categoryImage" accept="image/*" onchange="previewImage(this,'categoryImagePreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
+                سيتم قص الصورة تلقائياً إلى مربع 512×512
+            </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="saveCategory(this)">حفظ</button>
@@ -559,7 +562,10 @@ function openProductModal() {
             <label>صورة المنتج</label>
             <div class="image-preview" id="productImagePreview">لا صورة</div>
             <input type="file" id="productImage" accept="image/*" onchange="previewImage(this,'productImagePreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
+                سيتم قص الصورة تلقائياً إلى مربع 512×512
+            </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="saveProduct(this)">حفظ</button>
@@ -651,12 +657,18 @@ function openPaymentMethodModal() {
             <label>صورة QR</label>
             <div class="image-preview" id="paymentQRPreview">لا صورة</div>
             <input type="file" id="paymentQR" accept="image/*" onchange="previewImage(this,'paymentQRPreview')">
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;">
+                💡 يُفضّل صورة QR واضحة (1:1)
+            </small>
         </div>
         <div class="form-group">
             <label>لوجو الطريقة</label>
             <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
             <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">💡 يُفضّل صورة مربعة (1:1)</small>
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
+                سيتم قص الصورة تلقائياً إلى مربع 512×512
+            </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="savePaymentMethod(this)">حفظ</button>
@@ -1309,7 +1321,7 @@ function previewImage(input, previewId) {
 
 /**
  * ضغط الصورة مع الحفاظ على الأبعاد الأصلية
- * (للصور التي قد تكون مستطيلة - مثل QR و KYC)
+ * للصور التي يجب أن تبقى بنسبها (QR، KYC سيلفي)
  */
 function fileToBase64(file, maxWidth = 512) {
     return new Promise((resolve, reject) => {
@@ -1327,8 +1339,10 @@ function fileToBase64(file, maxWidth = 512) {
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                 resolve(dataUrl);
             };
             img.onerror = reject;
@@ -1340,10 +1354,13 @@ function fileToBase64(file, maxWidth = 512) {
 }
 
 /**
- * ✅ قص الصورة إلى مربع (1:1) من المنتصف ثم ضغطها
- * (للأقسام، المنتجات، لوجو طرق الدفع)
+ * ✅ قص الصورة إلى مربع 1:1 + ضغط
+ * النتيجة: صورة مربعة مثالية لأيقونات الأقسام والمنتجات
  *
- * يحل مشكلة الفراغات البيضاء حول العنصر في الصورة المرفوعة
+ * الخوارزمية:
+ *  1. نأخذ المربع الأوسط من الصورة الأصلية (بدون فراغات جانبية)
+ *  2. نرسمه على canvas بمقاس مربع كامل (size × size)
+ *  3. النتيجة: صورة مربعة 1:1 نقية بدون فراغات
  */
 function fileToSquareBase64(file, size = 512) {
     return new Promise((resolve, reject) => {
@@ -1354,14 +1371,14 @@ function fileToSquareBase64(file, size = 512) {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
 
-                // حجم المربع الصغير
+                // أصغر بُعد (لعرض مربع من المنتصف)
                 const minSide = Math.min(img.width, img.height);
 
-                // موضع البداية (من المنتصف)
+                // موضع البداية (المربع الأوسط من الصورة)
                 const sx = (img.width - minSide) / 2;
                 const sy = (img.height - minSide) / 2;
 
-                // حجم الخروج
+                // حجم الإخراج (مربع 1:1)
                 canvas.width = size;
                 canvas.height = size;
 
@@ -1369,10 +1386,10 @@ function fileToSquareBase64(file, size = 512) {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, size, size);
 
-                // قص + رسم المربع على كامل الإطار
+                // رسم المربع الأوسط على كامل الإطار
                 ctx.drawImage(
                     img,
-                    sx, sy, minSide, minSide,   // المصدر (المربع المركزي)
+                    sx, sy, minSide, minSide,   // المصدر (المربع الأوسط)
                     0, 0, size, size            // الهدف (يملأ الإطار)
                 );
 
