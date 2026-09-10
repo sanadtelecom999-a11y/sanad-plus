@@ -31,6 +31,7 @@ function toggleCurrency() {
     updateCurrencyUI();
     updateUserUI();
     renderOrders(ordersData);
+    renderLatestOrders();
     renderDeposits(depositsData);
     renderCategories();
     renderProductsList(productsData);
@@ -88,30 +89,25 @@ function renderFavorites() {
 
 // ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    initSplashScreen();
+    // ✅ إخفاء Splash بعد 2.5 ثانية
+    setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        if (splash) {
+            splash.style.opacity = '0';
+            splash.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => splash.style.display = 'none', 300);
+        }
+    }, 2500);
 
-    const telegramReady = await initTelegram();
+    initTelegram();
     applyTelegramTheme();
 
-    if (!telegramReady || !window.currentUser?.id) {
-        console.error('❌ لا يمكن تشغيل التطبيق خارج تيليجرام');
-        showTelegramError();
-        return;
-    }
-
-    console.log('✅ المستخدم الحالي:', window.currentUser.id, window.currentUser.first_name);
-
-    try {
+    let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    if (telegram_id) {
         userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
-        console.log('✅ تم الحصول على بيانات المستخدم:', userData.telegram_id);
-    } catch (error) {
-        console.error('❌ فشل المصادقة:', error);
-        if (error.message === 'TELEGRAM_ID_MISSING') {
-            showTelegramError();
-        } else {
-            showSuccessScreen('خطأ في الاتصال', 'تعذر الاتصال بالخادم، حاول مرة أخرى');
-        }
-        return;
+    } else {
+        showSuccessScreen('خطأ', 'لا يمكن الوصول لبيانات تيليجرام. افتح التطبيق من البوت.');
+        userData = null;
     }
 
     updateCurrencyUI();
@@ -129,95 +125,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (darkToggle) darkToggle.checked = savedTheme === 'dark';
     }
 
-    // ✅ إزالة استعادة آخر صفحة — التطبيق يبدأ دائماً من الرئيسية
-    // (لا يوجد localStorage.getItem('lastPage'))
-
     startNotificationPolling();
 });
-
-// ============ شاشة خطأ تيليجرام ============
-function showTelegramError() {
-    document.body.innerHTML = `
-        <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; background:linear-gradient(180deg, #F0F9FF 0%, #FFFFFF 100%);">
-            <div style="max-width:400px; text-align:center; background:#FFFFFF; border-radius:20px; padding:32px 24px; box-shadow:0 8px 32px rgba(14,165,233,0.12); border:1px solid #EAF5FC;">
-                <div style="width:80px; height:80px; margin:0 auto 20px; background:#FFF8E1; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                    <span class="material-icons" style="font-size:40px; color:#F59E0B;">warning</span>
-                </div>
-                <h2 style="font-size:1.3rem; font-weight:800; color:#0F172A; margin-bottom:12px;">افتح التطبيق من تيليجرام</h2>
-                <p style="font-size:0.95rem; color:#64748B; line-height:1.7; margin-bottom:24px;">
-                    هذا التطبيق يعمل فقط من داخل تيليجرام.<br>
-                    يرجى فتحه من البوت الرسمي.
-                </p>
-                <a href="https://t.me/YOUR_BOT_USERNAME" style="display:inline-block; background:#0EA5E9; color:white; padding:12px 28px; border-radius:50px; text-decoration:none; font-weight:700; font-size:0.95rem;">
-                    فتح البوت
-                </a>
-            </div>
-        </div>
-    `;
-}
-
-// ============ تهيئة شاشة البداية ============
-function initSplashScreen() {
-    const splash = document.getElementById('splashScreen');
-    if (!splash) return;
-
-    generateSplashParticles();
-
-    window.splashTimeoutId = setTimeout(() => {
-        closeSplash();
-    }, 8000);
-}
-
-function generateSplashParticles() {
-    const container = document.getElementById('splashParticlesStage');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const PARTICLE_COUNT = 55;
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion) return;
-
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const p = document.createElement('span');
-        p.className = 'splash-particle';
-
-        const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + (Math.random() - 0.5) * 0.4;
-        const radius = 60 + Math.random() * 60;
-        const dx = Math.cos(angle) * radius;
-        const dy = Math.sin(angle) * radius;
-
-        const curveX = (Math.random() - 0.5) * 40;
-        const curveY = (Math.random() - 0.5) * 40;
-
-        p.style.setProperty('--dx-out', dx + 'px');
-        p.style.setProperty('--dy-out', dy + 'px');
-        p.style.setProperty('--curve-x', curveX + 'px');
-        p.style.setProperty('--curve-y', curveY + 'px');
-        p.style.setProperty('--delay', (1.8 + Math.random() * 0.4) + 's');
-
-        const size = 3 + Math.random() * 5;
-        p.style.width = size + 'px';
-        p.style.height = size + 'px';
-
-        container.appendChild(p);
-    }
-}
-
-function closeSplash() {
-    const splash = document.getElementById('splashScreen');
-    if (!splash || splash.classList.contains('hidden')) return;
-
-    splash.classList.add('hidden');
-
-    if (window.splashTimeoutId) {
-        clearTimeout(window.splashTimeoutId);
-        window.splashTimeoutId = null;
-    }
-
-    setTimeout(() => {
-        if (splash.parentNode) splash.style.display = 'none';
-    }, 900);
-}
 
 async function loadInitialData() {
     showSkeletons();
@@ -238,6 +147,7 @@ async function loadInitialData() {
         renderCategories();
         renderPaymentMethods();
         renderOrders(ordersData);
+        renderLatestOrders();
         renderDeposits(depositsData);
         renderFavorites();
         updateKYCUI();
@@ -336,8 +246,8 @@ function updateUserUI() {
 
     document.getElementById('accountName').textContent =
         userData.first_name || userData.username || 'مستخدم';
-    document.getElementById('accountId').innerHTML = `<span class="ltr">ID: ${userData.telegram_id}</span>`;
-    document.getElementById('accountEmail').innerHTML = userData.username ? `<span class="ltr">@${userData.username}</span>` : '';
+    document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
+    document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
     if (userData.vip_level > 0) {
         const vipBadge = document.getElementById('vipBadge');
@@ -388,27 +298,28 @@ function updateKYCBadge() {
     }
 }
 
-// ============ بطاقة المنتج — الاسم فقط ============
+// ============ البطاقات ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
     return `
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
-            <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)" aria-label="المفضلة">
+            <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${prod.image || ''}');">
+            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isNew ? '<span class="badge-new">جديد</span>' : ''}
                 </div>
             </div>
             <div class="product-name">${prod.name}</div>
+            <div class="product-price">${formatPrice(prod.base_price)}</div>
+            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
         </div>
     `;
 }
 
-// ============ الأقسام — مربعة 1:1 ============
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -420,7 +331,7 @@ function renderCategories() {
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
             <div class="category-icon">
-                ${cat.image ? `<img src="${cat.image}" alt="${cat.name}" class="category-img" />` : '📁'}
+                ${cat.image ? `<img src="${cat.image}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '📁'}
             </div>
             <div class="category-name">${cat.name}</div>
         </div>
@@ -500,7 +411,7 @@ function renderOrders(orders) {
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         return `
-        <div class="order-card" data-status="${order.status}" data-id="${order.id}" onclick="viewOrderDetails(${order.id})">
+        <div class="order-card" data-status="${order.status}" data-id="${order.id}">
             <div class="order-header">
                 <span class="order-number">${order.order_number}</span>
                 <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
@@ -518,7 +429,13 @@ function renderOrders(orders) {
                     <span class="timer-text">120</span> ثانية للإلغاء
                 </div>
                 <div style="margin-top:8px;">
-                    <button class="btn-outline" style="width:100%;" onclick="event.stopPropagation(); cancelOrder(${order.id})">إلغاء الطلب</button>
+                    <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
+                </div>
+            ` : ''}
+            ${order.status === 'completed' ? `
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                    <button class="btn-outline" style="flex:1;" onclick="orderAgain(${order.product_id})">إعادة الطلب</button>
+                    <button class="btn-outline" style="flex:1;" onclick="shareProduct(${order.product_id})">مشاركة</button>
                 </div>
             ` : ''}
         </div>
@@ -531,49 +448,29 @@ function renderOrders(orders) {
     });
 }
 
-// ============ Modal تفاصيل الطلب ============
-function viewOrderDetails(orderId) {
-    const order = ordersData.find(o => o.id === orderId);
-    if (!order) return;
-
-    let deliveryInfo = '';
-    try {
-        const delivery = JSON.parse(order.delivery_data || '{}');
-        if (delivery.player_id) deliveryInfo += `<div style="margin-bottom:6px;"><strong>معرف اللاعب:</strong> <span class="ltr">${delivery.player_id}</span></div>`;
-        if (delivery.phone) deliveryInfo += `<div style="margin-bottom:6px;"><strong>رقم الهاتف:</strong> <span class="ltr">${delivery.phone}</span></div>`;
-        if (delivery.bundle_name) deliveryInfo += `<div style="margin-bottom:6px;"><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
-    } catch (e) {
-        if (order.delivery_data) deliveryInfo = `<div>${order.delivery_data}</div>`;
+function renderLatestOrders() {
+    const header = document.getElementById('latestOrdersHeader');
+    const list = document.getElementById('latestOrdersList');
+    if (!header || !list) return;
+    if (!ordersData.length) {
+        header.style.display = 'none';
+        list.innerHTML = '';
+        return;
     }
-
-    const actionButtons = order.status === 'completed' ? `
-        <div style="margin-top:16px;">
-            <button class="btn-primary" style="width:100%;" onclick="closeModal(); orderAgain(${order.product_id})">
-                <span class="material-icons">refresh</span> إعادة الطلب
-            </button>
-        </div>
-    ` : '';
-
-    const body = `
-        <div style="text-align:right;">
-            <h3 style="margin-bottom:16px; text-align:center;">تفاصيل الطلب</h3>
-            <div class="order-header" style="margin-bottom:12px;">
+    header.style.display = 'flex';
+    list.innerHTML = ordersData.slice(0, 3).map(order => `
+        <div class="order-card">
+            <div class="order-header">
                 <span class="order-number">${order.order_number}</span>
                 <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
             </div>
-            <div class="order-details" style="margin-bottom:14px;">
-                <div style="margin-bottom:6px;"><strong>المنتج:</strong> ${order.product_name || order.product_id}</div>
-                <div style="margin-bottom:6px;"><strong>الكمية:</strong> ${order.quantity}</div>
-                <div style="margin-bottom:6px;"><strong>السعر:</strong> ${formatPrice(order.total_price)}</div>
-                ${order.discount_amount ? `<div style="margin-bottom:6px;"><strong>الخصم:</strong> ${formatPrice(order.discount_amount)}</div>` : ''}
-                <div style="margin-bottom:6px;"><strong>التاريخ:</strong> ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
-                ${deliveryInfo}
+            <div class="order-details">
+                <div>المنتج: ${order.product_name || order.product_id}</div>
+                <div>الكمية: ${order.quantity}</div>
+                <div>السعر: ${formatPrice(order.total_price)}</div>
             </div>
-            ${renderOrderProgress(order.status)}
-            ${actionButtons}
         </div>
-    `;
-    openModal('تفاصيل الطلب', body);
+    `).join('');
 }
 
 function isWithinCancelWindow(createdAt) {
@@ -616,6 +513,7 @@ async function cancelOrder(orderId) {
             showSuccessScreen('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك');
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
+            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
@@ -626,6 +524,17 @@ async function cancelOrder(orderId) {
 
 function orderAgain(productId) {
     openPurchaseModal(productId);
+}
+
+function shareProduct(productId) {
+    const product = productsData.find(p => p.id === productId);
+    if (!product) return;
+    const text = `شاهد هذا المنتج: ${product.name} بسعر ${formatPrice(product.base_price)}`;
+    if (navigator.share) {
+        navigator.share({ title: product.name, text: text });
+    } else {
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`, '_blank');
+    }
 }
 
 function getStatusText(status) {
@@ -815,7 +724,7 @@ function openPurchaseModal(productId) {
     let modalContent = `
         <div class="purchase-modal">
             <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center; width:64px; height:64px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
             <div class="form-group"><label>الكمية المطلوبة</label><input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field"></div>
             <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: ${formatPrice(unitPrice * (product.base_quantity || 1))}</div>
             <div class="form-group"><label>كود الخصم (اختياري)</label><input type="text" id="purchaseCoupon" placeholder="أدخل كود الخصم"></div>
@@ -894,6 +803,7 @@ async function executeConfirmPurchase(productId, btn) {
             closeModal();
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
+            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
@@ -1050,7 +960,8 @@ async function submitServiceRequest(btn) {
 // ============ الإحالات ============
 function openReferralModal() {
     if (!userData) return;
-    const referralCode = `SANAD${userData.telegram_id}`;
+    // ✅ استخدام referral_code الحقيقي من الـ backend
+    const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
     const referralLink = `https://t.me/YOUR_BOT_USERNAME?start=${referralCode}`;
     openModal('الإحالات', `
         <div style="text-align:center;">
@@ -1216,9 +1127,8 @@ function navigateTo(pageId) {
     if (target) target.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
     currentPage = pageId;
-    // ✅ تم إزالة حفظ الصفحة (لا localStorage.setItem('lastPage'))
 
-    if (pageId === 'page-home') renderCategories();
+    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); }
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);

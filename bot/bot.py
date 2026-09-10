@@ -26,15 +26,16 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 # ============ Environment Variables ============
 # ============================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-TELEGRAM_ADMIN_IDS_STR = os.getenv("TELEGRAM_ADMIN_IDS", "8673286954")
+TELEGRAM_ADMIN_IDS_STR = os.getenv("TELEGRAM_ADMIN_IDS", "")
 MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app")
 ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.app")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
+BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
 
 try:
     ADMIN_IDS = [int(x.strip()) for x in TELEGRAM_ADMIN_IDS_STR.split(",") if x.strip()]
 except ValueError:
-    ADMIN_IDS = [8673286954]
+    ADMIN_IDS = []
 
 # ============================================================
 # ============ Logging Setup ============
@@ -49,11 +50,11 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # ============ Version (Cache Buster) ============
 # ============================================================
-MINIAPP_VERSION = "4"  # ⚠️ ارفع هذا الرقم في كل تحديث
+MINIAPP_VERSION = "4"
 
 
 def get_miniapp_url():
-    """إرجاع رابط MiniApp مع cache buster لضمان تحميل النسخة الجديدة"""
+    """رابط MiniApp مع cache buster"""
     separator = "&" if "?" in MINIAPP_URL else "?"
     return f"{MINIAPP_URL}{separator}v={MINIAPP_VERSION}"
 
@@ -61,24 +62,23 @@ def get_miniapp_url():
 # ============================================================
 # ============ 🛡️ Rate Limiting ============
 # ============================================================
-# منع الإفراط في استخدام الأوامر (Rate Limiting بسيط)
 _rate_limit_store = defaultdict(list)
-RATE_LIMIT_WINDOW = 60  # 60 ثانية
-RATE_LIMIT_MAX = 10  # 10 أوامر كحد أقصى
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 10
 
 
 def is_rate_limited(user_id):
     """فحص إذا كان المستخدم قد تجاوز الحد المسموح"""
+    if user_id in ADMIN_IDS:
+        return False
+
     now = time.time()
-    # إزالة الطلبات القديمة
     _rate_limit_store[user_id] = [
         t for t in _rate_limit_store[user_id]
         if now - t < RATE_LIMIT_WINDOW
     ]
-    # فحص العدد
     if len(_rate_limit_store[user_id]) >= RATE_LIMIT_MAX:
         return True
-    # إضافة الطلب الحالي
     _rate_limit_store[user_id].append(now)
     return False
 
@@ -87,10 +87,7 @@ def is_rate_limited(user_id):
 # ============ 🛡️ Notify Admins ============
 # ============================================================
 def notify_admins_sync(message: str, important: bool = False):
-    """
-    إرسال تنبيه لكل الأدمن
-    - important=True → يستخدم إيموجي تحذيري
-    """
+    """إرسال تنبيه لكل الأدمن"""
     emoji = "🚨" if important else "ℹ️"
     full_message = f"{emoji} {message}"
 
@@ -111,7 +108,7 @@ def notify_admins_sync(message: str, important: bool = False):
 # ============ Register / Update User ============
 # ============================================================
 def register_or_update_user(user_id, first_name, last_name, username):
-    """تسجيل أو تحديث المستخدم عبر الـ Backend"""
+    """تسجيل أو تحديث المستخدم عبر الـ Backend (مسار البوت)"""
     try:
         payload = {
             "telegram_id": user_id,
@@ -119,9 +116,14 @@ def register_or_update_user(user_id, first_name, last_name, username):
             "last_name": last_name or "",
             "username": username or "",
         }
+        headers = {
+            "X-Bot-Token": BOT_API_SECRET,
+            "Content-Type": "application/json",
+        }
         response = requests.post(
-            f"{BACKEND_URL}/api/auth/telegram",
+            f"{BACKEND_URL}/api/bot/auth",
             json=payload,
+            headers=headers,
             timeout=8
         )
         if response.ok:
@@ -129,7 +131,9 @@ def register_or_update_user(user_id, first_name, last_name, username):
             logger.info(f"✅ تم تسجيل/تحديث المستخدم {user_id}")
             return data
         else:
-            logger.warning(f"⚠️ Backend رجع {response.status_code} — {response.text[:200]}")
+            logger.warning(
+                f"⚠️ Backend رجع {response.status_code} — {response.text[:200]}"
+            )
             return None
     except Exception as e:
         logger.error(f"❌ خطأ في تسجيل المستخدم: {e}")
@@ -145,7 +149,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_name = update.effective_user.last_name or ""
     username = update.effective_user.username or ""
 
-    # 🛡️ Rate Limiting
     if is_rate_limited(user_id):
         logger.warning(f"🚫 Rate limit تجاوز المستخدم {user_id}")
         await update.message.reply_text(
@@ -156,21 +159,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.info(f"📥 /start من {user_id} - {first_name} @{username}")
 
-    # ✅ دائماً: تحديث بيانات المستخدم في DB
     user_data = register_or_update_user(user_id, first_name, last_name, username)
 
-    # 🛡️ تنبيه الأدمن عند مستخدم جديد
-    # نحن نعرف أنه جديد إذا كان الرصيد = 0 والرصيد موجود
-    if user_data and user_data.get('balance') == 0:
-        # فحص إضافي: هل الطلب الأخير كان الآن؟
-        # ملاحظة: هذا تقريبي — لإشعار التسجيل الجديد
-        try:
-            is_new = user_data.get('created_at') is None
-            # إذا كنا نحصل على created_at من الـ backend
-        except Exception:
-            is_new = False
-
-    # بناء الأزرار
     keyboard = [
         [InlineKeyboardButton("🛍️ افتح المتجر", web_app=WebAppInfo(url=get_miniapp_url()))]
     ]
@@ -194,7 +184,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup,
         )
     else:
-        # 🛡️ تنبيه الأدمن بوجود مشكلة في Backend
         notify_admins_sync(
             f"⚠️ فشل تسجيل مستخدم\n"
             f"ID: `{user_id}`\n"
@@ -215,7 +204,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # 🛡️ Rate Limiting
     if is_rate_limited(user_id):
         await update.message.reply_text("⚠️ يرجى المحاولة بعد قليل.")
         return
@@ -283,15 +271,20 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============ 🛡️ Global Error Handler ============
 # ============================================================
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """التعامل مع الأخطاء غير المتوقعة وإرسال تنبيه للأدمن"""
+    """التعامل مع الأخطاء غير المتوقعة"""
+    error_str = str(context.error)
+
+    if "Conflict" in error_str or "terminated by other getUpdates" in error_str:
+        logger.warning(f"⚠️ Conflict مؤقت — سيُحل تلقائياً")
+        return
+
     logger.error(f"❌ خطأ في البوت: {context.error}")
 
-    # إرسال تفاصيل للأدمن (في حال كان الخطأ خطيراً)
     if context.error:
-        error_str = str(context.error)[:300]
+        error_short = str(context.error)[:300]
         notify_admins_sync(
             f"❌ **خطأ في البوت**\n"
-            f"`{error_str}`",
+            f"`{error_short}`",
             important=True
         )
 
@@ -305,12 +298,10 @@ def create_application() -> Application:
 
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # الأوامر
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("me", me))
     application.add_handler(CommandHandler("admin_info", admin_info))
 
-    # 🛡️ معالج الأخطاء العام
     application.add_error_handler(error_handler)
 
     return application
@@ -322,7 +313,6 @@ def run_polling():
     logger.info(f"🔗 MiniApp URL: {get_miniapp_url()}")
     logger.info(f"👥 عدد الأدمن: {len(ADMIN_IDS)}")
 
-    # 🛡️ تنبيه الأدمن عند بدء البوت
     notify_admins_sync(
         f"✅ البوت بدأ العمل\n"
         f"MiniApp v{MINIAPP_VERSION}"

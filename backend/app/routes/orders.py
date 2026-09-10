@@ -1,13 +1,21 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from flask import request, jsonify
-from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification, Coupon, CouponUsage, Referral
+from sqlalchemy import update as sa_update
+from ..models.base import (
+    User, Product, ProductBundle, Order, Transaction,
+    Notification, Coupon, CouponUsage, Referral
+)
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
 
 REFERRAL_REWARD = 1.0
 
+
+# ============================================================
+# ============ Helpers ============
+# ============================================================
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
@@ -27,6 +35,7 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
         db.session.add(user)
         db.session.commit()
     return user
+
 
 def apply_coupon_to_order(user, coupon_code, order_amount):
     """التحقق من الكود وحساب الخصم. تعيد (discount, coupon_obj) أو (0, None)"""
@@ -55,13 +64,13 @@ def apply_coupon_to_order(user, coupon_code, order_amount):
             discount = order_amount
     return round(discount, 4), coupon
 
+
 def complete_referral_if_first_order(user):
     """منح مكافأة الإحالة عند أول طلب للمستخدم"""
     if not user.referred_by:
         return
-    # التحقق أن هذا أول طلب
     order_count = Order.query.filter_by(user_id=user.id).count()
-    if order_count > 1:
+    if order_count != 1:
         return
     referrer = User.query.filter_by(telegram_id=user.referred_by).first()
     if not referrer:
@@ -97,6 +106,10 @@ def complete_referral_if_first_order(user):
     db.session.add(notif)
     send_telegram_notification(referrer.telegram_id, f"🎁 حصلت على مكافأة إحالة بقيمة {REFERRAL_REWARD}$")
 
+
+# ============================================================
+# ============ /api/orders/ — إنشاء طلب ============
+# ============================================================
 @main.route("/api/orders/", methods=["POST"])
 def create_order():
     data = request.get_json()
@@ -112,6 +125,19 @@ def create_order():
     product = Product.query.get(product_id)
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
+
+    # ✅ Idempotency — منع الطلب المكرر
+    idempotency_key = data.get("idempotency_key")
+    if idempotency_key:
+        existing = Order.query.filter_by(idempotency_key=idempotency_key).first()
+        if existing:
+            return jsonify({
+                "order_id": existing.id,
+                "order_number": existing.order_number,
+                "status": existing.status,
+                "total_price": existing.total_price,
+                "message": "طلب مكرر — تم إرجاعه من السجل",
+            }), 200
 
     # التحقق من الحقول المخصصة
     if product.input_type == "id":
@@ -142,6 +168,17 @@ def create_order():
         quantity = int(data.get("quantity", 0))
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
+
+        # ✅ حد أقصى للكمية
+        if quantity > 1000:
+            return jsonify({"error": "الحد الأقصى للكمية 1000"}), 400
+
+        # ✅ فحص المخزون
+        if product.stock is not None and product.stock > 0 and product.stock < quantity:
+            return jsonify({
+                "error": f"الكمية المتوفرة فقط {product.stock}"
+            }), 400
+
         if product.base_quantity > 0:
             unit_price = product.base_price / product.base_quantity
         else:
@@ -157,8 +194,17 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    if user.balance < total_price:
+    # ✅ Atomic check + update — ضد race condition
+    result = db.session.execute(
+        sa_update(User)
+        .where(User.id == user.id, User.balance >= total_price)
+        .values(balance=User.balance - total_price)
+    )
+    if result.rowcount == 0:
+        db.session.rollback()
         return jsonify({"error": "رصيد غير كافٍ"}), 400
+
+    db.session.refresh(user)
 
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
@@ -171,13 +217,11 @@ def create_order():
         coupon_code=coupon_obj.code if coupon_obj else None,
         status="pending",
         delivery_data=str(delivery_data),
-        idempotency_key=data.get("idempotency_key", uuid.uuid4().hex),
+        idempotency_key=idempotency_key or uuid.uuid4().hex,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
     db.session.add(order)
-
-    user.balance -= total_price
 
     txn = Transaction(
         user_id=user.id,
@@ -210,12 +254,23 @@ def create_order():
         db.session.add(usage)
         db.session.commit()
 
+    # ✅ خصم المخزون (بعد نجاح الطلب)
+    if product.stock is not None and product.stock > 0:
+        product.stock = max(0, product.stock - quantity)
+        db.session.commit()
+
     # إتمام الإحالة إذا كان أول طلب
     complete_referral_if_first_order(user)
 
     # إشعارات
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
-    notify_admins(f"🆕 طلب جديد!\nرقم الطلب: {order.order_number}\nالمنتج: {product.name}\nالكمية: {quantity}\nالإجمالي: {total_price}$")
+    notify_admins(
+        f"🆕 طلب جديد!\n"
+        f"رقم الطلب: {order.order_number}\n"
+        f"المنتج: {product.name}\n"
+        f"الكمية: {quantity}\n"
+        f"الإجمالي: {total_price}$"
+    )
 
     return jsonify({
         "order_id": order.id,
@@ -226,6 +281,10 @@ def create_order():
         "message": "طلبك قيد المعالجة",
     }), 201
 
+
+# ============================================================
+# ============ /api/orders/<id>/cancel — إلغاء طلب ============
+# ============================================================
 @main.route("/api/orders/<int:order_id>/cancel", methods=["POST"])
 def cancel_order(order_id):
     data = request.get_json()
@@ -247,6 +306,11 @@ def cancel_order(order_id):
     elapsed = datetime.now(timezone.utc) - order.created_at
     if elapsed > timedelta(seconds=120):
         return jsonify({"error": "انتهت مهلة الإلغاء"}), 400
+
+    # ✅ إرجاع المخزون
+    product = Product.query.get(order.product_id)
+    if product and product.stock is not None and product.stock >= 0:
+        product.stock = product.stock + order.quantity
 
     user.balance += order.total_price
     txn = Transaction(
@@ -276,6 +340,10 @@ def cancel_order(order_id):
 
     return jsonify({"message": "تم إلغاء الطلب واسترداد المبلغ"}), 200
 
+
+# ============================================================
+# ============ /api/orders/my — طلبات المستخدم ============
+# ============================================================
 @main.route("/api/orders/my", methods=["GET"])
 def get_my_orders():
     telegram_id = request.args.get("telegram_id", type=int)

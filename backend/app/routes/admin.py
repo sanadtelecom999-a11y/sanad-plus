@@ -3,6 +3,7 @@ import uuid
 import traceback
 import random
 import time
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -17,34 +18,33 @@ from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", generate_password_hash("admin123"))
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
+if not ADMIN_PASSWORD_HASH:
+    raise RuntimeError("❌ ADMIN_PASSWORD_HASH إلزامي — لا قيمة افتراضية")
 
 
 # ============================================================
 # ============ OTP Sessions (in-memory) ============
 # ============================================================
 _otp_sessions = {}
-OTP_TTL_SECONDS = 300        # 5 دقائق
-OTP_MAX_ATTEMPTS = 3         # 3 محاولات كحد أقصى
+OTP_TTL_SECONDS = 300
+OTP_MAX_ATTEMPTS = 3
 
 
 def get_admin_ids():
-    """إرجاع قائمة معرفات الأدمن من متغير البيئة"""
-    admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "8673286954")
+    admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "")
     try:
         return [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
     except ValueError:
-        return [8673286954]
+        return []
 
 
 def generate_otp_code():
-    """توليد رمز من 6 أرقام"""
     return str(random.randint(100000, 999999))
 
 
 def cleanup_expired_sessions():
-    """حذف الجلسات المنتهية"""
     now = time.time()
     expired = [sid for sid, s in _otp_sessions.items() if now > s["expires"]]
     for sid in expired:
@@ -52,10 +52,28 @@ def cleanup_expired_sessions():
 
 
 # ============================================================
+# ============ Login Rate Limiting ============
+# ============================================================
+_login_attempts = defaultdict(list)
+LOGIN_RATE_WINDOW = 300
+LOGIN_RATE_MAX = 5
+
+
+def check_login_rate_limit(ip: str) -> bool:
+    now = time.time()
+    _login_attempts[ip] = [
+        t for t in _login_attempts[ip] if now - t < LOGIN_RATE_WINDOW
+    ]
+    if len(_login_attempts[ip]) >= LOGIN_RATE_MAX:
+        return False
+    _login_attempts[ip].append(now)
+    return True
+
+
+# ============================================================
 # ============ Error Handling Decorator ============
 # ============================================================
 def handle_errors(f):
-    """معالج أخطاء عام: يعيد رسالة واضحة و rollback آمن."""
     @wraps(f)
     def wrapper(*args, **kwargs):
         try:
@@ -84,7 +102,6 @@ def verify_admin_password(password):
 
 
 def log_admin_activity(action):
-    """تسجيل نشاط الأدمن بشكل آمن"""
     try:
         activity = AdminActivity(
             admin_id=None,
@@ -113,15 +130,16 @@ def get_arabic_status(status):
 
 
 # ============================================================
-# ============ Authentication with 2FA ============
+# ============ Authentication with 2FA (OTP) ============
 # ============================================================
 @main.route("/admin/login", methods=["POST"])
 @handle_errors
 def admin_login():
-    """
-    الخطوة الأولى: التحقق من كلمة السر
-    ثم إرسال رمز OTP إلى تيليجرام الأدمن
-    """
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
+    ip = ip.split(",")[0].strip()
+    if not check_login_rate_limit(ip):
+        return jsonify({"error": "محاولات كثيرة، حاول بعد 5 دقائق"}), 429
+
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
@@ -168,7 +186,6 @@ def admin_login():
 @main.route("/admin/verify-otp", methods=["POST"])
 @handle_errors
 def admin_verify_otp():
-    """الخطوة الثانية: التحقق من رمز OTP"""
     data = request.get_json() or {}
     session_id = data.get("session_id")
     otp_code = (data.get("otp_code") or "").strip()
@@ -291,23 +308,20 @@ def admin_adjust_balance(user_id):
     data = request.get_json() or {}
     amount = float(data.get("amount", 0))
     note = data.get("note", "")
+
+    if abs(amount) > 10000:
+        return jsonify({"error": "الحد الأقصى للتعديل 10000$ لكل عملية"}), 400
+    if amount == 0:
+        return jsonify({"error": "المبلغ لا يمكن أن يكون صفراً"}), 400
+
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
-    user.balance += amount
+    if user.balance + amount < 0:
+        return jsonify({"error": "التعديل سيؤدي إلى رصيد سالب"}), 400
 
-    deposit = Deposit(
-        user_id=user.id,
-        amount=amount,
-        currency="USD",
-        method="إيداع يدوي",
-        status="approved",
-        transaction_id="ADJ-" + uuid.uuid4().hex[:8].upper(),
-        created_at=datetime.now(timezone.utc),
-        admin_note=note,
-    )
-    db.session.add(deposit)
+    user.balance += amount
 
     txn = Transaction(
         user_id=user.id,
@@ -413,9 +427,17 @@ def admin_delete_category(cat_id):
 
     cat_name = cat.name
     products = Product.query.filter_by(category_id=cat_id).all()
+
+    product_ids = [p.id for p in products]
+    if product_ids:
+        has_orders = Order.query.filter(Order.product_id.in_(product_ids)).first()
+        if has_orders:
+            return jsonify({
+                "error": "لا يمكن حذف القسم لوجود طلبات مرتبطة. عطّل القسم بدلاً من ذلك."
+            }), 400
+
     for product in products:
         ProductBundle.query.filter_by(product_id=product.id).delete()
-        Order.query.filter_by(product_id=product.id).delete()
         db.session.delete(product)
 
     db.session.delete(cat)
@@ -489,8 +511,13 @@ def admin_product_actions(product_id):
         return jsonify({"success": True})
 
     product_name = product.name
+
+    if Order.query.filter_by(product_id=product.id).first():
+        return jsonify({
+            "error": "لا يمكن حذف المنتج لوجود طلبات. عطّله بدلاً من ذلك."
+        }), 400
+
     ProductBundle.query.filter_by(product_id=product.id).delete()
-    Order.query.filter_by(product_id=product.id).delete()
     db.session.delete(product)
     log_admin_activity(f"حذف المنتج: {product_name}")
     db.session.commit()

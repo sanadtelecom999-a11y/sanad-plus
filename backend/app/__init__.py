@@ -2,14 +2,27 @@ from flask import Flask
 from flask_cors import CORS
 from .config import Config
 from .extensions import db, jwt
-from .models.base import User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod, KYCRequest, Notification, Transaction, Setting, Admin, AdminActivity, ServiceRequest
+from .models.base import (
+    User, Category, Product, ProductBundle, Order, Deposit,
+    PaymentMethod, KYCRequest, Notification, Transaction,
+    Setting, Admin, AdminActivity, ServiceRequest,
+    Coupon, CouponUsage, Referral
+)
+
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # تفعيل CORS للسماح بالاتصال من أي مصدر
-    CORS(app, resources={r"/*": {"origins": "*"}})
+    # ============ 🌐 CORS مُقيّد ============
+    CORS(
+        app,
+        resources={
+            r"/api/*": {"origins": Config.ALLOWED_ORIGINS},
+            r"/admin/*": {"origins": Config.ALLOWED_ORIGINS},
+        },
+        supports_credentials=False,
+    )
 
     db.init_app(app)
     jwt.init_app(app)
@@ -18,14 +31,7 @@ def create_app():
     app.register_blueprint(main)
 
     with app.app_context():
-        # إنشاء الجداول إذا لم تكن موجودة
         db.create_all()
-
-        # محاولة إضافة الأعمدة الجديدة إذا لم تكن موجودة (تحديث آمن)
-        try:
-            db.session.execute('ALTER TABLE deposits ADD COLUMN IF NOT EXISTS admin_note TEXT')
-            db.session.commit()
-        except Exception as e:
-            print(f"تحديث قاعدة البيانات: {e}")
+        # ملاحظة: باقي الـ migrations تُنفّذ في run.py
 
     return app
