@@ -13,6 +13,7 @@ let activitiesData = [];
 let couponsData = [];
 let referralsData = [];
 let filteredOrders = [];
+let _otpSessionId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!getToken()) {
@@ -130,7 +131,7 @@ function toggleSpecificUser() {
 }
 
 // ============================================================
-// ============ Login ============
+// ============ Login + OTP ============
 // ============================================================
 function showLogin() {
     document.body.innerHTML = `
@@ -143,7 +144,8 @@ function showLogin() {
                 </div>
                 <div class="form-group">
                     <label>كلمة المرور</label>
-                    <input type="password" id="loginPassword" placeholder="••••••••">
+                    <input type="password" id="loginPassword" placeholder="••••••••"
+                           onkeypress="if(event.key === 'Enter') doLogin()">
                 </div>
                 <button class="btn-primary btn-block" onclick="doLogin()">
                     <span class="material-icons">login</span> تسجيل الدخول
@@ -151,6 +153,7 @@ function showLogin() {
             </div>
         </div>
     `;
+    setTimeout(() => document.getElementById('loginPassword')?.focus(), 200);
 }
 
 async function doLogin() {
@@ -160,7 +163,13 @@ async function doLogin() {
     if (btn) { btn.disabled = true; btn.innerHTML = 'جارٍ التحقق...'; }
     try {
         const result = await adminLogin(username, password);
-        if (result.token) {
+
+        if (result.require_otp) {
+            _otpSessionId = result.session_id;
+            showOTPForm();
+            showToast('تم إرسال رمز التحقق إلى تيليجرام', 'success', 5000);
+        } else if (result.token) {
+            // Fallback في حال كان OTP معطّلاً
             setToken(result.token);
             location.reload();
         } else {
@@ -170,6 +179,78 @@ async function doLogin() {
     } catch (error) {
         showToast('فشل الاتصال بالخادم', 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">login</span> تسجيل الدخول'; }
+    }
+}
+
+function showOTPForm() {
+    document.body.innerHTML = `
+        <div class="login-screen">
+            <div class="login-box">
+                <div style="text-align:center; margin-bottom:16px;">
+                    <span class="material-icons" style="font-size:52px; color:var(--primary);">verified_user</span>
+                </div>
+                <h2 style="text-align:center; color:var(--text); margin-bottom:8px;">التحقق بخطوتين</h2>
+                <p style="text-align:center; color:var(--text-secondary); font-size:0.9rem; margin-bottom:24px; line-height:1.6;">
+                    تم إرسال رمز مكوَّن من 6 أرقام<br>إلى حسابك في تيليجرام
+                </p>
+                <div class="form-group">
+                    <label style="text-align:center;">رمز التحقق</label>
+                    <input type="text" id="otpCode" placeholder="000000" maxlength="6"
+                           inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+                           onkeypress="if(event.key === 'Enter') verifyOTP()"
+                           style="text-align:center; font-size:28px; letter-spacing:10px; font-weight:800; padding:14px;">
+                </div>
+                <button class="btn-primary btn-block" onclick="verifyOTP()" style="margin-top:8px;">
+                    <span class="material-icons">check_circle</span> تأكيد الدخول
+                </button>
+                <button class="btn-outline" style="width:100%; margin-top:10px;" onclick="location.reload()">
+                    <span class="material-icons">arrow_back</span> رجوع
+                </button>
+                <p style="text-align:center; color:var(--text-secondary); font-size:0.75rem; margin-top:16px;">
+                    ⏱️ الرمز صالح لمدة 5 دقائق
+                </p>
+            </div>
+        </div>
+    `;
+    setTimeout(() => document.getElementById('otpCode')?.focus(), 200);
+}
+
+async function verifyOTP() {
+    const codeInput = document.getElementById('otpCode');
+    const code = codeInput?.value?.trim();
+    const btn = document.querySelector('.login-box .btn-primary');
+
+    if (!code || code.length !== 6) {
+        showToast('أدخل رمزاً من 6 أرقام', 'warning');
+        return;
+    }
+    if (!_otpSessionId) {
+        showToast('انتهت الجلسة، يرجى تسجيل الدخول مجدداً', 'error');
+        setTimeout(() => location.reload(), 1500);
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = 'جارٍ التحقق...'; }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/admin/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: _otpSessionId, otp_code: code })
+        });
+        const result = await response.json();
+
+        if (result.token) {
+            setToken(result.token);
+            location.reload();
+        } else {
+            showToast(result.error || 'رمز خاطئ', 'error');
+            if (codeInput) { codeInput.value = ''; codeInput.focus(); }
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">check_circle</span> تأكيد الدخول'; }
+        }
+    } catch (error) {
+        showToast('فشل الاتصال بالخادم', 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">check_circle</span> تأكيد الدخول'; }
     }
 }
 
@@ -657,17 +738,13 @@ function openPaymentMethodModal() {
             <label>صورة QR</label>
             <div class="image-preview" id="paymentQRPreview">لا صورة</div>
             <input type="file" id="paymentQR" accept="image/*" onchange="previewImage(this,'paymentQRPreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;">
-                💡 يُفضّل صورة QR واضحة (1:1)
-            </small>
         </div>
         <div class="form-group">
             <label>لوجو الطريقة</label>
             <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
             <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
-                سيتم قص الصورة تلقائياً إلى مربع 512×512
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)
             </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1319,10 +1396,6 @@ function previewImage(input, previewId) {
     }
 }
 
-/**
- * ضغط الصورة مع الحفاظ على الأبعاد الأصلية
- * للصور التي يجب أن تبقى بنسبها (QR، KYC سيلفي)
- */
 function fileToBase64(file, maxWidth = 512) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1353,15 +1426,6 @@ function fileToBase64(file, maxWidth = 512) {
     });
 }
 
-/**
- * ✅ قص الصورة إلى مربع 1:1 + ضغط
- * النتيجة: صورة مربعة مثالية لأيقونات الأقسام والمنتجات
- *
- * الخوارزمية:
- *  1. نأخذ المربع الأوسط من الصورة الأصلية (بدون فراغات جانبية)
- *  2. نرسمه على canvas بمقاس مربع كامل (size × size)
- *  3. النتيجة: صورة مربعة 1:1 نقية بدون فراغات
- */
 function fileToSquareBase64(file, size = 512) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1371,26 +1435,20 @@ function fileToSquareBase64(file, size = 512) {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
 
-                // أصغر بُعد (لعرض مربع من المنتصف)
                 const minSide = Math.min(img.width, img.height);
-
-                // موضع البداية (المربع الأوسط من الصورة)
                 const sx = (img.width - minSide) / 2;
                 const sy = (img.height - minSide) / 2;
 
-                // حجم الإخراج (مربع 1:1)
                 canvas.width = size;
                 canvas.height = size;
 
-                // خلفية بيضاء
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, size, size);
 
-                // رسم المربع الأوسط على كامل الإطار
                 ctx.drawImage(
                     img,
-                    sx, sy, minSide, minSide,   // المصدر (المربع الأوسط)
-                    0, 0, size, size            // الهدف (يملأ الإطار)
+                    sx, sy, minSide, minSide,
+                    0, 0, size, size
                 );
 
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
