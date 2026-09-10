@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import sqlalchemy as sa
+from sqlalchemy import text
 
 # إضافة جذر المشروع للمسار
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -11,12 +12,33 @@ from app.extensions import db
 
 app = create_app()
 
+
 def upgrade_database():
-    """ترقية قاعدة البيانات: إضافة الأعمدة الجديدة وتحويل الصور إلى TEXT وإنشاء الجداول المفقودة"""
+    """ترقية قاعدة البيانات: FK، أعمدة، وأنواع البيانات"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # 1) تحويل حقول الصور إلى TEXT إذا كانت VARCHAR
+        # ============================================================
+        # 1) إزالة FK من admin_activities وجعل admin_id يقبل NULL
+        # ============================================================
+        fk_removals = [
+            "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
+            "ALTER TABLE admin_activities ALTER COLUMN admin_id DROP NOT NULL",
+            "ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_referrer_id_fkey",
+            "ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_referred_user_id_fkey",
+        ]
+        for sql in fk_removals:
+            try:
+                db.session.execute(text(sql))
+                db.session.commit()
+                print(f"✔️ {sql[:70]}...")
+            except Exception as e:
+                db.session.rollback()
+                print(f"⚠️ فشل: {sql[:70]}... → {e}")
+
+        # ============================================================
+        # 2) تحويل حقول الصور إلى TEXT
+        # ============================================================
         image_columns = {
             'categories': ['image'],
             'products': ['image'],
@@ -32,13 +54,16 @@ def upgrade_database():
             for col in cols:
                 if col in existing_cols and ('VARCHAR' in existing_cols[col] or 'CHAR' in existing_cols[col]):
                     try:
-                        db.session.execute(sa.text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
+                        db.session.execute(text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
                         db.session.commit()
-                        print(f"✔️ تم تحويل {table}.{col} إلى TEXT")
+                        print(f"✔️ {table}.{col} → TEXT")
                     except Exception as e:
+                        db.session.rollback()
                         print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
-        # 2) إضافة الأعمدة المفقودة إلى الجداول الموجودة
+        # ============================================================
+        # 3) إضافة الأعمدة المفقودة
+        # ============================================================
         required_columns = {
             'deposits': {'admin_note': 'TEXT'},
             'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
@@ -65,25 +90,31 @@ def upgrade_database():
             for col_name, col_type in cols.items():
                 if col_name not in existing_cols:
                     try:
-                        db.session.execute(sa.text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_type}'))
+                        db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_type}'))
                         db.session.commit()
-                        print(f"✔️ تمت إضافة {col_name} إلى {table}")
+                        print(f"✔️ {table}.{col_name} مضاف")
                     except Exception as e:
-                        print(f"⚠️ فشل إضافة {col_name} إلى {table}: {e}")
+                        db.session.rollback()
+                        print(f"⚠️ فشل إضافة {table}.{col_name}: {e}")
 
-        # 3) إنشاء الجداول الجديدة إذا لم تكن موجودة
+        # ============================================================
+        # 4) إنشاء الجداول الجديدة (Coupons, Referrals, etc.)
+        # ============================================================
         try:
             db.create_all()
             db.session.commit()
             print("✅ تم إنشاء/التحقق من جميع الجداول")
         except Exception as e:
+            db.session.rollback()
             print(f"⚠️ فشل إنشاء الجداول: {e}")
 
-        print("✅ اكتملت ترقية قاعدة البيانات")
+        print("🎉 اكتملت ترقية قاعدة البيانات")
+
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+
 
 if __name__ == "__main__":
     upgrade_database()
