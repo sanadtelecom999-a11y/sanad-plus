@@ -1,6 +1,8 @@
 import os
 import uuid
 import traceback
+import random
+import time
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -17,6 +19,36 @@ from ..services.telegram_service import send_telegram_notification, notify_admin
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", generate_password_hash("admin123"))
+
+
+# ============================================================
+# ============ OTP Sessions (in-memory) ============
+# ============================================================
+_otp_sessions = {}
+OTP_TTL_SECONDS = 300        # 5 دقائق
+OTP_MAX_ATTEMPTS = 3         # 3 محاولات كحد أقصى
+
+
+def get_admin_ids():
+    """إرجاع قائمة معرفات الأدمن من متغير البيئة"""
+    admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "8673286954")
+    try:
+        return [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
+    except ValueError:
+        return [8673286954]
+
+
+def generate_otp_code():
+    """توليد رمز من 6 أرقام"""
+    return str(random.randint(100000, 999999))
+
+
+def cleanup_expired_sessions():
+    """حذف الجلسات المنتهية"""
+    now = time.time()
+    expired = [sid for sid, s in _otp_sessions.items() if now > s["expires"]]
+    for sid in expired:
+        _otp_sessions.pop(sid, None)
 
 
 # ============================================================
@@ -52,12 +84,7 @@ def verify_admin_password(password):
 
 
 def log_admin_activity(action):
-    """
-    تسجيل نشاط الأدمن بشكل آمن.
-    - admin_id=None لتجنب FK constraint
-    - flush بدلاً من commit لتفادي commits متعددة
-    - rollback صريح عند الفشل
-    """
+    """تسجيل نشاط الأدمن بشكل آمن"""
     try:
         activity = AdminActivity(
             admin_id=None,
@@ -86,23 +113,100 @@ def get_arabic_status(status):
 
 
 # ============================================================
-# ============ Authentication ============
+# ============ Authentication with 2FA ============
 # ============================================================
 @main.route("/admin/login", methods=["POST"])
 @handle_errors
 def admin_login():
+    """
+    الخطوة الأولى: التحقق من كلمة السر
+    ثم إرسال رمز OTP إلى تيليجرام الأدمن
+    """
     data = request.get_json() or {}
     username = data.get("username")
     password = data.get("password")
-    if username == ADMIN_USERNAME and verify_admin_password(password):
-        token = create_access_token(identity="admin")
-        log_admin_activity("تسجيل دخول الأدمن")
-        try:
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
-        return jsonify({"token": token}), 200
-    return jsonify({"error": "بيانات غير صحيحة"}), 401
+
+    if username != ADMIN_USERNAME or not verify_admin_password(password):
+        return jsonify({"error": "بيانات غير صحيحة"}), 401
+
+    cleanup_expired_sessions()
+
+    otp_code = generate_otp_code()
+    session_id = uuid.uuid4().hex
+
+    _otp_sessions[session_id] = {
+        "code": otp_code,
+        "expires": time.time() + OTP_TTL_SECONDS,
+        "attempts": 0,
+    }
+
+    sent_count = 0
+    for admin_id in get_admin_ids():
+        success = send_telegram_notification(
+            admin_id,
+            f"🔐 رمز التحقق للدخول إلى لوحة التحكم\n\n"
+            f"الرمز: {otp_code}\n\n"
+            f"⏱️ صالح لمدة 5 دقائق فقط.\n"
+            f"⚠️ إذا لم تطلب هذا الدخول، تجاهل الرسالة."
+        )
+        if success:
+            sent_count += 1
+
+    if sent_count == 0:
+        _otp_sessions.pop(session_id, None)
+        return jsonify({"error": "تعذر إرسال رمز التحقق"}), 500
+
+    print(f"🔐 تم إرسال رمز OTP للأدمن — الجلسة: {session_id[:8]}")
+
+    return jsonify({
+        "require_otp": True,
+        "session_id": session_id,
+        "message": "تم إرسال رمز التحقق إلى تيليجرام"
+    }), 200
+
+
+@main.route("/admin/verify-otp", methods=["POST"])
+@handle_errors
+def admin_verify_otp():
+    """الخطوة الثانية: التحقق من رمز OTP"""
+    data = request.get_json() or {}
+    session_id = data.get("session_id")
+    otp_code = (data.get("otp_code") or "").strip()
+
+    if not session_id or not otp_code:
+        return jsonify({"error": "بيانات ناقصة"}), 400
+
+    cleanup_expired_sessions()
+
+    session = _otp_sessions.get(session_id)
+    if not session:
+        return jsonify({"error": "انتهت الجلسة، يرجى تسجيل الدخول مجدداً"}), 400
+
+    if time.time() > session["expires"]:
+        _otp_sessions.pop(session_id, None)
+        return jsonify({"error": "انتهت صلاحية الرمز"}), 400
+
+    if session["attempts"] >= OTP_MAX_ATTEMPTS:
+        _otp_sessions.pop(session_id, None)
+        return jsonify({"error": "تجاوزت عدد المحاولات"}), 400
+
+    if session["code"] != otp_code:
+        session["attempts"] += 1
+        remaining = OTP_MAX_ATTEMPTS - session["attempts"]
+        return jsonify({"error": f"رمز خاطئ. محاولات متبقية: {remaining}"}), 401
+
+    _otp_sessions.pop(session_id, None)
+
+    token = create_access_token(identity="admin")
+    log_admin_activity("تسجيل دخول الأدمن (مع OTP)")
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    print(f"✅ تم تسجيل دخول الأدمن عبر OTP")
+
+    return jsonify({"token": token}), 200
 
 
 # ============================================================
@@ -547,13 +651,13 @@ def admin_update_order_status(order_id):
         return jsonify({"error": "لا يمكن تغيير حالة الطلب قبل مرور دقيقتين"}), 400
 
     if order.status == "pending" and new_status not in ["review", "failed", "cancelled"]:
-        return jsonify({"error": "يمكن فقط الانتقال إلى قيد المراجعة أو فشل من قيد المعالجة"}), 400
+        return jsonify({"error": "يمكن فقط الانتقال إلى قيد المراجعة أو فشل"}), 400
     elif order.status == "review" and new_status not in ["processing", "failed"]:
-        return jsonify({"error": "يمكن فقط الانتقال إلى قيد التنفيذ أو فشل من قيد المراجعة"}), 400
+        return jsonify({"error": "يمكن فقط الانتقال إلى قيد التنفيذ أو فشل"}), 400
     elif order.status == "processing" and new_status not in ["completed", "failed"]:
-        return jsonify({"error": "يمكن فقط الانتقال إلى مكتمل أو فشل من قيد التنفيذ"}), 400
+        return jsonify({"error": "يمكن فقط الانتقال إلى مكتمل أو فشل"}), 400
     elif order.status in ["completed", "failed", "cancelled"]:
-        return jsonify({"error": "لا يمكن تغيير حالة هذا الطلب بعد الآن"}), 400
+        return jsonify({"error": "لا يمكن تغيير حالة هذا الطلب"}), 400
 
     old_status = order.status
     order.status = new_status
