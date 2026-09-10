@@ -234,60 +234,63 @@ body {
 }
 
 @keyframes splashTextReveal {
-    0%, 52% {
+    0%, 50% {
         opacity: 0;
         transform: translateY(10px);
     }
-    62% {
+    58% {
         opacity: 1;
         transform: translateY(0);
     }
-    88% {
+    90% {
         opacity: 1;
         transform: translateY(0);
     }
     100% {
-        opacity: 0;
-        transform: translateY(-8px);
+        opacity: 1;
+        transform: translateY(0);
     }
 }
 
+/* ✅ سند بلس — لون ثابت داكن دائماً (لا يتأثر بـ Dark Mode) */
 .splash-brand-ar {
     font-family: 'Cairo', 'Tajawal', sans-serif;
-    font-size: 2.4rem;
+    font-size: 2.6rem;
     font-weight: 800;
-    color: #0F172A;
+    color: #0F172A !important;
     letter-spacing: -0.5px;
     margin: 0 0 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     direction: rtl;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    -webkit-text-fill-color: #0F172A !important;
 }
 
-[data-theme="dark"] .splash-brand-ar {
-    color: #F0F6FC;
-}
-
+/* علامة + العربية */
 .splash-plus-mark {
     display: inline-block;
-    color: #0EA5E9;
-    font-size: 1.9rem;
+    color: #0EA5E9 !important;
+    font-size: 2rem;
     font-weight: 800;
     margin-right: 2px;
     margin-top: -14px;
     opacity: 0;
     transform: scale(0.5);
     animation: plusPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 6.1s forwards;
+    -webkit-text-fill-color: #0EA5E9 !important;
 }
 
+/* علامة + الإنجليزية */
 .splash-plus-mark-en {
     display: inline-block;
-    color: #0EA5E9;
+    color: #0EA5E9 !important;
     font-weight: 800;
     opacity: 0;
     transform: scale(0.5);
     animation: plusPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 6.4s forwards;
+    -webkit-text-fill-color: #0EA5E9 !important;
 }
 
 @keyframes plusPopIn {
@@ -296,17 +299,19 @@ body {
     100% { opacity: 1; transform: scale(1); }
 }
 
+/* ✅ SANAD PLUS⁺ — لون ثابت رمادي مزرق دائماً */
 .splash-brand-en {
     font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #64748B;
+    color: #64748B !important;
     letter-spacing: 2.5px;
     direction: ltr;
     text-transform: uppercase;
     margin: 0;
     opacity: 0;
     animation: splashEnReveal 0.8s ease 6.1s forwards;
+    -webkit-text-fill-color: #64748B !important;
 }
 
 @keyframes splashEnReveal {
