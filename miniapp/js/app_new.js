@@ -90,7 +90,6 @@ function renderFavorites() {
 document.addEventListener('DOMContentLoaded', async () => {
     initSplashScreen();
 
-    // ⚠️ انتظر تحميل Telegram WebApp قبل أي شيء
     const telegramReady = await initTelegram();
     applyTelegramTheme();
 
@@ -102,7 +101,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     console.log('✅ المستخدم الحالي:', window.currentUser.id, window.currentUser.first_name);
 
-    // مصادقة المستخدم
     try {
         userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
         console.log('✅ تم الحصول على بيانات المستخدم:', userData.telegram_id);
@@ -392,24 +390,22 @@ function updateKYCBadge() {
     }
 }
 
-// ============ البطاقات ============
+// ============ بطاقة المنتج — الاسم فقط (بدون سعر أو كمية) ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
     return `
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
-            <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
+            <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)" aria-label="المفضلة">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">
+            <div class="product-image" style="background-image:url('${prod.image || ''}');">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isNew ? '<span class="badge-new">جديد</span>' : ''}
                 </div>
             </div>
             <div class="product-name">${prod.name}</div>
-            <div class="product-price">${formatPrice(prod.base_price)}</div>
-            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
         </div>
     `;
 }
