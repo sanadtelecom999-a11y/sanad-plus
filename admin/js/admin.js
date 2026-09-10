@@ -9,6 +9,8 @@ let ordersData = [];
 let depositsData = [];
 let kycData = [];
 let serviceRequestsData = [];
+let activitiesData = [];
+let filteredOrders = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!getToken()) {
@@ -99,10 +101,11 @@ function switchSection(sectionId) {
     if (sectionId === 'categories') renderCategories();
     if (sectionId === 'products') renderProducts();
     if (sectionId === 'payment-methods') renderPaymentMethods();
-    if (sectionId === 'orders') renderOrders(ordersData);
+    if (sectionId === 'orders') { filteredOrders = [...ordersData]; renderOrders(ordersData); }
     if (sectionId === 'deposits') renderDeposits(depositsData);
     if (sectionId === 'kyc') renderKYC();
     if (sectionId === 'service-requests') renderServiceRequests();
+    if (sectionId === 'activities') loadActivities();
 }
 
 function renderDashboard() {
@@ -437,6 +440,7 @@ function renderOrders(orders) {
                     <option value="processing" ${order.status==='processing'?'selected':''}>قيد التنفيذ</option>
                     <option value="completed" ${order.status==='completed'?'selected':''}>مكتمل</option>
                     <option value="failed" ${order.status==='failed'?'selected':''}>فشل</option>
+                    <option value="cancelled" ${order.status==='cancelled'?'selected':''}>ملغي</option>
                 </select>
             </td>
             <td><button class="btn-outline" onclick="viewOrderDetails(${order.id})">عرض</button></td>
@@ -448,6 +452,7 @@ async function changeOrderStatus(orderId, status) {
     try {
         await updateOrderStatus(orderId, status);
         await loadAllData();
+        filteredOrders = [...ordersData];
         renderOrders(ordersData);
         alert('تم تحديث حالة الطلب');
     } catch (error) {
@@ -498,15 +503,15 @@ function renderDeposits(deposits) {
             <td>
                 ${d.admin_note ? `<div><small>${d.admin_note}</small></div>` : '-'}
                 ${d.status === 'pending' ? `
-                    <button class="btn-outline" onclick="approveDeposit(${d.id})">قبول</button>
-                    <button class="btn-outline" onclick="rejectDeposit(${d.id})">رفض</button>
+                    <button class="btn-outline" onclick="approveDepositHandler(${d.id})">قبول</button>
+                    <button class="btn-outline" onclick="rejectDepositHandler(${d.id})">رفض</button>
                 ` : ''}
             </td>
         </tr>
     `).join('');
 }
 
-async function approveDeposit(depositId) {
+async function approveDepositHandler(depositId) {
     try {
         await approveDeposit(depositId);
         await loadAllData();
@@ -517,7 +522,7 @@ async function approveDeposit(depositId) {
     }
 }
 
-async function rejectDeposit(depositId) {
+async function rejectDepositHandler(depositId) {
     try {
         await rejectDeposit(depositId);
         await loadAllData();
@@ -531,7 +536,7 @@ async function rejectDeposit(depositId) {
 function renderKYC() {
     const tbody = document.getElementById('kycTableBody');
     if (!kycData.length) {
-        tbody.innerHTML = '<tr><td colspan="6">لا توجد طلبات توثيق</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">لا توجد طلبات توثيق</td></tr>';
         return;
     }
     tbody.innerHTML = kycData.map(k => `
@@ -590,6 +595,157 @@ function viewServiceRequest(reqId) {
     openModal('تفاصيل طلب الخدمة', body);
 }
 
+// ============ سجل النشاطات ============
+async function loadActivities() {
+    const tbody = document.getElementById('activitiesTableBody');
+    try {
+        activitiesData = await fetchActivities();
+        if (!activitiesData.length) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">لا توجد نشاطات</td></tr>';
+            return;
+        }
+        tbody.innerHTML = activitiesData.map(a => `
+            <tr>
+                <td>${a.id}</td>
+                <td>${a.action}</td>
+                <td>${a.created_at ? new Date(a.created_at).toLocaleString('ar') : ''}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#F44336;">فشل تحميل النشاطات: ${error.message}</td></tr>`;
+    }
+}
+
+// ============ الفلاتر المتقدمة ============
+function applyOrderFilters() {
+    const searchQuery = (document.getElementById('orderSearchQuery')?.value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('orderStatusFilter')?.value || 'all';
+    const fromDate = document.getElementById('orderFromDate')?.value;
+    const toDate = document.getElementById('orderToDate')?.value;
+    const sortFilter = document.getElementById('orderSortFilter')?.value || 'newest';
+
+    let filtered = [...ordersData];
+
+    if (searchQuery) {
+        filtered = filtered.filter(o =>
+            (o.order_number || '').toLowerCase().includes(searchQuery) ||
+            (o.user_id + '').includes(searchQuery)
+        );
+    }
+
+    if (statusFilter !== 'all') {
+        filtered = filtered.filter(o => o.status === statusFilter);
+    }
+
+    if (fromDate) {
+        const fromTime = new Date(fromDate).getTime();
+        filtered = filtered.filter(o => o.created_at && new Date(o.created_at).getTime() >= fromTime);
+    }
+
+    if (toDate) {
+        const toTime = new Date(toDate).getTime() + (24 * 60 * 60 * 1000);
+        filtered = filtered.filter(o => o.created_at && new Date(o.created_at).getTime() <= toTime);
+    }
+
+    if (sortFilter === 'newest') {
+        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    } else if (sortFilter === 'oldest') {
+        filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    } else if (sortFilter === 'price_high') {
+        filtered.sort((a, b) => (b.total_price || 0) - (a.total_price || 0));
+    } else if (sortFilter === 'price_low') {
+        filtered.sort((a, b) => (a.total_price || 0) - (b.total_price || 0));
+    }
+
+    filteredOrders = filtered;
+    renderOrders(filtered);
+}
+
+function resetOrderFilters() {
+    const searchInput = document.getElementById('orderSearchQuery');
+    const statusSelect = document.getElementById('orderStatusFilter');
+    const fromInput = document.getElementById('orderFromDate');
+    const toInput = document.getElementById('orderToDate');
+    const sortSelect = document.getElementById('orderSortFilter');
+
+    if (searchInput) searchInput.value = '';
+    if (statusSelect) statusSelect.value = 'all';
+    if (fromInput) fromInput.value = '';
+    if (toInput) toInput.value = '';
+    if (sortSelect) sortSelect.value = 'newest';
+
+    filteredOrders = [...ordersData];
+    renderOrders(ordersData);
+}
+
+// ============ تصدير CSV ============
+function downloadCSV(filename, rows) {
+    const csvContent = rows.map(row =>
+        row.map(cell => {
+            const str = String(cell ?? '').replace(/"/g, '""');
+            return `"${str}"`;
+        }).join(',')
+    ).join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function exportUsersCSV() {
+    const rows = [['Telegram ID', 'الاسم', 'الرصيد', 'الحالة', 'VIP', 'KYC']];
+    usersData.forEach(u => {
+        rows.push([
+            u.telegram_id,
+            u.username || u.first_name || 'مستخدم',
+            u.balance.toFixed(2) + '$',
+            u.is_banned ? 'محظور' : 'نشط',
+            u.vip_level > 0 ? 'VIP' + u.vip_level : '-',
+            u.kyc_status
+        ]);
+    });
+    downloadCSV('users.csv', rows);
+}
+
+function exportOrdersCSV() {
+    const rows = [['رقم الطلب', 'المنتج', 'الكمية', 'السعر الإجمالي', 'الحالة', 'التاريخ']];
+    const dataToExport = filteredOrders.length ? filteredOrders : ordersData;
+    dataToExport.forEach(o => {
+        rows.push([
+            o.order_number,
+            o.product_name || o.product_id,
+            o.quantity,
+            o.total_price + '$',
+            o.status,
+            o.created_at ? new Date(o.created_at).toLocaleString('ar') : ''
+        ]);
+    });
+    downloadCSV('orders.csv', rows);
+}
+
+function exportDepositsCSV() {
+    const rows = [['رقم العملية', 'المستخدم', 'المبلغ', 'الطريقة', 'الحالة', 'التاريخ']];
+    depositsData.forEach(d => {
+        rows.push([
+            d.transaction_id,
+            d.user_id,
+            d.amount + '$',
+            d.method,
+            d.status,
+            d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''
+        ]);
+    });
+    downloadCSV('deposits.csv', rows);
+}
+
+// ============ أدوات عامة ============
 function sendAdminNotification() {
     const message = document.getElementById('notificationMessage').value;
     if (!message) return alert('أدخل نص الإشعار');
