@@ -20,6 +20,19 @@ def is_admin_user(identity):
 def verify_admin_password(password):
     return check_password_hash(ADMIN_PASSWORD_HASH, password)
 
+def log_admin_activity(action):
+    """تسجيل نشاط الأدمن في قاعدة البيانات"""
+    try:
+        activity = AdminActivity(
+            admin_id=1,
+            action=action,
+            created_at=datetime.now(timezone.utc),
+        )
+        db.session.add(activity)
+        db.session.commit()
+    except Exception as e:
+        print(f"فشل تسجيل النشاط: {e}")
+
 def get_arabic_status(status):
     status_map = {
         "pending": "قيد المعالجة",
@@ -38,8 +51,22 @@ def admin_login():
     password = data.get("password")
     if username == ADMIN_USERNAME and verify_admin_password(password):
         token = create_access_token(identity="admin")
+        log_admin_activity("تسجيل دخول الأدمن")
         return jsonify({"token": token}), 200
     return jsonify({"error": "بيانات غير صحيحة"}), 401
+
+@main.route("/admin/api/activities", methods=["GET"])
+@jwt_required()
+def admin_activities():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    activities = AdminActivity.query.order_by(AdminActivity.created_at.desc()).limit(200).all()
+    return jsonify([{
+        "id": a.id,
+        "admin_id": a.admin_id,
+        "action": a.action,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+    } for a in activities])
 
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
@@ -80,6 +107,7 @@ def admin_toggle_kyc(user_id):
         user.kyc_status = "unverified"
         user.is_verified = False
     db.session.commit()
+    log_admin_activity(f"تغيير توثيق المستخدم {user.telegram_id} إلى {new_status}")
     notify_admins(f"🔄 تم تغيير حالة توثيق المستخدم {user.telegram_id} إلى {new_status}")
     return jsonify({"kyc_status": user.kyc_status, "is_verified": user.is_verified})
 
@@ -129,6 +157,7 @@ def admin_adjust_balance(user_id):
 
     db.session.commit()
 
+    log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
     send_telegram_notification(user.telegram_id, f"تم تعديل رصيدك بمقدار {amount}$")
     notify_admins(f"💵 تم تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
 
@@ -144,6 +173,7 @@ def admin_ban_user(user_id):
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.is_banned = not user.is_banned
     db.session.commit()
+    log_admin_activity(f"تغيير حظر المستخدم {user.telegram_id} إلى {user.is_banned}")
     notify_admins(f"🚫 تم تغيير حالة الحظر للمستخدم {user.telegram_id} إلى {user.is_banned}")
     return jsonify({"is_banned": user.is_banned})
 
@@ -159,6 +189,7 @@ def admin_set_vip(user_id):
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.vip_level = vip_level
     db.session.commit()
+    log_admin_activity(f"تعيين VIP{vip_level} للمستخدم {user.telegram_id}")
     notify_admins(f"⭐ تم تغيير VIP المستخدم {user.telegram_id} إلى {vip_level}")
     return jsonify({"vip_level": user.vip_level})
 
@@ -188,6 +219,7 @@ def admin_categories():
         )
         db.session.add(cat)
         db.session.commit()
+        log_admin_activity(f"إضافة قسم: {cat.name}")
         notify_admins(f"🗂️ تم إضافة قسم جديد: {cat.name}")
         return jsonify({"id": cat.id}), 201
 
@@ -201,6 +233,7 @@ def admin_delete_category(cat_id):
         return jsonify({"error": "قسم غير موجود"}), 404
 
     try:
+        cat_name = cat.name
         products = Product.query.filter_by(category_id=cat_id).all()
         for product in products:
             ProductBundle.query.filter_by(product_id=product.id).delete()
@@ -209,7 +242,8 @@ def admin_delete_category(cat_id):
 
         db.session.delete(cat)
         db.session.commit()
-        notify_admins(f"🗑️ تم حذف القسم: {cat.name}")
+        log_admin_activity(f"حذف قسم: {cat_name}")
+        notify_admins(f"🗑️ تم حذف القسم: {cat_name}")
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()
@@ -257,6 +291,7 @@ def admin_products():
         )
         db.session.add(product)
         db.session.commit()
+        log_admin_activity(f"إضافة منتج: {product.name}")
         notify_admins(f"📦 تم إضافة منتج جديد: {product.name}")
         return jsonify({"id": product.id}), 201
 
@@ -274,15 +309,18 @@ def admin_product_actions(product_id):
             if hasattr(product, key):
                 setattr(product, key, value)
         db.session.commit()
+        log_admin_activity(f"تعديل المنتج: {product.name}")
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True})
     elif request.method == "DELETE":
         try:
+            product_name = product.name
             ProductBundle.query.filter_by(product_id=product.id).delete()
             Order.query.filter_by(product_id=product.id).delete()
             db.session.delete(product)
             db.session.commit()
-            notify_admins(f"🗑️ تم حذف المنتج: {product.name}")
+            log_admin_activity(f"حذف المنتج: {product_name}")
+            notify_admins(f"🗑️ تم حذف المنتج: {product_name}")
             return jsonify({"success": True})
         except Exception as e:
             db.session.rollback()
@@ -313,6 +351,7 @@ def admin_bundles(product_id):
         )
         db.session.add(bundle)
         db.session.commit()
+        log_admin_activity(f"إضافة باقة: {bundle.name}")
         notify_admins(f"📦 تم إضافة باقة: {bundle.name}")
         return jsonify({"id": bundle.id}), 201
 
@@ -352,6 +391,7 @@ def admin_payment_methods():
         )
         db.session.add(method)
         db.session.commit()
+        log_admin_activity(f"إضافة طريقة دفع: {method.name}")
         notify_admins(f"💳 تم إضافة طريقة دفع: {method.name}")
         return jsonify({"id": method.id}), 201
 
@@ -363,9 +403,11 @@ def admin_delete_payment_method(method_id):
     method = PaymentMethod.query.get(method_id)
     if not method:
         return jsonify({"error": "طريقة دفع غير موجودة"}), 404
+    method_name = method.name
     db.session.delete(method)
     db.session.commit()
-    notify_admins(f"🗑️ تم حذف طريقة دفع: {method.name}")
+    log_admin_activity(f"حذف طريقة دفع: {method_name}")
+    notify_admins(f"🗑️ تم حذف طريقة دفع: {method_name}")
     return jsonify({"success": True})
 
 @main.route("/admin/api/orders", methods=["GET"])
@@ -428,13 +470,11 @@ def admin_update_order_status(order_id):
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
 
-    # التحقق من انتهاء مدة 120 ثانية
     creation_time = order.created_at
     elapsed = datetime.now(timezone.utc) - creation_time
     if elapsed < timedelta(seconds=120):
         return jsonify({"error": "لا يمكن تغيير حالة الطلب قبل مرور دقيقتين"}), 400
 
-    # قواعد تغيير الحالة
     if order.status == "pending" and new_status not in ["review", "failed", "cancelled"]:
         return jsonify({"error": "يمكن فقط الانتقال إلى قيد المراجعة أو فشل من قيد المعالجة"}), 400
     elif order.status == "review" and new_status not in ["processing", "failed"]:
@@ -473,6 +513,8 @@ def admin_update_order_status(order_id):
             send_telegram_notification(user.telegram_id, f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}")
 
     db.session.commit()
+
+    log_admin_activity(f"تغيير حالة الطلب {order.order_number} إلى {get_arabic_status(new_status)}")
 
     if user:
         status_arabic = get_arabic_status(new_status)
@@ -534,6 +576,7 @@ def admin_approve_deposit(deposit_id):
             db.session.add(notif)
             db.session.commit()
             send_telegram_notification(user.telegram_id, f"تم قبول إيداعك بقيمة {deposit.amount}$")
+    log_admin_activity(f"قبول إيداع {deposit.id} بقيمة {deposit.amount}$")
     notify_admins(f"✅ تم قبول إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
     return jsonify({"status": deposit.status})
 
@@ -553,6 +596,7 @@ def admin_reject_deposit(deposit_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, f"تم رفض إيداعك بقيمة {deposit.amount}$")
+    log_admin_activity(f"رفض إيداع {deposit.id} بقيمة {deposit.amount}$")
     notify_admins(f"❌ تم رفض إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
     return jsonify({"status": deposit.status})
 
@@ -591,6 +635,7 @@ def admin_approve_kyc(kyc_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, "تم توثيق حسابك بنجاح")
+    log_admin_activity(f"قبول توثيق المستخدم {kyc.user_id}")
     notify_admins(f"✅ تم قبول توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "approved"})
 
@@ -612,6 +657,7 @@ def admin_reject_kyc(kyc_id):
         db.session.add(notif)
         db.session.commit()
         send_telegram_notification(user.telegram_id, "تم رفض طلب التوثيق")
+    log_admin_activity(f"رفض توثيق المستخدم {kyc.user_id}")
     notify_admins(f"❌ تم رفض توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "rejected"})
 
@@ -630,11 +676,13 @@ def admin_send_notification():
         for user in users:
             notif = Notification(user_id=user.id, title=title, message=message, type=notif_type)
             db.session.add(notif)
+        log_admin_activity(f"إرسال إشعار جماعي: {title}")
     else:
         user_id = data.get("user_id")
         if user_id:
             notif = Notification(user_id=user_id, title=title, message=message, type=notif_type)
             db.session.add(notif)
+            log_admin_activity(f"إرسال إشعار لمستخدم {user_id}: {title}")
     db.session.commit()
     return jsonify({"success": True})
 
@@ -667,6 +715,7 @@ def admin_update_service_request(req_id):
     req.status = data.get("status", req.status)
     req.admin_response = data.get("admin_response", req.admin_response)
     db.session.commit()
+    log_admin_activity(f"تحديث طلب الخدمة {req.id} إلى {req.status}")
     notify_admins(f"🛠️ تم تحديث طلب الخدمة {req.id} إلى {req.status}")
     return jsonify({"success": True})
 
@@ -688,4 +737,5 @@ def admin_settings():
                 new_setting = Setting(key=key, value=str(value))
                 db.session.add(new_setting)
         db.session.commit()
+        log_admin_activity("تحديث الإعدادات")
         return jsonify({"success": True})
