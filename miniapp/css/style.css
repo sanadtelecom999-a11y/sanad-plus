@@ -1,6 +1,6 @@
 /* =========== SANAD+ Design System =========== */
 :root {
-    --primary: #00A0E9;
+    --primary: #0EA5E9;
     --primary-light: #EAF5FC;
     --primary-dark: #0D47A1;
     --background: #F5F7FA;
@@ -45,7 +45,7 @@
 }
 
 body {
-    font-family: 'Tajawal', sans-serif;
+    font-family: 'Cairo', 'Tajawal', sans-serif;
     background-color: var(--background);
     color: var(--text);
     direction: rtl;
@@ -54,120 +54,216 @@ body {
     user-select: none;
 }
 
-/* =========== شاشة البداية Splash Screen =========== */
+/* =========== شاشة البداية الجديدة =========== */
 #splashScreen {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(180deg, #FFFFFF 0%, #F5FBFF 100%);
+    inset: 0;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 55%, #E0F2FE 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
     overflow: hidden;
-    animation: splashFadeIn 0.6s ease forwards, splashFadeOut 0.6s ease 7.4s forwards;
+    padding: 40px 24px;
+    padding-top: calc(40px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+    transition: opacity 0.5s ease, visibility 0.5s ease;
 }
 
-@keyframes splashFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+#splashScreen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
 }
 
-@keyframes splashFadeOut {
-    to { opacity: 0; visibility: hidden; }
-}
-
-.splash-bg-decoration {
+.splash-bg {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     overflow: hidden;
     pointer-events: none;
 }
 
-.splash-arc {
+.splash-circle {
     position: absolute;
-    border: 2px solid var(--primary);
-    opacity: 0.06;
     border-radius: 50%;
 }
 
-.arc-tl {
-    width: 320px;
-    height: 320px;
-    top: -160px;
-    left: -160px;
+.splash-circle-1 {
+    width: 380px;
+    height: 380px;
+    top: -140px;
+    right: -140px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.10), transparent 70%);
 }
 
-.arc-br {
-    width: 280px;
-    height: 280px;
-    bottom: -140px;
-    right: -140px;
+.splash-circle-2 {
+    width: 320px;
+    height: 320px;
+    bottom: -120px;
+    left: -120px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.08), transparent 70%);
+}
+
+.splash-circle-3 {
+    width: 520px;
+    height: 520px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.05), transparent 60%);
 }
 
 .splash-content {
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     text-align: center;
-    padding: 24px;
-    max-width: 90%;
+    max-width: 340px;
+    width: 100%;
 }
 
-.splash-diamond-svg {
+.splash-logo-wrap {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 22px;
+    animation: splashLogoIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.splash-logo-wrap::before {
+    content: '';
+    position: absolute;
+    inset: -22px;
+    background: radial-gradient(circle, rgba(14, 165, 233, 0.18), transparent 70%);
+    border-radius: 50%;
+    z-index: -1;
+    animation: splashGlow 3.2s ease-in-out infinite;
+}
+
+@keyframes splashGlow {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+}
+
+.splash-logo {
     width: 140px;
     height: 140px;
-    margin-bottom: 28px;
-    filter: drop-shadow(0 12px 24px rgba(0,160,233,0.25));
-    animation: diamondFloat 3s ease-in-out infinite;
+    filter: drop-shadow(0 14px 32px rgba(14, 165, 233, 0.22));
 }
 
-@keyframes diamondFloat {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+@keyframes splashLogoIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.92) translateY(12px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
 .splash-title {
-    font-size: 2.4rem;
-    font-weight: 800;
-    color: var(--primary-dark);
-    letter-spacing: -1px;
-    margin-bottom: 12px;
-    line-height: 1.2;
-}
-
-.splash-plus {
-    color: var(--primary);
+    font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 2rem;
     font-weight: 800;
-}
-
-.splash-desc {
-    font-size: 1rem;
-    color: #6B8A9E;
-    font-weight: 500;
-    margin-bottom: 32px;
-}
-
-.splash-footer {
+    color: #0F172A;
+    letter-spacing: -0.5px;
+    margin: 0 0 8px;
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 20px;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    animation: splashFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.30s both;
 }
 
-.splash-footer-line {
+[data-theme="dark"] .splash-title {
+    color: #F0F6FC;
+}
+
+.splash-plus-mark {
+    color: #0EA5E9;
+    font-size: 1.5rem;
+    margin-top: -10px;
+    font-weight: 800;
+}
+
+.splash-subtitle {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 1rem;
-    color: #6B8A9E;
+    color: #64748B;
     font-weight: 500;
-    text-align: center;
-    line-height: 1.5;
+    margin: 0 0 14px;
+    animation: splashFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.50s both;
+}
+
+.splash-note {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-size: 0.82rem;
+    color: #94A3B8;
+    line-height: 1.7;
+    max-width: 270px;
+    margin: 0 0 30px;
+    animation: splashFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both;
+}
+
+.splash-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #0EA5E9;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 30px;
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(14, 165, 233, 0.35);
+    transition: all 0.25s ease;
+    animation: splashFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.80s both;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.splash-btn:hover {
+    background: #0284C7;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(14, 165, 233, 0.45);
+}
+
+.splash-btn:active {
+    transform: translateY(0);
+}
+
+.splash-btn .material-icons {
+    font-size: 20px;
+}
+
+@keyframes splashFadeUp {
+    0% {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .splash-logo-wrap,
+    .splash-title,
+    .splash-subtitle,
+    .splash-note,
+    .splash-btn,
+    .splash-logo-wrap::before {
+        animation: none;
+    }
 }
 
 /* =========== الشريط العلوي =========== */

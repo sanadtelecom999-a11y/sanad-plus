@@ -89,9 +89,9 @@ function renderFavorites() {
 
 // ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    setTimeout(() => {
-        const splash = document.getElementById('splashScreen');
-        if (splash) splash.style.display = 'none';
+    // إغلاق تلقائي لشاشة البداية بعد 8 ثوانٍ (احتياطي)
+    window.splashTimeoutId = setTimeout(() => {
+        if (typeof closeSplash === 'function') closeSplash();
     }, 8000);
 
     initTelegram();
@@ -128,6 +128,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     startNotificationPolling();
 });
+
+// ============ إغلاق شاشة البداية ============
+function closeSplash() {
+    const splash = document.getElementById('splashScreen');
+    if (!splash || splash.classList.contains('hidden')) return;
+
+    splash.classList.add('hidden');
+
+    if (window.splashTimeoutId) {
+        clearTimeout(window.splashTimeoutId);
+        window.splashTimeoutId = null;
+    }
+
+    setTimeout(() => {
+        if (splash.parentNode) splash.style.display = 'none';
+    }, 500);
+}
 
 async function loadInitialData() {
     showSkeletons();
