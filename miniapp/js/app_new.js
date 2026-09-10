@@ -129,10 +129,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (darkToggle) darkToggle.checked = savedTheme === 'dark';
     }
 
-    const savedPage = localStorage.getItem('lastPage');
-    if (savedPage && document.getElementById(savedPage)) {
-        navigateTo(savedPage);
-    }
+    // ✅ إزالة استعادة آخر صفحة — التطبيق يبدأ دائماً من الرئيسية
+    // (لا يوجد localStorage.getItem('lastPage'))
 
     startNotificationPolling();
 });
@@ -410,7 +408,7 @@ function renderProductCard(prod) {
     `;
 }
 
-// ============ الأقسام — صور أكبر ============
+// ============ الأقسام — مربعة 1:1 ============
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -817,7 +815,7 @@ function openPurchaseModal(productId) {
     let modalContent = `
         <div class="purchase-modal">
             <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
+            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:contain; background-repeat:no-repeat; background-position:center; width:64px; height:64px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
             <div class="form-group"><label>الكمية المطلوبة</label><input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field"></div>
             <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: ${formatPrice(unitPrice * (product.base_quantity || 1))}</div>
             <div class="form-group"><label>كود الخصم (اختياري)</label><input type="text" id="purchaseCoupon" placeholder="أدخل كود الخصم"></div>
@@ -1218,7 +1216,7 @@ function navigateTo(pageId) {
     if (target) target.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
     currentPage = pageId;
-    localStorage.setItem('lastPage', pageId);
+    // ✅ تم إزالة حفظ الصفحة (لا localStorage.setItem('lastPage'))
 
     if (pageId === 'page-home') renderCategories();
     if (pageId === 'page-orders') renderOrders(ordersData);
