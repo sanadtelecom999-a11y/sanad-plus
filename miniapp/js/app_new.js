@@ -31,7 +31,6 @@ function toggleCurrency() {
     updateCurrencyUI();
     updateUserUI();
     renderOrders(ordersData);
-    renderLatestOrders();
     renderDeposits(depositsData);
     renderCategories();
     renderProductsList(productsData);
@@ -89,7 +88,6 @@ function renderFavorites() {
 
 // ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    // تهيئة شاشة البداية — Animation 8 ثوانٍ
     initSplashScreen();
 
     initTelegram();
@@ -118,7 +116,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (darkToggle) darkToggle.checked = savedTheme === 'dark';
     }
 
-    // استعادة آخر صفحة
     const savedPage = localStorage.getItem('lastPage');
     if (savedPage && document.getElementById(savedPage)) {
         navigateTo(savedPage);
@@ -132,10 +129,8 @@ function initSplashScreen() {
     const splash = document.getElementById('splashScreen');
     if (!splash) return;
 
-    // توليد الجسيمات
     generateSplashParticles();
 
-    // إغلاق تلقائي بعد 8 ثوانٍ بالضبط
     window.splashTimeoutId = setTimeout(() => {
         closeSplash();
     }, 8000);
@@ -154,13 +149,11 @@ function generateSplashParticles() {
         const p = document.createElement('span');
         p.className = 'splash-particle';
 
-        // زاوية عشوائية لاتجاه الانطلاق
         const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + (Math.random() - 0.5) * 0.4;
         const radius = 60 + Math.random() * 60;
         const dx = Math.cos(angle) * radius;
         const dy = Math.sin(angle) * radius;
 
-        // انحناء إضافي للمسار المنحني
         const curveX = (Math.random() - 0.5) * 40;
         const curveY = (Math.random() - 0.5) * 40;
 
@@ -170,7 +163,6 @@ function generateSplashParticles() {
         p.style.setProperty('--curve-y', curveY + 'px');
         p.style.setProperty('--delay', (1.8 + Math.random() * 0.4) + 's');
 
-        // حجم متفاوت للجسيمات
         const size = 3 + Math.random() * 5;
         p.style.width = size + 'px';
         p.style.height = size + 'px';
@@ -179,7 +171,6 @@ function generateSplashParticles() {
     }
 }
 
-// ============ إغلاق شاشة البداية ============
 function closeSplash() {
     const splash = document.getElementById('splashScreen');
     if (!splash || splash.classList.contains('hidden')) return;
@@ -215,7 +206,6 @@ async function loadInitialData() {
         renderCategories();
         renderPaymentMethods();
         renderOrders(ordersData);
-        renderLatestOrders();
         renderDeposits(depositsData);
         renderFavorites();
         updateKYCUI();
@@ -479,7 +469,7 @@ function renderOrders(orders) {
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         return `
-        <div class="order-card" data-status="${order.status}" data-id="${order.id}">
+        <div class="order-card" data-status="${order.status}" data-id="${order.id}" onclick="viewOrderDetails(${order.id})">
             <div class="order-header">
                 <span class="order-number">${order.order_number}</span>
                 <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
@@ -497,19 +487,12 @@ function renderOrders(orders) {
                     <span class="timer-text">120</span> ثانية للإلغاء
                 </div>
                 <div style="margin-top:8px;">
-                    <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
-                </div>
-            ` : ''}
-            ${order.status === 'completed' ? `
-                <div style="display:flex;gap:8px;margin-top:12px;">
-                    <button class="btn-outline" style="flex:1;" onclick="orderAgain(${order.product_id})">إعادة الطلب</button>
-                    <button class="btn-outline" style="flex:1;" onclick="shareProduct(${order.product_id})">مشاركة</button>
+                    <button class="btn-outline" style="width:100%;" onclick="event.stopPropagation(); cancelOrder(${order.id})">إلغاء الطلب</button>
                 </div>
             ` : ''}
         </div>
     `}).join('');
 
-    // بدء العدادات التنازلية
     orders.forEach(order => {
         if (order.status === 'pending' && isWithinCancelWindow(order.created_at)) {
             startCancelCountdown(order.id, order.created_at);
@@ -517,29 +500,49 @@ function renderOrders(orders) {
     });
 }
 
-function renderLatestOrders() {
-    const header = document.getElementById('latestOrdersHeader');
-    const list = document.getElementById('latestOrdersList');
-    if (!header || !list) return;
-    if (!ordersData.length) {
-        header.style.display = 'none';
-        list.innerHTML = '';
-        return;
+// ============ Modal تفاصيل الطلب ============
+function viewOrderDetails(orderId) {
+    const order = ordersData.find(o => o.id === orderId);
+    if (!order) return;
+
+    let deliveryInfo = '';
+    try {
+        const delivery = JSON.parse(order.delivery_data || '{}');
+        if (delivery.player_id) deliveryInfo += `<div style="margin-bottom:6px;"><strong>معرف اللاعب:</strong> <span class="ltr">${delivery.player_id}</span></div>`;
+        if (delivery.phone) deliveryInfo += `<div style="margin-bottom:6px;"><strong>رقم الهاتف:</strong> <span class="ltr">${delivery.phone}</span></div>`;
+        if (delivery.bundle_name) deliveryInfo += `<div style="margin-bottom:6px;"><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
+    } catch (e) {
+        if (order.delivery_data) deliveryInfo = `<div>${order.delivery_data}</div>`;
     }
-    header.style.display = 'flex';
-    list.innerHTML = ordersData.slice(0, 3).map(order => `
-        <div class="order-card">
-            <div class="order-header">
+
+    const actionButtons = order.status === 'completed' ? `
+        <div style="margin-top:16px;">
+            <button class="btn-primary" style="width:100%;" onclick="closeModal(); orderAgain(${order.product_id})">
+                <span class="material-icons">refresh</span> إعادة الطلب
+            </button>
+        </div>
+    ` : '';
+
+    const body = `
+        <div style="text-align:right;">
+            <h3 style="margin-bottom:16px; text-align:center;">تفاصيل الطلب</h3>
+            <div class="order-header" style="margin-bottom:12px;">
                 <span class="order-number">${order.order_number}</span>
                 <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
             </div>
-            <div class="order-details">
-                <div>المنتج: ${order.product_name || order.product_id}</div>
-                <div>الكمية: ${order.quantity}</div>
-                <div>السعر: ${formatPrice(order.total_price)}</div>
+            <div class="order-details" style="margin-bottom:14px;">
+                <div style="margin-bottom:6px;"><strong>المنتج:</strong> ${order.product_name || order.product_id}</div>
+                <div style="margin-bottom:6px;"><strong>الكمية:</strong> ${order.quantity}</div>
+                <div style="margin-bottom:6px;"><strong>السعر:</strong> ${formatPrice(order.total_price)}</div>
+                ${order.discount_amount ? `<div style="margin-bottom:6px;"><strong>الخصم:</strong> ${formatPrice(order.discount_amount)}</div>` : ''}
+                <div style="margin-bottom:6px;"><strong>التاريخ:</strong> ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
+                ${deliveryInfo}
             </div>
+            ${renderOrderProgress(order.status)}
+            ${actionButtons}
         </div>
-    `).join('');
+    `;
+    openModal('تفاصيل الطلب', body);
 }
 
 function isWithinCancelWindow(createdAt) {
@@ -582,7 +585,6 @@ async function cancelOrder(orderId) {
             showSuccessScreen('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك');
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
-            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
@@ -593,17 +595,6 @@ async function cancelOrder(orderId) {
 
 function orderAgain(productId) {
     openPurchaseModal(productId);
-}
-
-function shareProduct(productId) {
-    const product = productsData.find(p => p.id === productId);
-    if (!product) return;
-    const text = `شاهد هذا المنتج: ${product.name} بسعر ${formatPrice(product.base_price)}`;
-    if (navigator.share) {
-        navigator.share({ title: product.name, text: text });
-    } else {
-        window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`, '_blank');
-    }
 }
 
 function getStatusText(status) {
@@ -872,7 +863,6 @@ async function executeConfirmPurchase(productId, btn) {
             closeModal();
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
-            renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
         }
@@ -1197,7 +1187,7 @@ function navigateTo(pageId) {
     currentPage = pageId;
     localStorage.setItem('lastPage', pageId);
 
-    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); }
+    if (pageId === 'page-home') renderCategories();
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);

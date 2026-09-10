@@ -95,7 +95,6 @@ body {
     50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
 }
 
-/* =========== الدرع =========== */
 .splash-shield-stage {
     position: absolute;
     top: 50%;
@@ -162,7 +161,6 @@ body {
     }
 }
 
-/* =========== طبقة الجسيمات =========== */
 .splash-particles-stage {
     position: absolute;
     inset: 0;
@@ -219,7 +217,6 @@ body {
     }
 }
 
-/* =========== النصوص =========== */
 .splash-text-stage {
     position: relative;
     z-index: 2;
@@ -252,7 +249,6 @@ body {
     }
 }
 
-/* ✅ سند بلس — لون ثابت داكن دائماً (لا يتأثر بـ Dark Mode) */
 .splash-brand-ar {
     font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 2.6rem;
@@ -268,7 +264,6 @@ body {
     -webkit-text-fill-color: #0F172A !important;
 }
 
-/* علامة + العربية */
 .splash-plus-mark {
     display: inline-block;
     color: #0EA5E9 !important;
@@ -282,7 +277,6 @@ body {
     -webkit-text-fill-color: #0EA5E9 !important;
 }
 
-/* علامة + الإنجليزية */
 .splash-plus-mark-en {
     display: inline-block;
     color: #0EA5E9 !important;
@@ -299,7 +293,6 @@ body {
     100% { opacity: 1; transform: scale(1); }
 }
 
-/* ✅ SANAD PLUS⁺ — لون ثابت رمادي مزرق دائماً */
 .splash-brand-en {
     font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 0.85rem;
@@ -319,7 +312,6 @@ body {
     100% { opacity: 1; transform: translateY(0); }
 }
 
-/* =========== دعم prefers-reduced-motion =========== */
 @media (prefers-reduced-motion: reduce) {
     .splash-shield-stage,
     .shield-sweep,
@@ -897,6 +889,17 @@ body {
     border-radius: var(--radius-md);
     padding: 16px;
     box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+.order-card[onclick] {
+    cursor: pointer;
+}
+
+.order-card[onclick]:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
 }
 
 .order-header {
@@ -1447,7 +1450,7 @@ input:checked + .toggle-slider:before {
     transform: rotate(180deg);
 }
 
-/* =========== زر الدعم العائم =========== */
+/* =========== زر الدعم العائم مع Badge أونلاين =========== */
 .floating-support-btn {
     position: fixed;
     bottom: calc(var(--nav-height) + 16px);
@@ -1455,17 +1458,39 @@ input:checked + .toggle-slider:before {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background-color: var(--primary);
+    background: linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%);
     color: white;
     border: none;
     cursor: pointer;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 22px rgba(14, 165, 233, 0.4),
+                0 2px 8px rgba(0, 0, 0, 0.08);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 99;
-    transition: var(--transition);
+    transition: all 0.25s ease;
     animation: floatBtn 3s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.floating-support-btn .material-icons {
+    font-size: 26px;
+    transition: transform 0.25s ease;
+}
+
+.floating-support-btn:hover {
+    background: linear-gradient(135deg, #0284C7 0%, #0D47A1 100%);
+    transform: scale(1.08);
+    box-shadow: 0 12px 28px rgba(14, 165, 233, 0.5),
+                0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.floating-support-btn:hover .material-icons {
+    transform: rotate(-8deg);
+}
+
+.floating-support-btn:active {
+    transform: scale(0.95);
 }
 
 @keyframes floatBtn {
@@ -1473,13 +1498,37 @@ input:checked + .toggle-slider:before {
     50% { transform: translateY(-6px); }
 }
 
-.floating-support-btn:hover {
-    background-color: var(--primary-dark);
-    transform: scale(1.1);
+/* Badge أونلاين */
+.support-online-badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 13px;
+    height: 13px;
+    background: #4CAF50;
+    border: 2px solid #FFFFFF;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+    animation: supportOnlinePulse 2s ease-in-out infinite;
+    pointer-events: none;
 }
 
-.floating-support-btn .material-icons {
-    font-size: 26px;
+@keyframes supportOnlinePulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(76, 175, 80, 0);
+        transform: scale(1);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+        transform: scale(1);
+    }
 }
 
 /* =========== المودال =========== */
@@ -1729,4 +1778,11 @@ input:checked + .toggle-slider:before {
     50% { opacity: 0.3; }
     75% { opacity: 0.8; }
     100% { opacity: 0; }
+}
+
+/* =========== LTR للأرقام التقنية =========== */
+.ltr {
+    direction: ltr;
+    unicode-bidi: embed;
+    display: inline-block;
 }
