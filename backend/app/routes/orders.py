@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import request, jsonify
 from ..models.base import User, Product, ProductBundle, Order, Transaction, Notification
 from ..extensions import db
@@ -42,7 +42,6 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
-    # التحقق من الحقول المخصصة
     if product.input_type == "id":
         player_id = data.get("player_id", "")
         if not player_id.strip():
@@ -56,7 +55,6 @@ def create_order():
     else:
         delivery_data = {}
 
-    # تحديد السعر والكمية
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -118,10 +116,7 @@ def create_order():
     db.session.add(notif)
     db.session.commit()
 
-    # إشعار المستخدم
     send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
-
-    # إشعار الأدمن
     notify_admins(f"🆕 طلب جديد!\nرقم الطلب: {order.order_number}\nالمنتج: {product.name}\nالكمية: {quantity}\nالإجمالي: {total_price}$")
 
     return jsonify({
@@ -131,6 +126,58 @@ def create_order():
         "total_price": total_price,
         "message": "طلبك قيد المعالجة",
     }), 201
+
+@main.route("/api/orders/<int:order_id>/cancel", methods=["POST"])
+def cancel_order(order_id):
+    data = request.get_json()
+    telegram_id = data.get("telegram_id")
+    if not telegram_id:
+        return jsonify({"error": "telegram_id مطلوب"}), 400
+
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"error": "طلب غير موجود"}), 404
+
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user or user.id != order.user_id:
+        return jsonify({"error": "غير مصرح"}), 403
+
+    if order.status != "pending":
+        return jsonify({"error": "لا يمكن إلغاء هذا الطلب"}), 400
+
+    # التحقق من مرور أقل من 120 ثانية
+    elapsed = datetime.now(timezone.utc) - order.created_at
+    if elapsed > timedelta(seconds=120):
+        return jsonify({"error": "انتهت مهلة الإلغاء"}), 400
+
+    # استرداد المبلغ
+    user.balance += order.total_price
+    txn = Transaction(
+        user_id=user.id,
+        type="refund",
+        amount=order.total_price,
+        balance_after=user.balance,
+        reference_type="order_cancel",
+        reference_id=order.id,
+    )
+    db.session.add(txn)
+
+    order.status = "cancelled"
+    order.updated_at = datetime.now(timezone.utc)
+
+    notif = Notification(
+        user_id=user.id,
+        title="إلغاء طلب",
+        message=f"تم إلغاء طلبك {order.order_number} واسترداد المبلغ",
+        type="warning",
+    )
+    db.session.add(notif)
+    db.session.commit()
+
+    send_telegram_notification(user.telegram_id, f"تم إلغاء طلبك {order.order_number} واسترداد المبلغ")
+    notify_admins(f"❌ طلب {order.order_number} أُلغي من قبل المستخدم")
+
+    return jsonify({"message": "تم إلغاء الطلب واسترداد المبلغ"}), 200
 
 @main.route("/api/orders/my", methods=["GET"])
 def get_my_orders():
