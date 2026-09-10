@@ -12,11 +12,11 @@ let notificationsData = [];
 let selectedMethodForDeposit = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // إخفاء شاشة البداية بعد 5 ثوانٍ
+    // إخفاء شاشة البداية بعد 8 ثوانٍ
     setTimeout(() => {
         const splash = document.getElementById('splashScreen');
         if (splash) splash.style.display = 'none';
-    }, 5000);
+    }, 8000);
 
     initTelegram();
     applyTelegramTheme();
@@ -80,7 +80,6 @@ function updateUserUI() {
     document.getElementById('chargeBalance').textContent = `${userData.balance.toFixed(2)}$`;
     document.getElementById('accountBalance').textContent = `${userData.balance.toFixed(2)}$`;
 
-    // استخدام البيانات الحقيقية (لا بيانات تجريبية)
     document.getElementById('accountName').textContent =
         userData.first_name || userData.username || 'مستخدم';
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
@@ -174,7 +173,7 @@ function renderPaymentMethods() {
     container.innerHTML = paymentMethodsData.map(m => `
         <div class="payment-method" data-id="${m.id}" onclick="showDepositStep1(${m.id})">
             <div class="payment-method-info">
-                ${m.icon ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
+                ${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
                 <div>
                     <div class="payment-method-name">${m.name}</div>
                     <div class="payment-method-desc">${m.description || ''}</div>
@@ -192,7 +191,9 @@ function renderOrders(orders) {
         list.innerHTML = '<div class="empty-state">لا توجد طلبات</div>';
         return;
     }
-    list.innerHTML = orders.map(order => `
+    list.innerHTML = orders.map(order => {
+        const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
+        return `
         <div class="order-card" data-status="${order.status}">
             <div class="order-header">
                 <span class="order-number">${order.order_number}</span>
@@ -204,8 +205,42 @@ function renderOrders(orders) {
                 <div>السعر: ${order.total_price}$</div>
                 <div>التاريخ: ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
             </div>
+            ${canCancel ? `
+                <div style="margin-top:12px;">
+                    <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
+                </div>
+            ` : ''}
         </div>
-    `).join('');
+    `}).join('');
+}
+
+function isWithinCancelWindow(createdAt) {
+    if (!createdAt) return false;
+    const created = new Date(createdAt).getTime();
+    const now = Date.now();
+    return (now - created) < 120000; // 120 ثانية
+}
+
+async function cancelOrder(orderId) {
+    if (!confirm('هل تريد إلغاء الطلب؟ سيتم استرداد المبلغ.')) return;
+    try {
+        const result = await apiFetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: userData.telegram_id }),
+        });
+        if (result && result.error) {
+            alert(result.error);
+        } else {
+            alert('تم إلغاء الطلب واسترداد المبلغ');
+            ordersData = await fetchUserOrders(userData.telegram_id);
+            renderOrders(ordersData);
+            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
+            updateUserUI();
+        }
+    } catch (error) {
+        alert(`فشل إلغاء الطلب: ${error.message}`);
+    }
 }
 
 function getStatusText(status) {
@@ -215,6 +250,7 @@ function getStatusText(status) {
         case 'processing': return 'قيد التنفيذ';
         case 'completed': return 'مكتمل';
         case 'failed': return 'فشل';
+        case 'cancelled': return 'ملغي';
         default: return status || 'غير معروف';
     }
 }
