@@ -80,7 +80,9 @@ function updateUserUI() {
     document.getElementById('chargeBalance').textContent = `${userData.balance.toFixed(2)}$`;
     document.getElementById('accountBalance').textContent = `${userData.balance.toFixed(2)}$`;
 
-    document.getElementById('accountName').textContent = userData.username || userData.first_name || 'مستخدم';
+    // استخدام البيانات الحقيقية (لا بيانات تجريبية)
+    document.getElementById('accountName').textContent =
+        userData.first_name || userData.username || 'مستخدم';
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
@@ -98,14 +100,16 @@ function updateUserUI() {
     else if (hour < 18) greeting = 'مساء الخير';
     else greeting = 'مساء النور';
 
-    document.getElementById('greetingMessage').textContent = `${greeting}، ${userData.first_name || 'مستخدم'}`;
+    document.getElementById('greetingMessage').textContent =
+        `${greeting}، ${userData.first_name || userData.username || 'مستخدم'}`;
     document.getElementById('greetingSub').textContent = `رصيدك: ${userData.balance.toFixed(2)}$`;
 
     if (window.currentUser?.photo_url) {
         document.getElementById('headerAvatar').style.backgroundImage = `url(${window.currentUser.photo_url})`;
         document.getElementById('headerAvatar').textContent = '';
     } else {
-        document.getElementById('headerAvatar').textContent = (userData.first_name || 'م')[0];
+        document.getElementById('headerAvatar').textContent =
+            (userData.first_name || userData.username || 'م')[0];
     }
 
     updateKYCBadge();
@@ -432,9 +436,13 @@ function showDepositStep1(methodId) {
     if (!method) return;
     selectedMethodForDeposit = method;
 
-    // فصل تام بين اللوجو وQR
-    const qrCode = method.qr_image ? `<img src="${method.qr_image}" style="width:180px;height:180px;border-radius:16px;object-fit:cover;" />` : '<span class="material-icons" style="font-size:100px;">qr_code_2</span>';
-    const logo = method.icon ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '💳';
+    const qrCode = method.qr_image && method.qr_image.length > 100
+        ? `<img src="${method.qr_image}" style="width:180px;height:180px;border-radius:16px;object-fit:cover;" />`
+        : '<span style="color:var(--text-secondary);">لا يوجد رمز QR بعد</span>';
+
+    const logo = method.icon && method.icon.length > 100
+        ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
+        : '💳';
 
     const body = `
         <div style="text-align:center;">
