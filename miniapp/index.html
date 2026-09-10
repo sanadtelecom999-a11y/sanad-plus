@@ -12,11 +12,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- ✅ Telegram WebApp SDK — ضروري لعمل التطبيق داخل تيليجرام -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
-    <!-- شاشة البداية -->
+    <!-- ==================== شاشة البداية — Animation 8 ثوانٍ ==================== -->
     <div id="splashScreen">
         <div class="splash-glow"></div>
 
@@ -65,7 +67,7 @@
         </div>
     </div>
 
-    <!-- الشريط العلوي -->
+    <!-- ==================== الشريط العلوي ==================== -->
     <header class="topbar">
         <div class="topbar-right">
             <button class="icon-btn" onclick="goToAccount()">
@@ -89,6 +91,7 @@
 
     <main class="main-content">
 
+        <!-- الرئيسية -->
         <section id="page-home" class="page active">
             <div class="user-greeting">
                 <div class="avatar">👤</div>
@@ -115,6 +118,7 @@
             <div class="categories-grid" id="categoriesGrid"></div>
         </section>
 
+        <!-- طلباتي -->
         <section id="page-orders" class="page">
             <h2>طلباتي</h2>
             <div class="filters pills-container" id="orderFilters">
@@ -128,6 +132,7 @@
             <div class="orders-list" id="ordersList"></div>
         </section>
 
+        <!-- شحن الرصيد -->
         <section id="page-charge" class="page">
             <div class="balance-card-gradient">
                 <span class="material-icons">account_balance_wallet</span>
@@ -140,6 +145,7 @@
             <div class="payment-options" id="paymentMethodsList"></div>
         </section>
 
+        <!-- الإيداعات -->
         <section id="page-deposits" class="page">
             <h2>الإيداعات</h2>
             <p class="text-secondary">سجل عمليات شحن الرصيد وحالتها</p>
@@ -152,6 +158,7 @@
             <div class="orders-list" id="depositsList"></div>
         </section>
 
+        <!-- حسابي -->
         <section id="page-account" class="page">
             <div class="account-card">
                 <div class="account-avatar">👤</div>
@@ -214,15 +221,18 @@
             </div>
         </section>
 
+        <!-- KYC -->
         <section id="page-kyc" class="page">
             <div id="kycDynamicContent"></div>
         </section>
 
+        <!-- المنتجات -->
         <section id="page-products" class="page">
             <h2 id="productsPageTitle">المنتجات</h2>
             <div class="products-grid" id="productsList"></div>
         </section>
 
+        <!-- المفضلة -->
         <section id="page-favorites" class="page">
             <h2>المفضلة</h2>
             <div class="products-grid" id="favoritesList">
@@ -230,6 +240,7 @@
             </div>
         </section>
 
+        <!-- الأسئلة الشائعة -->
         <section id="page-faq" class="page">
             <h2>الأسئلة الشائعة</h2>
             <div class="faq-list" id="faqList"></div>
@@ -237,11 +248,13 @@
 
     </main>
 
+    <!-- زر الدعم العائم مع Badge أونلاين -->
     <button class="floating-support-btn" onclick="openSupport()" title="الدعم الفني" aria-label="الدعم الفني">
         <span class="material-icons">support_agent</span>
         <span class="support-online-badge" aria-label="متصل"></span>
     </button>
 
+    <!-- شريط التنقل السفلي -->
     <nav class="bottom-nav">
         <button class="nav-item active" data-page="page-home"><span class="material-icons">home</span><span>الرئيسية</span></button>
         <button class="nav-item" data-page="page-orders"><span class="material-icons">receipt_long</span><span>طلباتي</span></button>
@@ -250,6 +263,7 @@
         <button class="nav-item" data-page="page-account"><span class="material-icons">person</span><span>حسابي</span></button>
     </nav>
 
+    <!-- المودال العام -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -257,6 +271,7 @@
         </div>
     </div>
 
+    <!-- شاشة النجاح -->
     <div id="successOverlay" class="success-overlay">
         <div class="success-content">
             <div class="success-icon">
