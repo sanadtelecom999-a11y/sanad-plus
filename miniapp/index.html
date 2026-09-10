@@ -12,18 +12,13 @@
 </head>
 <body>
 
-    <!-- ==================== شاشة البداية Splash Screen ==================== -->
+    <!-- شاشة البداية Splash Screen -->
     <div id="splashScreen">
-        <!-- الأقواس الزخرفية في الزوايا -->
         <div class="splash-bg-decoration">
             <span class="splash-arc arc-tl"></span>
             <span class="splash-arc arc-br"></span>
         </div>
-
-        <!-- المحتوى الرئيسي -->
         <div class="splash-content">
-
-            <!-- الماسة SVG -->
             <svg class="splash-diamond-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="dTop" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -35,35 +30,20 @@
                         <stop offset="100%" stop-color="#0D47A1"/>
                     </linearGradient>
                 </defs>
-
-                <!-- الوجه العلوي -->
                 <polygon points="60,40 140,40 160,80 40,80" fill="url(#dTop)"/>
-                <!-- الوجه السفلي الأيسر -->
                 <polygon points="40,80 100,80 100,170" fill="url(#dLeft)"/>
-                <!-- الوجه السفلي الأيمن -->
                 <polygon points="160,80 100,80 100,170" fill="#0D47A1"/>
-                <!-- لمعة داخلية -->
                 <polygon points="60,40 100,40 100,80 40,80" fill="#FFFFFF" opacity="0.15"/>
-                <!-- خطوط الحواف -->
                 <polygon points="60,40 140,40 160,80 100,170 40,80" fill="none" stroke="#0D47A1" stroke-width="1.8" stroke-linejoin="round"/>
                 <line x1="40" y1="80" x2="160" y2="80" stroke="#0D47A1" stroke-width="1.8"/>
                 <line x1="100" y1="40" x2="100" y2="170" stroke="#0D47A1" stroke-width="1.8"/>
             </svg>
-
-            <!-- اسم التطبيق -->
-            <div class="splash-title">
-                سند بلس<span class="splash-plus">⁺</span>
-            </div>
-
-            <!-- الوصف -->
+            <div class="splash-title">سند بلس<span class="splash-plus">⁺</span></div>
             <div class="splash-desc">خدماتك الرقمية بسهولة</div>
-
-            <!-- الاسم السفلي -->
             <div class="splash-footer">ابو ربيع ابو سند</div>
         </div>
     </div>
 
-    <!-- ==================== الشريط العلوي ==================== -->
     <header class="topbar">
         <div class="topbar-right">
             <button class="icon-btn" onclick="goToAccount()">
@@ -155,6 +135,11 @@
                     <div class="account-id" id="accountId"></div>
                     <div class="account-status" id="accountKycBadge"></div>
                     <span id="accountVipBadge" style="display:none;"></span>
+                    <!-- زر تبديل العملة -->
+                    <button class="currency-toggle" onclick="toggleCurrency()" id="currencyToggle">
+                        <span class="material-icons">currency_exchange</span>
+                        <span id="currencyLabel">USD</span>
+                    </button>
                 </div>
             </div>
             <div class="stats-grid">
@@ -211,6 +196,9 @@
             <div id="modalBody"></div>
         </div>
     </div>
+
+    <!-- عنصر وميض الشاشة عند إشعار جديد -->
+    <div id="flashOverlay" class="flash-overlay"></div>
 
     <script src="js/telegram.js"></script>
     <script src="js/api.js"></script>
