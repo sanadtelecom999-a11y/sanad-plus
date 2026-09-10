@@ -204,6 +204,11 @@ async function updateServiceRequest(requestId, status, response) {
     });
 }
 
+// ============ سجل النشاطات ============
+async function fetchActivities() {
+    return await apiRequest('/admin/api/activities');
+}
+
 function logout() {
     clearToken();
     location.reload();
