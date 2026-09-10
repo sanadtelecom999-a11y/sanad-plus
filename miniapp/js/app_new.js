@@ -89,10 +89,8 @@ function renderFavorites() {
 
 // ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    // إغلاق تلقائي لشاشة البداية بعد 8 ثوانٍ (احتياطي)
-    window.splashTimeoutId = setTimeout(() => {
-        if (typeof closeSplash === 'function') closeSplash();
-    }, 8000);
+    // تهيئة شاشة البداية — Animation 8 ثوانٍ
+    initSplashScreen();
 
     initTelegram();
     applyTelegramTheme();
@@ -129,6 +127,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotificationPolling();
 });
 
+// ============ تهيئة شاشة البداية ============
+function initSplashScreen() {
+    const splash = document.getElementById('splashScreen');
+    if (!splash) return;
+
+    // توليد الجسيمات
+    generateSplashParticles();
+
+    // إغلاق تلقائي بعد 8 ثوانٍ بالضبط
+    window.splashTimeoutId = setTimeout(() => {
+        closeSplash();
+    }, 8000);
+}
+
+function generateSplashParticles() {
+    const container = document.getElementById('splashParticlesStage');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const PARTICLE_COUNT = 55;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const p = document.createElement('span');
+        p.className = 'splash-particle';
+
+        // زاوية عشوائية لاتجاه الانطلاق
+        const angle = (Math.PI * 2 * i) / PARTICLE_COUNT + (Math.random() - 0.5) * 0.4;
+        const radius = 60 + Math.random() * 60;
+        const dx = Math.cos(angle) * radius;
+        const dy = Math.sin(angle) * radius;
+
+        // انحناء إضافي للمسار المنحني
+        const curveX = (Math.random() - 0.5) * 40;
+        const curveY = (Math.random() - 0.5) * 40;
+
+        p.style.setProperty('--dx-out', dx + 'px');
+        p.style.setProperty('--dy-out', dy + 'px');
+        p.style.setProperty('--curve-x', curveX + 'px');
+        p.style.setProperty('--curve-y', curveY + 'px');
+        p.style.setProperty('--delay', (1.8 + Math.random() * 0.4) + 's');
+
+        // حجم متفاوت للجسيمات
+        const size = 3 + Math.random() * 5;
+        p.style.width = size + 'px';
+        p.style.height = size + 'px';
+
+        container.appendChild(p);
+    }
+}
+
 // ============ إغلاق شاشة البداية ============
 function closeSplash() {
     const splash = document.getElementById('splashScreen');
@@ -143,7 +193,7 @@ function closeSplash() {
 
     setTimeout(() => {
         if (splash.parentNode) splash.style.display = 'none';
-    }, 500);
+    }, 900);
 }
 
 async function loadInitialData() {

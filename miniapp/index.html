@@ -4,46 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SANAD+ | سند بلس</title>
+    <meta name="theme-color" content="#0EA5E9">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <!-- ==================== شاشة البداية Splash Screen ==================== -->
+    <!-- ==================== شاشة البداية — Animation 8 ثوانٍ ==================== -->
     <div id="splashScreen">
-        <div class="splash-bg-decoration">
-            <span class="splash-arc arc-tl"></span>
-            <span class="splash-arc arc-br"></span>
-        </div>
-        <div class="splash-content">
-            <svg class="splash-diamond-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <div class="splash-glow"></div>
+
+        <!-- Stage 1-3: الدرع -->
+        <div class="splash-shield-stage" id="splashShieldStage">
+            <svg class="shield-svg" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                    <linearGradient id="dTop" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#80D8FF"/>
-                        <stop offset="100%" stop-color="#00A0E9"/>
+                    <linearGradient id="shieldBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#7DD3FC"/>
+                        <stop offset="55%" stop-color="#38BDF8"/>
+                        <stop offset="100%" stop-color="#0EA5E9"/>
                     </linearGradient>
-                    <linearGradient id="dLeft" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#00A0E9"/>
+                    <linearGradient id="shieldEdgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#38BDF8"/>
                         <stop offset="100%" stop-color="#0D47A1"/>
                     </linearGradient>
+                    <linearGradient id="shieldLightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
+                        <stop offset="50%" stop-color="rgba(255,255,255,0.85)"/>
+                        <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+                    </linearGradient>
+                    <clipPath id="shieldClip">
+                        <path d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"/>
+                    </clipPath>
                 </defs>
-                <polygon points="60,40 140,40 160,80 40,80" fill="url(#dTop)"/>
-                <polygon points="40,80 100,80 100,170" fill="url(#dLeft)"/>
-                <polygon points="160,80 100,80 100,170" fill="#0D47A1"/>
-                <polygon points="60,40 100,40 100,80 40,80" fill="#FFFFFF" opacity="0.15"/>
-                <polygon points="60,40 140,40 160,80 100,170 40,80" fill="none" stroke="#0D47A1" stroke-width="1.8" stroke-linejoin="round"/>
-                <line x1="40" y1="80" x2="160" y2="80" stroke="#0D47A1" stroke-width="1.8"/>
-                <line x1="100" y1="40" x2="100" y2="170" stroke="#0D47A1" stroke-width="1.8"/>
+                <path class="shield-body"
+                      d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"
+                      fill="url(#shieldBodyGrad)"/>
+                <path class="shield-edge"
+                      d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"
+                      fill="none" stroke="url(#shieldEdgeGrad)" stroke-width="1.5"/>
+                <g clip-path="url(#shieldClip)">
+                    <rect class="shield-sweep" x="-60" y="0" width="50" height="140" fill="url(#shieldLightGrad)"/>
+                </g>
             </svg>
-            <div class="splash-title">سند بلس<span class="splash-plus">⁺</span></div>
-            <div class="splash-desc">خدماتك الرقمية بسهولة</div>
-            <div class="splash-footer">
-                <div class="splash-footer-line">التطبيق تحت إشراف ابو ربيع / ابو سند</div>
-                <div class="splash-footer-line">الفرع الرئيسي حلب دير حافر ( الإمام )</div>
-            </div>
+        </div>
+
+        <!-- Stage 4: الجسيمات -->
+        <div class="splash-particles-stage" id="splashParticlesStage"></div>
+
+        <!-- Stage 5-8: النصوص -->
+        <div class="splash-text-stage" id="splashTextStage">
+            <h1 class="splash-brand-ar">
+                سند بلس<span class="splash-plus-mark">⁺</span>
+            </h1>
+            <p class="splash-brand-en">
+                SANAD PLUS<span class="splash-plus-mark-en">⁺</span>
+            </p>
         </div>
     </div>
 
@@ -71,7 +89,7 @@
 
     <main class="main-content">
 
-        <!-- ==================== الرئيسية ==================== -->
+        <!-- الرئيسية -->
         <section id="page-home" class="page active">
             <div class="user-greeting">
                 <div class="avatar">👤</div>
@@ -95,9 +113,7 @@
                 <h3>تصنيفات المتجر</h3>
                 <span class="counter-circle" id="categoriesCount">0</span>
             </div>
-            <div class="categories-grid" id="categoriesGrid">
-                <!-- Skeleton loader -->
-            </div>
+            <div class="categories-grid" id="categoriesGrid"></div>
 
             <div class="section-header" id="latestOrdersHeader" style="display:none;">
                 <h3>آخر طلباتك</h3>
@@ -106,7 +122,7 @@
             <div class="orders-list" id="latestOrdersList"></div>
         </section>
 
-        <!-- ==================== طلباتي ==================== -->
+        <!-- طلباتي -->
         <section id="page-orders" class="page">
             <h2>طلباتي</h2>
             <div class="filters pills-container" id="orderFilters">
@@ -120,7 +136,7 @@
             <div class="orders-list" id="ordersList"></div>
         </section>
 
-        <!-- ==================== شحن الرصيد ==================== -->
+        <!-- شحن الرصيد -->
         <section id="page-charge" class="page">
             <div class="balance-card-gradient">
                 <span class="material-icons">account_balance_wallet</span>
@@ -133,7 +149,7 @@
             <div class="payment-options" id="paymentMethodsList"></div>
         </section>
 
-        <!-- ==================== الإيداعات ==================== -->
+        <!-- الإيداعات -->
         <section id="page-deposits" class="page">
             <h2>الإيداعات</h2>
             <p class="text-secondary">سجل عمليات شحن الرصيد وحالتها</p>
@@ -146,7 +162,7 @@
             <div class="orders-list" id="depositsList"></div>
         </section>
 
-        <!-- ==================== حسابي ==================== -->
+        <!-- حسابي -->
         <section id="page-account" class="page">
             <div class="account-card">
                 <div class="account-avatar">👤</div>
@@ -209,18 +225,18 @@
             </div>
         </section>
 
-        <!-- ==================== KYC ==================== -->
+        <!-- KYC -->
         <section id="page-kyc" class="page">
             <div id="kycDynamicContent"></div>
         </section>
 
-        <!-- ==================== المنتجات ==================== -->
+        <!-- المنتجات -->
         <section id="page-products" class="page">
             <h2 id="productsPageTitle">المنتجات</h2>
             <div class="products-grid" id="productsList"></div>
         </section>
 
-        <!-- ==================== المفضلة ==================== -->
+        <!-- المفضلة -->
         <section id="page-favorites" class="page">
             <h2>المفضلة</h2>
             <div class="products-grid" id="favoritesList">
@@ -228,7 +244,7 @@
             </div>
         </section>
 
-        <!-- ==================== الأسئلة الشائعة ==================== -->
+        <!-- الأسئلة الشائعة -->
         <section id="page-faq" class="page">
             <h2>الأسئلة الشائعة</h2>
             <div class="faq-list" id="faqList"></div>
@@ -236,12 +252,12 @@
 
     </main>
 
-    <!-- ==================== زر الدعم العائم ==================== -->
+    <!-- زر الدعم العائم -->
     <button class="floating-support-btn" onclick="openSupport()" title="الدعم الفني">
         <span class="material-icons">chat</span>
     </button>
 
-    <!-- ==================== شريط التنقل السفلي ==================== -->
+    <!-- شريط التنقل السفلي -->
     <nav class="bottom-nav">
         <button class="nav-item active" data-page="page-home"><span class="material-icons">home</span><span>الرئيسية</span></button>
         <button class="nav-item" data-page="page-orders"><span class="material-icons">receipt_long</span><span>طلباتي</span></button>
@@ -250,7 +266,7 @@
         <button class="nav-item" data-page="page-account"><span class="material-icons">person</span><span>حسابي</span></button>
     </nav>
 
-    <!-- ==================== المودال العام ==================== -->
+    <!-- المودال العام -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -258,7 +274,7 @@
         </div>
     </div>
 
-    <!-- ==================== شاشة النجاح ==================== -->
+    <!-- شاشة النجاح -->
     <div id="successOverlay" class="success-overlay">
         <div class="success-content">
             <div class="success-icon">
@@ -269,7 +285,6 @@
         </div>
     </div>
 
-    <!-- وميض الشاشة عند إشعار جديد -->
     <div id="flashOverlay" class="flash-overlay"></div>
 
     <script src="js/telegram.js"></script>
