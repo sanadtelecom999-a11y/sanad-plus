@@ -10,9 +10,40 @@ let paymentMethodsData = [];
 let kycStatus = 'none';
 let notificationsData = [];
 let selectedMethodForDeposit = null;
+let notificationPollerId = null;
 
+// ============ إعدادات العملة ============
+const USD_TO_SYP = 132; // سعر الصرف
+let currentCurrency = localStorage.getItem('currency') || 'USD';
+
+function formatPrice(usdAmount) {
+    if (currentCurrency === 'SYP') {
+        const syp = Math.round(usdAmount * USD_TO_SYP);
+        return `${syp.toLocaleString('ar')} ل.س`;
+    }
+    return `${usdAmount.toFixed(2)}$`;
+}
+
+function toggleCurrency() {
+    currentCurrency = currentCurrency === 'USD' ? 'SYP' : 'USD';
+    localStorage.setItem('currency', currentCurrency);
+    updateCurrencyUI();
+    // إعادة رسم كل الأجزاء التي تعرض أسعار
+    updateUserUI();
+    renderOrders(ordersData);
+    renderDeposits(depositsData);
+    renderCategories();
+    renderProductsList(productsData);
+    renderPaymentMethods();
+}
+
+function updateCurrencyUI() {
+    const label = document.getElementById('currencyLabel');
+    if (label) label.textContent = currentCurrency;
+}
+
+// ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    // إخفاء شاشة البداية بعد 8 ثوانٍ
     setTimeout(() => {
         const splash = document.getElementById('splashScreen');
         if (splash) splash.style.display = 'none';
@@ -29,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         userData = null;
     }
 
+    updateCurrencyUI();
     updateUserUI();
     await loadInitialData();
     setupNavigation();
@@ -41,6 +73,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const darkToggle = document.getElementById('darkModeToggle');
         if (darkToggle) darkToggle.checked = savedTheme === 'dark';
     }
+
+    // بدء المراقبة الفورية للإشعارات
+    startNotificationPolling();
 });
 
 async function loadInitialData() {
@@ -55,6 +90,8 @@ async function loadInitialData() {
             notificationsData = await fetchNotifications(userData.telegram_id);
             const kycInfo = await getMyKYC(userData.telegram_id);
             kycStatus = kycInfo.status || 'none';
+            // تخزين آخر معرف إشعار
+            saveLastSeenNotificationId();
         }
 
         renderCategories();
@@ -69,6 +106,78 @@ async function loadInitialData() {
     }
 }
 
+// ============ المراقبة الفورية للإشعارات ============
+function startNotificationPolling() {
+    if (notificationPollerId) clearInterval(notificationPollerId);
+    // تحقق كل 30 ثانية
+    notificationPollerId = setInterval(checkForNewNotifications, 30000);
+}
+
+async function checkForNewNotifications() {
+    if (!userData?.telegram_id) return;
+    try {
+        const notifications = await fetchNotifications(userData.telegram_id);
+        const lastSeen = parseInt(localStorage.getItem('lastSeenNotificationId') || '0');
+        const newOnes = notifications.filter(n => n.id > lastSeen);
+
+        if (newOnes.length > 0) {
+            // إظهار الإشعار الفوري
+            playNotificationSound();
+            flashScreen();
+            // تحديث البيانات
+            notificationsData = notifications;
+            updateNotificationBadge();
+            // حفظ آخر معرف
+            const maxId = Math.max(...notifications.map(n => n.id));
+            localStorage.setItem('lastSeenNotificationId', maxId);
+        }
+    } catch (error) {
+        console.error('Polling error:', error);
+    }
+}
+
+function saveLastSeenNotificationId() {
+    if (!notificationsData.length) return;
+    const maxId = Math.max(...notificationsData.map(n => n.id));
+    localStorage.setItem('lastSeenNotificationId', maxId);
+}
+
+function playNotificationSound() {
+    try {
+        // استخدام Web Audio API لتوليد صوت بسيط (بدون ملف خارجي)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880;
+        gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.4);
+    } catch (e) {
+        console.warn('تعذر تشغيل الصوت:', e);
+    }
+}
+
+function flashScreen() {
+    const overlay = document.getElementById('flashOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    // إعادة تشغيل الأنيميشن
+    void overlay.offsetWidth;
+    overlay.classList.add('active');
+    setTimeout(() => overlay.classList.remove('active'), 1300);
+}
+
+// ============ واجهة المستخدم ============
 function updateUserUI() {
     if (!userData) {
         document.getElementById('greetingMessage').textContent = 'الرجاء فتح التطبيق من تيليجرام';
@@ -76,9 +185,9 @@ function updateUserUI() {
         return;
     }
 
-    document.getElementById('headerBalance').textContent = `${userData.balance.toFixed(2)}$`;
-    document.getElementById('chargeBalance').textContent = `${userData.balance.toFixed(2)}$`;
-    document.getElementById('accountBalance').textContent = `${userData.balance.toFixed(2)}$`;
+    document.getElementById('headerBalance').textContent = formatPrice(userData.balance);
+    document.getElementById('chargeBalance').textContent = formatPrice(userData.balance);
+    document.getElementById('accountBalance').textContent = formatPrice(userData.balance);
 
     document.getElementById('accountName').textContent =
         userData.first_name || userData.username || 'مستخدم';
@@ -101,7 +210,7 @@ function updateUserUI() {
 
     document.getElementById('greetingMessage').textContent =
         `${greeting}، ${userData.first_name || userData.username || 'مستخدم'}`;
-    document.getElementById('greetingSub').textContent = `رصيدك: ${userData.balance.toFixed(2)}$`;
+    document.getElementById('greetingSub').textContent = `رصيدك: ${formatPrice(userData.balance)}`;
 
     if (window.currentUser?.photo_url) {
         document.getElementById('headerAvatar').style.backgroundImage = `url(${window.currentUser.photo_url})`;
@@ -112,6 +221,7 @@ function updateUserUI() {
     }
 
     updateKYCBadge();
+    updateCurrencyUI();
 }
 
 function updateKYCBadge() {
@@ -161,7 +271,7 @@ function renderProductsList(products) {
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
             <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">${prod.image ? '' : '📦'}</div>
             <div class="product-name">${prod.name}</div>
-            <div class="product-price">${prod.base_price}$</div>
+            <div class="product-price">${formatPrice(prod.base_price)}</div>
             <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
         </div>
     `).join('');
@@ -202,7 +312,7 @@ function renderOrders(orders) {
             <div class="order-details">
                 <div>المنتج: ${order.product_id}</div>
                 <div>الكمية: ${order.quantity}</div>
-                <div>السعر: ${order.total_price}$</div>
+                <div>السعر: ${formatPrice(order.total_price)}</div>
                 <div>التاريخ: ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
             </div>
             ${canCancel ? `
@@ -218,7 +328,7 @@ function isWithinCancelWindow(createdAt) {
     if (!createdAt) return false;
     const created = new Date(createdAt).getTime();
     const now = Date.now();
-    return (now - created) < 120000; // 120 ثانية
+    return (now - created) < 120000;
 }
 
 async function cancelOrder(orderId) {
@@ -269,7 +379,7 @@ function renderDeposits(deposits) {
                 <span class="status-badge ${d.status === 'approved' ? 'completed' : d.status}">${d.status === 'approved' ? 'مكتمل' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span>
             </div>
             <div class="order-details">
-                <div>المبلغ: ${d.amount}$</div>
+                <div>المبلغ: ${formatPrice(d.amount)}</div>
                 <div>الطريقة: ${d.method}</div>
                 ${d.admin_note ? `<div>ملاحظة: ${d.admin_note}</div>` : ''}
                 <div>التاريخ: ${d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''}</div>
@@ -412,7 +522,7 @@ function openPurchaseModal(productId) {
         const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
         total = unitPrice * qty;
         const totalEl = document.getElementById('purchaseTotal');
-        if (totalEl) totalEl.textContent = `الإجمالي: ${total.toFixed(4)}$`;
+        if (totalEl) totalEl.textContent = `الإجمالي: ${formatPrice(total)}`;
     };
 
     document.getElementById('purchaseQuantity')?.addEventListener('input', updateTotal);
