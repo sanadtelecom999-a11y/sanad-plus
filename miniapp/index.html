@@ -13,48 +13,77 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=4">
+    <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
+    <!-- ==================== شاشة البداية السينمائية ==================== -->
     <div id="splashScreen">
-        <div class="splash-glow"></div>
+        <!-- مرحلة اليدين -->
+        <div class="splash-hands-stage" id="splashHandsStage">
+            <svg class="splash-hand splash-hand-left" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="handGradLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#0EA5E9"/>
+                        <stop offset="100%" stop-color="#38BDF8"/>
+                    </linearGradient>
+                </defs>
+                <g stroke="url(#handGradLeft)" stroke-width="2.5" fill="rgba(234,245,252,0.6)" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M 0 100 Q 50 96, 90 100" fill="none"/>
+                    <path d="M 90 100 Q 105 88, 115 95 Q 120 100, 115 105 Q 125 103, 128 108 Q 124 114, 118 113 Q 122 117, 118 121 Q 112 120, 105 116 Q 100 120, 92 116 Q 85 112, 80 108 Q 75 105, 78 100 Z"/>
+                    <path d="M 115 95 Q 118 82, 128 80" fill="none"/>
+                </g>
+            </svg>
 
+            <svg class="splash-hand splash-hand-right" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="handGradRight" x1="100%" y1="0%" x2="0%" y2="0%">
+                        <stop offset="0%" stop-color="#0EA5E9"/>
+                        <stop offset="100%" stop-color="#38BDF8"/>
+                    </linearGradient>
+                </defs>
+                <g stroke="url(#handGradRight)" stroke-width="2.5" fill="rgba(234,245,252,0.6)" stroke-linecap="round" stroke-linejoin="round" transform="translate(200,0) scale(-1,1)">
+                    <path d="M 0 100 Q 50 96, 90 100" fill="none"/>
+                    <path d="M 90 100 Q 105 88, 115 95 Q 120 100, 115 105 Q 125 103, 128 108 Q 124 114, 118 113 Q 122 117, 118 121 Q 112 120, 105 116 Q 100 120, 92 116 Q 85 112, 80 108 Q 75 105, 78 100 Z"/>
+                    <path d="M 115 95 Q 118 82, 128 80" fill="none"/>
+                </g>
+            </svg>
+
+            <div class="splash-handshake-glow" id="splashHandshakeGlow"></div>
+        </div>
+
+        <!-- مرحلة الدرع -->
         <div class="splash-shield-stage" id="splashShieldStage">
-            <svg class="shield-svg" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
+            <svg class="splash-shield-svg" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="shieldBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#7DD3FC"/>
-                        <stop offset="55%" stop-color="#38BDF8"/>
-                        <stop offset="100%" stop-color="#0EA5E9"/>
+                        <stop offset="0%" stop-color="#7DD3FC" stop-opacity="0.35"/>
+                        <stop offset="55%" stop-color="#38BDF8" stop-opacity="0.25"/>
+                        <stop offset="100%" stop-color="#0EA5E9" stop-opacity="0.15"/>
                     </linearGradient>
                     <linearGradient id="shieldEdgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" stop-color="#38BDF8"/>
                         <stop offset="100%" stop-color="#0D47A1"/>
                     </linearGradient>
-                    <linearGradient id="shieldLightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
-                        <stop offset="50%" stop-color="rgba(255,255,255,0.85)"/>
-                        <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-                    </linearGradient>
-                    <clipPath id="shieldClip">
-                        <path d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"/>
-                    </clipPath>
+                    <radialGradient id="shieldInnerGlow" cx="50%" cy="40%" r="50%">
+                        <stop offset="0%" stop-color="#7DD3FC" stop-opacity="0.6"/>
+                        <stop offset="100%" stop-color="#7DD3FC" stop-opacity="0"/>
+                    </radialGradient>
                 </defs>
-                <path class="shield-body"
+                <path class="shield-body-path"
                       d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"
                       fill="url(#shieldBodyGrad)"/>
-                <path class="shield-edge"
+                <ellipse cx="60" cy="60" rx="35" ry="40" fill="url(#shieldInnerGlow)"/>
+                <path class="shield-edge-path"
                       d="M 60 10 L 108 26 L 108 72 Q 108 102 60 128 Q 12 102 12 72 L 12 26 Z"
-                      fill="none" stroke="url(#shieldEdgeGrad)" stroke-width="1.5"/>
-                <g clip-path="url(#shieldClip)">
-                    <rect class="shield-sweep" x="-60" y="0" width="50" height="140" fill="url(#shieldLightGrad)"/>
-                </g>
+                      fill="none" stroke="url(#shieldEdgeGrad)" stroke-width="2" stroke-linejoin="round"/>
             </svg>
         </div>
 
-        <div class="splash-particles-stage" id="splashParticlesStage"></div>
+        <!-- الجسيمات -->
+        <canvas id="splashCanvas"></canvas>
 
+        <!-- النص النهائي -->
         <div class="splash-text-stage" id="splashTextStage">
             <h1 class="splash-brand-ar">
                 سند بلس<span class="splash-plus-mark">⁺</span>
@@ -65,6 +94,7 @@
         </div>
     </div>
 
+    <!-- ==================== الشريط العلوي ==================== -->
     <header class="topbar">
         <div class="topbar-right">
             <button class="icon-btn" onclick="goToAccount()">
@@ -88,6 +118,7 @@
 
     <main class="main-content">
 
+        <!-- الرئيسية -->
         <section id="page-home" class="page active">
             <div class="user-greeting">
                 <div class="avatar">👤</div>
@@ -114,6 +145,7 @@
             <div class="categories-grid" id="categoriesGrid"></div>
         </section>
 
+        <!-- طلباتي -->
         <section id="page-orders" class="page">
             <h2>طلباتي</h2>
             <div class="filters pills-container" id="orderFilters">
@@ -127,6 +159,7 @@
             <div class="orders-list" id="ordersList"></div>
         </section>
 
+        <!-- شحن الرصيد -->
         <section id="page-charge" class="page">
             <div class="balance-card-gradient">
                 <span class="material-icons">account_balance_wallet</span>
@@ -139,6 +172,7 @@
             <div class="payment-options" id="paymentMethodsList"></div>
         </section>
 
+        <!-- الإيداعات -->
         <section id="page-deposits" class="page">
             <h2>الإيداعات</h2>
             <p class="text-secondary">سجل عمليات شحن الرصيد وحالتها</p>
@@ -151,6 +185,7 @@
             <div class="orders-list" id="depositsList"></div>
         </section>
 
+        <!-- حسابي -->
         <section id="page-account" class="page">
             <div class="account-card">
                 <div class="account-avatar">👤</div>
@@ -213,15 +248,18 @@
             </div>
         </section>
 
+        <!-- KYC -->
         <section id="page-kyc" class="page">
             <div id="kycDynamicContent"></div>
         </section>
 
+        <!-- المنتجات -->
         <section id="page-products" class="page">
             <h2 id="productsPageTitle">المنتجات</h2>
             <div class="products-grid" id="productsList"></div>
         </section>
 
+        <!-- المفضلة -->
         <section id="page-favorites" class="page">
             <h2>المفضلة</h2>
             <div class="products-grid" id="favoritesList">
@@ -229,6 +267,7 @@
             </div>
         </section>
 
+        <!-- الأسئلة الشائعة -->
         <section id="page-faq" class="page">
             <h2>الأسئلة الشائعة</h2>
             <div class="faq-list" id="faqList"></div>
@@ -236,11 +275,13 @@
 
     </main>
 
+    <!-- زر الدعم العائم -->
     <button class="floating-support-btn" onclick="openSupport()" title="الدعم الفني" aria-label="الدعم الفني">
         <span class="material-icons">support_agent</span>
         <span class="support-online-badge" aria-label="متصل"></span>
     </button>
 
+    <!-- شريط التنقل السفلي -->
     <nav class="bottom-nav">
         <button class="nav-item active" data-page="page-home"><span class="material-icons">home</span><span>الرئيسية</span></button>
         <button class="nav-item" data-page="page-orders"><span class="material-icons">receipt_long</span><span>طلباتي</span></button>
@@ -249,6 +290,7 @@
         <button class="nav-item" data-page="page-account"><span class="material-icons">person</span><span>حسابي</span></button>
     </nav>
 
+    <!-- المودال -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal()">&times;</span>
@@ -256,6 +298,7 @@
         </div>
     </div>
 
+    <!-- شاشة النجاح -->
     <div id="successOverlay" class="success-overlay">
         <div class="success-content">
             <div class="success-icon">
@@ -268,8 +311,8 @@
 
     <div id="flashOverlay" class="flash-overlay"></div>
 
-    <script src="js/telegram.js?v=4"></script>
-    <script src="js/api.js?v=4"></script>
-    <script src="js/app_new.js?v=4"></script>
+    <script src="js/telegram.js?v=5"></script>
+    <script src="js/api.js?v=5"></script>
+    <script src="js/app_new.js?v=5"></script>
 </body>
 </html>

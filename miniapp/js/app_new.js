@@ -87,18 +87,315 @@ function renderFavorites() {
     list.innerHTML = favProducts.map(prod => renderProductCard(prod)).join('');
 }
 
+// ============================================================
+// ==================== شاشة البداية السينمائية ====================
+// ============================================================
+const SplashScreen = (() => {
+    const TIMING = {
+        hand1: 0,
+        hand2: 1000,
+        approach: 2000,
+        handshake: 3000,
+        transform: 4000,
+        shatter: 5000,
+        formText: 6500,
+        stabilize: 7500,
+        close: 8000
+    };
+
+    const PARTICLE_CONFIG = {
+        count: 220,
+        sizeMin: 3,
+        sizeMax: 6,
+        colors: [
+            { color: '#38BDF8', weight: 0.35 },
+            { color: '#0EA5E9', weight: 0.35 },
+            { color: '#7DD3FC', weight: 0.20 },
+            { color: '#FCD34D', weight: 0.10 }
+        ]
+    };
+
+    let canvas, ctx;
+    let particles = [];
+    let shieldCenter = { x: 0, y: 0 };
+    let textPositions = [];
+    let rafId = null;
+    let shatterStartTime = 0;
+    let textFormStartTime = 0;
+    let isRunning = false;
+
+    function easeOutCubic(t) {
+        return 1 - Math.pow(1 - t, 3);
+    }
+
+    function pickColor() {
+        const r = Math.random();
+        let acc = 0;
+        for (const c of PARTICLE_CONFIG.colors) {
+            acc += c.weight;
+            if (r <= acc) return c.color;
+        }
+        return PARTICLE_CONFIG.colors[0].color;
+    }
+
+    function getRandomSize() {
+        return PARTICLE_CONFIG.sizeMin + Math.random() * (PARTICLE_CONFIG.sizeMax - PARTICLE_CONFIG.sizeMin);
+    }
+
+    function computeTextPositions(text, fontSize) {
+        const off = document.createElement('canvas');
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        off.width = w;
+        off.height = h;
+        const octx = off.getContext('2d');
+
+        octx.fillStyle = '#000';
+        octx.font = `800 ${fontSize}px Cairo, Tajawal, sans-serif`;
+        octx.textAlign = 'center';
+        octx.textBaseline = 'middle';
+        octx.fillText(text, w / 2, h / 2);
+
+        const data = octx.getImageData(0, 0, w, h).data;
+        const positions = [];
+        const step = Math.max(2, Math.floor(fontSize / 12));
+
+        for (let y = 0; y < h; y += step) {
+            for (let x = 0; x < w; x += step) {
+                const idx = (y * w + x) * 4;
+                if (data[idx + 3] > 128) {
+                    positions.push({ x, y });
+                }
+            }
+        }
+
+        for (let i = positions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [positions[i], positions[j]] = [positions[j], positions[i]];
+        }
+
+        return positions.slice(0, PARTICLE_CONFIG.count);
+    }
+
+    class Particle {
+        constructor(x, y, targetX, targetY) {
+            this.originX = x;
+            this.originY = y;
+            this.x = x;
+            this.y = y;
+            this.targetX = targetX;
+            this.targetY = targetY;
+
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 3.5;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+
+            this.spiralAngle = Math.random() * Math.PI * 2;
+            this.spiralRadius = 40 + Math.random() * 80;
+            this.spiralSpeed = 0.06 + Math.random() * 0.08;
+            this.radiusDecay = 1.2 + Math.random() * 1.8;
+
+            this.size = getRandomSize();
+            this.color = pickColor();
+            this.phase = 'explode';
+            this.formProgress = 0;
+            this.startFormX = 0;
+            this.startFormY = 0;
+        }
+    }
+
+    function init() {
+        canvas = document.getElementById('splashCanvas');
+        if (!canvas) return false;
+
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+
+        ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        shieldCenter = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+        };
+
+        const fontSize = Math.min(48, Math.max(32, window.innerWidth * 0.13));
+        textPositions = computeTextPositions('سند بلس⁺', fontSize);
+
+        return true;
+    }
+
+    function createParticles() {
+        particles = [];
+        const shieldRadius = 60;
+
+        for (let i = 0; i < PARTICLE_CONFIG.count; i++) {
+            const angle = (i / PARTICLE_CONFIG.count) * Math.PI * 2 + Math.random() * 0.3;
+            const r = shieldRadius * (0.7 + Math.random() * 0.4);
+            const x = shieldCenter.x + Math.cos(angle) * r;
+            const y = shieldCenter.y + Math.sin(angle) * r;
+
+            const target = textPositions[i % textPositions.length] || {
+                x: shieldCenter.x,
+                y: shieldCenter.y
+            };
+
+            particles.push(new Particle(x, y, target.x, target.y));
+        }
+    }
+
+    function animate() {
+        if (!isRunning) return;
+
+        const now = performance.now();
+        const elapsedSinceShatter = now - shatterStartTime;
+        const elapsedSinceTextForm = now - textFormStartTime;
+
+        ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+        for (const p of particles) {
+            if (p.phase === 'explode' && elapsedSinceShatter > 300) {
+                p.phase = 'spiral';
+            }
+            if (p.phase === 'spiral' && elapsedSinceTextForm > 0) {
+                p.phase = 'form';
+                p.startFormX = p.x;
+                p.startFormY = p.y;
+                p.formProgress = 0;
+            }
+
+            if (p.phase === 'explode') {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vx *= 0.94;
+                p.vy *= 0.94;
+            } else if (p.phase === 'spiral') {
+                p.spiralAngle += p.spiralSpeed;
+                p.spiralRadius = Math.max(20, p.spiralRadius - p.radiusDecay);
+                p.x = shieldCenter.x + Math.cos(p.spiralAngle) * p.spiralRadius;
+                p.y = shieldCenter.y + Math.sin(p.spiralAngle) * p.spiralRadius * 0.85;
+            } else if (p.phase === 'form') {
+                p.formProgress += 0.018;
+                if (p.formProgress >= 1) {
+                    p.formProgress = 1;
+                    p.phase = 'rest';
+                }
+                const t = easeOutCubic(p.formProgress);
+                p.x = p.startFormX + (p.targetX - p.startFormX) * t;
+                p.y = p.startFormY + (p.targetY - p.startFormY) * t;
+            }
+
+            ctx.globalAlpha = p.phase === 'rest' ? 0.9 : 1;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
+        rafId = requestAnimationFrame(animate);
+    }
+
+    function schedule(time, callback) {
+        setTimeout(callback, time);
+    }
+
+    function run() {
+        if (!init()) {
+            closeSplash();
+            return;
+        }
+
+        const handsStage = document.getElementById('splashHandsStage');
+        const shieldStage = document.getElementById('splashShieldStage');
+        const textStage = document.getElementById('splashTextStage');
+
+        if (!handsStage || !shieldStage || !textStage) {
+            closeSplash();
+            return;
+        }
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) {
+            textStage.classList.add('visible');
+            schedule(1500, closeSplash);
+            return;
+        }
+
+        schedule(TIMING.hand1, () => {
+            handsStage.classList.add('hand-1-in');
+        });
+
+        schedule(TIMING.hand2, () => {
+            handsStage.classList.add('hand-2-in');
+        });
+
+        schedule(TIMING.approach, () => {
+            handsStage.classList.add('shaking');
+        });
+
+        schedule(TIMING.handshake, () => {
+            handsStage.classList.add('glow');
+        });
+
+        schedule(TIMING.transform, () => {
+            handsStage.classList.add('fading');
+            shieldStage.classList.add('appearing');
+        });
+
+        schedule(TIMING.shatter, () => {
+            shieldStage.classList.add('shattering');
+            createParticles();
+            shatterStartTime = performance.now();
+            isRunning = true;
+            rafId = requestAnimationFrame(animate);
+        });
+
+        schedule(TIMING.formText, () => {
+            textFormStartTime = performance.now();
+            textStage.classList.add('visible');
+        });
+
+        schedule(TIMING.stabilize, () => {
+            shieldStage.style.display = 'none';
+        });
+
+        schedule(TIMING.close, closeSplash);
+    }
+
+    function closeSplash() {
+        const splash = document.getElementById('splashScreen');
+        if (!splash) return;
+
+        splash.classList.add('closing');
+
+        isRunning = false;
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+
+        setTimeout(() => {
+            splash.style.display = 'none';
+        }, 500);
+    }
+
+    return { run, closeSplash };
+})();
+
+// تشغيل Splash فوراً
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => SplashScreen.run());
+} else {
+    SplashScreen.run();
+}
+
 // ============ تهيئة التطبيق ============
 document.addEventListener('DOMContentLoaded', async () => {
-    // ✅ إخفاء Splash بعد 2.5 ثانية
-    setTimeout(() => {
-        const splash = document.getElementById('splashScreen');
-        if (splash) {
-            splash.style.opacity = '0';
-            splash.style.transition = 'opacity 0.3s ease';
-            setTimeout(() => splash.style.display = 'none', 300);
-        }
-    }, 2500);
-
     initTelegram();
     applyTelegramTheme();
 
@@ -960,7 +1257,6 @@ async function submitServiceRequest(btn) {
 // ============ الإحالات ============
 function openReferralModal() {
     if (!userData) return;
-    // ✅ استخدام referral_code الحقيقي من الـ backend
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
     const referralLink = `https://t.me/YOUR_BOT_USERNAME?start=${referralCode}`;
     openModal('الإحالات', `
