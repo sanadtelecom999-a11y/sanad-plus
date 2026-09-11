@@ -46,6 +46,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 🔒 إخفاء التوكن من httpx/telegram logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+logging.getLogger("telegram.request").setLevel(logging.WARNING)
+
 
 # ============================================================
 # ============ Version (Cache Buster) ============
