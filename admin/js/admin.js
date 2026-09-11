@@ -169,7 +169,6 @@ async function doLogin() {
             showOTPForm();
             showToast('تم إرسال رمز التحقق إلى تيليجرام', 'success', 5000);
         } else if (result.token) {
-            // Fallback في حال كان OTP معطّلاً
             setToken(result.token);
             location.reload();
         } else {
