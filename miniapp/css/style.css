@@ -60,7 +60,8 @@ body {
 #splashScreen {
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at 50% 45%, #FFFFFF 0%, #F8FBFF 45%, #F0F9FF 100%);
+    background:
+        radial-gradient(circle at 50% 45%, #FFFFFF 0%, #F5FAFF 30%, #E8F4FF 65%, #DCEEFF 100%);
     z-index: 9999;
     overflow: hidden;
     display: flex;
@@ -69,7 +70,7 @@ body {
     direction: rtl;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     opacity: 1;
-    transition: opacity 0.4s ease;
+    transition: opacity 0.5s ease;
 }
 
 #splashScreen.hidden {
@@ -81,11 +82,11 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 340px;
-    height: 340px;
-    margin: -170px 0 0 -170px;
+    width: 420px;
+    height: 420px;
+    margin: -210px 0 0 -210px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(125, 211, 252, 0.18) 0%, rgba(125, 211, 252, 0.06) 45%, transparent 72%);
+    background: radial-gradient(circle, rgba(125, 211, 252, 0.22) 0%, rgba(56, 189, 248, 0.10) 40%, transparent 72%);
     pointer-events: none;
     opacity: 0;
     transition: opacity 1.2s ease;
@@ -106,22 +107,22 @@ body {
 }
 
 /* ============================================================
-   المرحلة 1: الدرع
+   المرحلة 1: الدرع — زجاج أزرق معبأ
    ============================================================ */
 .splash-shield-stage {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 160px;
-    height: 186px;
-    margin: -80px 0 0 -80px;
+    width: 170px;
+    height: 198px;
+    margin: -85px 0 0 -85px;
     opacity: 0;
     transform: scale(0.4);
     z-index: 2;
     pointer-events: none;
     will-change: transform, opacity;
-    transition: opacity 0.6s cubic-bezier(0.34, 1.3, 0.64, 1),
-                transform 0.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+    transition: opacity 0.7s cubic-bezier(0.34, 1.3, 0.64, 1),
+                transform 0.7s cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 
 .splash-shield-stage.appearing {
@@ -130,22 +131,22 @@ body {
 }
 
 .splash-shield-stage.pulsing {
-    animation: shieldGentlePulse 1.4s ease-in-out infinite;
+    animation: shieldGentlePulse 1.8s ease-in-out infinite;
 }
 
 @keyframes shieldGentlePulse {
     0%, 100% {
         transform: scale(1);
-        filter: drop-shadow(0 8px 24px rgba(56, 189, 248, 0.30));
+        filter: drop-shadow(0 10px 30px rgba(56, 189, 248, 0.40));
     }
     50% {
-        transform: scale(1.025);
-        filter: drop-shadow(0 12px 32px rgba(56, 189, 248, 0.45));
+        transform: scale(1.03);
+        filter: drop-shadow(0 14px 40px rgba(56, 189, 248, 0.60));
     }
 }
 
 .splash-shield-stage.disintegrating {
-    animation: shieldDisintegrate 0.5s cubic-bezier(0.55, 0, 0.85, 0.25) forwards;
+    animation: shieldDisintegrate 0.6s cubic-bezier(0.55, 0, 0.85, 0.25) forwards;
 }
 
 @keyframes shieldDisintegrate {
@@ -156,13 +157,13 @@ body {
     }
     35% {
         opacity: 1;
-        transform: scale(1.06);
-        filter: brightness(2.4) blur(0.5px);
+        transform: scale(1.08);
+        filter: brightness(2.6) blur(0.5px);
     }
     100% {
         opacity: 0;
-        transform: scale(1.14);
-        filter: brightness(3.2) blur(2px);
+        transform: scale(1.18);
+        filter: brightness(3.5) blur(2.5px);
     }
 }
 
@@ -170,7 +171,7 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    filter: drop-shadow(0 8px 24px rgba(56, 189, 248, 0.28));
+    filter: drop-shadow(0 10px 30px rgba(56, 189, 248, 0.42));
 }
 
 .shield-edge-path {
@@ -179,11 +180,36 @@ body {
 }
 
 .splash-shield-stage.appearing .shield-edge-path {
-    animation: shieldEdgeDraw 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
+    animation: shieldEdgeDraw 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.15s forwards;
+}
+
+.shield-inner-edge {
+    opacity: 0;
+}
+
+.splash-shield-stage.appearing .shield-inner-edge {
+    animation: innerEdgeIn 0.5s ease-out 0.45s forwards;
+}
+
+@keyframes innerEdgeIn {
+    to { opacity: 1; }
 }
 
 @keyframes shieldEdgeDraw {
     to { stroke-dashoffset: 0; }
+}
+
+.shield-body-path {
+    opacity: 0;
+}
+
+.splash-shield-stage.appearing .shield-body-path {
+    animation: shieldBodyIn 0.7s ease-out 0.1s forwards;
+}
+
+@keyframes shieldBodyIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .shield-inner-glow {
@@ -191,7 +217,7 @@ body {
 }
 
 .splash-shield-stage.appearing .shield-inner-glow {
-    animation: innerGlowIn 0.6s ease-out 0.35s forwards;
+    animation: innerGlowIn 0.8s ease-out 0.35s forwards;
 }
 
 @keyframes innerGlowIn {
@@ -216,19 +242,19 @@ body {
         transform: translateX(0);
     }
     15% {
-        opacity: 0.9;
+        opacity: 1;
     }
     85% {
-        opacity: 0.9;
+        opacity: 1;
     }
     100% {
         opacity: 0;
-        transform: translateX(240px);
+        transform: translateX(260px);
     }
 }
 
 /* ============================================================
-   المرحلة 5: النص النهائي
+   المرحلة 9-11: النص النهائي
    ============================================================ */
 .splash-text-stage {
     position: absolute;
@@ -241,34 +267,48 @@ body {
     pointer-events: none;
     will-change: opacity;
     padding: 0 16px;
+    width: 100%;
 }
 
 .splash-text-stage.visible {
     opacity: 1;
-    transition: opacity 0.25s ease;
+    transition: opacity 0.3s ease;
 }
 
 .splash-brand-ar {
     font-family: 'Cairo', 'Tajawal', sans-serif;
-    font-size: 2.6rem;
+    font-size: 3rem;
     font-weight: 800;
-    letter-spacing: -0.5px;
-    line-height: 1.15;
+    letter-spacing: -1px;
+    line-height: 1.1;
     margin: 0;
-    color: #0F172A;
-    display: inline-flex;
+    display: flex;
     align-items: flex-start;
     justify-content: center;
-    gap: 0;
+    direction: rtl;
+    gap: 2px;
+}
+
+.splash-brand-ar-text {
+    background: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 45%, #0D47A1 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    display: inline-block;
 }
 
 .splash-plus-mark {
     display: inline-block;
-    font-size: 1.6rem;
+    font-size: 1.9rem;
     font-weight: 800;
-    color: #0EA5E9;
+    background: linear-gradient(135deg, #7DD3FC 0%, #0EA5E9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
     margin-right: 4px;
-    margin-top: 2px;
+    margin-top: -4px;
     transform: scale(0);
     opacity: 0;
     vertical-align: top;
@@ -276,7 +316,7 @@ body {
 }
 
 .splash-text-stage.reveal-plus .splash-plus-mark {
-    animation: plusPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: plusPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes plusPop {
@@ -285,7 +325,7 @@ body {
         opacity: 0;
     }
     60% {
-        transform: scale(1.15);
+        transform: scale(1.18);
         opacity: 1;
     }
     100% {
@@ -296,20 +336,20 @@ body {
 
 .splash-brand-en {
     font-family: 'Cairo', 'Tajawal', sans-serif;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    letter-spacing: 2.5px;
+    letter-spacing: 4px;
     color: #64748B;
     direction: ltr;
     opacity: 0;
-    margin: 10px 0 0 0;
+    margin: 12px 0 0 0;
     transform: translateY(6px);
     will-change: opacity, transform;
     text-transform: uppercase;
 }
 
 .splash-text-stage.reveal-en .splash-brand-en {
-    animation: englishFadeUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: englishFadeUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes englishFadeUp {
@@ -321,6 +361,17 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* التأكيد الناعم للشعار (soft pulse) */
+.splash-text-stage.confirming {
+    animation: brandConfirm 1s ease-in-out forwards;
+}
+
+@keyframes brandConfirm {
+    0% { transform: translate(-50%, -50%) scale(1); }
+    40% { transform: translate(-50%, -50%) scale(1.06); }
+    100% { transform: translate(-50%, -50%) scale(1); }
 }
 
 /* ============================================================
@@ -346,24 +397,24 @@ body {
    ============================================================ */
 @media (max-width: 360px) {
     .splash-brand-ar {
-        font-size: 2.2rem;
+        font-size: 2.5rem;
     }
     .splash-plus-mark {
-        font-size: 1.35rem;
+        font-size: 1.6rem;
     }
     .splash-brand-en {
-        font-size: 0.78rem;
-        letter-spacing: 2px;
+        font-size: 0.82rem;
+        letter-spacing: 3px;
     }
     .splash-shield-stage {
-        width: 140px;
-        height: 162px;
-        margin: -70px 0 0 -70px;
+        width: 150px;
+        height: 175px;
+        margin: -75px 0 0 -75px;
     }
     .splash-bg-glow {
-        width: 300px;
-        height: 300px;
-        margin: -150px 0 0 -150px;
+        width: 340px;
+        height: 340px;
+        margin: -170px 0 0 -170px;
     }
 }
 

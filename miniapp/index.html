@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=8">
+    <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -25,20 +25,24 @@
             <svg class="splash-shield-svg" viewBox="0 0 120 140" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="shieldBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.38"/>
-                        <stop offset="100%" stop-color="#7DD3FC" stop-opacity="0.16"/>
+                        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.85"/>
+                        <stop offset="45%" stop-color="#DBF0FF" stop-opacity="0.70"/>
+                        <stop offset="100%" stop-color="#7DD3FC" stop-opacity="0.45"/>
                     </linearGradient>
                     <linearGradient id="shieldEdgeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" stop-color="#38BDF8"/>
+                        <stop offset="55%" stop-color="#0EA5E9"/>
                         <stop offset="100%" stop-color="#0D47A1"/>
                     </linearGradient>
-                    <radialGradient id="shieldInnerGlow" cx="50%" cy="45%" r="55%">
-                        <stop offset="0%" stop-color="#7DD3FC" stop-opacity="0.42"/>
+                    <radialGradient id="shieldInnerGlow" cx="50%" cy="42%" r="60%">
+                        <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+                        <stop offset="45%" stop-color="#7DD3FC" stop-opacity="0.35"/>
                         <stop offset="100%" stop-color="#7DD3FC" stop-opacity="0"/>
                     </radialGradient>
                     <linearGradient id="lightSweepGrad" x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
-                        <stop offset="50%" stop-color="rgba(255,255,255,0.92)"/>
+                        <stop offset="45%" stop-color="rgba(255,255,255,0.95)"/>
+                        <stop offset="55%" stop-color="rgba(186,230,253,0.95)"/>
                         <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
                     </linearGradient>
                     <clipPath id="shieldClip">
@@ -50,14 +54,18 @@
                       d="M 60 8 L 108 24 L 108 68 Q 108 102 60 128 Q 12 102 12 68 L 12 24 Z"
                       fill="url(#shieldBodyGrad)"/>
 
-                <ellipse class="shield-inner-glow" cx="60" cy="65" rx="38" ry="42" fill="url(#shieldInnerGlow)"/>
+                <ellipse class="shield-inner-glow" cx="60" cy="60" rx="42" ry="46" fill="url(#shieldInnerGlow)"/>
 
                 <path class="shield-edge-path"
                       d="M 60 8 L 108 24 L 108 68 Q 108 102 60 128 Q 12 102 12 68 L 12 24 Z"
-                      fill="none" stroke="url(#shieldEdgeGrad)" stroke-width="2" stroke-linejoin="round"/>
+                      fill="none" stroke="url(#shieldEdgeGrad)" stroke-width="2.2" stroke-linejoin="round"/>
+
+                <path class="shield-inner-edge"
+                      d="M 60 14 L 102 28 L 102 66 Q 102 98 60 122 Q 18 98 18 66 L 18 28 Z"
+                      fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="0.8" stroke-linejoin="round"/>
 
                 <g clip-path="url(#shieldClip)">
-                    <rect class="splash-light-sweep" x="-80" y="0" width="60" height="140" fill="url(#lightSweepGrad)" opacity="0"/>
+                    <rect class="splash-light-sweep" x="-80" y="0" width="70" height="140" fill="url(#lightSweepGrad)" opacity="0"/>
                 </g>
             </svg>
         </div>
@@ -66,7 +74,7 @@
 
         <div class="splash-text-stage" id="splashTextStage">
             <h1 class="splash-brand-ar">
-                سند بلس<span class="splash-plus-mark">⁺</span>
+                <span class="splash-brand-ar-text">سند بلس</span><span class="splash-plus-mark">⁺</span>
             </h1>
             <p class="splash-brand-en">
                 SANAD PLUS<span class="splash-plus-mark-en">⁺</span>
@@ -278,8 +286,8 @@
 
     <div id="flashOverlay" class="flash-overlay"></div>
 
-    <script src="js/telegram.js?v=8"></script>
-    <script src="js/api.js?v=8"></script>
-    <script src="js/app_new.js?v=8"></script>
+    <script src="js/telegram.js?v=9"></script>
+    <script src="js/api.js?v=9"></script>
+    <script src="js/app_new.js?v=9"></script>
 </body>
 </html>
