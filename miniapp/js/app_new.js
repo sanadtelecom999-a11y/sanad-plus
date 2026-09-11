@@ -88,44 +88,44 @@ function renderFavorites() {
 }
 
 // ============================================================
-// ==================== شاشة البداية السينمائية ====================
+// ========== شاشة البداية: تحولات متتالية (8 ثوانٍ) ==========
 // ============================================================
 const SplashScreen = (() => {
-    const TIMING = {
-        hand1: 0,
-        hand2: 1000,
-        approach: 2000,
-        handshake: 3000,
-        transform: 4000,
-        shatter: 5000,
-        formText: 6500,
+    // التسلسل الزمني (ms)
+    const T = {
+        waterStart: 0,
+        waterToCoins: 1500,
+        coinsToShield: 3500,
+        shieldToText: 5500,
+        textReveal: 6500,
         stabilize: 7500,
         close: 8000
     };
 
     const PARTICLE_CONFIG = {
-        count: 220,
+        count: 240,
         sizeMin: 3,
-        sizeMax: 6,
+        sizeMax: 8,
         colors: [
-            { color: '#38BDF8', weight: 0.35 },
-            { color: '#0EA5E9', weight: 0.35 },
-            { color: '#7DD3FC', weight: 0.20 },
-            { color: '#FCD34D', weight: 0.10 }
+            { color: '#FCD34D', weight: 0.20 },
+            { color: '#38BDF8', weight: 0.55 },
+            { color: '#FFFFFF', weight: 0.15 },
+            { color: '#7DD3FC', weight: 0.10 }
         ]
     };
 
     let canvas, ctx;
     let particles = [];
-    let shieldCenter = { x: 0, y: 0 };
+    let center = { x: 0, y: 0 };
     let textPositions = [];
     let rafId = null;
-    let shatterStartTime = 0;
-    let textFormStartTime = 0;
-    let isRunning = false;
+    let shatterAt = 0;
+    let formAt = 0;
+    let running = false;
 
-    function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
 
     function pickColor() {
@@ -138,7 +138,7 @@ const SplashScreen = (() => {
         return PARTICLE_CONFIG.colors[0].color;
     }
 
-    function getRandomSize() {
+    function randSize() {
         return PARTICLE_CONFIG.sizeMin + Math.random() * (PARTICLE_CONFIG.sizeMax - PARTICLE_CONFIG.sizeMin);
     }
 
@@ -158,7 +158,7 @@ const SplashScreen = (() => {
 
         const data = octx.getImageData(0, 0, w, h).data;
         const positions = [];
-        const step = Math.max(2, Math.floor(fontSize / 12));
+        const step = Math.max(2, Math.floor(fontSize / 13));
 
         for (let y = 0; y < h; y += step) {
             for (let x = 0; x < w; x += step) {
@@ -178,30 +178,28 @@ const SplashScreen = (() => {
     }
 
     class Particle {
-        constructor(x, y, targetX, targetY) {
-            this.originX = x;
-            this.originY = y;
+        constructor(x, y, tx, ty) {
             this.x = x;
             this.y = y;
-            this.targetX = targetX;
-            this.targetY = targetY;
+            this.tx = tx;
+            this.ty = ty;
 
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 1.5 + Math.random() * 3.5;
-            this.vx = Math.cos(angle) * speed;
-            this.vy = Math.sin(angle) * speed;
+            const a = Math.random() * Math.PI * 2;
+            const s = 2 + Math.random() * 4;
+            this.vx = Math.cos(a) * s;
+            this.vy = Math.sin(a) * s;
 
             this.spiralAngle = Math.random() * Math.PI * 2;
-            this.spiralRadius = 40 + Math.random() * 80;
-            this.spiralSpeed = 0.06 + Math.random() * 0.08;
-            this.radiusDecay = 1.2 + Math.random() * 1.8;
+            this.spiralRadius = 50 + Math.random() * 90;
+            this.spiralSpeed = 0.05 + Math.random() * 0.09;
+            this.radiusDecay = 1.3 + Math.random() * 2.0;
 
-            this.size = getRandomSize();
+            this.size = randSize();
             this.color = pickColor();
             this.phase = 'explode';
             this.formProgress = 0;
-            this.startFormX = 0;
-            this.startFormY = 0;
+            this.sfx = 0;
+            this.sfy = 0;
         }
     }
 
@@ -218,12 +216,9 @@ const SplashScreen = (() => {
         ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
 
-        shieldCenter = {
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2
-        };
+        center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
 
-        const fontSize = Math.min(48, Math.max(32, window.innerWidth * 0.13));
+        const fontSize = Math.min(54, Math.max(34, window.innerWidth * 0.14));
         textPositions = computeTextPositions('سند بلس⁺', fontSize);
 
         return true;
@@ -231,65 +226,63 @@ const SplashScreen = (() => {
 
     function createParticles() {
         particles = [];
-        const shieldRadius = 60;
+        const r0 = 60;
 
         for (let i = 0; i < PARTICLE_CONFIG.count; i++) {
-            const angle = (i / PARTICLE_CONFIG.count) * Math.PI * 2 + Math.random() * 0.3;
-            const r = shieldRadius * (0.7 + Math.random() * 0.4);
-            const x = shieldCenter.x + Math.cos(angle) * r;
-            const y = shieldCenter.y + Math.sin(angle) * r;
-
-            const target = textPositions[i % textPositions.length] || {
-                x: shieldCenter.x,
-                y: shieldCenter.y
-            };
-
-            particles.push(new Particle(x, y, target.x, target.y));
+            const a = (i / PARTICLE_CONFIG.count) * Math.PI * 2 + Math.random() * 0.3;
+            const r = r0 * (0.75 + Math.random() * 0.35);
+            const x = center.x + Math.cos(a) * r;
+            const y = center.y + Math.sin(a) * r;
+            const t = textPositions[i % textPositions.length] || { x: center.x, y: center.y };
+            particles.push(new Particle(x, y, t.x, t.y));
         }
     }
 
     function animate() {
-        if (!isRunning) return;
+        if (!running) return;
 
         const now = performance.now();
-        const elapsedSinceShatter = now - shatterStartTime;
-        const elapsedSinceTextForm = now - textFormStartTime;
+        const sinceShatter = now - shatterAt;
+        const sinceForm = now - formAt;
 
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
         for (const p of particles) {
-            if (p.phase === 'explode' && elapsedSinceShatter > 300) {
-                p.phase = 'spiral';
-            }
-            if (p.phase === 'spiral' && elapsedSinceTextForm > 0) {
+            if (p.phase === 'explode' && sinceShatter > 320) p.phase = 'spiral';
+            if (p.phase === 'spiral' && sinceForm > 0) {
                 p.phase = 'form';
-                p.startFormX = p.x;
-                p.startFormY = p.y;
+                p.sfx = p.x;
+                p.sfy = p.y;
                 p.formProgress = 0;
             }
 
             if (p.phase === 'explode') {
                 p.x += p.vx;
                 p.y += p.vy;
-                p.vx *= 0.94;
-                p.vy *= 0.94;
+                p.vx *= 0.93;
+                p.vy *= 0.93;
             } else if (p.phase === 'spiral') {
                 p.spiralAngle += p.spiralSpeed;
-                p.spiralRadius = Math.max(20, p.spiralRadius - p.radiusDecay);
-                p.x = shieldCenter.x + Math.cos(p.spiralAngle) * p.spiralRadius;
-                p.y = shieldCenter.y + Math.sin(p.spiralAngle) * p.spiralRadius * 0.85;
+                p.spiralRadius = Math.max(18, p.spiralRadius - p.radiusDecay);
+                p.x = center.x + Math.cos(p.spiralAngle) * p.spiralRadius;
+                p.y = center.y + Math.sin(p.spiralAngle) * p.spiralRadius * 0.86;
             } else if (p.phase === 'form') {
-                p.formProgress += 0.018;
-                if (p.formProgress >= 1) {
-                    p.formProgress = 1;
-                    p.phase = 'rest';
-                }
+                p.formProgress += 0.017;
+                if (p.formProgress >= 1) { p.formProgress = 1; p.phase = 'rest'; }
                 const t = easeOutCubic(p.formProgress);
-                p.x = p.startFormX + (p.targetX - p.startFormX) * t;
-                p.y = p.startFormY + (p.targetY - p.startFormY) * t;
+                p.x = p.sfx + (p.tx - p.sfx) * t;
+                p.y = p.sfy + (p.ty - p.sfy) * t;
             }
 
-            ctx.globalAlpha = p.phase === 'rest' ? 0.9 : 1;
+            // رسم الجسيم مع توهج للجسيمات الذهبية
+            if (p.color === '#FCD34D') {
+                ctx.globalAlpha = p.phase === 'rest' ? 0.85 : 1;
+                ctx.shadowColor = '#FCD34D';
+                ctx.shadowBlur = 6;
+            } else {
+                ctx.globalAlpha = p.phase === 'rest' ? 0.88 : 1;
+                ctx.shadowBlur = 0;
+            }
             ctx.fillStyle = p.color;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
@@ -297,101 +290,130 @@ const SplashScreen = (() => {
         }
 
         ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+
         rafId = requestAnimationFrame(animate);
     }
 
-    function schedule(time, callback) {
-        setTimeout(callback, time);
-    }
-
-    function run() {
-        if (!init()) {
-            closeSplash();
-            return;
-        }
-
-        const handsStage = document.getElementById('splashHandsStage');
-        const shieldStage = document.getElementById('splashShieldStage');
-        const textStage = document.getElementById('splashTextStage');
-
-        if (!handsStage || !shieldStage || !textStage) {
-            closeSplash();
-            return;
-        }
-
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduceMotion) {
-            textStage.classList.add('visible');
-            schedule(1500, closeSplash);
-            return;
-        }
-
-        schedule(TIMING.hand1, () => {
-            handsStage.classList.add('hand-1-in');
-        });
-
-        schedule(TIMING.hand2, () => {
-            handsStage.classList.add('hand-2-in');
-        });
-
-        schedule(TIMING.approach, () => {
-            handsStage.classList.add('shaking');
-        });
-
-        schedule(TIMING.handshake, () => {
-            handsStage.classList.add('glow');
-        });
-
-        schedule(TIMING.transform, () => {
-            handsStage.classList.add('fading');
-            shieldStage.classList.add('appearing');
-        });
-
-        schedule(TIMING.shatter, () => {
-            shieldStage.classList.add('shattering');
-            createParticles();
-            shatterStartTime = performance.now();
-            isRunning = true;
-            rafId = requestAnimationFrame(animate);
-        });
-
-        schedule(TIMING.formText, () => {
-            textFormStartTime = performance.now();
-            textStage.classList.add('visible');
-        });
-
-        schedule(TIMING.stabilize, () => {
-            shieldStage.style.display = 'none';
-        });
-
-        schedule(TIMING.close, closeSplash);
-    }
+    function schedule(t, fn) { setTimeout(fn, t); }
 
     function closeSplash() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
 
         splash.classList.add('closing');
+        running = false;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
-        isRunning = false;
-        if (rafId) {
-            cancelAnimationFrame(rafId);
-            rafId = null;
-        }
-
-        setTimeout(() => {
-            splash.style.display = 'none';
-        }, 500);
+        setTimeout(() => { splash.style.display = 'none'; }, 500);
     }
 
-    return { run, closeSplash };
+    // ============================================================
+    // المراحل الرئيسية
+    // ============================================================
+    function animateWaterToCoins(waterStage, coinsStage) {
+        // 1.5s → 3.5s : الماء يتفتت ثم يتحول إلى عملات
+        waterStage.classList.add('fading');
+
+        // بدء ظهور العملات بعد 400ms (بعد أن يبدأ الماء بالتلاشي)
+        schedule(400, () => {
+            coinsStage.classList.add('appearing');
+        });
+    }
+
+    function animateCoinsToShield(coinsStage, shieldStage) {
+        // 3.5s → 5.5s : العملات تتجمع ثم يظهر الدرع
+        coinsStage.classList.add('gathering');
+
+        // بعد 800ms، يظهر الدرع (بعد أن تبدأ العملات بالانجذاب)
+        schedule(800, () => {
+            shieldStage.classList.add('appearing');
+            schedule(900, () => {
+                shieldStage.classList.add('pulsing');
+            });
+        });
+    }
+
+    function animateShieldToText(shieldStage, textStage) {
+        // 5.5s → 7.5s : الدرع يتفتت والجسيمات تشكّل النص
+        shieldStage.classList.remove('pulsing');
+        shieldStage.classList.add('shattering');
+
+        createParticles();
+        shatterAt = performance.now();
+        running = true;
+        rafId = requestAnimationFrame(animate);
+
+        // بعد ثانية من التفتت، تبدأ الجسيمات بالتوجه للنص
+        schedule(1000, () => {
+            formAt = performance.now();
+            textStage.classList.add('visible');
+        });
+    }
+
+    function initSplashScreen() {
+        if (!init()) {
+            closeSplash();
+            return;
+        }
+
+        const waterStage = document.getElementById('splashWaterStage');
+        const coinsStage = document.getElementById('splashCoinsStage');
+        const shieldStage = document.getElementById('splashShieldStage');
+        const textStage = document.getElementById('splashTextStage');
+
+        if (!waterStage || !coinsStage || !shieldStage || !textStage) {
+            closeSplash();
+            return;
+        }
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) {
+            waterStage.style.display = 'none';
+            coinsStage.style.display = 'none';
+            shieldStage.style.display = 'none';
+            textStage.classList.add('visible');
+            schedule(1500, closeSplash);
+            return;
+        }
+
+        // T=0: الماء ينفجر
+        schedule(T.waterStart, () => {
+            waterStage.classList.add('burst');
+        });
+
+        // T=1500: الماء → العملات
+        schedule(T.waterToCoins, () => {
+            animateWaterToCoins(waterStage, coinsStage);
+        });
+
+        // T=3500: العملات → الدرع
+        schedule(T.coinsToShield, () => {
+            animateCoinsToShield(coinsStage, shieldStage);
+        });
+
+        // T=5500: الدرع → الجسيمات
+        schedule(T.shieldToText, () => {
+            animateShieldToText(shieldStage, textStage);
+        });
+
+        // T=7500: استقرار
+        schedule(T.stabilize, () => {
+            shieldStage.style.display = 'none';
+        });
+
+        // T=8000: إغلاق
+        schedule(T.close, closeSplash);
+    }
+
+    return { initSplashScreen, closeSplash };
 })();
 
 // تشغيل Splash فوراً
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => SplashScreen.run());
+    document.addEventListener('DOMContentLoaded', () => SplashScreen.initSplashScreen());
 } else {
-    SplashScreen.run();
+    SplashScreen.initSplashScreen();
 }
 
 // ============ تهيئة التطبيق ============

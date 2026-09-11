@@ -54,11 +54,13 @@ body {
     user-select: none;
 }
 
-/* =========== شاشة البداية السينمائية =========== */
+/* ============================================================
+   =========== شاشة البداية - تحولات متتالية ===========
+   ============================================================ */
 #splashScreen {
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at 50% 45%, #FFFFFF 0%, #F0F9FF 70%, #E0F2FE 100%);
+    background: radial-gradient(circle at 50% 45%, #FFFFFF 0%, #F8FCFF 50%, #F0F9FF 100%);
     z-index: 9999;
     overflow: hidden;
     display: flex;
@@ -81,229 +83,385 @@ body {
     width: 100%;
     height: 100%;
     pointer-events: none;
+    z-index: 3;
 }
 
-/* =========== اليدان =========== */
-.splash-hands-stage {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-}
-
-.splash-hand {
-    position: absolute;
-    width: 40vw;
-    max-width: 180px;
-    height: auto;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0;
-    will-change: transform, opacity;
-}
-
-.splash-hand-left {
-    left: -20vw;
-}
-
-.splash-hand-right {
-    right: -20vw;
-}
-
-.splash-hands-stage.hand-1-in .splash-hand-right {
-    animation: handEnterRight 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.splash-hands-stage.hand-2-in .splash-hand-left {
-    animation: handEnterLeft 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.splash-hands-stage.shaking .splash-hand-right {
-    animation: handApproachRight 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.splash-hands-stage.shaking .splash-hand-left {
-    animation: handApproachLeft 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes handEnterRight {
-    0% { opacity: 0; right: -20vw; }
-    100% { opacity: 1; right: 30vw; }
-}
-
-@keyframes handEnterLeft {
-    0% { opacity: 0; left: -20vw; }
-    100% { opacity: 1; left: 30vw; }
-}
-
-@keyframes handApproachRight {
-    0% { right: 30vw; }
-    100% { right: 42vw; }
-}
-
-@keyframes handApproachLeft {
-    0% { left: 30vw; }
-    100% { left: 42vw; }
-}
-
-.splash-handshake-glow {
+/* ============================================================
+   المرحلة 1: الماء
+   ============================================================ */
+.splash-water-stage {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 40px;
-    height: 40px;
-    margin: -20px 0 0 -20px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #7DD3FC 0%, rgba(125,211,252,0.3) 40%, transparent 70%);
+    transform: translate(-50%, -50%);
+    width: 220px;
+    height: 220px;
     opacity: 0;
+    z-index: 1;
     pointer-events: none;
+}
+
+.splash-water-stage.burst {
+    animation: waterBurst 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes waterBurst {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.2) rotate(-15deg);
+    }
+    60% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.08) rotate(3deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    }
+}
+
+.splash-water-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 6px 18px rgba(56, 189, 248, 0.45));
+}
+
+.water-stream {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+}
+
+.splash-water-stage.burst .water-stream {
+    animation: waterStreamDraw 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.splash-water-stage.burst .water-stream:nth-child(1) { animation-delay: 0.05s; }
+.splash-water-stage.burst .water-stream:nth-child(2) { animation-delay: 0.15s; }
+.splash-water-stage.burst .water-stream:nth-child(3) { animation-delay: 0.10s; }
+.splash-water-stage.burst .water-stream:nth-child(4) { animation-delay: 0.20s; }
+.splash-water-stage.burst .water-stream:nth-child(5) { animation-delay: 0.12s; }
+.splash-water-stage.burst .water-stream:nth-child(6) { animation-delay: 0.18s; }
+
+@keyframes waterStreamDraw {
+    to { stroke-dashoffset: 0; }
+}
+
+.water-drop {
+    opacity: 0;
+    transform-origin: center;
+}
+
+.splash-water-stage.burst .water-drop {
+    animation: waterDropAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.splash-water-stage.burst .water-drop:nth-child(1) { animation-delay: 0.6s; }
+.splash-water-stage.burst .water-drop:nth-child(2) { animation-delay: 0.7s; }
+.splash-water-stage.burst .water-drop:nth-child(3) { animation-delay: 0.65s; }
+.splash-water-stage.burst .water-drop:nth-child(4) { animation-delay: 0.75s; }
+.splash-water-stage.burst .water-drop:nth-child(5) { animation-delay: 0.68s; }
+.splash-water-stage.burst .water-drop:nth-child(6) { animation-delay: 0.72s; }
+
+@keyframes waterDropAppear {
+    0% { opacity: 0; transform: scale(0); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* تلاشي الماء عند التحول */
+.splash-water-stage.fading {
+    animation: stageFadeOut 0.5s ease-in forwards;
+}
+
+@keyframes stageFadeOut {
+    to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.4);
+    }
+}
+
+/* ============================================================
+   المرحلة 2: العملات
+   ============================================================ */
+.splash-coins-stage {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.splash-coins-stage.appearing {
+    opacity: 1;
+}
+
+.splash-coin {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 42px;
+    height: 42px;
+    margin: -21px 0 0 -21px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #FEF3C7 0%, #FCD34D 30%, #F59E0B 70%, #D97706 100%);
+    box-shadow:
+        0 0 0 2px rgba(146, 64, 14, 0.35),
+        0 6px 14px rgba(245, 158, 11, 0.35),
+        inset 0 -3px 6px rgba(146, 64, 14, 0.4),
+        inset 0 3px 6px rgba(255, 255, 255, 0.55);
+    opacity: 0;
+    transform: translate(0, 0) scale(0);
     will-change: transform, opacity;
 }
 
-.splash-hands-stage.glow .splash-handshake-glow {
-    animation: handshakeGlow 1s ease-out forwards;
+.splash-coin::before {
+    content: '';
+    position: absolute;
+    top: 18%;
+    left: 22%;
+    width: 30%;
+    height: 22%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%);
+    filter: blur(1px);
 }
 
-@keyframes handshakeGlow {
-    0% { opacity: 0; transform: scale(0.3); }
-    40% { opacity: 1; transform: scale(1.2); }
-    70% { opacity: 0.9; transform: scale(1.5); }
-    100% { opacity: 0; transform: scale(3); }
+.splash-coin::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60%;
+    height: 60%;
+    margin: -30% 0 0 -30%;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(146, 64, 14, 0.45);
 }
 
-.splash-hands-stage.fading {
-    animation: handsFadeOut 0.6s ease-in forwards;
+.splash-coins-stage.appearing .splash-coin {
+    animation: coinAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation-delay: calc(var(--i) * 0.06s);
 }
 
-@keyframes handsFadeOut {
-    to { opacity: 0; transform: scale(1.1); }
+@keyframes coinAppear {
+    0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0) rotate(0deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r));
+    }
 }
 
-/* =========== الدرع =========== */
+.splash-coins-stage.gathering .splash-coin {
+    animation: coinGather 1.3s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+    animation-delay: calc(var(--i) * 0.04s);
+}
+
+@keyframes coinGather {
+    0% {
+        opacity: 1;
+        transform: translate(var(--x), var(--y)) scale(1) rotate(var(--r));
+    }
+    60% {
+        opacity: 1;
+        transform: translate(calc(var(--x) * 0.2), calc(var(--y) * 0.2)) scale(0.7) rotate(calc(var(--r) + 180deg));
+        filter: brightness(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0) rotate(calc(var(--r) + 360deg));
+        filter: brightness(2);
+    }
+}
+
+/* ============================================================
+   المرحلة 3: الدرع
+   ============================================================ */
 .splash-shield-stage {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) scale(0.3);
     opacity: 0;
-    width: 140px;
-    height: 160px;
+    width: 130px;
+    height: 152px;
+    z-index: 2;
     pointer-events: none;
     will-change: transform, opacity;
 }
 
 .splash-shield-stage.appearing {
-    animation: shieldAppear 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    animation: shieldAppear 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes shieldAppear {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-    60% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.3);
+        filter: brightness(2.5);
+    }
+    60% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.08);
+        filter: brightness(1.3);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        filter: brightness(1);
+    }
+}
+
+.splash-shield-stage.pulsing {
+    animation: shieldPulse 1s ease-in-out infinite;
+}
+
+@keyframes shieldPulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        filter: drop-shadow(0 8px 20px rgba(56, 189, 248, 0.35));
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.04);
+        filter: drop-shadow(0 12px 28px rgba(56, 189, 248, 0.6));
+    }
 }
 
 .splash-shield-stage.shattering {
-    animation: shieldShatter 0.5s ease-out forwards;
+    animation: shieldShatter 0.45s ease-out forwards;
 }
 
 @keyframes shieldShatter {
-    0% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
-    40% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); filter: brightness(2.5); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); filter: brightness(3); }
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        filter: brightness(1);
+    }
+    40% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.18);
+        filter: brightness(3);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.35);
+        filter: brightness(4);
+    }
 }
 
 .splash-shield-svg {
     width: 100%;
     height: 100%;
-    filter: drop-shadow(0 8px 24px rgba(0, 160, 233, 0.4));
-}
-
-.shield-body-path {
-    transform-origin: 60px 70px;
 }
 
 .shield-edge-path {
     stroke-dasharray: 400;
     stroke-dashoffset: 400;
-    animation: shieldEdgeDraw 1s ease-out 0.3s forwards;
+    animation: shieldEdgeDraw 0.9s ease-out 0.15s forwards;
 }
 
 @keyframes shieldEdgeDraw {
     to { stroke-dashoffset: 0; }
 }
 
-/* =========== النص النهائي =========== */
+/* ============================================================
+   المرحلة 5: النص النهائي
+   ============================================================ */
 .splash-text-stage {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(0.92);
     text-align: center;
     opacity: 0;
+    z-index: 4;
     pointer-events: none;
     will-change: opacity, transform;
+    padding: 0 16px;
 }
 
 .splash-text-stage.visible {
-    animation: textAppear 1s ease-out forwards;
+    animation: textReveal 1.2s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
 }
 
-@keyframes textAppear {
-    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+@keyframes textReveal {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.92);
+        filter: blur(6px);
+    }
+    60% {
+        opacity: 1;
+        filter: blur(0);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        filter: blur(0);
+    }
 }
 
 .splash-brand-ar {
     font-family: 'Cairo', 'Tajawal', sans-serif;
-    font-size: 48px;
+    font-size: 52px;
     font-weight: 800;
     letter-spacing: -1px;
     line-height: 1.1;
     margin: 0;
-    background: linear-gradient(135deg, #38BDF8 0%, #0EA5E9 50%, #0D47A1 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
+    color: #0F172A;
+    text-shadow: 0 2px 20px rgba(14, 165, 233, 0.15);
     position: relative;
 }
 
 .splash-plus-mark {
-    font-size: 40px;
+    font-size: 44px;
     font-weight: 800;
-    background: linear-gradient(135deg, #7DD3FC 0%, #0EA5E9 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #0EA5E9;
     margin-right: 2px;
     vertical-align: super;
+    text-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
 }
 
 .splash-brand-en {
-    font-family: 'Tajawal', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: #0D47A1;
-    opacity: 0.7;
-    margin: 12px 0 0 0;
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: #64748B;
+    opacity: 0;
+    margin: 14px 0 0 0;
     text-transform: uppercase;
+}
+
+.splash-text-stage.visible .splash-brand-en {
+    animation: englishReveal 0.8s ease-out 0.6s forwards;
+}
+
+@keyframes englishReveal {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 .splash-plus-mark-en {
     color: #0EA5E9;
     font-weight: 800;
     vertical-align: super;
-    font-size: 10px;
+    font-size: 11px;
 }
 
+/* ============================================================
+   prefers-reduced-motion
+   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-    .splash-hand,
+    .splash-water-stage,
+    .splash-coins-stage,
     .splash-shield-stage,
     .splash-text-stage,
-    .splash-handshake-glow {
+    .splash-coin {
         animation-duration: 0.01ms !important;
         transition-duration: 0.01ms !important;
     }
@@ -312,10 +470,14 @@ body {
     }
 }
 
-@media (max-width: 320px) {
-    .splash-brand-ar { font-size: 40px; }
-    .splash-brand-en { font-size: 12px; }
-    .splash-shield-stage { width: 110px; height: 130px; }
+/* شاشات صغيرة */
+@media (max-width: 360px) {
+    .splash-brand-ar { font-size: 44px; }
+    .splash-plus-mark { font-size: 38px; }
+    .splash-brand-en { font-size: 13px; letter-spacing: 3px; }
+    .splash-shield-stage { width: 115px; height: 135px; }
+    .splash-water-stage { width: 190px; height: 190px; }
+    .splash-coin { width: 36px; height: 36px; margin: -18px 0 0 -18px; }
 }
 
 /* =========== الشريط العلوي =========== */
@@ -1006,7 +1168,6 @@ body {
     background-color: var(--success);
 }
 
-/* =========== عداد الإلغاء التنازلي =========== */
 .cancel-timer {
     display: flex;
     align-items: center;
@@ -1633,7 +1794,6 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
 }
 
-/* =========== استجابة للشاشات الكبيرة =========== */
 @media (min-width: 768px) {
     .main-content {
         max-width: 600px;
