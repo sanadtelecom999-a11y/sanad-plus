@@ -88,226 +88,115 @@ function renderFavorites() {
 }
 
 // ============================================================
-// =========== Splash Screen — 8s / 11 مرحلة ===========
+// =========== Splash Screen — 8s ===========
+// ============================================================
+// القصة:
+// الدرع يظهر → شعاع ضوء → تفتت → جسيمات تتناثر عبر الشاشة وتتلاشى
+// → النص العربي الواضح يظهر (SVG/HTML، لا جسيمات)
+// → ⁺ → SANAD PLUS⁺ → توهج → إغلاق
 // ============================================================
 const SplashScreen = (() => {
-    // Timeline (ms) — مأخوذة من المرجع
+    // Timeline (ms) — إجمالي 7.5s + 0.5s fade = 8.0s
     const T = {
-        shieldIn: 0,            // 0.0s ظهور الدرع
-        lightSweep: 700,        // 0.7s شعاع الضوء
-        disintegrate: 1400,     // 1.4s التفكك → جسيمات
-        curveMotion: 2300,      // 2.3s الحركة المنحنية (دوران)
-        converge: 3000,         // 3.0s بدء التجمع
-        formText: 3800,         // 3.8s تشكيل النص
-        revealPlus: 4600,       // 4.6s ظهور ⁺
-        revealEn: 5300,         // 5.3s SANAD PLUS⁺
-        stabilize: 6000,        // 6.0s تثبيت
-        confirm: 6800,          // 6.8s توهج التأكيد
-        close: 7500             // 7.5s تلاشي
+        shieldIn: 0,           // 0.0s — الدرع يظهر
+        lightSweep: 700,       // 0.7s — شعاع ضوء
+        disintegrate: 1400,    // 1.4s — تفتت الدرع + جسيمات
+        textReveal: 5000,      // 5.0s — النص يظهر (بعد أن اختفت الجسيمات)
+        revealPlus: 6000,      // 6.0s — ⁺
+        revealEn: 6700,        // 6.7s — SANAD PLUS⁺
+        confirm: 7300,         // 7.3s — توهج خفيف
+        close: 7500            // 7.5s — إغلاق (مع 0.5s fade = 8.0s)
     };
 
-    // عدد الجسيمات — يجب أن يكون كافياً لتشكيل الحروف العربية
-    const PARTICLE_COUNT = 280;
-    const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC', '#0D47A1'];
+    const PARTICLE_COUNT = 180;
+    const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC', '#0D47A1', '#BAE6FD'];
 
     let canvas, ctx;
     let particles = [];
     let center = { x: 0, y: 0 };
-    let textPoints = [];
     let rafId = null;
-    let curveStartTime = 0;
-    let convergeStartTime = 0;
+    let shatterTime = 0;
     let running = false;
 
     // ===================== Easing =====================
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-    function easeInOutCubic(t) {
-        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-    function easeOutBack(t) {
-        const c1 = 1.70158, c3 = c1 + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-    }
-    function easeInOutQuart(t) {
-        return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2;
-    }
-
-    // ===================== Text Sampling =====================
-    // عينة كثيفة جداً من حروف "سند بلس" لتشكيل واضح
-    function sampleTextPositions(text, fontSize, count) {
-        const off = document.createElement('canvas');
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        off.width = w;
-        off.height = h;
-        const octx = off.getContext('2d');
-
-        octx.fillStyle = '#000';
-        octx.font = `800 ${fontSize}px Cairo, Tajawal, sans-serif`;
-        octx.textAlign = 'center';
-        octx.textBaseline = 'middle';
-        octx.fillText(text, w / 2, h / 2);
-
-        const data = octx.getImageData(0, 0, w, h).data;
-        const points = [];
-        const step = Math.max(2, Math.floor(fontSize / 16));
-
-        for (let y = 0; y < h; y += step) {
-            for (let x = 0; x < w; x += step) {
-                const idx = (y * w + x) * 4;
-                if (data[idx + 3] > 128) {
-                    points.push({ x, y });
-                }
-            }
-        }
-
-        // Fisher-Yates shuffle
-        for (let i = points.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [points[i], points[j]] = [points[j], points[i]];
-        }
-
-        // Return `count` points; if fewer, cycle with jitter
-        const result = [];
-        for (let i = 0; i < count; i++) {
-            const p = points[i % points.length] || { x: w / 2, y: h / 2 };
-            result.push({
-                x: p.x + (Math.random() - 0.5) * 1.5,
-                y: p.y + (Math.random() - 0.5) * 1.5
-            });
-        }
-        return result;
-    }
+    function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
     // ===================== Particle =====================
     class Particle {
-        constructor(startX, startY, targetX, targetY, index) {
-            this.startX = startX;
-            this.startY = startY;
+        constructor(startX, startY) {
             this.x = startX;
             this.y = startY;
-            this.targetX = targetX;
-            this.targetY = targetY;
+            this.startX = startX;
+            this.startY = startY;
 
-            // Burst velocity
+            // انفجار قوي نحو الخارج
             const angle = Math.random() * Math.PI * 2;
-            const speed = 2.5 + Math.random() * 4.0;
+            const speed = 4 + Math.random() * 7;  // 4-11 px per frame
             this.vx = Math.cos(angle) * speed;
             this.vy = Math.sin(angle) * speed;
 
-            // Curved / orbit motion — كل جسيم له قوس خاص
-            this.orbitAngle0 = Math.atan2(startY - center.y, startX - center.x);
-            this.orbitRadius = 60 + Math.random() * 120;
-            this.orbitSpeed = 0.18 + Math.random() * 0.16;
-            this.orbitDirection = Math.random() < 0.5 ? 1 : -1;
-            this.wobble = 0.6 + Math.random() * 1.4;
+            // wobble / drift
+            this.wobbleAmp = 0.3 + Math.random() * 0.6;
             this.wobblePhase = Math.random() * Math.PI * 2;
+            this.wobbleSpeed = 0.001 + Math.random() * 0.002;
 
-            // Appearance
-            this.size = 2.5 + Math.random() * 5.5;
+            // size & color
+            this.size = 2 + Math.random() * 4;  // 2-6px
             this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
-            this.opacity = 1;
-            this.rotation = Math.random() * Math.PI * 2;
 
-            // State
-            this.phase = 'idle';    // idle → burst → curve → converge → rest
-            this.curveProgress = 0;
-            this.convergeProgress = 0;
-            this.spiralAngle = Math.random() * Math.PI * 2;
+            // حالة
+            this.phase = 'burst';  // burst → scatter
+            this.opacity = 1;
         }
 
         update(now) {
-            const tCurve = curveStartTime ? (now - curveStartTime) : 0;
-            const tConv = convergeStartTime ? (now - convergeStartTime) : 0;
+            const elapsed = now - shatterTime;
 
-            // --- Transitions ---
-            if (this.phase === 'idle') {
-                this.phase = 'burst';
-            }
-            if (this.phase === 'burst' && tCurve > 0) {
-                this.phase = 'curve';
-                this.curveProgress = 0;
-            }
-            if (this.phase === 'curve' && tConv > 0) {
-                this.phase = 'converge';
-                this.convergeProgress = 0;
-                this.convergeFromX = this.x;
-                this.convergeFromY = this.y;
+            // --------- Phase transitions ---------
+            if (this.phase === 'burst' && elapsed > 300) {
+                this.phase = 'scatter';
             }
 
-            // --- Burst: انفجار أولي ---
+            // --------- Burst: انفجار أولي ---------
             if (this.phase === 'burst') {
                 this.x += this.vx;
                 this.y += this.vy;
                 this.vx *= 0.93;
                 this.vy *= 0.93;
-                this.opacity = Math.min(1, this.opacity + 0.08);
+                this.opacity = 1;
             }
 
-            // --- Curve: مسارات منحنية / دوران ---
-            else if (this.phase === 'curve') {
-                const duration = (T.converge - T.curveMotion);
-                this.curveProgress = Math.min(1, tCurve / duration);
-                const t = easeInOutCubic(this.curveProgress);
+            // --------- Scatter: تتناثر عبر الشاشة وتتلاشى ---------
+            else if (this.phase === 'scatter') {
+                // تستمر بالحركة للخارج لكن أبطأ
+                this.x += this.vx * 0.45;
+                this.y += this.vy * 0.45;
 
-                // زاوية الدوران
-                const angle = this.orbitAngle0 + this.orbitDirection * this.curveProgress * Math.PI * 2.2 * this.orbitSpeed * 4;
-                // نصف القطر يتغير بنبض
-                const radius = this.orbitRadius * (0.7 + 0.3 * Math.cos(this.curveProgress * Math.PI * 2 + this.wobblePhase));
+                // damping بطيء
+                this.vx *= 0.985;
+                this.vy *= 0.985;
 
-                // موقع أفقي مضطرب قليلاً
-                const wave = Math.sin(this.curveProgress * Math.PI * 3 + this.wobblePhase) * this.wobble * 12;
+                // wobble ناعم (تأثير "موجة")
+                this.x += Math.sin(elapsed * this.wobbleSpeed + this.wobblePhase) * this.wobbleAmp;
+                this.y += Math.cos(elapsed * this.wobbleSpeed * 0.7 + this.wobblePhase) * this.wobbleAmp;
 
-                this.x = center.x + Math.cos(angle) * (radius + wave);
-                this.y = center.y + Math.sin(angle) * (radius + wave) * 0.92;
-
-                this.rotation += 0.15;
-                this.opacity = 0.9;
-            }
-
-            // --- Converge: تجميع نحو هدف داخل الحرف ---
-            else if (this.phase === 'converge') {
-                const duration = (T.revealPlus - T.converge + 200);
-                this.convergeProgress = Math.min(1, tConv / duration);
-                const t = easeOutCubic(this.convergeProgress);
-
-                // حلزوني بسيط للوصول
-                const spiralFactor = 1 - t;
-                this.spiralAngle += 0.08;
-                const spiralR = spiralFactor * 14 * this.orbitDirection;
-                const spiralX = Math.cos(this.spiralAngle) * spiralR;
-                const spiralY = Math.sin(this.spiralAngle) * spiralR;
-
-                this.x = this.convergeFromX + (this.targetX - this.convergeFromX) * t + spiralX * spiralFactor;
-                this.y = this.convergeFromY + (this.targetY - this.convergeFromY) * t + spiralY * spiralFactor;
-
-                this.opacity = 0.75 + t * 0.25;
-
-                if (this.convergeProgress >= 1) {
-                    this.phase = 'rest';
-                    this.x = this.targetX;
-                    this.y = this.targetY;
-                    this.opacity = 0.95;
-                }
+                // fade تدريجي حتى 4.3s
+                const fadeStart = 600;
+                const fadeEnd = 4300;
+                const fadeRange = fadeEnd - fadeStart;
+                const p = Math.min(1, Math.max(0, (elapsed - fadeStart) / fadeRange));
+                this.opacity = 1 - easeOutQuart(p);
             }
         }
 
         draw(ctx) {
-            const restScale = this.phase === 'rest' ? 0.85 : 1;
-            const s = this.size * restScale;
+            if (this.opacity <= 0.01) return;
 
+            const s = this.size;
             ctx.globalAlpha = this.opacity;
-
-            if (this.phase === 'rest') {
-                // نقاط حروف أنيقة (بدون توهج قوي)
-                ctx.shadowBlur = 2;
-                ctx.shadowColor = this.color;
-            } else {
-                // توهج خفيف أثناء الحركة
-                ctx.shadowBlur = 6;
-                ctx.shadowColor = this.color;
-            }
-
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 5;
             ctx.fillStyle = this.color;
             ctx.beginPath();
             ctx.arc(this.x, this.y, s / 2, 0, Math.PI * 2);
@@ -315,7 +204,7 @@ const SplashScreen = (() => {
         }
     }
 
-    // ===================== Init =====================
+    // ===================== Init Canvas =====================
     function init() {
         canvas = document.getElementById('splashCanvas');
         if (!canvas) return false;
@@ -334,28 +223,20 @@ const SplashScreen = (() => {
             y: window.innerHeight / 2
         };
 
-        // حجم الخط للنص العربي (بدون ⁺)
-        const fontSize = Math.min(58, Math.max(36, window.innerWidth * 0.145));
-        textPoints = sampleTextPositions('سند بلس', fontSize, PARTICLE_COUNT);
-
         return true;
     }
 
-    // ===================== Generate Particles =====================
-    function generateSplashParticles() {
+    // ===================== Spawn Particles =====================
+    function spawnParticles() {
         particles = [];
-        const shieldRadius = 75;
+        const shieldRadius = 70;
 
         for (let i = 0; i < PARTICLE_COUNT; i++) {
-            // توزيع الجسيمات حول حدود الدرع بشكل طبيعي
-            const a = (i / PARTICLE_COUNT) * Math.PI * 2 + Math.random() * 0.6;
-            const r = shieldRadius * (0.4 + Math.random() * 0.7);
+            const a = (i / PARTICLE_COUNT) * Math.PI * 2 + Math.random() * 0.5;
+            const r = shieldRadius * (0.35 + Math.random() * 0.65);
             const sx = center.x + Math.cos(a) * r;
             const sy = center.y + Math.sin(a) * r * 0.92;
-
-            const target = textPoints[i] || { x: center.x, y: center.y };
-
-            particles.push(new Particle(sx, sy, target.x, target.y, i));
+            particles.push(new Particle(sx, sy));
         }
     }
 
@@ -414,7 +295,7 @@ const SplashScreen = (() => {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
 
-        // --- Reduced motion ---
+        // --- Reduced motion path ---
         if (prefersReducedMotion()) {
             const shieldStage = document.getElementById('splashShieldStage');
             const textStage = document.getElementById('splashTextStage');
@@ -424,7 +305,7 @@ const SplashScreen = (() => {
                 textStage.classList.add('reveal-plus');
                 textStage.classList.add('reveal-en');
             }
-            schedule(1500, closeSplash);
+            schedule(1200, closeSplash);
             return;
         }
 
@@ -435,93 +316,53 @@ const SplashScreen = (() => {
 
         if (!shieldStage || !textStage) { closeSplash(); return; }
 
-        // ============================================================
-        // T = 0.0s : ظهور الدرع
-        // ============================================================
+        // ---------- T = 0.0s : ظهور الدرع ----------
         schedule(T.shieldIn, () => {
             shieldStage.classList.add('appearing');
             splash.classList.add('shield-visible');
         });
 
-        // ============================================================
-        // T = 0.7s : شعاع الضوء
-        // ============================================================
+        // ---------- T = 0.7s : شعاع الضوء ----------
         schedule(T.lightSweep, () => {
             shieldStage.classList.add('sweeping');
         });
 
-        // ============================================================
-        // T = 1.4s : التفكك → توليد الجسيمات
-        // ============================================================
+        // ---------- T = 1.4s : التفتت + توليد الجسيمات ----------
         schedule(T.disintegrate, () => {
             shieldStage.classList.remove('pulsing', 'sweeping');
             shieldStage.classList.add('disintegrating');
-            generateSplashParticles();
-        });
-
-        // ============================================================
-        // T = 2.3s : الحركة المنحنية / الدوران
-        // ============================================================
-        schedule(T.curveMotion, () => {
-            curveStartTime = performance.now();
+            spawnParticles();
+            shatterTime = performance.now();
             running = true;
             rafId = requestAnimationFrame(animate);
         });
 
-        // ============================================================
-        // T = 3.0s : بدء التجمع
-        // ============================================================
-        schedule(T.converge, () => {
-            convergeStartTime = performance.now();
-        });
-
-        // ============================================================
-        // T = 3.8s : تشكيل النص (الجسيمات هي النص)
-        // ============================================================
-        schedule(T.formText, () => {
-            // لا نفعل شيئاً — الجسيمات هي التي تشكل النص
-            // حاوية النص تبقى مخفية حتى اكتمال التشكيل
-        });
-
-        // ============================================================
-        // T = 4.6s : كشف النص العربي (بعد أن تشكلت الحروف بالجسيمات)
-        // ============================================================
-        schedule(T.revealPlus, () => {
+        // ---------- T = 5.0s : النص العربي يظهر بوضوح ----------
+        schedule(T.textReveal, () => {
             textStage.classList.add('visible');
-            // ننتظر قليلاً ثم نضيف التوهج للعلامة ⁺
-            setTimeout(() => {
-                textStage.classList.add('reveal-plus');
-            }, 80);
         });
 
-        // ============================================================
-        // T = 5.3s : SANAD PLUS⁺
-        // ============================================================
+        // ---------- T = 6.0s : ⁺ يظهر ----------
+        schedule(T.revealPlus, () => {
+            textStage.classList.add('reveal-plus');
+        });
+
+        // ---------- T = 6.7s : SANAD PLUS⁺ يظهر ----------
         schedule(T.revealEn, () => {
             textStage.classList.add('reveal-en');
         });
 
-        // ============================================================
-        // T = 6.0s : تثبيت
-        // ============================================================
-        schedule(T.stabilize, () => {
+        // ---------- T = 7.3s : توهج خفيف حول الشعار ----------
+        schedule(T.confirm, () => {
+            textStage.classList.add('confirming');
             shieldStage.style.display = 'none';
         });
 
-        // ============================================================
-        // T = 6.8s : توهج تأكيد ناعم
-        // ============================================================
-        schedule(T.confirm, () => {
-            textStage.classList.add('confirming');
-        });
-
-        // ============================================================
-        // T = 7.5s : إغلاق
-        // ============================================================
+        // ---------- T = 7.5s : إغلاق (مع 0.5s fade = 8.0s) ----------
         schedule(T.close, closeSplash);
     }
 
-    return { initSplashScreen, generateSplashParticles, closeSplash };
+    return { initSplashScreen, closeSplash };
 })();
 
 // تشغيل Splash فوراً
@@ -1458,6 +1299,7 @@ function toggleFAQ(index) {
         items[index].classList.toggle('open');
     }
 }
+
 // ============ الدعم والإشعارات ============
 function openSupport() {
     window.open('https://t.me/SANADST', '_blank');
