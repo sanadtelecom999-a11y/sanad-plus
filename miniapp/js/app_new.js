@@ -13,6 +13,9 @@ let selectedMethodForDeposit = null;
 let notificationPollerId = null;
 let cancelTimers = {};
 
+// ============ إعدادات البوت ============
+const BOT_USERNAME = 'Sa3pls1_bot';
+
 // ============ إعدادات العملة ============
 const USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
@@ -92,14 +95,14 @@ function renderFavorites() {
 // ============================================================
 const SplashScreen = (() => {
     const T = {
-        shieldIn: 0,           // 0.0s — الدرع يظهر
-        lightSweep: 700,       // 0.7s — شعاع ضوء
-        disintegrate: 1400,    // 1.4s — تفتت الدرع + جسيمات
-        textReveal: 5000,      // 5.0s — النص يظهر
-        revealPlus: 6000,      // 6.0s — ⁺
-        revealEn: 6700,        // 6.7s — SANAD PLUS⁺
-        confirm: 7300,         // 7.3s — توهج خفيف
-        close: 7500            // 7.5s — إغلاق
+        shieldIn: 0,
+        lightSweep: 700,
+        disintegrate: 1400,
+        textReveal: 5000,
+        revealPlus: 6000,
+        revealEn: 6700,
+        confirm: 7300,
+        close: 7500
     };
 
     const PARTICLE_COUNT = 180;
@@ -534,9 +537,7 @@ function updateKYCBadge() {
     }
 }
 
-// ============================================================
-// ============ بطاقة المنتج — بدون سعر ولا شارة نوع ============
-// ============================================================
+// ============ بطاقة المنتج ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -556,9 +557,7 @@ function renderProductCard(prod) {
     `;
 }
 
-// ============================================================
-// ============ بطاقة القسم — مربعة + overlay ============
-// ============================================================
+// ============ الأقسام ============
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -1200,7 +1199,7 @@ async function submitServiceRequest(btn) {
 function openReferralModal() {
     if (!userData) return;
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
-    const referralLink = `https://t.me/YOUR_BOT_USERNAME?start=${referralCode}`;
+    const referralLink = `https://t.me/${BOT_USERNAME}?start=${referralCode}`;
     openModal('الإحالات', `
         <div style="text-align:center;">
             <div class="kyc-icon" style="background:var(--primary);">
