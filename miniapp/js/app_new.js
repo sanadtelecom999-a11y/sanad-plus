@@ -88,61 +88,45 @@ function renderFavorites() {
 }
 
 // ============================================================
-// ========== شاشة البداية: تحولات متتالية (8 ثوانٍ) ==========
+// =========== Splash Screen — Shield → Light → Particles ===========
 // ============================================================
 const SplashScreen = (() => {
-    // التسلسل الزمني (ms)
+    // ===================== Timeline (ms) =====================
     const T = {
-        waterStart: 0,
-        waterToCoins: 1500,
-        coinsToShield: 3500,
-        shieldToText: 5500,
-        textReveal: 6500,
-        stabilize: 7500,
-        close: 8000
+        shieldIn: 0,            // 0.0s
+        lightSweep: 600,        // 0.6s
+        disintegrate: 1300,     // 1.3s
+        curveMotion: 2100,      // 2.1s
+        converge: 2700,         // 2.7s
+        revealPlus: 3150,       // 3.15s
+        revealEn: 3350,         // 3.35s
+        close: 3500             // 3.5s
     };
 
-    const PARTICLE_CONFIG = {
-        count: 240,
-        sizeMin: 3,
-        sizeMax: 8,
-        colors: [
-            { color: '#FCD34D', weight: 0.20 },
-            { color: '#38BDF8', weight: 0.55 },
-            { color: '#FFFFFF', weight: 0.15 },
-            { color: '#7DD3FC', weight: 0.10 }
-        ]
-    };
+    const PARTICLE_COUNT = 55;
+    const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC'];
 
     let canvas, ctx;
     let particles = [];
     let center = { x: 0, y: 0 };
-    let textPositions = [];
+    let textPoints = [];
     let rafId = null;
-    let shatterAt = 0;
-    let formAt = 0;
+    let curveStart = 0;
+    let convergeStart = 0;
     let running = false;
 
     function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
     function easeInOutCubic(t) {
         return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
-
-    function pickColor() {
-        const r = Math.random();
-        let acc = 0;
-        for (const c of PARTICLE_CONFIG.colors) {
-            acc += c.weight;
-            if (r <= acc) return c.color;
-        }
-        return PARTICLE_CONFIG.colors[0].color;
+    function easeOutBack(t) {
+        const c1 = 1.70158, c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
     }
 
-    function randSize() {
-        return PARTICLE_CONFIG.sizeMin + Math.random() * (PARTICLE_CONFIG.sizeMax - PARTICLE_CONFIG.sizeMin);
-    }
-
-    function computeTextPositions(text, fontSize) {
+    // ===================== Text Sampling =====================
+    // استخدام Offscreen Canvas لتحديد مواقع أحرف "سند بلس"
+    function sampleTextPositions(text, fontSize, count) {
         const off = document.createElement('canvas');
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -157,52 +141,154 @@ const SplashScreen = (() => {
         octx.fillText(text, w / 2, h / 2);
 
         const data = octx.getImageData(0, 0, w, h).data;
-        const positions = [];
-        const step = Math.max(2, Math.floor(fontSize / 13));
+        const points = [];
+        const step = Math.max(2, Math.floor(fontSize / 10));
 
         for (let y = 0; y < h; y += step) {
             for (let x = 0; x < w; x += step) {
                 const idx = (y * w + x) * 4;
                 if (data[idx + 3] > 128) {
-                    positions.push({ x, y });
+                    points.push({ x, y });
                 }
             }
         }
 
-        for (let i = positions.length - 1; i > 0; i--) {
+        // Fisher-Yates shuffle
+        for (let i = points.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [positions[i], positions[j]] = [positions[j], positions[i]];
+            [points[i], points[j]] = [points[j], points[i]];
         }
 
-        return positions.slice(0, PARTICLE_CONFIG.count);
+        return points.slice(0, count);
     }
 
+    // ===================== Particle =====================
     class Particle {
-        constructor(x, y, tx, ty) {
-            this.x = x;
-            this.y = y;
-            this.tx = tx;
-            this.ty = ty;
+        constructor(startX, startY, targetX, targetY, index) {
+            this.startX = startX;
+            this.startY = startY;
+            this.x = startX;
+            this.y = startY;
+            this.targetX = targetX;
+            this.targetY = targetY;
 
-            const a = Math.random() * Math.PI * 2;
-            const s = 2 + Math.random() * 4;
-            this.vx = Math.cos(a) * s;
-            this.vy = Math.sin(a) * s;
+            // Burst velocity
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 1.8 + Math.random() * 3.0;
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
 
-            this.spiralAngle = Math.random() * Math.PI * 2;
-            this.spiralRadius = 50 + Math.random() * 90;
-            this.spiralSpeed = 0.05 + Math.random() * 0.09;
-            this.radiusDecay = 1.3 + Math.random() * 2.0;
+            // Curved motion — orbit parameters
+            this.orbitAngle = Math.atan2(startY - center.y, startX - center.x) + (Math.random() - 0.5) * 0.8;
+            this.orbitRadius = 60 + Math.random() * 70;
+            this.orbitSpeed = 0.14 + Math.random() * 0.14;
+            this.orbitDecay = 0.996;
+            this.wobble = 0.5 + Math.random() * 1.2;
+            this.wobblePhase = Math.random() * Math.PI * 2;
 
-            this.size = randSize();
-            this.color = pickColor();
-            this.phase = 'explode';
-            this.formProgress = 0;
-            this.sfx = 0;
-            this.sfy = 0;
+            // Appearance
+            this.size = 2 + Math.random() * 5;
+            this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            this.opacity = 1;
+
+            // State machine
+            this.phase = 'burst';       // burst → curve → converge → rest
+            this.curveProgress = 0;
+            this.convergeProgress = 0;
+            this.curveStartX = 0;
+            this.curveStartY = 0;
+            this.curveEndX = 0;
+            this.curveEndY = 0;
+            this.spin = 0;
+        }
+
+        update(now) {
+            const tCurve = curveStart ? (now - curveStart) : 0;
+            const tConv = convergeStart ? (now - convergeStart) : 0;
+
+            // --- Phase transitions ---
+            if (this.phase === 'burst' && tCurve > 0) {
+                this.phase = 'curve';
+                this.curveStartX = this.x;
+                this.curveStartY = this.y;
+                this.curveEndX = center.x + Math.cos(this.orbitAngle + Math.PI * 0.9) * this.orbitRadius;
+                this.curveEndY = center.y + Math.sin(this.orbitAngle + Math.PI * 0.9) * this.orbitRadius;
+                this.curveProgress = 0;
+            }
+            if (this.phase === 'curve' && tConv > 0) {
+                this.phase = 'converge';
+                this.convergeProgress = 0;
+                // لم نعد بحاجة إلى start من موقع curve — نبدأ من الحالي
+                this.convergeStartX = this.x;
+                this.convergeStartY = this.y;
+            }
+
+            // --- Burst phase ---
+            if (this.phase === 'burst') {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.92;
+                this.vy *= 0.92;
+                this.opacity = Math.min(1, this.opacity + 0.05);
+            }
+
+            // --- Curve phase (arc + slight orbit) ---
+            else if (this.phase === 'curve') {
+                this.curveProgress = Math.min(1, tCurve / (T.converge - T.curveMotion));
+                const t = easeInOutCubic(this.curveProgress);
+                // Linear interpolation base
+                const lx = this.curveStartX + (this.curveEndX - this.curveStartX) * t;
+                const ly = this.curveStartY + (this.curveEndY - this.curveStartY) * t;
+                // Add perpendicular wobble for curvature
+                const perpAngle = this.orbitAngle + Math.PI / 2;
+                const wobbleOffset = Math.sin(this.curveProgress * Math.PI * 2 + this.wobblePhase) * 18 * this.wobble;
+                this.x = lx + Math.cos(perpAngle) * wobbleOffset;
+                this.y = ly + Math.sin(perpAngle) * wobbleOffset;
+                // Fade slightly during curve
+                this.opacity = 0.85 + 0.15 * Math.sin(this.curveProgress * Math.PI);
+            }
+
+            // --- Converge phase (spiral to target) ---
+            else if (this.phase === 'converge') {
+                this.convergeProgress = Math.min(1, tConv / (T.revealPlus - T.converge + 250));
+                const t = easeOutCubic(this.convergeProgress);
+                // Spiral mix — add slight rotation around center during approach
+                const spiralFactor = 1 - t;
+                const spiralAngle = this.orbitAngle + this.convergeProgress * Math.PI * 0.6;
+                const spiralR = spiralFactor * 20;
+                const spiralX = Math.cos(spiralAngle) * spiralR;
+                const spiralY = Math.sin(spiralAngle) * spiralR;
+
+                this.x = this.convergeStartX + (this.targetX - this.convergeStartX) * t + spiralX * spiralFactor;
+                this.y = this.convergeStartY + (this.targetY - this.convergeStartY) * t + spiralY * spiralFactor;
+
+                // Shrink and brighten as it lands
+                this.opacity = 0.7 + t * 0.3;
+
+                if (this.convergeProgress >= 1) {
+                    this.phase = 'rest';
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                }
+            }
+        }
+
+        draw(ctx) {
+            const displaySize = this.phase === 'rest' ? this.size * 0.85 : this.size;
+            ctx.globalAlpha = this.opacity * (this.phase === 'rest' ? 0.92 : 1);
+
+            // Glow
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = this.phase === 'rest' ? 4 : 7;
+
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, displaySize / 2, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
 
+    // ===================== Init =====================
     function init() {
         canvas = document.getElementById('splashCanvas');
         if (!canvas) return false;
@@ -216,77 +302,51 @@ const SplashScreen = (() => {
         ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
 
-        center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        center = {
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2
+        };
 
-        const fontSize = Math.min(54, Math.max(34, window.innerWidth * 0.14));
-        textPositions = computeTextPositions('سند بلس⁺', fontSize);
+        // Font size for "سند بلس" (بدون علامة +)
+        const fontSize = Math.min(52, Math.max(34, window.innerWidth * 0.135));
+        textPoints = sampleTextPositions('سند بلس', fontSize, PARTICLE_COUNT);
 
         return true;
     }
 
-    function createParticles() {
+    // ===================== Generate Particles =====================
+    function generateSplashParticles() {
         particles = [];
-        const r0 = 60;
+        const shieldCenter = { x: center.x, y: center.y };
+        const shieldRadius = 65;
 
-        for (let i = 0; i < PARTICLE_CONFIG.count; i++) {
-            const a = (i / PARTICLE_CONFIG.count) * Math.PI * 2 + Math.random() * 0.3;
-            const r = r0 * (0.75 + Math.random() * 0.35);
-            const x = center.x + Math.cos(a) * r;
-            const y = center.y + Math.sin(a) * r;
-            const t = textPositions[i % textPositions.length] || { x: center.x, y: center.y };
-            particles.push(new Particle(x, y, t.x, t.y));
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            // Distribute around shield perimeter/area
+            const a = (i / PARTICLE_COUNT) * Math.PI * 2 + Math.random() * 0.4;
+            const r = shieldRadius * (0.5 + Math.random() * 0.55);
+            const sx = shieldCenter.x + Math.cos(a) * r;
+            const sy = shieldCenter.y + Math.sin(a) * r * 0.95;
+
+            // Target from text positions (cyclic)
+            const target = textPoints[i % textPoints.length] || {
+                x: shieldCenter.x,
+                y: shieldCenter.y
+            };
+
+            particles.push(new Particle(sx, sy, target.x, target.y, i));
         }
     }
 
+    // ===================== RAF Loop =====================
     function animate() {
         if (!running) return;
-
         const now = performance.now();
-        const sinceShatter = now - shatterAt;
-        const sinceForm = now - formAt;
 
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
 
         for (const p of particles) {
-            if (p.phase === 'explode' && sinceShatter > 320) p.phase = 'spiral';
-            if (p.phase === 'spiral' && sinceForm > 0) {
-                p.phase = 'form';
-                p.sfx = p.x;
-                p.sfy = p.y;
-                p.formProgress = 0;
-            }
-
-            if (p.phase === 'explode') {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.vx *= 0.93;
-                p.vy *= 0.93;
-            } else if (p.phase === 'spiral') {
-                p.spiralAngle += p.spiralSpeed;
-                p.spiralRadius = Math.max(18, p.spiralRadius - p.radiusDecay);
-                p.x = center.x + Math.cos(p.spiralAngle) * p.spiralRadius;
-                p.y = center.y + Math.sin(p.spiralAngle) * p.spiralRadius * 0.86;
-            } else if (p.phase === 'form') {
-                p.formProgress += 0.017;
-                if (p.formProgress >= 1) { p.formProgress = 1; p.phase = 'rest'; }
-                const t = easeOutCubic(p.formProgress);
-                p.x = p.sfx + (p.tx - p.sfx) * t;
-                p.y = p.sfy + (p.ty - p.sfy) * t;
-            }
-
-            // رسم الجسيم مع توهج للجسيمات الذهبية
-            if (p.color === '#FCD34D') {
-                ctx.globalAlpha = p.phase === 'rest' ? 0.85 : 1;
-                ctx.shadowColor = '#FCD34D';
-                ctx.shadowBlur = 6;
-            } else {
-                ctx.globalAlpha = p.phase === 'rest' ? 0.88 : 1;
-                ctx.shadowBlur = 0;
-            }
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
-            ctx.fill();
+            p.update(now);
+            p.draw(ctx);
         }
 
         ctx.globalAlpha = 1;
@@ -295,118 +355,135 @@ const SplashScreen = (() => {
         rafId = requestAnimationFrame(animate);
     }
 
-    function schedule(t, fn) { setTimeout(fn, t); }
+    // ===================== Helpers =====================
+    function schedule(ms, fn) { return setTimeout(fn, ms); }
 
+    function prefersReducedMotion() {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+
+    // ===================== Close =====================
     function closeSplash() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
 
-        splash.classList.add('closing');
         running = false;
-        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
 
-        setTimeout(() => { splash.style.display = 'none'; }, 500);
+        // إزالة الجسيمات من الذاكرة
+        particles = [];
+
+        splash.classList.add('hidden');
+
+        setTimeout(() => {
+            splash.style.display = 'none';
+            if (canvas) {
+                canvas.width = 0;
+                canvas.height = 0;
+                canvas = null;
+                ctx = null;
+            }
+        }, 450);
     }
 
-    // ============================================================
-    // المراحل الرئيسية
-    // ============================================================
-    function animateWaterToCoins(waterStage, coinsStage) {
-        // 1.5s → 3.5s : الماء يتفتت ثم يتحول إلى عملات
-        waterStage.classList.add('fading');
-
-        // بدء ظهور العملات بعد 400ms (بعد أن يبدأ الماء بالتلاشي)
-        schedule(400, () => {
-            coinsStage.classList.add('appearing');
-        });
-    }
-
-    function animateCoinsToShield(coinsStage, shieldStage) {
-        // 3.5s → 5.5s : العملات تتجمع ثم يظهر الدرع
-        coinsStage.classList.add('gathering');
-
-        // بعد 800ms، يظهر الدرع (بعد أن تبدأ العملات بالانجذاب)
-        schedule(800, () => {
-            shieldStage.classList.add('appearing');
-            schedule(900, () => {
-                shieldStage.classList.add('pulsing');
-            });
-        });
-    }
-
-    function animateShieldToText(shieldStage, textStage) {
-        // 5.5s → 7.5s : الدرع يتفتت والجسيمات تشكّل النص
-        shieldStage.classList.remove('pulsing');
-        shieldStage.classList.add('shattering');
-
-        createParticles();
-        shatterAt = performance.now();
-        running = true;
-        rafId = requestAnimationFrame(animate);
-
-        // بعد ثانية من التفتت، تبدأ الجسيمات بالتوجه للنص
-        schedule(1000, () => {
-            formAt = performance.now();
-            textStage.classList.add('visible');
-        });
-    }
-
+    // ===================== Main =====================
     function initSplashScreen() {
+        const splash = document.getElementById('splashScreen');
+        if (!splash) return;
+
+        // --- Reduced motion path ---
+        if (prefersReducedMotion()) {
+            const shieldStage = document.getElementById('splashShieldStage');
+            const textStage = document.getElementById('splashTextStage');
+            if (shieldStage) shieldStage.style.display = 'none';
+            if (textStage) {
+                textStage.classList.add('visible');
+                textStage.classList.add('reveal-plus');
+                textStage.classList.add('reveal-en');
+            }
+            schedule(1500, closeSplash);
+            return;
+        }
+
         if (!init()) {
             closeSplash();
             return;
         }
 
-        const waterStage = document.getElementById('splashWaterStage');
-        const coinsStage = document.getElementById('splashCoinsStage');
         const shieldStage = document.getElementById('splashShieldStage');
         const textStage = document.getElementById('splashTextStage');
 
-        if (!waterStage || !coinsStage || !shieldStage || !textStage) {
+        if (!shieldStage || !textStage) {
             closeSplash();
             return;
         }
 
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduceMotion) {
-            waterStage.style.display = 'none';
-            coinsStage.style.display = 'none';
-            shieldStage.style.display = 'none';
+        // ----------------------------------------------------------
+        // T = 0.0s : الدرع يظهر (fade + scale)
+        // ----------------------------------------------------------
+        schedule(T.shieldIn, () => {
+            shieldStage.classList.add('appearing');
+            splash.classList.add('shield-visible');
+        });
+
+        // ----------------------------------------------------------
+        // T = 0.6s : شعاع الضوء يعبر الدرع
+        // ----------------------------------------------------------
+        schedule(T.lightSweep, () => {
+            shieldStage.classList.add('sweeping');
+        });
+
+        // ----------------------------------------------------------
+        // T = 1.3s : الدرع يتفتت → الجسيمات تولد
+        // ----------------------------------------------------------
+        schedule(T.disintegrate, () => {
+            shieldStage.classList.remove('pulsing');
+            shieldStage.classList.add('disintegrating');
+            generateSplashParticles();
+        });
+
+        // ----------------------------------------------------------
+        // T = 2.1s : الجسيمات تبدأ الحركة المنحنية
+        // ----------------------------------------------------------
+        schedule(T.curveMotion, () => {
+            curveStart = performance.now();
+            running = true;
+            rafId = requestAnimationFrame(animate);
+        });
+
+        // ----------------------------------------------------------
+        // T = 2.7s : الجسيمات تتجه نحو مواقع النص
+        // ----------------------------------------------------------
+        schedule(T.converge, () => {
+            convergeStart = performance.now();
+            // إظهار حاوية النص لكنها شفافة (الجسيمات هي التي تشكلها)
             textStage.classList.add('visible');
-            schedule(1500, closeSplash);
-            return;
-        }
-
-        // T=0: الماء ينفجر
-        schedule(T.waterStart, () => {
-            waterStage.classList.add('burst');
         });
 
-        // T=1500: الماء → العملات
-        schedule(T.waterToCoins, () => {
-            animateWaterToCoins(waterStage, coinsStage);
+        // ----------------------------------------------------------
+        // T = 3.15s : علامة + تظهر بأناقة
+        // ----------------------------------------------------------
+        schedule(T.revealPlus, () => {
+            textStage.classList.add('reveal-plus');
         });
 
-        // T=3500: العملات → الدرع
-        schedule(T.coinsToShield, () => {
-            animateCoinsToShield(coinsStage, shieldStage);
+        // ----------------------------------------------------------
+        // T = 3.35s : SANAD PLUS⁺ يظهر
+        // ----------------------------------------------------------
+        schedule(T.revealEn, () => {
+            textStage.classList.add('reveal-en');
         });
 
-        // T=5500: الدرع → الجسيمات
-        schedule(T.shieldToText, () => {
-            animateShieldToText(shieldStage, textStage);
-        });
-
-        // T=7500: استقرار
-        schedule(T.stabilize, () => {
-            shieldStage.style.display = 'none';
-        });
-
-        // T=8000: إغلاق
+        // ----------------------------------------------------------
+        // T = 3.5s : إغلاق سلس
+        // ----------------------------------------------------------
         schedule(T.close, closeSplash);
     }
 
-    return { initSplashScreen, closeSplash };
+    return { initSplashScreen, generateSplashParticles, closeSplash };
 })();
 
 // تشغيل Splash فوراً
