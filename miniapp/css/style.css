@@ -1,4 +1,6 @@
-/* =========== SANAD+ Design System =========== */
+/* ============================================================
+   =========== SANAD+ Design System ===========
+   ============================================================ */
 :root {
     --primary: #00A0E9;
     --primary-light: #EAF5FC;
@@ -225,7 +227,7 @@ body {
 }
 
 /* ============================================================
-   المرحلة 2: شعاع الضوء
+   شعاع الضوء
    ============================================================ */
 .splash-light-sweep {
     opacity: 0;
@@ -254,7 +256,7 @@ body {
 }
 
 /* ============================================================
-   المرحلة النهائية: النص العربي — يظهر بوضوح تام
+   النص النهائي في Splash
    ============================================================ */
 .splash-text-stage {
     position: absolute;
@@ -292,9 +294,6 @@ body {
     }
 }
 
-/* — النص العربي —
-   RTL صحيح: "سند بلس" أولاً، ثم ⁺ على اليمين
-   نستخدم flex-direction: row مع RTL ليضع ⁺ على اليمين تلقائياً */
 .splash-brand-ar {
     font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 3.2rem;
@@ -320,7 +319,6 @@ body {
     text-shadow: 0 4px 24px rgba(14, 165, 233, 0.18);
 }
 
-/* علامة ⁺ — تظهر بعد النص العربي */
 .splash-plus-mark {
     display: inline-block;
     font-size: 2rem;
@@ -355,7 +353,6 @@ body {
     }
 }
 
-/* — النص الإنجليزي — يظهر أسفل العربي */
 .splash-brand-en {
     font-family: 'Cairo', 'Tajawal', sans-serif;
     font-size: 0.95rem;
@@ -387,7 +384,6 @@ body {
     }
 }
 
-/* توهج خفيف نهائي حول الشعار */
 .splash-text-stage.confirming::before {
     content: '';
     position: absolute;
@@ -432,9 +428,6 @@ body {
     }
 }
 
-/* ============================================================
-   شاشات صغيرة جداً
-   ============================================================ */
 @media (max-width: 360px) {
     .splash-brand-ar {
         font-size: 2.6rem;
@@ -767,7 +760,9 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* =========== Skeleton Loading =========== */
+/* ============================================================
+   Skeleton Loading
+   ============================================================ */
 .skeleton-card {
     background: linear-gradient(90deg, var(--border) 25%, var(--primary-light) 50%, var(--border) 75%);
     background-size: 200% 100%;
@@ -796,7 +791,9 @@ body {
     margin-bottom: 12px;
 }
 
-/* =========== شاشة الرئيسية =========== */
+/* ============================================================
+   ============ شاشة الرئيسية ============
+   ============================================================ */
 .user-greeting {
     display: flex;
     align-items: center;
@@ -856,20 +853,24 @@ body {
     color: var(--text);
 }
 
+/* ============================================================
+   ============ الأقسام (Categories) — مربعة 1:1 + Overlay ============
+   ============================================================ */
 .categories-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 10px;
     margin-top: 8px;
 }
 
 .category-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 16px;
+    cursor: pointer;
     background-color: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 16px;
-    text-align: center;
-    cursor: pointer;
     transition: var(--transition);
 }
 
@@ -880,29 +881,60 @@ body {
 }
 
 .category-icon {
-    font-size: 2rem;
-    margin-bottom: 4px;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.category-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .category-name {
-    font-weight: 500;
-    font-size: 0.85rem;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px 8px 8px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #FFFFFF;
+    background: linear-gradient(to top,
+        rgba(13, 71, 161, 0.92) 0%,
+        rgba(13, 71, 161, 0.65) 55%,
+        rgba(13, 71, 161, 0) 100%);
+    z-index: 2;
+    pointer-events: none;
+    line-height: 1.2;
 }
 
+/* ============================================================
+   ============ المنتجات (Products) — 3 أعمدة + 1:1 contain ============
+   ============================================================ */
 .products-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-items: start;
+    margin-top: 8px;
 }
 
 .product-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 12px;
+    cursor: pointer;
     background-color: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    cursor: pointer;
     transition: var(--transition);
-    position: relative;
 }
 
 .product-card:hover {
@@ -911,33 +943,37 @@ body {
 }
 
 .product-image {
+    aspect-ratio: 1 / 1;
     width: 100%;
-    height: 120px;
-    background-color: #f0f0f0;
+    background-color: #FFFFFF;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center center;
+    padding: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3rem;
+    font-size: 2rem;
     color: #ccc;
-    background-size: cover;
-    background-position: center;
+    overflow: hidden;
     position: relative;
 }
 
 .product-badges {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 6px;
+    right: 6px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    z-index: 2;
 }
 
 .badge-new, .badge-best {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 50px;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 800;
 }
 
@@ -953,23 +989,23 @@ body {
 
 .favorite-btn {
     position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 32px;
-    height: 32px;
+    top: 4px;
+    left: 4px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    background-color: rgba(255,255,255,0.9);
+    background-color: rgba(255, 255, 255, 0.9);
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition);
-    z-index: 2;
+    z-index: 3;
 }
 
 .favorite-btn .material-icons {
-    font-size: 18px;
+    font-size: 14px;
     color: var(--text-secondary);
 }
 
@@ -982,33 +1018,24 @@ body {
 }
 
 .product-name {
-    padding: 8px;
+    padding: 7px 5px;
     text-align: center;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text);
 }
 
-.product-price {
-    text-align: center;
-    color: var(--primary);
-    font-weight: 800;
-    padding-bottom: 8px;
-}
-
-.product-type-badge {
-    display: block;
-    text-align: center;
-    background-color: var(--primary-light);
-    color: var(--primary);
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 50px;
-    margin: 0 auto 8px;
-    width: fit-content;
-}
-
-/* =========== شاشة طلباتي =========== */
+/* -- تم حذف السعر وشارة النوع بناءً على التصميم الجديد -- */
+/* ============================================================
+   ============ شاشة طلباتي (Orders) ============
+   ============================================================ */
 .orders-list,
 .deposits-list {
     display: flex;
@@ -1060,7 +1087,8 @@ body {
     color: #F57F17;
 }
 
-.status-badge.review, .status-badge.processing {
+.status-badge.review,
+.status-badge.processing {
     background-color: var(--primary-light);
     color: var(--primary-dark);
 }
@@ -1091,7 +1119,9 @@ body {
     color: var(--text-secondary);
 }
 
-/* =========== شريط تقدم حالة الطلب =========== */
+/* ============================================================
+   ============ شريط تقدم حالة الطلب ============
+   ============================================================ */
 .order-progress {
     display: flex;
     align-items: center;
@@ -1167,6 +1197,9 @@ body {
     background-color: var(--success);
 }
 
+/* ============================================================
+   ============ عداد الإلغاء ============
+   ============================================================ */
 .cancel-timer {
     display: flex;
     align-items: center;
@@ -1185,7 +1218,9 @@ body {
     font-size: 16px;
 }
 
-/* =========== شاشة شحن الرصيد =========== */
+/* ============================================================
+   ============ شاشة شحن الرصيد ============
+   ============================================================ */
 .balance-card-gradient {
     background: linear-gradient(135deg, #00A0E9, #0D47A1);
     border-radius: var(--radius-lg);
@@ -1254,7 +1289,9 @@ body {
     color: var(--text-secondary);
 }
 
-/* =========== شاشة الإيداعات =========== */
+/* ============================================================
+   ============ شاشة الإيداعات (Deposits) ============
+   ============================================================ */
 .page-title h2 {
     font-size: 1.5rem;
     font-weight: 800;
@@ -1264,6 +1301,12 @@ body {
 .page-title p {
     color: var(--text-secondary);
     font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.text-secondary {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
     margin-bottom: 12px;
 }
 
@@ -1282,7 +1325,9 @@ body {
     color: var(--border);
 }
 
-/* =========== شاشة حسابي =========== */
+/* ============================================================
+   ============ شاشة حسابي (Account) ============
+   ============================================================ */
 .account-card {
     display: flex;
     align-items: center;
@@ -1316,7 +1361,8 @@ body {
     font-size: 1.2rem;
 }
 
-.account-email, .account-id {
+.account-email,
+.account-id {
     color: var(--text-secondary);
     font-size: 0.85rem;
 }
@@ -1399,10 +1445,14 @@ body {
     font-size: 1.2rem;
 }
 
+/* ============================================================
+   ============ Toggle Switch (الوضع الليلي) ============
+   ============================================================ */
 .toggle-switch {
     position: relative;
     width: 40px;
     height: 22px;
+    flex-shrink: 0;
 }
 
 .toggle-switch input {
@@ -1443,7 +1493,9 @@ input:checked + .toggle-slider:before {
     transform: translateX(18px);
 }
 
-/* =========== شاشة KYC =========== */
+/* ============================================================
+   ============ شاشة KYC ============
+   ============================================================ */
 .kyc-container {
     padding: 20px;
     text-align: center;
@@ -1529,7 +1581,15 @@ input:checked + .toggle-slider:before {
     background-position: center;
 }
 
-/* =========== الأسئلة الشائعة =========== */
+.image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ============================================================
+   ============ الأسئلة الشائعة (FAQ) ============
+   ============================================================ */
 .faq-list {
     display: flex;
     flex-direction: column;
@@ -1554,6 +1614,11 @@ input:checked + .toggle-slider:before {
     color: var(--text);
 }
 
+.faq-question .material-icons {
+    transition: transform 0.3s ease;
+    color: var(--primary);
+}
+
 .faq-answer {
     padding: 0 16px 14px;
     font-size: 0.9rem;
@@ -1572,7 +1637,9 @@ input:checked + .toggle-slider:before {
     transform: rotate(180deg);
 }
 
-/* =========== زر الدعم العائم =========== */
+/* ============================================================
+   ============ زر الدعم العائم (Floating Support) ============
+   ============================================================ */
 .floating-support-btn {
     position: fixed;
     bottom: calc(var(--nav-height) + 16px);
@@ -1607,7 +1674,26 @@ input:checked + .toggle-slider:before {
     font-size: 26px;
 }
 
-/* =========== المودال =========== */
+.support-online-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 12px;
+    height: 12px;
+    background-color: #4CAF50;
+    border: 2px solid var(--surface);
+    border-radius: 50%;
+    animation: pulseBadge 2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+}
+
+/* ============================================================
+   ============ المودال (Modal) ============
+   ============================================================ */
 .modal {
     display: none;
     position: fixed;
@@ -1616,7 +1702,7 @@ input:checked + .toggle-slider:before {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     overflow: auto;
 }
 
@@ -1629,7 +1715,7 @@ input:checked + .toggle-slider:before {
     max-width: 600px;
     position: relative;
     color: var(--text);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     animation: modalIn 0.3s ease;
 }
 
@@ -1646,12 +1732,21 @@ input:checked + .toggle-slider:before {
     font-weight: bold;
     cursor: pointer;
     color: var(--text-secondary);
+    line-height: 1;
+    transition: var(--transition);
+}
+
+.close-modal:hover {
+    color: var(--danger);
 }
 
 .modal-body {
     padding-top: 10px;
 }
 
+/* ============================================================
+   ============ Form Groups (داخل المودال) ============
+   ============================================================ */
 .form-group {
     margin-bottom: 16px;
 }
@@ -1673,6 +1768,7 @@ input:checked + .toggle-slider:before {
     background-color: var(--surface);
     color: var(--text);
     font-family: inherit;
+    font-size: 0.95rem;
     outline: none;
     transition: var(--transition);
 }
@@ -1681,9 +1777,12 @@ input:checked + .toggle-slider:before {
 .form-group select:focus,
 .form-group textarea:focus {
     border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 160, 233, 0.1);
 }
 
-/* =========== شاشة النجاح Overlay =========== */
+/* ============================================================
+   ============ شاشة النجاح (Success Overlay) ============
+   ============================================================ */
 .success-overlay {
     display: none;
     position: fixed;
@@ -1691,7 +1790,7 @@ input:checked + .toggle-slider:before {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     z-index: 300;
     align-items: center;
     justify-content: center;
@@ -1748,7 +1847,9 @@ input:checked + .toggle-slider:before {
     line-height: 1.6;
 }
 
-/* =========== شريط التنقل السفلي =========== */
+/* ============================================================
+   ============ شريط التنقل السفلي (Bottom Nav) ============
+   ============================================================ */
 .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -1760,7 +1861,7 @@ input:checked + .toggle-slider:before {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
     z-index: 100;
     padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1793,15 +1894,9 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
 }
 
-@media (min-width: 768px) {
-    .main-content {
-        max-width: 600px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-}
-
-/* =========== زر تبديل العملة =========== */
+/* ============================================================
+   ============ زر تبديل العملة ============
+   ============================================================ */
 .currency-toggle {
     display: inline-flex;
     align-items: center;
@@ -1813,7 +1908,7 @@ input:checked + .toggle-slider:before {
     border-radius: 50px;
     font-size: 0.85rem;
     border: 1px solid var(--vip-text);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
     cursor: pointer;
     margin-top: 6px;
     font-family: inherit;
@@ -1829,14 +1924,16 @@ input:checked + .toggle-slider:before {
     font-size: 16px;
 }
 
-/* =========== وميض الشاشة عند إشعار جديد =========== */
+/* ============================================================
+   ============ وميض الشاشة عند إشعار (Flash Overlay) ============
+   ============================================================ */
 .flash-overlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0,160,233,0.25);
+    background-color: rgba(0, 160, 233, 0.25);
     pointer-events: none;
     opacity: 0;
     z-index: 500;
@@ -1853,4 +1950,39 @@ input:checked + .toggle-slider:before {
     50% { opacity: 0.3; }
     75% { opacity: 0.8; }
     100% { opacity: 0; }
+}
+
+/* ============================================================
+   ============ استجابة للشاشات الكبيرة ============
+   ============================================================ */
+@media (min-width: 768px) {
+    .main-content {
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+/* ============================================================
+   ============ شاشات صغيرة جداً (تعديلات إضافية) ============
+   ============================================================ */
+@media (max-width: 360px) {
+    .products-grid {
+        gap: 6px;
+    }
+    .product-name {
+        font-size: 0.68rem;
+        padding: 6px 4px;
+    }
+    .category-name {
+        font-size: 0.75rem;
+        padding: 16px 6px 6px;
+    }
+    .favorite-btn {
+        width: 22px;
+        height: 22px;
+    }
+    .favorite-btn .material-icons {
+        font-size: 12px;
+    }
 }

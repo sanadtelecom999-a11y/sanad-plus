@@ -90,22 +90,16 @@ function renderFavorites() {
 // ============================================================
 // =========== Splash Screen — 8s ===========
 // ============================================================
-// القصة:
-// الدرع يظهر → شعاع ضوء → تفتت → جسيمات تتناثر عبر الشاشة وتتلاشى
-// → النص العربي الواضح يظهر (SVG/HTML، لا جسيمات)
-// → ⁺ → SANAD PLUS⁺ → توهج → إغلاق
-// ============================================================
 const SplashScreen = (() => {
-    // Timeline (ms) — إجمالي 7.5s + 0.5s fade = 8.0s
     const T = {
         shieldIn: 0,           // 0.0s — الدرع يظهر
         lightSweep: 700,       // 0.7s — شعاع ضوء
         disintegrate: 1400,    // 1.4s — تفتت الدرع + جسيمات
-        textReveal: 5000,      // 5.0s — النص يظهر (بعد أن اختفت الجسيمات)
+        textReveal: 5000,      // 5.0s — النص يظهر
         revealPlus: 6000,      // 6.0s — ⁺
         revealEn: 6700,        // 6.7s — SANAD PLUS⁺
         confirm: 7300,         // 7.3s — توهج خفيف
-        close: 7500            // 7.5s — إغلاق (مع 0.5s fade = 8.0s)
+        close: 7500            // 7.5s — إغلاق
     };
 
     const PARTICLE_COUNT = 180;
@@ -118,11 +112,8 @@ const SplashScreen = (() => {
     let shatterTime = 0;
     let running = false;
 
-    // ===================== Easing =====================
-    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
     function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
-    // ===================== Particle =====================
     class Particle {
         constructor(startX, startY) {
             this.x = startX;
@@ -130,35 +121,29 @@ const SplashScreen = (() => {
             this.startX = startX;
             this.startY = startY;
 
-            // انفجار قوي نحو الخارج
             const angle = Math.random() * Math.PI * 2;
-            const speed = 4 + Math.random() * 7;  // 4-11 px per frame
+            const speed = 4 + Math.random() * 7;
             this.vx = Math.cos(angle) * speed;
             this.vy = Math.sin(angle) * speed;
 
-            // wobble / drift
             this.wobbleAmp = 0.3 + Math.random() * 0.6;
             this.wobblePhase = Math.random() * Math.PI * 2;
             this.wobbleSpeed = 0.001 + Math.random() * 0.002;
 
-            // size & color
-            this.size = 2 + Math.random() * 4;  // 2-6px
+            this.size = 2 + Math.random() * 4;
             this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
 
-            // حالة
-            this.phase = 'burst';  // burst → scatter
+            this.phase = 'burst';
             this.opacity = 1;
         }
 
         update(now) {
             const elapsed = now - shatterTime;
 
-            // --------- Phase transitions ---------
             if (this.phase === 'burst' && elapsed > 300) {
                 this.phase = 'scatter';
             }
 
-            // --------- Burst: انفجار أولي ---------
             if (this.phase === 'burst') {
                 this.x += this.vx;
                 this.y += this.vy;
@@ -166,22 +151,15 @@ const SplashScreen = (() => {
                 this.vy *= 0.93;
                 this.opacity = 1;
             }
-
-            // --------- Scatter: تتناثر عبر الشاشة وتتلاشى ---------
             else if (this.phase === 'scatter') {
-                // تستمر بالحركة للخارج لكن أبطأ
                 this.x += this.vx * 0.45;
                 this.y += this.vy * 0.45;
-
-                // damping بطيء
                 this.vx *= 0.985;
                 this.vy *= 0.985;
 
-                // wobble ناعم (تأثير "موجة")
                 this.x += Math.sin(elapsed * this.wobbleSpeed + this.wobblePhase) * this.wobbleAmp;
                 this.y += Math.cos(elapsed * this.wobbleSpeed * 0.7 + this.wobblePhase) * this.wobbleAmp;
 
-                // fade تدريجي حتى 4.3s
                 const fadeStart = 600;
                 const fadeEnd = 4300;
                 const fadeRange = fadeEnd - fadeStart;
@@ -192,19 +170,16 @@ const SplashScreen = (() => {
 
         draw(ctx) {
             if (this.opacity <= 0.01) return;
-
-            const s = this.size;
             ctx.globalAlpha = this.opacity;
             ctx.shadowColor = this.color;
             ctx.shadowBlur = 5;
             ctx.fillStyle = this.color;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, s / 2, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
             ctx.fill();
         }
     }
 
-    // ===================== Init Canvas =====================
     function init() {
         canvas = document.getElementById('splashCanvas');
         if (!canvas) return false;
@@ -226,7 +201,6 @@ const SplashScreen = (() => {
         return true;
     }
 
-    // ===================== Spawn Particles =====================
     function spawnParticles() {
         particles = [];
         const shieldRadius = 70;
@@ -240,7 +214,6 @@ const SplashScreen = (() => {
         }
     }
 
-    // ===================== RAF Loop =====================
     function animate() {
         if (!running) return;
         const now = performance.now();
@@ -258,14 +231,12 @@ const SplashScreen = (() => {
         rafId = requestAnimationFrame(animate);
     }
 
-    // ===================== Helpers =====================
     function schedule(ms, fn) { return setTimeout(fn, ms); }
 
     function prefersReducedMotion() {
         return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
-    // ===================== Close =====================
     function closeSplash() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
@@ -290,12 +261,10 @@ const SplashScreen = (() => {
         }, 550);
     }
 
-    // ===================== Main =====================
     function initSplashScreen() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
 
-        // --- Reduced motion path ---
         if (prefersReducedMotion()) {
             const shieldStage = document.getElementById('splashShieldStage');
             const textStage = document.getElementById('splashTextStage');
@@ -316,18 +285,15 @@ const SplashScreen = (() => {
 
         if (!shieldStage || !textStage) { closeSplash(); return; }
 
-        // ---------- T = 0.0s : ظهور الدرع ----------
         schedule(T.shieldIn, () => {
             shieldStage.classList.add('appearing');
             splash.classList.add('shield-visible');
         });
 
-        // ---------- T = 0.7s : شعاع الضوء ----------
         schedule(T.lightSweep, () => {
             shieldStage.classList.add('sweeping');
         });
 
-        // ---------- T = 1.4s : التفتت + توليد الجسيمات ----------
         schedule(T.disintegrate, () => {
             shieldStage.classList.remove('pulsing', 'sweeping');
             shieldStage.classList.add('disintegrating');
@@ -337,28 +303,23 @@ const SplashScreen = (() => {
             rafId = requestAnimationFrame(animate);
         });
 
-        // ---------- T = 5.0s : النص العربي يظهر بوضوح ----------
         schedule(T.textReveal, () => {
             textStage.classList.add('visible');
         });
 
-        // ---------- T = 6.0s : ⁺ يظهر ----------
         schedule(T.revealPlus, () => {
             textStage.classList.add('reveal-plus');
         });
 
-        // ---------- T = 6.7s : SANAD PLUS⁺ يظهر ----------
         schedule(T.revealEn, () => {
             textStage.classList.add('reveal-en');
         });
 
-        // ---------- T = 7.3s : توهج خفيف حول الشعار ----------
         schedule(T.confirm, () => {
             textStage.classList.add('confirming');
             shieldStage.style.display = 'none';
         });
 
-        // ---------- T = 7.5s : إغلاق (مع 0.5s fade = 8.0s) ----------
         schedule(T.close, closeSplash);
     }
 
@@ -573,7 +534,9 @@ function updateKYCBadge() {
     }
 }
 
-// ============ البطاقات ============
+// ============================================================
+// ============ بطاقة المنتج — بدون سعر ولا شارة نوع ============
+// ============================================================
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -582,19 +545,20 @@ function renderProductCard(prod) {
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${prod.image || ''}'); background-color:#f0f0f0;">
+            <div class="product-image" style="background-image:url('${prod.image || ''}');">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isNew ? '<span class="badge-new">جديد</span>' : ''}
                 </div>
             </div>
             <div class="product-name">${prod.name}</div>
-            <div class="product-price">${formatPrice(prod.base_price)}</div>
-            <span class="product-type-badge">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span>
         </div>
     `;
 }
 
+// ============================================================
+// ============ بطاقة القسم — مربعة + overlay ============
+// ============================================================
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -606,7 +570,7 @@ function renderCategories() {
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
             <div class="category-icon">
-                ${cat.image ? `<img src="${cat.image}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />` : '📁'}
+                ${cat.image ? `<img src="${cat.image}" alt="${cat.name}" />` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:var(--primary-light);">📁</div>'}
             </div>
             <div class="category-name">${cat.name}</div>
         </div>
