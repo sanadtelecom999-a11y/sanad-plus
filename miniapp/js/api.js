@@ -15,7 +15,7 @@ const RETRY_CONFIG = {
 
 
 async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
-    // دمج الإعدادات مع إضافة Authorization إن وجد
+    // دمج الإعدادات
     const config = {
         method: options.method || 'GET',
         headers: {
@@ -149,9 +149,11 @@ function hideConnectingIndicator() {
 
 // ============================================================
 // 🚀 Ping لتنبيه Render عند فتح التطبيق
+// ✅ يستخدم مسار مسموح بـ CORS
 // ============================================================
 function pingBackend() {
-    fetch(`${API_BASE_URL}/`, { method: 'GET' }).catch(() => {});
+    fetch(`${API_BASE_URL}/api/categories/`, { method: 'GET' })
+        .catch(() => {});
 }
 
 
@@ -263,7 +265,6 @@ async function requestCustomService(serviceData) {
 // Ping عند التحميل
 if (typeof window !== 'undefined') {
     window.addEventListener('load', () => {
-        // تأخير بسيط لتنبيه Render دون تأخير المستخدم
         setTimeout(pingBackend, 100);
     });
 }
