@@ -13,51 +13,33 @@ let selectedMethodForDeposit = null;
 let notificationPollerId = null;
 let cancelTimers = {};
 
-// ============ إعدادات البوت ============
 const BOT_USERNAME = 'Sa3pls1_bot';
-
-// ============ إعدادات العملة ============
 const USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
-// ============ Splash للمستخدمين العائدين ============
+// ============ Splash Seen ============
 const SPLASH_SEEN_KEY = 'splash_seen_v11';
 function hasSeenSplash() {
-    try {
-        return localStorage.getItem(SPLASH_SEEN_KEY) === '1';
-    } catch (e) {
-        return false;
-    }
+    try { return localStorage.getItem(SPLASH_SEEN_KEY) === '1'; } catch (e) { return false; }
 }
 function markSplashSeen() {
-    try {
-        localStorage.setItem(SPLASH_SEEN_KEY, '1');
-    } catch (e) {}
+    try { localStorage.setItem(SPLASH_SEEN_KEY, '1'); } catch (e) {}
 }
 
-// ============ شوهد حديثاً ============
+// ============ Recently Viewed ============
 const RECENTLY_VIEWED_KEY = 'recently_viewed';
 const RECENTLY_VIEWED_MAX = 6;
 
 function getRecentlyViewed() {
-    try {
-        return JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
-    } catch (e) {
-        return [];
-    }
+    try { return JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]'); } catch (e) { return []; }
 }
 
 function addToRecentlyViewed(productId) {
     try {
         let list = getRecentlyViewed();
-        // إزالة المكرر
         list = list.filter(id => id !== productId);
-        // إضافة في المقدمة
         list.unshift(productId);
-        // حد أقصى
-        if (list.length > RECENTLY_VIEWED_MAX) {
-            list = list.slice(0, RECENTLY_VIEWED_MAX);
-        }
+        if (list.length > RECENTLY_VIEWED_MAX) list = list.slice(0, RECENTLY_VIEWED_MAX);
         localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(list));
     } catch (e) {
         console.warn('فشل حفظ شوهد حديثاً:', e);
@@ -70,20 +52,10 @@ function renderRecentlyViewed() {
     if (!container || !list) return;
 
     const ids = getRecentlyViewed();
-    if (!ids.length) {
-        container.style.display = 'none';
-        return;
-    }
+    if (!ids.length) { container.style.display = 'none'; return; }
 
-    // فلترة المنتجات الموجودة فقط
-    const products = ids
-        .map(id => productsData.find(p => p.id === id))
-        .filter(Boolean);
-
-    if (!products.length) {
-        container.style.display = 'none';
-        return;
-    }
+    const products = ids.map(id => productsData.find(p => p.id === id)).filter(Boolean);
+    if (!products.length) { container.style.display = 'none'; return; }
 
     container.style.display = 'block';
     list.innerHTML = products.map(prod => `
@@ -96,6 +68,7 @@ function renderRecentlyViewed() {
     `).join('');
 }
 
+// ============ Currency ============
 function formatPrice(usdAmount) {
     if (currentCurrency === 'SYP') {
         const syp = Math.round(usdAmount * USD_TO_SYP);
@@ -124,31 +97,18 @@ function updateCurrencyUI() {
     if (label) label.textContent = currentCurrency;
 }
 
-// ============ المفضلة ============
+// ============ Favorites ============
 function getFavorites() {
-    try {
-        return JSON.parse(localStorage.getItem('favorites') || '[]');
-    } catch (e) {
-        return [];
-    }
+    try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch (e) { return []; }
 }
-
-function saveFavorites(list) {
-    localStorage.setItem('favorites', JSON.stringify(list));
-}
-
-function isFavorite(productId) {
-    return getFavorites().includes(productId);
-}
+function saveFavorites(list) { localStorage.setItem('favorites', JSON.stringify(list)); }
+function isFavorite(productId) { return getFavorites().includes(productId); }
 
 function toggleFavorite(productId, event) {
     if (event) event.stopPropagation();
     let favorites = getFavorites();
-    if (favorites.includes(productId)) {
-        favorites = favorites.filter(id => id !== productId);
-    } else {
-        favorites.push(productId);
-    }
+    if (favorites.includes(productId)) favorites = favorites.filter(id => id !== productId);
+    else favorites.push(productId);
     saveFavorites(favorites);
     renderCategories();
     renderProductsList(productsData);
@@ -169,7 +129,7 @@ function renderFavorites() {
 }
 
 // ============================================================
-// =========== 📱 Pull to Refresh ===========
+// 📱 Pull to Refresh
 // ============================================================
 const PullToRefresh = (() => {
     const THRESHOLD = 70;
@@ -185,9 +145,7 @@ const PullToRefresh = (() => {
         const el = document.createElement('div');
         el.className = 'ptr-indicator';
         el.innerHTML = `
-            <div class="ptr-icon">
-                <span class="material-icons">arrow_downward</span>
-            </div>
+            <div class="ptr-icon"><span class="material-icons">arrow_downward</span></div>
             <div class="ptr-text">اسحب للتحديث</div>
         `;
         return el;
@@ -199,10 +157,7 @@ const PullToRefresh = (() => {
             console.warn('PullToRefresh: main-content not found');
             return;
         }
-
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         indicator = createIndicator();
         document.body.insertBefore(indicator, mainContent);
@@ -210,7 +165,6 @@ const PullToRefresh = (() => {
         mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
         mainContent.addEventListener('touchmove', handleTouchMove, { passive: false });
         mainContent.addEventListener('touchend', handleTouchEnd, { passive: true });
-
         mainContent.addEventListener('mousedown', handleMouseDown);
     }
 
@@ -225,11 +179,9 @@ const PullToRefresh = (() => {
         if (!isPulling || isRefreshing) return;
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
-
         if (diff > 0 && mainContent.scrollTop === 0) {
             e.preventDefault();
-            const pull = Math.min(diff * 0.5, MAX_PULL);
-            updateIndicator(pull);
+            updateIndicator(Math.min(diff * 0.5, MAX_PULL));
         } else if (diff < 0) {
             isPulling = false;
             resetIndicator();
@@ -240,48 +192,32 @@ const PullToRefresh = (() => {
         if (!isPulling) return;
         const diff = currentY - startY;
         const pull = Math.min(diff * 0.5, MAX_PULL);
-
-        if (pull >= THRESHOLD && !isRefreshing) {
-            triggerRefresh();
-        } else {
-            resetIndicator();
-        }
+        if (pull >= THRESHOLD && !isRefreshing) triggerRefresh();
+        else resetIndicator();
         isPulling = false;
     }
 
     function handleMouseDown(e) {
         if (isRefreshing) return;
         if (mainContent.scrollTop > 0) return;
-
         startY = e.clientY;
         isPulling = true;
-
         const onMove = (ev) => {
             if (!isPulling) return;
             currentY = ev.clientY;
             const diff = currentY - startY;
-            if (diff > 0) {
-                const pull = Math.min(diff * 0.5, MAX_PULL);
-                updateIndicator(pull);
-            }
+            if (diff > 0) updateIndicator(Math.min(diff * 0.5, MAX_PULL));
         };
-
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-
             if (!isPulling) return;
             const diff = currentY - startY;
             const pull = Math.min(diff * 0.5, MAX_PULL);
-
-            if (pull >= THRESHOLD && !isRefreshing) {
-                triggerRefresh();
-            } else {
-                resetIndicator();
-            }
+            if (pull >= THRESHOLD && !isRefreshing) triggerRefresh();
+            else resetIndicator();
             isPulling = false;
         };
-
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     }
@@ -290,10 +226,8 @@ const PullToRefresh = (() => {
         if (!indicator) return;
         indicator.style.height = pull + 'px';
         indicator.style.opacity = Math.min(pull / THRESHOLD, 1);
-
         const icon = indicator.querySelector('.ptr-icon .material-icons');
         const text = indicator.querySelector('.ptr-text');
-
         if (pull >= THRESHOLD) {
             if (icon) icon.textContent = 'refresh';
             if (text) text.textContent = 'اترك للتحديث';
@@ -311,58 +245,48 @@ const PullToRefresh = (() => {
         indicator.style.height = '0px';
         indicator.style.opacity = '0';
         indicator.classList.remove('ready', 'refreshing');
-        setTimeout(() => {
-            indicator.style.transition = '';
-        }, 300);
+        setTimeout(() => { indicator.style.transition = ''; }, 300);
     }
 
     async function triggerRefresh() {
         if (isRefreshing || !indicator) return;
         isRefreshing = true;
-
         indicator.style.transition = 'height 250ms ease';
         indicator.style.height = '60px';
         indicator.style.opacity = '1';
         indicator.classList.add('refreshing');
-
         const icon = indicator.querySelector('.ptr-icon .material-icons');
         const text = indicator.querySelector('.ptr-text');
         if (icon) icon.textContent = 'sync';
         if (text) text.textContent = 'جارٍ التحديث...';
-
-        if (navigator.vibrate) {
-            try { navigator.vibrate(15); } catch (e) {}
-        }
+        if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
 
         try {
-            await refreshAllData();
+            if (userData?.telegram_id) {
+                userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
+            }
+            await loadInitialData();
+            updateUserUI();
+            renderCategories();
+            renderOrders(ordersData);
+            renderDeposits(depositsData);
+            renderFavorites();
+            renderRecentlyViewed();
+            renderLatestOrders();
             if (text) text.textContent = 'تم التحديث ✓';
-            setTimeout(() => {
-                resetIndicator();
-                isRefreshing = false;
-            }, 500);
+            setTimeout(() => { resetIndicator(); isRefreshing = false; }, 500);
         } catch (error) {
             console.error('Refresh error:', error);
             if (text) text.textContent = 'فشل التحديث';
-            setTimeout(() => {
-                resetIndicator();
-                isRefreshing = false;
-            }, 800);
+            setTimeout(() => { resetIndicator(); isRefreshing = false; }, 800);
         }
-    }
-
-    async function refreshAllData() {
-        if (userData?.telegram_id) {
-            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
-        }
-        await loadInitialData();
     }
 
     return { init };
 })();
 
 // ============================================================
-// =========== 👆 Swipe Navigation ===========
+// 👆 Swipe Navigation
 // ============================================================
 const SwipeNav = (() => {
     const PAGES = ['page-home', 'page-orders', 'page-charge', 'page-deposits', 'page-account'];
@@ -370,22 +294,13 @@ const SwipeNav = (() => {
     const MAX_VERTICAL = 80;
     let touchStartX = 0;
     let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
     let isSwiping = false;
     let target = null;
 
     function init() {
         target = document.querySelector('.main-content');
-        if (!target) {
-            console.warn('SwipeNav: main-content not found');
-            return;
-        }
-
-        // تجاهل prefers-reduced-motion
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
+        if (!target) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         target.addEventListener('touchstart', handleStart, { passive: true });
         target.addEventListener('touchmove', handleMove, { passive: true });
@@ -394,9 +309,8 @@ const SwipeNav = (() => {
 
     function handleStart(e) {
         if (e.touches.length !== 1) return;
-        // تجاهل السحب من العناصر التفاعلية
         const el = e.target;
-        if (el.closest('input, textarea, select, button, .modal, .purchase-modal, .order-timeline')) {
+        if (el.closest('input, textarea, select, button, .modal, .new-purchase-modal, .order-timeline')) {
             isSwiping = false;
             return;
         }
@@ -409,48 +323,26 @@ const SwipeNav = (() => {
         if (!isSwiping) return;
         const diffX = Math.abs(e.touches[0].clientX - touchStartX);
         const diffY = Math.abs(e.touches[0].clientY - touchStartY);
-
-        // إذا تحرك رأسياً كثيراً → إلغاء (تمرير عمودي)
-        if (diffY > MAX_VERTICAL && diffY > diffX) {
-            isSwiping = false;
-        }
+        if (diffY > MAX_VERTICAL && diffY > diffX) isSwiping = false;
     }
 
     function handleEnd(e) {
         if (!isSwiping) return;
-        touchEndX = e.changedTouches[0].clientX;
-        touchEndY = e.changedTouches[0].clientY;
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
         isSwiping = false;
-
         const diffX = touchEndX - touchStartX;
         const diffY = touchEndY - touchStartY;
-
-        // التحقق من أنها سحبة أفقية
         if (Math.abs(diffX) < SWIPE_THRESHOLD) return;
         if (Math.abs(diffY) > Math.abs(diffX)) return;
-
-        // إذا نحن في صفحة غير مدعومة → لا نتفاعل
         if (!PAGES.includes(currentPage)) return;
-
         const currentIdx = PAGES.indexOf(currentPage);
-
-        // RTL: السحب لليسار (diffX < 0) = الصفحة السابقة
-        // السحب لليمين (diffX > 0) = الصفحة التالية
         let newIdx;
-        if (diffX > 0) {
-            // سحب يمين → التالي في RTL (الأسفل في القائمة)
-            newIdx = currentIdx + 1;
-        } else {
-            // سحب يسار → السابق في RTL (الأعلى)
-            newIdx = currentIdx - 1;
-        }
-
+        if (diffX > 0) newIdx = currentIdx + 1;
+        else newIdx = currentIdx - 1;
         if (newIdx >= 0 && newIdx < PAGES.length) {
             navigateTo(PAGES[newIdx]);
-            // اهتزاز خفيف
-            if (navigator.vibrate) {
-                try { navigator.vibrate(10); } catch (err) {}
-            }
+            if (navigator.vibrate) { try { navigator.vibrate(10); } catch (err) {} }
         }
     }
 
@@ -458,7 +350,7 @@ const SwipeNav = (() => {
 })();
 
 // ============================================================
-// =========== Splash Screen — 8s ===========
+// ✨ Splash Screen
 // ============================================================
 const SplashScreen = (() => {
     const T = {
@@ -471,8 +363,6 @@ const SplashScreen = (() => {
         confirm: 7300,
         close: 7500
     };
-
-    // نسخة سريعة للعائدين
     const QUICK_T = {
         shieldIn: 0,
         textReveal: 400,
@@ -480,7 +370,6 @@ const SplashScreen = (() => {
         revealEn: 950,
         close: 1400
     };
-
     const PARTICLE_COUNT = 180;
     const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC', '#0D47A1', '#BAE6FD'];
 
@@ -498,52 +387,38 @@ const SplashScreen = (() => {
         constructor(startX, startY) {
             this.x = startX;
             this.y = startY;
-            this.startX = startX;
-            this.startY = startY;
-
             const angle = Math.random() * Math.PI * 2;
             const speed = 4 + Math.random() * 7;
             this.vx = Math.cos(angle) * speed;
             this.vy = Math.sin(angle) * speed;
-
             this.wobbleAmp = 0.3 + Math.random() * 0.6;
             this.wobblePhase = Math.random() * Math.PI * 2;
             this.wobbleSpeed = 0.001 + Math.random() * 0.002;
-
             this.size = 2 + Math.random() * 4;
             this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
-
             this.phase = 'burst';
             this.opacity = 1;
         }
 
         update(now) {
             const elapsed = now - shatterTime;
-
-            if (this.phase === 'burst' && elapsed > 300) {
-                this.phase = 'scatter';
-            }
-
+            if (this.phase === 'burst' && elapsed > 300) this.phase = 'scatter';
             if (this.phase === 'burst') {
                 this.x += this.vx;
                 this.y += this.vy;
                 this.vx *= 0.93;
                 this.vy *= 0.93;
                 this.opacity = 1;
-            }
-            else if (this.phase === 'scatter') {
+            } else if (this.phase === 'scatter') {
                 this.x += this.vx * 0.45;
                 this.y += this.vy * 0.45;
                 this.vx *= 0.985;
                 this.vy *= 0.985;
-
                 this.x += Math.sin(elapsed * this.wobbleSpeed + this.wobblePhase) * this.wobbleAmp;
                 this.y += Math.cos(elapsed * this.wobbleSpeed * 0.7 + this.wobblePhase) * this.wobbleAmp;
-
                 const fadeStart = 600;
                 const fadeEnd = isQuickMode ? 1000 : 4300;
-                const fadeRange = fadeEnd - fadeStart;
-                const p = Math.min(1, Math.max(0, (elapsed - fadeStart) / fadeRange));
+                const p = Math.min(1, Math.max(0, (elapsed - fadeStart) / (fadeEnd - fadeStart)));
                 this.opacity = 1 - easeOutQuart(p);
             }
         }
@@ -560,35 +435,26 @@ const SplashScreen = (() => {
         }
     }
 
-    function init() {
+    function initCanvas() {
         canvas = document.getElementById('splashCanvas');
         if (!canvas) return false;
-
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
         canvas.style.width = window.innerWidth + 'px';
         canvas.style.height = window.innerHeight + 'px';
-
         ctx = canvas.getContext('2d');
         ctx.scale(dpr, dpr);
-
-        center = {
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2
-        };
-
+        center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
         return true;
     }
 
     function spawnParticles() {
         particles = [];
-        const shieldRadius = 70;
         const count = isQuickMode ? 60 : PARTICLE_COUNT;
-
         for (let i = 0; i < count; i++) {
             const a = (i / count) * Math.PI * 2 + Math.random() * 0.5;
-            const r = shieldRadius * (0.35 + Math.random() * 0.65);
+            const r = 70 * (0.35 + Math.random() * 0.65);
             const sx = center.x + Math.cos(a) * r;
             const sy = center.y + Math.sin(a) * r * 0.92;
             particles.push(new Particle(sx, sy));
@@ -598,136 +464,87 @@ const SplashScreen = (() => {
     function animate() {
         if (!running) return;
         const now = performance.now();
-
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-
-        for (const p of particles) {
-            p.update(now);
-            p.draw(ctx);
-        }
-
+        for (const p of particles) { p.update(now); p.draw(ctx); }
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
-
         rafId = requestAnimationFrame(animate);
-    }
-
-    function schedule(ms, fn) { return setTimeout(fn, ms); }
-
-    function prefersReducedMotion() {
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
 
     function closeSplash() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
-
         running = false;
-        if (rafId) {
-            cancelAnimationFrame(rafId);
-            rafId = null;
-        }
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         particles = [];
-
         splash.classList.add('hidden');
         markSplashSeen();
-
         setTimeout(() => {
             splash.style.display = 'none';
-            if (canvas) {
-                canvas.width = 0;
-                canvas.height = 0;
-                canvas = null;
-                ctx = null;
-            }
+            if (canvas) { canvas.width = 0; canvas.height = 0; canvas = null; ctx = null; }
         }, 550);
     }
 
     function initSplashScreen() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
-
         isQuickMode = hasSeenSplash();
 
-        if (prefersReducedMotion()) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             const shieldStage = document.getElementById('splashShieldStage');
             const textStage = document.getElementById('splashTextStage');
             if (shieldStage) shieldStage.style.display = 'none';
-            if (textStage) {
-                textStage.classList.add('visible');
-                textStage.classList.add('reveal-plus');
-                textStage.classList.add('reveal-en');
-            }
-            schedule(1200, closeSplash);
+            if (textStage) { textStage.classList.add('visible', 'reveal-plus', 'reveal-en'); }
+            setTimeout(closeSplash, 1200);
             return;
         }
 
-        if (!init()) { closeSplash(); return; }
-
+        if (!initCanvas()) { closeSplash(); return; }
         const shieldStage = document.getElementById('splashShieldStage');
         const textStage = document.getElementById('splashTextStage');
-
         if (!shieldStage || !textStage) { closeSplash(); return; }
 
         const timeline = isQuickMode ? QUICK_T : T;
 
-        schedule(timeline.shieldIn, () => {
-            shieldStage.classList.add('appearing');
-            splash.classList.add('shield-visible');
-        });
+        setTimeout(() => { shieldStage.classList.add('appearing'); splash.classList.add('shield-visible'); }, timeline.shieldIn);
 
         if (!isQuickMode) {
-            schedule(timeline.lightSweep, () => {
-                shieldStage.classList.add('sweeping');
-            });
-
-            schedule(timeline.disintegrate, () => {
+            setTimeout(() => shieldStage.classList.add('sweeping'), timeline.lightSweep);
+            setTimeout(() => {
                 shieldStage.classList.remove('pulsing', 'sweeping');
                 shieldStage.classList.add('disintegrating');
                 spawnParticles();
                 shatterTime = performance.now();
                 running = true;
                 rafId = requestAnimationFrame(animate);
-            });
+            }, timeline.disintegrate);
         } else {
-            schedule(300, () => {
-                shieldStage.classList.add('disintegrating');
-            });
+            setTimeout(() => shieldStage.classList.add('disintegrating'), 300);
         }
 
-        schedule(timeline.textReveal, () => {
-            textStage.classList.add('visible');
-        });
-
-        schedule(timeline.revealPlus, () => {
-            textStage.classList.add('reveal-plus');
-        });
-
-        schedule(timeline.revealEn, () => {
-            textStage.classList.add('reveal-en');
-        });
+        setTimeout(() => textStage.classList.add('visible'), timeline.textReveal);
+        setTimeout(() => textStage.classList.add('reveal-plus'), timeline.revealPlus);
+        setTimeout(() => textStage.classList.add('reveal-en'), timeline.revealEn);
 
         if (!isQuickMode) {
-            schedule(timeline.confirm, () => {
-                textStage.classList.add('confirming');
-                shieldStage.style.display = 'none';
-            });
+            setTimeout(() => { textStage.classList.add('confirming'); shieldStage.style.display = 'none'; }, timeline.confirm);
         }
 
-        schedule(timeline.close, closeSplash);
+        setTimeout(closeSplash, timeline.close);
     }
 
     return { initSplashScreen, closeSplash };
 })();
 
-// تشغيل Splash فوراً
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => SplashScreen.initSplashScreen());
 } else {
     SplashScreen.initSplashScreen();
 }
 
-// ============ واجهة المستخدم ============
+// ============================================================
+// 🎨 UI Update
+// ============================================================
 function updateUserUI() {
     if (!userData) {
         const gm = document.getElementById('greetingMessage');
@@ -736,13 +553,10 @@ function updateUserUI() {
         if (gs) gs.textContent = 'لم يتم التعرف على حسابك';
         return;
     }
-
     document.getElementById('headerBalance').textContent = formatPrice(userData.balance);
     document.getElementById('chargeBalance').textContent = formatPrice(userData.balance);
     document.getElementById('accountBalance').textContent = formatPrice(userData.balance);
-
-    document.getElementById('accountName').textContent =
-        userData.first_name || userData.username || 'مستخدم';
+    document.getElementById('accountName').textContent = userData.first_name || userData.username || 'مستخدم';
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
@@ -779,13 +593,11 @@ function updateUserUI() {
         if (ha) ha.textContent = (userData.first_name || userData.username || 'م')[0];
     }
 
-    // عدّاد الطلبات والإيداعات
     const orderCountEl = document.getElementById('orderCount');
     if (orderCountEl) orderCountEl.textContent = ordersData.length;
     const depositCountEl = document.getElementById('depositCount');
     if (depositCountEl) depositCountEl.textContent = depositsData.length;
 
-    // إجمالي الإنفاق
     const totalSpentEl = document.getElementById('totalSpent');
     if (totalSpentEl) {
         const totalSpent = ordersData
@@ -808,20 +620,15 @@ function updateKYCBadge() {
     } else {
         badge.innerHTML = '<span class="status-badge unverified">غير موثق</span>';
     }
-
     const descEl = document.getElementById('kycSettingDesc');
     if (descEl && userData) {
-        if (userData.kyc_status === 'verified' || userData.is_verified) {
-            descEl.textContent = 'حسابك موثق ✓';
-        } else if (userData.kyc_status === 'pending' || kycStatus === 'pending') {
-            descEl.textContent = 'طلب التوثيق قيد المراجعة';
-        } else {
-            descEl.textContent = 'وثق حسابك لاستخدام كل طرق الدفع';
-        }
+        if (userData.kyc_status === 'verified' || userData.is_verified) descEl.textContent = 'حسابك موثق ✓';
+        else if (userData.kyc_status === 'pending' || kycStatus === 'pending') descEl.textContent = 'طلب التوثيق قيد المراجعة';
+        else descEl.textContent = 'وثق حسابك لاستخدام كل طرق الدفع';
     }
 }
 
-// ============ بطاقة المنتج ============
+// ============ Product Card ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
@@ -841,7 +648,7 @@ function renderProductCard(prod) {
     `;
 }
 
-// ============ الأقسام ============
+// ============ Categories ============
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -900,35 +707,8 @@ function renderPaymentMethods() {
         </div>
     `).join('');
 }
-
-// ============ شريط التقدم الأفقي ============
-function renderOrderProgress(status) {
-    const steps = [
-        { key: 'pending', label: 'قيد المعالجة' },
-        { key: 'review', label: 'قيد المراجعة' },
-        { key: 'processing', label: 'قيد التنفيذ' },
-        { key: 'completed', label: 'مكتمل' }
-    ];
-    const order = ['pending', 'review', 'processing', 'completed'];
-    const currentIndex = order.indexOf(status);
-    if (currentIndex === -1) return '';
-
-    return `
-        <div class="order-progress">
-            ${steps.map((s, i) => `
-                <div class="progress-step ${i < currentIndex ? 'completed' : ''} ${i === currentIndex ? 'active' : ''}">
-                    <div class="step-circle">
-                        ${i < currentIndex ? '<span class="material-icons" style="font-size:14px;">check</span>' : (i + 1)}
-                    </div>
-                    <div>${s.label}</div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
 // ============================================================
-// ============ 📈 Vertical Timeline للطلب ============
+// 📈 Order Timeline (Vertical)
 // ============================================================
 function getTimelineSteps(status) {
     const allSteps = [
@@ -981,34 +761,57 @@ function buildOrderTimelineHTML(order) {
     `;
 }
 
-// ============ تفاصيل التسليم ============
+// ============================================================
+// 📦 تفاصيل التسليم الجديدة
+// ============================================================
 function buildDeliveryDetailsHTML(order) {
     if (!order.delivery_data) return '';
+
     let delivery = null;
     try {
         delivery = JSON.parse(order.delivery_data);
     } catch (e) {
-        return `<div class="order-delivery-info"><div>${order.delivery_data}</div></div>`;
+        return '';
     }
     if (!delivery || typeof delivery !== 'object') return '';
 
-    const rows = [];
+    const items = [];
+
     if (delivery.player_id) {
-        rows.push(`<div class="delivery-row"><span class="delivery-label">معرف اللاعب (ID):</span><span class="delivery-value ltr">${delivery.player_id}</span></div>`);
+        items.push({ icon: 'person_pin', label: 'ID', value: delivery.player_id });
     }
     if (delivery.account_id) {
-        rows.push(`<div class="delivery-row"><span class="delivery-label">ID الحساب:</span><span class="delivery-value ltr">${delivery.account_id}</span></div>`);
+        items.push({ icon: 'badge', label: 'الحساب', value: delivery.account_id });
     }
     if (delivery.phone) {
-        rows.push(`<div class="delivery-row"><span class="delivery-label">رقم الهاتف:</span><span class="delivery-value ltr">${delivery.phone}</span></div>`);
+        items.push({ icon: 'phone', label: 'الهاتف', value: delivery.phone });
     }
     if (delivery.bundle_name) {
-        rows.push(`<div class="delivery-row"><span class="delivery-label">الباقة:</span><span class="delivery-value">${delivery.bundle_name}</span></div>`);
+        items.push({ icon: 'inventory_2', label: 'الباقة', value: delivery.bundle_name });
     }
-    if (!rows.length) return '';
-    return `<div class="order-delivery-info">${rows.join('')}</div>`;
+
+    if (!items.length) return '';
+
+    return `
+        <div class="delivery-list">
+            ${items.map(item => `
+                <div class="delivery-item">
+                    <div class="delivery-item-icon">
+                        <span class="material-icons">${item.icon}</span>
+                    </div>
+                    <div class="delivery-item-content">
+                        <div class="delivery-item-label">${item.label}</div>
+                        <div class="delivery-item-value">${item.value}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
 }
 
+// ============================================================
+// 📋 renderOrders — بدون إعادة الطلب / مشاركة
+// ============================================================
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if (!list) return;
@@ -1016,6 +819,7 @@ function renderOrders(orders) {
         list.innerHTML = '<div class="empty-state"><span class="material-icons">receipt_long</span>لا توجد طلبات</div>';
         return;
     }
+
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         return `
@@ -1038,12 +842,6 @@ function renderOrders(orders) {
                 </div>
                 <div style="margin-top:8px;">
                     <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
-                </div>
-            ` : ''}
-            ${order.status === 'completed' ? `
-                <div style="display:flex;gap:8px;margin-top:12px;">
-                    <button class="btn-outline" style="flex:1;" onclick="orderAgain(${order.product_id})">إعادة الطلب</button>
-                    <button class="btn-outline" style="flex:1;" onclick="shareProduct(${order.product_id})">مشاركة</button>
                 </div>
             ` : ''}
         </div>
@@ -1084,8 +882,7 @@ function renderLatestOrders() {
 function isWithinCancelWindow(createdAt) {
     if (!createdAt) return false;
     const created = new Date(createdAt).getTime();
-    const now = Date.now();
-    return (now - created) < 120000;
+    return (Date.now() - created) < 120000;
 }
 
 function startCancelCountdown(orderId, createdAt) {
@@ -1095,13 +892,10 @@ function startCancelCountdown(orderId, createdAt) {
         const elapsed = Date.now() - createdTime;
         const remaining = Math.max(0, 120 - Math.floor(elapsed / 1000));
         const timerEl = document.querySelector(`#timer-${orderId} .timer-text`);
-        if (timerEl) {
-            timerEl.textContent = remaining;
-        }
+        if (timerEl) timerEl.textContent = remaining;
         if (remaining <= 0) {
             clearInterval(cancelTimers[orderId]);
             delete cancelTimers[orderId];
-            ordersData = ordersData.map(o => o.id === orderId ? { ...o } : o);
             renderOrders(ordersData);
         }
     }, 1000);
@@ -1130,21 +924,6 @@ async function cancelOrder(orderId) {
     }
 }
 
-function orderAgain(productId) {
-    openPurchaseModal(productId);
-}
-
-function shareProduct(productId) {
-    const product = productsData.find(p => p.id === productId);
-    if (!product) return;
-    const text = `شاهد هذا المنتج: ${product.name} بسعر ${formatPrice(product.base_price)}`;
-    if (navigator.share) {
-        navigator.share({ title: product.name, text: text });
-    } else {
-        window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`, '_blank');
-    }
-}
-
 function getStatusText(status) {
     switch(status) {
         case 'pending': return 'قيد المعالجة';
@@ -1157,6 +936,9 @@ function getStatusText(status) {
     }
 }
 
+// ============================================================
+// 💰 Deposits List
+// ============================================================
 function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
@@ -1180,12 +962,15 @@ function renderDeposits(deposits) {
     `).join('');
 }
 
-// ============ KYC ============
+// ============================================================
+// 🪪 KYC
+// ============================================================
 function updateKYCUI() {
     const container = document.getElementById('kycDynamicContent');
     if (!container) return;
     const isVerified = (userData && (userData.kyc_status === 'verified' || userData.is_verified)) || kycStatus === 'verified';
     const isPending = (userData && userData.kyc_status === 'pending') || kycStatus === 'pending';
+
     if (isVerified) {
         container.innerHTML = `
             <div class="kyc-container">
@@ -1231,7 +1016,6 @@ async function submitKYCRequest(btn) {
         showNotification('تنبيه', 'يرجى تعبئة جميع الحقول ورفع الصورة', 'warning');
         return;
     }
-
     if (!userData || !userData.telegram_id) {
         showNotification('خطأ', 'بيانات المستخدم غير متوفرة', 'error');
         return;
@@ -1255,8 +1039,7 @@ async function submitKYCRequest(btn) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-                resolve(dataUrl);
+                resolve(canvas.toDataURL('image/jpeg', 0.6));
             };
             img.onerror = reject;
             img.src = reader.result;
@@ -1274,7 +1057,6 @@ async function submitKYCRequest(btn) {
             address: address,
             selfie_image: selfieBase64,
         });
-
         if (result && result.error) {
             showNotification('فشل الإرسال', result.error, 'error');
         } else {
@@ -1292,7 +1074,9 @@ async function submitKYCRequest(btn) {
     }
 }
 
-// ============ حالة تحميل الأزرار ============
+// ============================================================
+// 🔄 Button Loading
+// ============================================================
 function setButtonLoading(btn, loading) {
     if (!btn) return;
     if (loading) {
@@ -1309,7 +1093,7 @@ function setButtonLoading(btn, loading) {
 }
 
 // ============================================================
-// ============ شاشة الإشعار ============
+// 🎬 Notification Screen
 // ============================================================
 function showNotification(title, message, type = 'success') {
     const overlay = document.getElementById('successOverlay');
@@ -1331,11 +1115,8 @@ function showNotification(title, message, type = 'success') {
     if (msgEl) msgEl.textContent = message;
     if (iconEl) iconEl.textContent = icons[type] || 'check_circle';
 
-    if (iconContainer) {
-        iconContainer.className = 'success-icon ' + type;
-    }
+    if (iconContainer) iconContainer.className = 'success-icon ' + type;
     overlay.setAttribute('data-type', type);
-
     overlay.classList.add('active');
 
     const duration = (type === 'error') ? 4000 : 2200;
@@ -1349,87 +1130,87 @@ function showNotification(title, message, type = 'success') {
 function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
-
-// ============ شراء منتج ============
+// ============================================================
+// 🛒 Purchase Modal — التصميم الجديد
+// ============================================================
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
 
-    // ⭐ إضافة إلى "شوهد حديثاً"
     addToRecentlyViewed(productId);
 
-    const unitPrice = product.base_quantity > 0 ? product.base_price / product.base_quantity : product.base_price;
-    const maxQty = product.max_quantity || 0;
-    const maxQtyLabel = maxQty > 0 ? `<small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">الحد الأقصى: ${maxQty.toLocaleString('ar')}</small>` : '';
+    const unitPrice = product.base_quantity > 0
+        ? product.base_price / product.base_quantity
+        : product.base_price;
+    const baseQty = product.base_quantity || 1;
+    const totalPrice = unitPrice * baseQty;
 
     let customInputHTML = '';
+
     if (product.input_type === 'id') {
-        customInputHTML = `<div class="form-group"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field"></div>`;
+        customInputHTML = `
+            <div class="new-input-group">
+                <span class="material-icons new-input-icon">person_pin</span>
+                <input type="text" id="purchasePlayerId" inputmode="numeric" pattern="[0-9]*"
+                       placeholder="ايدي اللاعب (ID)" class="new-input"
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>`;
     } else if (product.input_type === 'account_id') {
-        customInputHTML = `<div class="form-group"><label>ID الحساب</label><input type="text" id="purchaseAccountId" placeholder="أدخل ID الحساب" class="input-field"></div>`;
+        customInputHTML = `
+            <div class="new-input-group">
+                <span class="material-icons new-input-icon">badge</span>
+                <input type="text" id="purchaseAccountId" inputmode="numeric" pattern="[0-9]*"
+                       placeholder="ايدي الحساب" class="new-input"
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>`;
     } else if (product.input_type === 'phone') {
-        customInputHTML = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field"></div>`;
+        customInputHTML = `
+            <div class="new-input-group">
+                <span class="material-icons new-input-icon">phone</span>
+                <input type="tel" id="purchasePhone" inputmode="numeric" pattern="[0-9]*"
+                       placeholder="رقم الهاتف" class="new-input"
+                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            </div>`;
     }
 
-    let modalContent = `
-        <div class="purchase-modal">
-            <div class="purchase-header">
-                ${product.image ? `<div class="purchase-image-lg" style="background-image:url('${product.image}');"></div>` : '<div class="purchase-image-lg placeholder">📦</div>'}
-                <h3 class="purchase-title">${product.name}</h3>
-                <div class="purchase-price-info">
-                    <span>${formatPrice(unitPrice)}</span>
-                    ${product.unit_name ? `<small> / ${product.unit_name}</small>` : ''}
+    const fav = isFavorite(product.id);
+
+    const modalContent = `
+        <div class="new-purchase-modal">
+            <div class="new-purchase-header">
+                <button class="new-fav-btn ${fav ? 'active' : ''}"
+                        onclick="toggleFavorite(${product.id}, event); this.classList.toggle('active');">
+                    <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
+                </button>
+                <div class="new-purchase-title-wrap">
+                    ${product.image
+                        ? `<img src="${product.image}" class="new-purchase-logo" alt="${product.name}">`
+                        : `<div class="new-purchase-logo placeholder">📦</div>`}
+                    <h3 class="new-purchase-title">${product.name}</h3>
                 </div>
-                ${maxQty > 0 ? `<div class="purchase-max-info">📦 الحد الأقصى: ${maxQty.toLocaleString('ar')}</div>` : ''}
             </div>
 
-            <div class="form-group">
-                <label>الكمية المطلوبة</label>
-                <div class="quantity-selector">
-                    <button type="button" class="qty-btn" onclick="adjustQuantity(-1)">−</button>
-                    <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" ${maxQty > 0 ? `max="${maxQty}"` : ''} class="qty-input">
-                    <button type="button" class="qty-btn" onclick="adjustQuantity(1)">+</button>
+            <div class="new-info-row">
+                <div class="new-info-box">
+                    <div class="new-info-label">العدد</div>
+                    <div class="new-info-value">${baseQty.toLocaleString('en')}</div>
                 </div>
-                ${maxQtyLabel}
+                <div class="new-info-box primary">
+                    <div class="new-info-label">الاجمالي</div>
+                    <div class="new-info-value">${formatPrice(totalPrice)}</div>
+                </div>
             </div>
 
             ${customInputHTML}
 
-            <div class="purchase-total-box">
-                <span>الإجمالي:</span>
-                <strong id="purchaseTotal">${formatPrice(unitPrice * (product.base_quantity || 1))}</strong>
-            </div>
-
-            <div style="display:flex; gap:8px; margin-top:16px;">
-                <button class="btn-primary" style="flex:1;" onclick="confirmPurchaseDialog(${product.id}, this)">شراء الآن</button>
-                <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
+            <div class="new-purchase-actions">
+                <button class="new-btn-cancel" onclick="closeModal()">إلغاء</button>
+                <button class="new-btn-buy" onclick="confirmPurchaseDialog(${product.id}, this)">شراء</button>
             </div>
         </div>
     `;
-    openModal('شراء منتج', modalContent);
 
-    const updateTotal = () => {
-        let total = 0;
-        const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
-        total = unitPrice * qty;
-        const totalEl = document.getElementById('purchaseTotal');
-        if (totalEl) totalEl.textContent = formatPrice(total);
-    };
-
-    document.getElementById('purchaseQuantity')?.addEventListener('input', updateTotal);
-    updateTotal();
-}
-
-function adjustQuantity(delta) {
-    const input = document.getElementById('purchaseQuantity');
-    if (!input) return;
-    let current = parseInt(input.value) || 1;
-    let newVal = current + delta;
-    if (newVal < 1) newVal = 1;
-    const max = parseInt(input.getAttribute('max')) || 0;
-    if (max > 0 && newVal > max) newVal = max;
-    input.value = newVal;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    openModal('', modalContent);
 }
 
 function confirmPurchaseDialog(productId, btn) {
@@ -1437,39 +1218,24 @@ function confirmPurchaseDialog(productId, btn) {
     if (!product) return;
 
     if (product.input_type === 'id') {
-        const playerId = document.getElementById('purchasePlayerId')?.value;
-        if (!playerId || !playerId.trim()) {
-            showNotification('تنبيه', 'يرجى إدخال معرف اللاعب (ID)', 'warning');
+        const val = document.getElementById('purchasePlayerId')?.value;
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
             return;
         }
     } else if (product.input_type === 'account_id') {
-        const accountId = document.getElementById('purchaseAccountId')?.value;
-        if (!accountId || !accountId.trim()) {
-            showNotification('تنبيه', 'يرجى إدخال ID الحساب', 'warning');
+        const val = document.getElementById('purchaseAccountId')?.value;
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
             return;
         }
     } else if (product.input_type === 'phone') {
-        const phone = document.getElementById('purchasePhone')?.value;
-        if (!phone || !phone.trim()) {
-            showNotification('تنبيه', 'يرجى إدخال رقم الهاتف', 'warning');
+        const val = document.getElementById('purchasePhone')?.value;
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
             return;
         }
     }
-
-    const qty = parseInt(document.getElementById('purchaseQuantity')?.value) || 1;
-
-    const maxQty = product.max_quantity || 0;
-    if (maxQty > 0 && qty > maxQty) {
-        showNotification('خطأ', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'error');
-        return;
-    }
-
-    const total = product.base_quantity > 0
-        ? (product.base_price / product.base_quantity) * qty
-        : product.base_price * qty;
-
-    const confirmed = confirm(`هل أنت متأكد من شراء ${qty.toLocaleString('ar')} من ${product.name}؟\nالإجمالي: ${formatPrice(total)}`);
-    if (!confirmed) return;
 
     executeConfirmPurchase(productId, btn);
 }
@@ -1478,15 +1244,22 @@ async function executeConfirmPurchase(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product || !userData) return;
 
+    const idempotencyKey = `ord-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const orderData = {
         telegram_id: userData.telegram_id,
         product_id: productId,
+        quantity: product.base_quantity || 1,
+        idempotency_key: idempotencyKey,
     };
-    orderData.quantity = parseInt(document.getElementById('purchaseQuantity')?.value);
 
-    if (product.input_type === 'id') orderData.player_id = document.getElementById('purchasePlayerId')?.value;
-    else if (product.input_type === 'account_id') orderData.account_id = document.getElementById('purchaseAccountId')?.value;
-    else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
+    if (product.input_type === 'id') {
+        orderData.player_id = document.getElementById('purchasePlayerId')?.value;
+    } else if (product.input_type === 'account_id') {
+        orderData.account_id = document.getElementById('purchaseAccountId')?.value;
+    } else if (product.input_type === 'phone') {
+        orderData.phone = document.getElementById('purchasePhone')?.value;
+    }
 
     if (btn) setButtonLoading(btn, true);
 
@@ -1511,7 +1284,9 @@ async function executeConfirmPurchase(productId, btn) {
     }
 }
 
-// ============ الإيداع ============
+// ============================================================
+// 💰 Deposit Flow
+// ============================================================
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
@@ -1530,10 +1305,25 @@ function showDepositStep1(methodId) {
             <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${method.name}</h3></div>
             <p style="color:var(--text-secondary); margin-bottom:16px;">${method.description || ''}</p>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; text-align:right;">
-                <div style="margin-bottom:12px;"><div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><span id="copyAccountName">${method.account_name || '-'}</span><button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button></div></div>
-                <div><div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><span id="copyAccountNumber">${method.account || '-'}</span><button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button></div></div>
+                <div style="margin-bottom:12px;">
+                    <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span id="copyAccountName">${method.account_name || '-'}</span>
+                        <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <span id="copyAccountNumber">${method.account || '-'}</span>
+                        <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
+                    </div>
+                </div>
             </div>
-            <div style="margin-bottom:16px;"><div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>${qrCode}</div>
+            <div style="margin-bottom:16px;">
+                <div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>
+                ${qrCode}
+            </div>
             <button class="btn-primary" onclick="showDepositStep2()">التالي</button>
         </div>
     `;
@@ -1548,7 +1338,11 @@ function showDepositStep2() {
             <h3>إتمام الإيداع</h3>
             <div class="form-group"><label>المبلغ بالدولار</label><input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field"></div>
             <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field"></div>
-            <div class="form-group"><label>إثبات التحويل (صورة)</label><div class="image-preview" id="depositProofPreview">📷</div><input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field"></div>
+            <div class="form-group">
+                <label>إثبات التحويل (صورة)</label>
+                <div class="image-preview" id="depositProofPreview">📷</div>
+                <input type="file" id="depositProofImage" accept="image/*" onchange="previewImage(this, 'depositProofPreview')" class="input-field">
+            </div>
             <button class="btn-primary" onclick="submitDeposit(this)">إرسال</button>
         </div>
     `;
@@ -1559,7 +1353,9 @@ function copyText(elementId) {
     const text = document.getElementById(elementId)?.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success')).catch(() => fallbackCopy(text));
+        navigator.clipboard.writeText(text)
+            .then(() => showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success'))
+            .catch(() => fallbackCopy(text));
     } else {
         fallbackCopy(text);
     }
@@ -1570,7 +1366,12 @@ function fallbackCopy(text) {
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
-    try { document.execCommand('copy'); showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success'); } catch (e) { showNotification('خطأ', 'تعذر النسخ', 'error'); }
+    try {
+        document.execCommand('copy');
+        showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success');
+    } catch (e) {
+        showNotification('خطأ', 'تعذر النسخ', 'error');
+    }
     document.body.removeChild(textarea);
 }
 
@@ -1621,7 +1422,9 @@ async function submitDeposit(btn) {
     }
 }
 
-// ============ الخدمة المخصصة ============
+// ============================================================
+// 🛠️ Service Request
+// ============================================================
 function requestCustomService() {
     openModal('طلب خدمة مخصصة', `
         <div class="form-group"><label>اسم الخدمة</label><input type="text" id="serviceName" placeholder="مثال: تصميم شعار"></div>
@@ -1640,7 +1443,12 @@ async function submitServiceRequest(btn) {
 
     setButtonLoading(btn, true);
     try {
-        const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
+        const result = await requestCustomService({
+            telegram_id: userData.telegram_id,
+            service_name,
+            description,
+            estimated_price
+        });
         if (result && result.error) {
             showNotification('خطأ', result.error, 'error');
         } else {
@@ -1654,7 +1462,9 @@ async function submitServiceRequest(btn) {
     }
 }
 
-// ============ الإحالات ============
+// ============================================================
+// 🎁 Referrals
+// ============================================================
 function openReferralModal() {
     if (!userData) return;
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
@@ -1691,7 +1501,9 @@ function shareReferral(link) {
     }
 }
 
-// ============ الأسئلة الشائعة ============
+// ============================================================
+// ❓ FAQ
+// ============================================================
 const faqData = [
     { q: 'كيف أشحن رصيدي؟', a: 'اذهب إلى قسم "شحن" في الأسفل، اختر طريقة الدفع، ثم اتبع التعليمات.' },
     { q: 'كم يستغرق تنفيذ الطلب؟', a: 'عادة ما يتم تنفيذ الطلب خلال 5-15 دقيقة، لكن قد يتأخر في بعض الحالات.' },
@@ -1717,57 +1529,68 @@ function setupFAQ() {
 
 function toggleFAQ(index) {
     const items = document.querySelectorAll('.faq-item');
-    if (items[index]) {
-        items[index].classList.toggle('open');
-    }
+    if (items[index]) items[index].classList.toggle('open');
 }
 
-// ============ الدعم والإشعارات ============
+// ============================================================
+// 🎧 Support & Notifications
+// ============================================================
 function openSupport() {
     window.open('https://t.me/SANADST', '_blank');
 }
 
-function openNotificationsPage() {
-    if (!userData) { showNotification('تنبيه', 'افتح التطبيق من تيليجرام', 'warning'); return; }
-    fetchNotifications(userData.telegram_id).then(notifications => {
-        const bodyHTML = `
-            <div style="text-align:center;">
-                <h3>الإشعارات</h3>
-                ${notifications.length ? notifications.map(n => `
-                    <div style="text-align:right;background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);">
-                        <div style="font-weight:bold;">${n.title}</div>
-                        <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
-                        <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
-                    </div>`).join('') : '<p>لا توجد إشعارات</p>'}
-                <button class="btn-outline" style="width:100%;" onclick="markAllNotificationsRead()">تعليم الكل كمقروء</button>
-            </div>`;
-        openModal('الإشعارات', bodyHTML);
-    });
-}
+async function openNotificationsPage() {
+    if (!userData) {
+        showNotification('تنبيه', 'افتح التطبيق من تيليجرام', 'warning');
+        return;
+    }
 
-async function markAllNotificationsRead() {
-    if (!userData) return;
-    try {
-        for (let n of notificationsData) {
-            if (!n.is_read) await markNotificationRead(n.id);
+    notificationsData = await fetchNotifications(userData.telegram_id);
+
+    const bodyHTML = `
+        <div style="text-align:center;">
+            <h3>الإشعارات</h3>
+            ${notificationsData.length ? notificationsData.map(n => `
+                <div style="text-align:right;background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);${!n.is_read ? 'border-right:3px solid var(--primary);' : ''}">
+                    <div style="font-weight:bold;">${n.title}</div>
+                    <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
+                    <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
+                </div>
+            `).join('') : '<p>لا توجد إشعارات</p>'}
+        </div>`;
+    openModal('الإشعارات', bodyHTML);
+
+    // تعليم كل الإشعارات كمقروءة تلقائياً
+    const unreadIds = notificationsData.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length) {
+        for (const id of unreadIds) {
+            try { await markNotificationRead(id); } catch (e) {}
         }
-        notificationsData = await fetchNotifications(userData.telegram_id);
+        notificationsData = notificationsData.map(n => ({ ...n, is_read: true }));
         updateNotificationBadge();
-        closeModal();
-        openNotificationsPage();
-    } catch (error) {
-        console.error('mark all read error:', error);
     }
 }
 
 function updateNotificationBadge() {
+    if (!notificationsData || !notificationsData.length) {
+        const badge = document.getElementById('notificationBadge');
+        if (badge) badge.style.display = 'none';
+        return;
+    }
     const unread = notificationsData.filter(n => !n.is_read).length;
     const badge = document.getElementById('notificationBadge');
-    if (unread > 0) { badge.style.display = 'inline'; badge.textContent = unread; }
-    else { badge.style.display = 'none'; }
+    if (!badge) return;
+    if (unread > 0) {
+        badge.style.display = 'inline';
+        badge.textContent = unread > 99 ? '99+' : unread;
+    } else {
+        badge.style.display = 'none';
+    }
 }
 
-// ============ التنقل ============
+// ============================================================
+// 🧭 Navigation
+// ============================================================
 function setupNavigation() {
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -1775,8 +1598,6 @@ function setupNavigation() {
             navigateTo(pageId);
         });
     });
-    document.getElementById('backButton')?.addEventListener('click', handleBack);
-    document.getElementById('closeButton')?.addEventListener('click', handleClose);
 }
 
 function setupFilters() {
@@ -1821,7 +1642,9 @@ function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const target = document.getElementById(pageId);
     if (target) target.classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
+    document.querySelectorAll('.nav-item').forEach(item =>
+        item.classList.toggle('active', item.getAttribute('data-page') === pageId)
+    );
     currentPage = pageId;
 
     if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); renderRecentlyViewed(); }
@@ -1833,16 +1656,20 @@ function navigateTo(pageId) {
     if (pageId === 'page-favorites') renderFavorites();
     if (pageId === 'page-faq') setupFAQ();
 
-    // تمرير لأعلى
     const mainContent = document.querySelector('.main-content');
     if (mainContent) mainContent.scrollTop = 0;
 }
 
-// ============ أدوات عامة ============
+// ============================================================
+// 🔧 Helpers
+// ============================================================
 function previewImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
-        reader.onload = e => document.getElementById(previewId).innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+        reader.onload = e => {
+            const el = document.getElementById(previewId);
+            if (el) el.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+        };
         reader.readAsDataURL(input.files[0]);
     }
 }
@@ -1875,11 +1702,11 @@ function toggleTheme() {
 
 function goToAccount() { navigateTo('page-account'); }
 function showNotifications() { openNotificationsPage(); }
+
 // ============================================================
-// 🚀 Init App — التشغيل الرئيسي
+// 🚀 Init App
 // ============================================================
 async function loadInitialData() {
-    // تحميل كل البيانات بالتوازي
     const results = await Promise.allSettled([
         fetchCategories(),
         fetchProducts(),
@@ -1900,20 +1727,15 @@ async function loadInitialData() {
     const kycResult = results[6].status === 'fulfilled' ? results[6].value : { status: 'none' };
     kycStatus = kycResult?.status || 'none';
 
-    // طباعة للأخطاء
     results.forEach((r, i) => {
-        if (r.status === 'rejected') {
-            console.warn(`⚠️ فشل تحميل البيانات ${i}:`, r.reason);
-        }
+        if (r.status === 'rejected') console.warn(`⚠️ فشل تحميل البيانات ${i}:`, r.reason);
     });
 }
-
 
 async function initApp() {
     console.log('🚀 بدء تشغيل SANAD+ ...');
 
     try {
-        // 1. تهيئة Telegram
         const ok = await initTelegram();
         if (!ok) {
             console.error('❌ فشل تهيئة Telegram');
@@ -1924,7 +1746,6 @@ async function initApp() {
             return;
         }
 
-        // 2. تطبيق ثيم تيليجرام
         applyTelegramTheme();
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
@@ -1933,30 +1754,25 @@ async function initApp() {
             if (toggle) toggle.checked = (savedTheme === 'dark');
         }
 
-        // 3. المصادقة مع Backend
         console.log('🔐 جاري المصادقة...');
         const initData = window.Telegram?.WebApp?.initData || '';
         userData = await authenticateUser(initData);
         console.log('✅ تم تسجيل الدخول:', userData.telegram_id);
 
-        // 4. تحميل البيانات
         console.log('📦 تحميل البيانات...');
         await loadInitialData();
         console.log(`✅ تم تحميل: ${categoriesData.length} قسم، ${productsData.length} منتج`);
 
-        // 5. تحديث الواجهة
         updateUserUI();
         updateNotificationBadge();
         renderCategories();
         renderRecentlyViewed();
         renderLatestOrders();
 
-        // 6. تفعيل الأنظمة
         setupNavigation();
         setupFilters();
         setupSearch();
 
-        // 7. تفعيل Pull to Refresh + Swipe
         try {
             PullToRefresh.init();
             SwipeNav.init();
@@ -1968,8 +1784,6 @@ async function initApp() {
 
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
-
-        // رسالة واضحة للمستخدم
         const gm = document.getElementById('greetingMessage');
         const gs = document.getElementById('greetingSub');
         if (gm) gm.textContent = 'خطأ في الاتصال';
@@ -1977,10 +1791,6 @@ async function initApp() {
     }
 }
 
-
-// ============================================================
-// ▶️ نقطة البداية
-// ============================================================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
