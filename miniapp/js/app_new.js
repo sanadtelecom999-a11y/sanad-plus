@@ -762,7 +762,7 @@ function buildOrderTimelineHTML(order) {
 }
 
 // ============================================================
-// 📦 تفاصيل التسليم الجديدة
+// 📦 تفاصيل التسليم — سطر inline مع أيقونة
 // ============================================================
 function buildDeliveryDetailsHTML(order) {
     if (!order.delivery_data) return '';
@@ -781,7 +781,7 @@ function buildDeliveryDetailsHTML(order) {
         items.push({ icon: 'person_pin', label: 'ID', value: delivery.player_id });
     }
     if (delivery.account_id) {
-        items.push({ icon: 'badge', label: 'الحساب', value: delivery.account_id });
+        items.push({ icon: 'badge', label: 'ID', value: delivery.account_id });
     }
     if (delivery.phone) {
         items.push({ icon: 'phone', label: 'الهاتف', value: delivery.phone });
@@ -792,25 +792,17 @@ function buildDeliveryDetailsHTML(order) {
 
     if (!items.length) return '';
 
-    return `
-        <div class="delivery-list">
-            ${items.map(item => `
-                <div class="delivery-item">
-                    <div class="delivery-item-icon">
-                        <span class="material-icons">${item.icon}</span>
-                    </div>
-                    <div class="delivery-item-content">
-                        <div class="delivery-item-label">${item.label}</div>
-                        <div class="delivery-item-value">${item.value}</div>
-                    </div>
-                </div>
-            `).join('')}
+    return items.map(item => `
+        <div class="order-detail-line">
+            <span class="material-icons order-detail-icon">${item.icon}</span>
+            <span class="order-detail-label">${item.label}:</span>
+            <span class="order-detail-value">${item.value}</span>
         </div>
-    `;
+    `).join('');
 }
 
 // ============================================================
-// 📋 renderOrders — بدون إعادة الطلب / مشاركة
+// 📋 renderOrders
 // ============================================================
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
@@ -1131,7 +1123,7 @@ function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
 // ============================================================
-// 🛒 Purchase Modal — التصميم الجديد
+// 🛒 Purchase Modal — الكمية قابلة للتعديل
 // ============================================================
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
@@ -1139,11 +1131,13 @@ function openPurchaseModal(productId) {
 
     addToRecentlyViewed(productId);
 
-    const unitPrice = product.base_quantity > 0
-        ? product.base_price / product.base_quantity
-        : product.base_price;
     const baseQty = product.base_quantity || 1;
-    const totalPrice = unitPrice * baseQty;
+    const basePrice = product.base_price || 0;
+    // سعر الوحدة = السعر الإجمالي للكمية الأساسية ÷ الكمية الأساسية
+    const unitPrice = baseQty > 0 ? basePrice / baseQty : basePrice;
+
+    // حفظ سعر الوحدة لاستخدامه في حساب الإجمالي
+    window.__currentPurchaseUnitPrice = unitPrice;
 
     let customInputHTML = '';
 
@@ -1192,12 +1186,14 @@ function openPurchaseModal(productId) {
 
             <div class="new-info-row">
                 <div class="new-info-box">
-                    <div class="new-info-label">العدد</div>
-                    <div class="new-info-value">${baseQty.toLocaleString('en')}</div>
+                    <div class="new-info-label">الكمية</div>
+                    <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
+                           value="${baseQty}" class="new-qty-input"
+                           oninput="updatePurchaseTotal()">
                 </div>
                 <div class="new-info-box primary">
                     <div class="new-info-label">الاجمالي</div>
-                    <div class="new-info-value">${formatPrice(totalPrice)}</div>
+                    <div class="new-info-value" id="newTotalDisplay">${formatPrice(basePrice)}</div>
                 </div>
             </div>
 
@@ -1213,10 +1209,48 @@ function openPurchaseModal(productId) {
     openModal('', modalContent);
 }
 
+// ============================================================
+// 🔢 تحديث الإجمالي عند تغيير الكمية
+// ============================================================
+function updatePurchaseTotal() {
+    const input = document.getElementById('newQtyInput');
+    if (!input) return;
+
+    // احذف كل ما ليس رقماً
+    const cleaned = input.value.replace(/[^0-9]/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+
+    const qty = parseInt(input.value) || 0;
+    const unitPrice = window.__currentPurchaseUnitPrice || 0;
+    const total = qty * unitPrice;
+
+    const display = document.getElementById('newTotalDisplay');
+    if (display) display.textContent = formatPrice(total);
+}
+
+// ============================================================
+// ✅ تأكيد الشراء
+// ============================================================
 function confirmPurchaseDialog(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
 
+    // فحص الكمية
+    const qtyInput = document.getElementById('newQtyInput');
+    const qty = parseInt(qtyInput?.value);
+    if (!qty || qty < 1) {
+        showNotification('تنبيه', 'يرجى إدخال كمية صحيحة (1 على الأقل)', 'warning');
+        return;
+    }
+
+    // فحص الحد الأقصى
+    const maxQty = product.max_quantity || 0;
+    if (maxQty > 0 && qty > maxQty) {
+        showNotification('تنبيه', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'warning');
+        return;
+    }
+
+    // فحص حقول الإدخال
     if (product.input_type === 'id') {
         const val = document.getElementById('purchasePlayerId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
@@ -1244,12 +1278,15 @@ async function executeConfirmPurchase(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product || !userData) return;
 
+    const qtyInput = document.getElementById('newQtyInput');
+    const qty = parseInt(qtyInput?.value);
+
     const idempotencyKey = `ord-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const orderData = {
         telegram_id: userData.telegram_id,
         product_id: productId,
-        quantity: product.base_quantity || 1,
+        quantity: qty,
         idempotency_key: idempotencyKey,
     };
 

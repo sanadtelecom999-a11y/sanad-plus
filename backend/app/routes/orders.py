@@ -1,4 +1,5 @@
 import uuid
+import json
 from datetime import datetime, timezone, timedelta
 from flask import request, jsonify
 from sqlalchemy import update as sa_update
@@ -145,18 +146,24 @@ def create_order():
         player_id = data.get("player_id", "")
         if not player_id or not str(player_id).strip():
             return jsonify({"error": "يرجى إدخال معرف اللاعب (ID)"}), 400
+        # فحص الأرقام فقط
+        if not str(player_id).strip().isdigit():
+            return jsonify({"error": "يرجى إدخال أرقام فقط في حقل الايدي"}), 400
         delivery_data = {"player_id": str(player_id).strip()}
     elif product.input_type == "account_id":
         account_id = data.get("account_id", "")
         if not account_id or not str(account_id).strip():
             return jsonify({"error": "يرجى إدخال ID الحساب"}), 400
+        if not str(account_id).strip().isdigit():
+            return jsonify({"error": "يرجى إدخال أرقام فقط في حقل الايدي"}), 400
         delivery_data = {"account_id": str(account_id).strip()}
     elif product.input_type == "phone":
         phone = data.get("phone", "")
         if not phone or not str(phone).strip():
             return jsonify({"error": "يرجى إدخال رقم الهاتف"}), 400
+        if not str(phone).strip().isdigit():
+            return jsonify({"error": "يرجى إدخال أرقام فقط في رقم الهاتف"}), 400
         delivery_data = {"phone": str(phone).strip()}
-    # input_type == "none" → لا يوجد حقل مطلوب
 
     # ============ تحديد السعر والكمية ============
     if product.product_type == "bundle":
@@ -174,7 +181,7 @@ def create_order():
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
 
-        # ✅ الحد الأقصى للكمية — من المنتج (0 = بلا حد)
+        # ✅ الحد الأقصى للكمية
         max_qty = product.max_quantity or 0
         if max_qty > 0 and quantity > max_qty:
             return jsonify({
@@ -187,6 +194,7 @@ def create_order():
                 "error": f"الكمية المتوفرة فقط {product.stock}"
             }), 400
 
+        # ✅ حساب سعر الوحدة من الكمية الأساسية
         if product.base_quantity > 0:
             unit_price = product.base_price / product.base_quantity
         else:
@@ -202,7 +210,7 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # ============ Atomic check + update — ضد race condition ============
+    # ============ Atomic check + update ============
     result = db.session.execute(
         sa_update(User)
         .where(User.id == user.id, User.balance >= total_price)
@@ -214,7 +222,7 @@ def create_order():
 
     db.session.refresh(user)
 
-    # ============ إنشاء الطلب ============
+    # ============ إنشاء الطلب — delivery_data كـ JSON صحيح ============
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
         user_id=user.id,
@@ -225,7 +233,7 @@ def create_order():
         discount_amount=discount_amount,
         coupon_code=coupon_obj.code if coupon_obj else None,
         status="pending",
-        delivery_data=str(delivery_data),
+        delivery_data=json.dumps(delivery_data, ensure_ascii=False),
         idempotency_key=idempotency_key or uuid.uuid4().hex,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
@@ -263,7 +271,7 @@ def create_order():
         db.session.add(usage)
         db.session.commit()
 
-    # ✅ خصم المخزون (بعد نجاح الطلب)
+    # ✅ خصم المخزون
     if product.stock is not None and product.stock > 0:
         product.stock = max(0, product.stock - quantity)
         db.session.commit()
@@ -312,7 +320,11 @@ def cancel_order(order_id):
     if order.status != "pending":
         return jsonify({"error": "لا يمكن إلغاء هذا الطلب"}), 400
 
-    elapsed = datetime.now(timezone.utc) - order.created_at
+    # ✅ إصلاح timezone — استخدم created_at المحلي
+    creation_time = order.created_at
+    if creation_time.tzinfo is None:
+        creation_time = creation_time.replace(tzinfo=timezone.utc)
+    elapsed = datetime.now(timezone.utc) - creation_time
     if elapsed > timedelta(seconds=120):
         return jsonify({"error": "انتهت مهلة الإلغاء"}), 400
 
