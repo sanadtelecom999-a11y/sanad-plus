@@ -1,40 +1,32 @@
 import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import User, Deposit, Transaction, Notification
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
 
-def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
-        user = User(
-            telegram_id=telegram_id,
-            first_name=first_name,
-            last_name=last_name,
-            username=username,
-            balance=0.0,
-            kyc_status='unverified',
-            is_verified=False,
-            role='user',
-            vip_level=0,
-            referral_code=uuid.uuid4().hex[:8].upper(),
-            created_at=datetime.now(timezone.utc)
-        )
-        db.session.add(user)
-        db.session.commit()
-    return user
+
+def get_current_user():
+    identity = get_jwt_identity()
+    if not identity:
+        return None
+    try:
+        user_id = int(identity)
+    except (ValueError, TypeError):
+        return None
+    return User.query.get(user_id)
+
 
 @main.route("/api/deposits/", methods=["POST"])
+@jwt_required()
 def create_deposit():
-    data = request.get_json()
-    telegram_id = data.get("telegram_id")
-    if not telegram_id:
-        return jsonify({"error": "telegram_id مطلوب"}), 400
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "غير مصرح"}), 401
 
-    user = get_or_create_user(telegram_id)
-
+    data = request.get_json() or {}
     amount = float(data.get("amount", 0))
     method = data.get("method", "")
     proof_image = data.get("proof_image", "")
@@ -78,12 +70,14 @@ def create_deposit():
         "transaction_id": deposit.transaction_id,
     }), 201
 
+
 @main.route("/api/deposits/my", methods=["GET"])
+@jwt_required()
 def get_my_deposits():
-    telegram_id = request.args.get("telegram_id", type=int)
-    user = User.query.filter_by(telegram_id=telegram_id).first()
+    user = get_current_user()
     if not user:
-        return jsonify([])
+        return jsonify({"error": "غير مصرح"}), 401
+
     deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).all()
     return jsonify([{
         "id": d.id,

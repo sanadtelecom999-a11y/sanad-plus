@@ -3,19 +3,39 @@
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
 // ============================================================
-// ⚙️ إعدادات Retry (Cold Start على Render Free)
+// 🔑 JWT Storage
+// ============================================================
+const TOKEN_KEY = 'user_token';
+
+function getAuthToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
+}
+
+function setAuthToken(token) {
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
+}
+
+function clearAuthToken() {
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+}
+
+// ============================================================
+// ⚙️ Retry Config
 // ============================================================
 const RETRY_CONFIG = {
     maxRetries: 2,
     baseDelay: 3000,
     maxDelay: 15000,
-    timeout: 60000,  // 60 ثانية
+    timeout: 60000,
     retryOnStatus: [0, 408, 429, 500, 502, 503, 504],
 };
 
-
+// ============================================================
+// 🚀 apiFetch — مع JWT + Retry
+// ============================================================
 async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
-    // دمج الإعدادات
+    const token = getAuthToken();
+
     const config = {
         method: options.method || 'GET',
         headers: {
@@ -25,7 +45,12 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
         ...options,
     };
 
-    // Timeout عبر AbortController
+    // إضافة التوكن إن وُجد
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), RETRY_CONFIG.timeout);
     config.signal = controller.signal;
@@ -34,7 +59,34 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
         const response = await fetch(url, config);
         clearTimeout(timeoutId);
 
-        // 5xx → أعد المحاولة
+        // 401 → التوكن منتهي أو غير صالح
+        if (response.status === 401) {
+            clearAuthToken();
+            // حاول تسجيل الدخول مرة أخرى عبر initData
+            const initData = window.Telegram?.WebApp?.initData || '';
+            if (initData && !options.__retried_auth) {
+                console.warn('⚠️ Token منتهي — إعادة المصادقة');
+                try {
+                    const authRes = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ initData }),
+                    });
+                    if (authRes.ok) {
+                        const authData = await authRes.json();
+                        if (authData.access_token) {
+                            setAuthToken(authData.access_token);
+                            // أعد المحاولة بنفس الطلب
+                            return apiFetch(url, { ...options, __retried_auth: true }, retries);
+                        }
+                    }
+                } catch (e) {
+                    console.error('فشل إعادة المصادقة:', e);
+                }
+            }
+        }
+
+        // Retry على 5xx
         if (RETRY_CONFIG.retryOnStatus.includes(response.status) && retries > 0) {
             const delay = calculateDelay(retries);
             console.warn(`⚠️ Status ${response.status} — Retry in ${delay}ms`);
@@ -43,7 +95,6 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
             return apiFetch(url, options, retries - 1);
         }
 
-        // معالجة الرد
         let data;
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -54,11 +105,8 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
 
         if (!response.ok) {
             let errorMessage = `خطأ ${response.status}`;
-            if (typeof data === 'object' && data.error) {
-                errorMessage = data.error;
-            } else if (typeof data === 'string' && data) {
-                errorMessage = data;
-            }
+            if (typeof data === 'object' && data.error) errorMessage = data.error;
+            else if (typeof data === 'string' && data) errorMessage = data;
             throw new Error(errorMessage);
         }
 
@@ -87,43 +135,26 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
     }
 }
 
-
 function calculateDelay(retriesLeft) {
     const attempt = RETRY_CONFIG.maxRetries - retriesLeft;
-    const delay = RETRY_CONFIG.baseDelay * Math.pow(2, attempt);
-    return Math.min(delay, RETRY_CONFIG.maxDelay);
+    return Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
 }
-
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
-// ============================================================
-// 📢 مؤشر "جاري الاتصال" أثناء Retry
-// ============================================================
 function showConnectingIndicator(attempt) {
     let el = document.getElementById('__connecting_msg');
     if (!el) {
         el = document.createElement('div');
         el.id = '__connecting_msg';
         el.style.cssText = `
-            position: fixed;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #0D47A1;
-            color: white;
-            padding: 10px 18px;
-            border-radius: 12px;
-            font-size: 13px;
-            z-index: 99999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-family: 'Tajawal', sans-serif;
+            position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+            background: #0D47A1; color: white; padding: 10px 18px;
+            border-radius: 12px; font-size: 13px; z-index: 99999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex;
+            align-items: center; gap: 8px; font-family: 'Tajawal', sans-serif;
         `;
         document.body.appendChild(el);
     }
@@ -131,7 +162,6 @@ function showConnectingIndicator(attempt) {
         <span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:__spin 0.8s linear infinite;"></span>
         جاري الاتصال... (محاولة ${attempt})
     `;
-
     if (!document.getElementById('__spin_style')) {
         const style = document.createElement('style');
         style.id = '__spin_style';
@@ -140,25 +170,17 @@ function showConnectingIndicator(attempt) {
     }
 }
 
-
 function hideConnectingIndicator() {
     const el = document.getElementById('__connecting_msg');
     if (el) el.remove();
 }
 
-
-// ============================================================
-// 🚀 Ping لتنبيه Render عند فتح التطبيق
-// ✅ يستخدم مسار مسموح بـ CORS
-// ============================================================
 function pingBackend() {
-    fetch(`${API_BASE_URL}/api/categories/`, { method: 'GET' })
-        .catch(() => {});
+    fetch(`${API_BASE_URL}/api/categories/`, { method: 'GET' }).catch(() => {});
 }
 
-
 // ============================================================
-// 🔌 API Wrappers
+// 🔐 authenticateUser — يحفظ التوكن
 // ============================================================
 async function authenticateUser(initData) {
     let telegram_id = null;
@@ -183,18 +205,47 @@ async function authenticateUser(initData) {
         throw new Error('TELEGRAM_ID_MISSING');
     }
 
-    return await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
+    if (!initData) {
+        throw new Error('INITDATA_MISSING');
+    }
+
+    // استخدم fetch مباشرة (بدون التوكن القديم)
+    const response = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             telegram_id,
             first_name,
             last_name,
             username,
-            initData: initData || '',
+            initData,
         }),
     });
+
+    if (!response.ok) {
+        let errorMsg = 'فشل المصادقة';
+        try {
+            const err = await response.json();
+            if (err.error) errorMsg = err.error;
+        } catch (e) {}
+        throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+
+    // ✅ احفظ التوكن
+    if (data.access_token) {
+        setAuthToken(data.access_token);
+        console.log('✅ تم حفظ JWT');
+    }
+
+    // أرجع بيانات المستخدم
+    return data.user || data;
 }
 
+// ============================================================
+// 🔌 API Wrappers — كلها محمية بـ JWT الآن
+// ============================================================
 async function fetchCategories() {
     return await apiFetch(`${API_BASE_URL}/api/categories/`);
 }
@@ -210,41 +261,46 @@ async function fetchPaymentMethods() {
     return await apiFetch(`${API_BASE_URL}/api/payment-methods/`);
 }
 
-async function fetchUserOrders(telegramId) {
-    return await apiFetch(`${API_BASE_URL}/api/orders/my?telegram_id=${telegramId}`);
+async function fetchUserOrders() {
+    // ✅ بدون telegram_id — JWT يعرف من أنت
+    return await apiFetch(`${API_BASE_URL}/api/orders/my`);
 }
 
-async function fetchUserDeposits(telegramId) {
-    return await apiFetch(`${API_BASE_URL}/api/deposits/my?telegram_id=${telegramId}`);
+async function fetchUserDeposits() {
+    return await apiFetch(`${API_BASE_URL}/api/deposits/my`);
 }
 
 async function createOrder(orderData) {
+    // احذف telegram_id من الطلب — غير مطلوب الآن
+    const { telegram_id, ...cleanData } = orderData;
     return await apiFetch(`${API_BASE_URL}/api/orders/`, {
         method: 'POST',
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(cleanData),
     });
 }
 
 async function createDeposit(depositData) {
+    const { telegram_id, ...cleanData } = depositData;
     return await apiFetch(`${API_BASE_URL}/api/deposits/`, {
         method: 'POST',
-        body: JSON.stringify(depositData),
+        body: JSON.stringify(cleanData),
     });
 }
 
 async function submitKYC(kycData) {
+    const { telegram_id, ...cleanData } = kycData;
     return await apiFetch(`${API_BASE_URL}/api/kyc/submit`, {
         method: 'POST',
-        body: JSON.stringify(kycData),
+        body: JSON.stringify(cleanData),
     });
 }
 
-async function getMyKYC(telegramId) {
-    return await apiFetch(`${API_BASE_URL}/api/kyc/my?telegram_id=${telegramId}`);
+async function getMyKYC() {
+    return await apiFetch(`${API_BASE_URL}/api/kyc/my`);
 }
 
-async function fetchNotifications(telegramId) {
-    return await apiFetch(`${API_BASE_URL}/api/user/notifications?telegram_id=${telegramId}`);
+async function fetchNotifications() {
+    return await apiFetch(`${API_BASE_URL}/api/user/notifications`);
 }
 
 async function markNotificationRead(notificationId) {
@@ -255,12 +311,12 @@ async function markNotificationRead(notificationId) {
 }
 
 async function requestCustomService(serviceData) {
+    const { telegram_id, ...cleanData } = serviceData;
     return await apiFetch(`${API_BASE_URL}/api/user/request-service`, {
         method: 'POST',
-        body: JSON.stringify(serviceData),
+        body: JSON.stringify(cleanData),
     });
 }
-
 
 // Ping عند التحميل
 if (typeof window !== 'undefined') {

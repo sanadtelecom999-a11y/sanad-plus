@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl
 from flask import request, jsonify
+from flask_jwt_extended import create_access_token
 from ..models.base import User
 from ..extensions import db
 from . import main
@@ -31,7 +32,6 @@ def verify_telegram_init_data(init_data: str) -> bool:
         if not received_hash:
             return False
 
-        # فحص auth_date
         auth_date_raw = data.get("auth_date")
         if not auth_date_raw:
             return False
@@ -105,6 +105,24 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     return user
 
 
+def user_to_dict(user):
+    """تحويل المستخدم لـ JSON"""
+    return {
+        "id": user.id,
+        "telegram_id": user.telegram_id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "username": user.username,
+        "balance": user.balance,
+        "kyc_status": user.kyc_status,
+        "is_verified": user.is_verified,
+        "role": user.role,
+        "is_banned": user.is_banned,
+        "vip_level": user.vip_level,
+        "referral_code": user.referral_code,
+    }
+
+
 # ============================================================
 # ============ /api/auth/telegram — للمستخدمين (MiniApp) ============
 # ============================================================
@@ -133,19 +151,20 @@ def telegram_auth():
         user_data.get("username", ""),
     )
 
+    # ✅ توليد JWT
+    access_token = create_access_token(
+        identity=str(user.id),
+        additional_claims={
+            "telegram_id": user.telegram_id,
+            "role": user.role,
+        }
+    )
+
     return jsonify({
-        "id": user.id,
-        "telegram_id": user.telegram_id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "username": user.username,
-        "balance": user.balance,
-        "kyc_status": user.kyc_status,
-        "is_verified": user.is_verified,
-        "role": user.role,
-        "is_banned": user.is_banned,
-        "vip_level": user.vip_level,
-        "referral_code": user.referral_code,
+        "access_token": access_token,
+        "user": user_to_dict(user),
+        # للتوافق مع الكود القديم:
+        **user_to_dict(user),
     }), 200
 
 
@@ -182,17 +201,4 @@ def bot_auth():
         data.get("username", ""),
     )
 
-    return jsonify({
-        "id": user.id,
-        "telegram_id": user.telegram_id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "username": user.username,
-        "balance": user.balance,
-        "kyc_status": user.kyc_status,
-        "is_verified": user.is_verified,
-        "role": user.role,
-        "is_banned": user.is_banned,
-        "vip_level": user.vip_level,
-        "referral_code": user.referral_code,
-    }), 200
+    return jsonify(user_to_dict(user)), 200
