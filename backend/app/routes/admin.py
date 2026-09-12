@@ -375,7 +375,6 @@ def admin_adjust_balance(user_id):
     )
     db.session.add(txn)
 
-    # Audit Log
     log_financial(
         user=user,
         action="admin_adjustment",
@@ -448,7 +447,8 @@ def admin_categories():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     if request.method == "GET":
-        categories = Category.query.all()
+        # ✅ فقط الأقسام النشطة
+        categories = Category.query.filter_by(is_active=True).order_by(Category.order).all()
         return jsonify([{
             "id": c.id, "name": c.name, "description": c.description,
             "image": c.image, "is_active": c.is_active, "order": c.order,
@@ -481,8 +481,6 @@ def admin_delete_category(cat_id):
         return jsonify({"error": "قسم غير موجود"}), 404
 
     cat_name = cat.name
-
-    # Soft delete للقسم
     cat.is_active = False
 
     # Soft delete لكل المنتجات التابعة
@@ -490,13 +488,41 @@ def admin_delete_category(cat_id):
     for product in products:
         product.is_active = False
 
-    log_admin_activity(f"إخفاء قسم: {cat_name} ({len(products)} منتج)")
+    log_admin_activity(f"أرشفة قسم: {cat_name} ({len(products)} منتج)")
     db.session.commit()
 
-    notify_admins(f"🗑️ تم إخفاء القسم: {cat_name}")
+    notify_admins(f"📦 تم أرشفة القسم: {cat_name}")
     return jsonify({
         "success": True,
-        "message": f"تم إخفاء القسم و{len(products)} منتج"
+        "message": f"تم أرشفة القسم و{len(products)} منتج"
+    })
+
+
+@main.route("/admin/api/categories/<int:cat_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_category(cat_id):
+    """استرجاع قسم من الأرشيف + منتجاته"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    cat = Category.query.get(cat_id)
+    if not cat:
+        return jsonify({"error": "قسم غير موجود"}), 404
+
+    cat.is_active = True
+
+    # استرجاع كل المنتجات التابعة
+    products = Product.query.filter_by(category_id=cat_id).all()
+    for product in products:
+        product.is_active = True
+
+    log_admin_activity(f"استرجاع قسم: {cat.name} ({len(products)} منتج)")
+    db.session.commit()
+
+    notify_admins(f"♻️ تم استرجاع القسم: {cat.name}")
+    return jsonify({
+        "success": True,
+        "message": f"تم استرجاع القسم و{len(products)} منتج"
     })
 
 
@@ -510,7 +536,8 @@ def admin_products():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     if request.method == "GET":
-        products = Product.query.all()
+        # ✅ فقط المنتجات النشطة
+        products = Product.query.filter_by(is_active=True).all()
         return jsonify([{
             "id": p.id, "category_id": p.category_id, "name": p.name,
             "description": p.description, "image": p.image,
@@ -557,24 +584,59 @@ def admin_product_actions(product_id):
 
     if request.method == "PUT":
         data = request.get_json() or {}
+        # ✅ قائمة الحقول المسموح تعديلها
+        ALLOWED_FIELDS = {
+            "name", "description", "image", "category_id",
+            "product_type", "base_quantity", "base_price", "unit_name",
+            "input_type", "custom_input_label", "stock", "max_quantity",
+            "is_bundle", "is_active",
+        }
         for key, value in data.items():
-            if hasattr(product, key):
+            if key in ALLOWED_FIELDS and hasattr(product, key):
                 setattr(product, key, value)
         log_admin_activity(f"تعديل المنتج: {product.name}")
         db.session.commit()
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
-        return jsonify({"success": True})
+        return jsonify({"success": True, "message": "تم تعديل المنتج"})
 
-    # Soft Delete
+    # Soft Delete → أرشفة
     product_name = product.name
     product.is_active = False
 
-    log_admin_activity(f"إخفاء المنتج: {product_name}")
+    log_admin_activity(f"أرشفة المنتج: {product_name}")
     db.session.commit()
-    notify_admins(f"🗑️ تم إخفاء المنتج: {product_name}")
+    notify_admins(f"📦 تم أرشفة المنتج: {product_name}")
     return jsonify({
         "success": True,
-        "message": "تم إخفاء المنتج"
+        "message": "تم أرشفة المنتج"
+    })
+
+
+@main.route("/admin/api/products/<int:product_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_product(product_id):
+    """استرجاع منتج من الأرشيف"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "منتج غير موجود"}), 404
+
+    product.is_active = True
+
+    # تأكد أن القسم نشط
+    category = Category.query.get(product.category_id)
+    if category and not category.is_active:
+        category.is_active = True
+
+    log_admin_activity(f"استرجاع منتج: {product.name}")
+    db.session.commit()
+
+    notify_admins(f"♻️ تم استرجاع المنتج: {product.name}")
+    return jsonify({
+        "success": True,
+        "message": "تم استرجاع المنتج"
     })
 
 
@@ -607,6 +669,42 @@ def admin_bundles(product_id):
 
 
 # ============================================================
+# ============ 🆕 Archive API ============
+# ============================================================
+@main.route("/admin/api/archive", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive():
+    """جلب الأقسام والمنتجات المؤرشفة"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    archived_cats = Category.query.filter_by(is_active=False).order_by(Category.name).all()
+    archived_prods = Product.query.filter_by(is_active=False).order_by(Product.name).all()
+
+    return jsonify({
+        "categories": [{
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "image": c.image,
+            "order": c.order,
+        } for c in archived_cats],
+        "products": [{
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "image": p.image,
+            "category_id": p.category_id,
+            "category_name": (Category.query.get(p.category_id).name if Category.query.get(p.category_id) else "قسم محذوف"),
+            "base_price": p.base_price,
+            "base_quantity": p.base_quantity,
+            "product_type": p.product_type,
+        } for p in archived_prods],
+    })
+
+
+# ============================================================
 # ============ Payment Methods ============
 # ============================================================
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
@@ -616,7 +714,7 @@ def admin_payment_methods():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     if request.method == "GET":
-        methods = PaymentMethod.query.all()
+        methods = PaymentMethod.query.filter_by(is_active=True).all()
         return jsonify([{
             "id": m.id, "name": m.name, "description": m.description,
             "account_name": m.account_name, "account": m.account,
@@ -755,7 +853,6 @@ def admin_update_order_status(order_id):
         )
         db.session.add(txn)
 
-        # Audit Log
         log_financial(
             user=user,
             action="order_refund",
@@ -840,7 +937,6 @@ def admin_approve_deposit(deposit_id):
         )
         db.session.add(txn)
 
-        # Audit Log
         log_financial(
             user=user,
             action="deposit_approved",

@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/admin.css?v=8">
+    <link rel="stylesheet" href="css/admin.css?v=9">
 </head>
 <body>
 
@@ -97,8 +97,16 @@
             <button class="sidebar-item" data-section="referrals" onclick="switchSection('referrals')">
                 <span class="material-icons">card_giftcard</span> الإحالات
             </button>
+            <!-- 🆕 الأرشيف -->
+            <button class="sidebar-item" data-section="archive" onclick="switchSection('archive')">
+                <span class="material-icons">inventory</span> الأرشيف
+                <span class="nav-badge archive-badge" id="badge-archive" style="display:none;">0</span>
+            </button>
             <button class="sidebar-item" data-section="activities" onclick="switchSection('activities')">
                 <span class="material-icons">history</span> سجل النشاطات
+            </button>
+            <button class="sidebar-item" data-section="audit-log" onclick="switchSection('audit-log')">
+                <span class="material-icons">fact_check</span> سجل التدقيق المالي
             </button>
             <button class="sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
                 <span class="material-icons">notifications</span> الإشعارات
@@ -429,6 +437,49 @@
             </div>
         </section>
 
+        <!-- 🆕 Archive -->
+        <section id="section-archive" class="admin-section">
+            <div class="section-header">
+                <h1 class="section-title">الأرشيف</h1>
+                <button class="btn-outline" onclick="loadArchive()">
+                    <span class="material-icons">refresh</span> تحديث
+                </button>
+            </div>
+
+            <div class="archive-tabs">
+                <button class="archive-tab active" data-tab="cats" onclick="switchArchiveTab('cats')">
+                    <span class="material-icons">category</span> الأقسام المؤرشفة
+                    <span class="archive-count" id="archiveCatsCount">0</span>
+                </button>
+                <button class="archive-tab" data-tab="prods" onclick="switchArchiveTab('prods')">
+                    <span class="material-icons">inventory_2</span> المنتجات المؤرشفة
+                    <span class="archive-count" id="archiveProdsCount">0</span>
+                </button>
+            </div>
+
+            <div id="archiveCatsContainer">
+                <div class="cards-grid" id="archiveCatsList"></div>
+            </div>
+
+            <div id="archiveProdsContainer" style="display:none;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الصورة</th>
+                                <th>الاسم</th>
+                                <th>القسم</th>
+                                <th>السعر</th>
+                                <th>الكمية</th>
+                                <th>إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archiveProdsList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <!-- Activities -->
         <section id="section-activities" class="admin-section">
             <div class="section-header">
@@ -448,6 +499,52 @@
                     </thead>
                     <tbody id="activitiesTableBody">
                         <tr><td colspan="3" class="empty-state">جار التحميل...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 🆕 Audit Log -->
+        <section id="section-audit-log" class="admin-section">
+            <div class="section-header">
+                <h1 class="section-title">سجل التدقيق المالي</h1>
+                <button class="btn-outline" onclick="loadAuditLog()">
+                    <span class="material-icons">refresh</span> تحديث
+                </button>
+            </div>
+
+            <div class="toolbar">
+                <div class="search-box">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="auditUserSearch" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
+                </div>
+                <select id="auditActionFilter" class="filter-select" onchange="filterAuditLog()">
+                    <option value="">كل العمليات</option>
+                    <option value="order_created">شراء طلب</option>
+                    <option value="order_refund">استرداد طلب</option>
+                    <option value="order_cancelled">إلغاء طلب</option>
+                    <option value="deposit_approved">قبول إيداع</option>
+                    <option value="admin_adjustment">تعديل رصيد</option>
+                    <option value="referral_reward">مكافأة إحالة</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>المستخدم</th>
+                            <th>العملية</th>
+                            <th>المبلغ</th>
+                            <th>الرصيد قبل</th>
+                            <th>الرصيد بعد</th>
+                            <th>IP</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogTableBody">
+                        <tr><td colspan="8" class="empty-state">جار التحميل...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -579,8 +676,8 @@
     <!-- ============ Toast Container ============ -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- ============ Cache Busting: ?v=8 ============ -->
-    <script src="js/api.js?v=8"></script>
-    <script src="js/admin.js?v=8"></script>
+    <!-- ============ Cache Busting: ?v=9 ============ -->
+    <script src="js/api.js?v=9"></script>
+    <script src="js/admin.js?v=9"></script>
 </body>
 </html>
