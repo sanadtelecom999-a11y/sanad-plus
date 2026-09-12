@@ -1875,3 +1875,114 @@ function toggleTheme() {
 
 function goToAccount() { navigateTo('page-account'); }
 function showNotifications() { openNotificationsPage(); }
+// ============================================================
+// 🚀 Init App — التشغيل الرئيسي
+// ============================================================
+async function loadInitialData() {
+    // تحميل كل البيانات بالتوازي
+    const results = await Promise.allSettled([
+        fetchCategories(),
+        fetchProducts(),
+        fetchPaymentMethods(),
+        userData?.telegram_id ? fetchUserOrders(userData.telegram_id) : Promise.resolve([]),
+        userData?.telegram_id ? fetchUserDeposits(userData.telegram_id) : Promise.resolve([]),
+        userData?.telegram_id ? fetchNotifications(userData.telegram_id) : Promise.resolve([]),
+        userData?.telegram_id ? getMyKYC(userData.telegram_id) : Promise.resolve({ status: 'none' }),
+    ]);
+
+    categoriesData = results[0].status === 'fulfilled' ? results[0].value : [];
+    productsData = results[1].status === 'fulfilled' ? results[1].value : [];
+    paymentMethodsData = results[2].status === 'fulfilled' ? results[2].value : [];
+    ordersData = results[3].status === 'fulfilled' ? results[3].value : [];
+    depositsData = results[4].status === 'fulfilled' ? results[4].value : [];
+    notificationsData = results[5].status === 'fulfilled' ? results[5].value : [];
+
+    const kycResult = results[6].status === 'fulfilled' ? results[6].value : { status: 'none' };
+    kycStatus = kycResult?.status || 'none';
+
+    // طباعة للأخطاء
+    results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+            console.warn(`⚠️ فشل تحميل البيانات ${i}:`, r.reason);
+        }
+    });
+}
+
+
+async function initApp() {
+    console.log('🚀 بدء تشغيل SANAD+ ...');
+
+    try {
+        // 1. تهيئة Telegram
+        const ok = await initTelegram();
+        if (!ok) {
+            console.error('❌ فشل تهيئة Telegram');
+            const gm = document.getElementById('greetingMessage');
+            const gs = document.getElementById('greetingSub');
+            if (gm) gm.textContent = 'افتح التطبيق من تيليجرام';
+            if (gs) gs.textContent = 'لم يتم التعرف على حسابك';
+            return;
+        }
+
+        // 2. تطبيق ثيم تيليجرام
+        applyTelegramTheme();
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const toggle = document.getElementById('darkModeToggle');
+            if (toggle) toggle.checked = (savedTheme === 'dark');
+        }
+
+        // 3. المصادقة مع Backend
+        console.log('🔐 جاري المصادقة...');
+        const initData = window.Telegram?.WebApp?.initData || '';
+        userData = await authenticateUser(initData);
+        console.log('✅ تم تسجيل الدخول:', userData.telegram_id);
+
+        // 4. تحميل البيانات
+        console.log('📦 تحميل البيانات...');
+        await loadInitialData();
+        console.log(`✅ تم تحميل: ${categoriesData.length} قسم، ${productsData.length} منتج`);
+
+        // 5. تحديث الواجهة
+        updateUserUI();
+        updateNotificationBadge();
+        renderCategories();
+        renderRecentlyViewed();
+        renderLatestOrders();
+
+        // 6. تفعيل الأنظمة
+        setupNavigation();
+        setupFilters();
+        setupSearch();
+
+        // 7. تفعيل Pull to Refresh + Swipe
+        try {
+            PullToRefresh.init();
+            SwipeNav.init();
+        } catch (e) {
+            console.warn('PTR/Swipe غير متاح:', e);
+        }
+
+        console.log('✅ التطبيق جاهز');
+
+    } catch (error) {
+        console.error('❌ فشل تشغيل التطبيق:', error);
+
+        // رسالة واضحة للمستخدم
+        const gm = document.getElementById('greetingMessage');
+        const gs = document.getElementById('greetingSub');
+        if (gm) gm.textContent = 'خطأ في الاتصال';
+        if (gs) gs.textContent = error.message || 'حاول لاحقاً';
+    }
+}
+
+
+// ============================================================
+// ▶️ نقطة البداية
+// ============================================================
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
