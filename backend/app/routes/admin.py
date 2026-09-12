@@ -248,7 +248,7 @@ def admin_activities():
 
 
 # ============================================================
-# ============ 🆕 Financial Audit Log API ============
+# ============ Financial Audit Log API ============
 # ============================================================
 @main.route("/admin/api/audit-log", methods=["GET"])
 @jwt_required()
@@ -375,7 +375,7 @@ def admin_adjust_balance(user_id):
     )
     db.session.add(txn)
 
-    # 🆕 Audit Log
+    # Audit Log
     log_financial(
         user=user,
         action="admin_adjustment",
@@ -473,6 +473,7 @@ def admin_categories():
 @jwt_required()
 @handle_errors
 def admin_delete_category(cat_id):
+    """Soft Delete — إخفاء القسم ومنتجاته"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     cat = Category.query.get(cat_id)
@@ -480,25 +481,23 @@ def admin_delete_category(cat_id):
         return jsonify({"error": "قسم غير موجود"}), 404
 
     cat_name = cat.name
+
+    # Soft delete للقسم
+    cat.is_active = False
+
+    # Soft delete لكل المنتجات التابعة
     products = Product.query.filter_by(category_id=cat_id).all()
-
-    product_ids = [p.id for p in products]
-    if product_ids:
-        has_orders = Order.query.filter(Order.product_id.in_(product_ids)).first()
-        if has_orders:
-            return jsonify({
-                "error": "لا يمكن حذف القسم لوجود طلبات مرتبطة. عطّل القسم بدلاً من ذلك."
-            }), 400
-
     for product in products:
-        ProductBundle.query.filter_by(product_id=product.id).delete()
-        db.session.delete(product)
+        product.is_active = False
 
-    db.session.delete(cat)
-    log_admin_activity(f"حذف قسم: {cat_name}")
+    log_admin_activity(f"إخفاء قسم: {cat_name} ({len(products)} منتج)")
     db.session.commit()
-    notify_admins(f"🗑️ تم حذف القسم: {cat_name}")
-    return jsonify({"success": True})
+
+    notify_admins(f"🗑️ تم إخفاء القسم: {cat_name}")
+    return jsonify({
+        "success": True,
+        "message": f"تم إخفاء القسم و{len(products)} منتج"
+    })
 
 
 # ============================================================
@@ -566,19 +565,17 @@ def admin_product_actions(product_id):
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True})
 
+    # Soft Delete
     product_name = product.name
+    product.is_active = False
 
-    if Order.query.filter_by(product_id=product.id).first():
-        return jsonify({
-            "error": "لا يمكن حذف المنتج لوجود طلبات. عطّله بدلاً من ذلك."
-        }), 400
-
-    ProductBundle.query.filter_by(product_id=product.id).delete()
-    db.session.delete(product)
-    log_admin_activity(f"حذف المنتج: {product_name}")
+    log_admin_activity(f"إخفاء المنتج: {product_name}")
     db.session.commit()
-    notify_admins(f"🗑️ تم حذف المنتج: {product_name}")
-    return jsonify({"success": True})
+    notify_admins(f"🗑️ تم إخفاء المنتج: {product_name}")
+    return jsonify({
+        "success": True,
+        "message": "تم إخفاء المنتج"
+    })
 
 
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
@@ -658,10 +655,10 @@ def admin_delete_payment_method(method_id):
     if not method:
         return jsonify({"error": "طريقة دفع غير موجودة"}), 404
     method_name = method.name
-    db.session.delete(method)
-    log_admin_activity(f"حذف طريقة دفع: {method_name}")
+    method.is_active = False
+    log_admin_activity(f"إخفاء طريقة دفع: {method_name}")
     db.session.commit()
-    notify_admins(f"🗑️ تم حذف طريقة دفع: {method_name}")
+    notify_admins(f"🗑️ تم إخفاء طريقة دفع: {method_name}")
     return jsonify({"success": True})
 
 
@@ -758,7 +755,7 @@ def admin_update_order_status(order_id):
         )
         db.session.add(txn)
 
-        # 🆕 Audit Log
+        # Audit Log
         log_financial(
             user=user,
             action="order_refund",
@@ -843,7 +840,7 @@ def admin_approve_deposit(deposit_id):
         )
         db.session.add(txn)
 
-        # 🆕 Audit Log
+        # Audit Log
         log_financial(
             user=user,
             action="deposit_approved",
