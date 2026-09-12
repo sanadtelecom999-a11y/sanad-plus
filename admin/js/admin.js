@@ -12,7 +12,11 @@ let serviceRequestsData = [];
 let activitiesData = [];
 let couponsData = [];
 let referralsData = [];
+let archiveData = { categories: [], products: [] };
+let auditLogData = [];
 let filteredOrders = [];
+let filteredAuditLog = [];
+let currentArchiveTab = 'cats';
 let _otpSessionId = null;
 
 // Chart instances
@@ -81,14 +85,8 @@ const AdminPTR = (() => {
     function init() {
         target = document.getElementById('adminContent');
         indicator = document.getElementById('adminPTr');
-        if (!target || !indicator) {
-            console.warn('AdminPTR: elements not found');
-            return;
-        }
-
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
+        if (!target || !indicator) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         iconEl = document.getElementById('adminPTrIcon');
         textEl = document.getElementById('adminPTrText');
@@ -96,7 +94,6 @@ const AdminPTR = (() => {
         target.addEventListener('touchstart', handleTouchStart, { passive: true });
         target.addEventListener('touchmove', handleTouchMove, { passive: false });
         target.addEventListener('touchend', handleTouchEnd, { passive: true });
-
         target.addEventListener('mousedown', handleMouseDown);
     }
 
@@ -111,11 +108,9 @@ const AdminPTR = (() => {
         if (!isPulling || isRefreshing) return;
         currentY = e.touches[0].clientY;
         const diff = currentY - startY;
-
         if (diff > 0 && window.scrollY === 0) {
             e.preventDefault();
-            const pull = Math.min(diff * 0.5, MAX_PULL);
-            updateIndicator(pull);
+            updateIndicator(Math.min(diff * 0.5, MAX_PULL));
         } else if (diff < 0) {
             isPulling = false;
             resetIndicator();
@@ -126,48 +121,32 @@ const AdminPTR = (() => {
         if (!isPulling) return;
         const diff = currentY - startY;
         const pull = Math.min(diff * 0.5, MAX_PULL);
-
-        if (pull >= THRESHOLD && !isRefreshing) {
-            triggerRefresh();
-        } else {
-            resetIndicator();
-        }
+        if (pull >= THRESHOLD && !isRefreshing) triggerRefresh();
+        else resetIndicator();
         isPulling = false;
     }
 
     function handleMouseDown(e) {
         if (isRefreshing) return;
         if (window.scrollY > 0) return;
-
         startY = e.clientY;
         isPulling = true;
-
         const onMove = (ev) => {
             if (!isPulling) return;
             currentY = ev.clientY;
             const diff = currentY - startY;
-            if (diff > 0) {
-                const pull = Math.min(diff * 0.5, MAX_PULL);
-                updateIndicator(pull);
-            }
+            if (diff > 0) updateIndicator(Math.min(diff * 0.5, MAX_PULL));
         };
-
         const onUp = () => {
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
-
             if (!isPulling) return;
             const diff = currentY - startY;
             const pull = Math.min(diff * 0.5, MAX_PULL);
-
-            if (pull >= THRESHOLD && !isRefreshing) {
-                triggerRefresh();
-            } else {
-                resetIndicator();
-            }
+            if (pull >= THRESHOLD && !isRefreshing) triggerRefresh();
+            else resetIndicator();
             isPulling = false;
         };
-
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     }
@@ -176,7 +155,6 @@ const AdminPTR = (() => {
         if (!indicator) return;
         indicator.style.height = pull + 'px';
         indicator.style.opacity = Math.min(pull / THRESHOLD, 1);
-
         if (pull >= THRESHOLD) {
             if (iconEl) iconEl.textContent = 'refresh';
             if (textEl) textEl.textContent = 'اترك للتحديث';
@@ -194,54 +172,46 @@ const AdminPTR = (() => {
         indicator.style.height = '0px';
         indicator.style.opacity = '0';
         indicator.classList.remove('ready', 'refreshing');
-        setTimeout(() => {
-            indicator.style.transition = '';
-        }, 300);
+        setTimeout(() => { indicator.style.transition = ''; }, 300);
     }
 
     async function triggerRefresh() {
         if (isRefreshing || !indicator) return;
         isRefreshing = true;
-
         indicator.style.transition = 'height 250ms ease';
         indicator.style.height = '60px';
         indicator.style.opacity = '1';
         indicator.classList.add('refreshing');
-
         if (iconEl) iconEl.textContent = 'sync';
         if (textEl) textEl.textContent = 'جارٍ التحديث...';
 
-        if (navigator.vibrate) {
-            try { navigator.vibrate(15); } catch (e) {}
-        }
+        if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
 
         try {
             await loadAllData();
-            // إعادة رسم القسم الحالي
-            if (currentSection === 'dashboard') renderDashboard();
-            if (currentSection === 'users') renderUsers();
-            if (currentSection === 'categories') renderCategories();
-            if (currentSection === 'products') renderProducts();
-            if (currentSection === 'payment-methods') renderPaymentMethods();
-            if (currentSection === 'orders') { filteredOrders = [...ordersData]; renderOrders(ordersData); }
-            if (currentSection === 'deposits') renderDeposits(depositsData);
-            if (currentSection === 'kyc') renderKYC();
-            if (currentSection === 'service-requests') renderServiceRequests();
-            if (currentSection === 'coupons') renderCoupons();
-
+            renderCurrentSection();
             if (textEl) textEl.textContent = 'تم التحديث ✓';
-            setTimeout(() => {
-                resetIndicator();
-                isRefreshing = false;
-            }, 500);
+            setTimeout(() => { resetIndicator(); isRefreshing = false; }, 500);
         } catch (error) {
             console.error('Refresh error:', error);
             if (textEl) textEl.textContent = 'فشل التحديث';
-            setTimeout(() => {
-                resetIndicator();
-                isRefreshing = false;
-            }, 800);
+            setTimeout(() => { resetIndicator(); isRefreshing = false; }, 800);
         }
+    }
+
+    function renderCurrentSection() {
+        if (currentSection === 'dashboard') renderDashboard();
+        if (currentSection === 'users') renderUsers();
+        if (currentSection === 'categories') renderCategories();
+        if (currentSection === 'products') renderProducts();
+        if (currentSection === 'payment-methods') renderPaymentMethods();
+        if (currentSection === 'orders') { filteredOrders = [...ordersData]; renderOrders(ordersData); }
+        if (currentSection === 'deposits') renderDeposits(depositsData);
+        if (currentSection === 'kyc') renderKYC();
+        if (currentSection === 'service-requests') renderServiceRequests();
+        if (currentSection === 'coupons') renderCoupons();
+        if (currentSection === 'archive') renderArchive();
+        if (currentSection === 'audit-log') renderAuditLog();
     }
 
     return { init };
@@ -276,10 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 function showToast(message, type = 'info', duration = 3500) {
     const container = document.getElementById('toastContainer');
-    if (!container) {
-        console.warn('Toast container not found:', message);
-        return;
-    }
+    if (!container) return;
     const icons = {
         success: 'check_circle',
         error: 'error',
@@ -379,7 +346,7 @@ function toggleSpecificUser() {
 }
 
 // ============================================================
-// ============ 🔴 Nav Badges ============
+// ============ Nav Badges ============
 // ============================================================
 function updateNavBadges() {
     const pendingOrders = ordersData.filter(o =>
@@ -396,6 +363,9 @@ function updateNavBadges() {
 
     const pendingServices = serviceRequestsData.filter(s => s.status === 'pending').length;
     setBadge('badge-services', pendingServices);
+
+    const archiveCount = (archiveData.categories?.length || 0) + (archiveData.products?.length || 0);
+    setBadge('badge-archive', archiveCount);
 }
 
 function setBadge(id, count) {
@@ -410,20 +380,18 @@ function setBadge(id, count) {
 }
 
 // ============================================================
-// ============ 🔍 Global Search ============
+// ============ Global Search ============
 // ============================================================
 function openGlobalSearch() {
     const modal = document.getElementById('globalSearchModal');
     if (!modal) return;
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
-
     const input = document.getElementById('globalSearchInput');
     if (input) {
         input.value = '';
         setTimeout(() => input.focus(), 100);
     }
-
     const results = document.getElementById('globalSearchResults');
     if (results) {
         results.innerHTML = `
@@ -446,7 +414,6 @@ function closeGlobalSearch() {
 function performGlobalSearch(query) {
     const resultsContainer = document.getElementById('globalSearchResults');
     if (!resultsContainer) return;
-
     const q = (query || '').toLowerCase().trim();
 
     if (!q || q.length < 2) {
@@ -475,15 +442,6 @@ function performGlobalSearch(query) {
         (p.name || '').toLowerCase().includes(q)
     ).slice(0, 5);
 
-    const paymentResults = paymentMethodsData.filter(m =>
-        (m.name || '').toLowerCase().includes(q) ||
-        (m.account_name || '').toLowerCase().includes(q)
-    ).slice(0, 3);
-
-    const depositsResults = depositsData.filter(d =>
-        (d.transaction_id || '').toLowerCase().includes(q)
-    ).slice(0, 3);
-
     let html = '';
     let totalFound = 0;
 
@@ -497,9 +455,7 @@ function performGlobalSearch(query) {
                 </div>
                 ${usersResults.map(u => `
                     <button class="search-result-item" onclick="goToUserFromSearch(${u.id})">
-                        <div class="search-result-icon">
-                            <span class="material-icons">person</span>
-                        </div>
+                        <div class="search-result-icon"><span class="material-icons">person</span></div>
                         <div class="search-result-content">
                             <div class="search-result-title">${u.username || u.first_name || 'مستخدم'}</div>
                             <div class="search-result-subtitle ltr">${u.telegram_id} • ${u.balance.toFixed(2)}$</div>
@@ -521,9 +477,7 @@ function performGlobalSearch(query) {
                 </div>
                 ${ordersResults.map(o => `
                     <button class="search-result-item" onclick="goToOrderFromSearch(${o.id})">
-                        <div class="search-result-icon">
-                            <span class="material-icons">receipt</span>
-                        </div>
+                        <div class="search-result-icon"><span class="material-icons">receipt</span></div>
                         <div class="search-result-content">
                             <div class="search-result-title ltr">${o.order_number}</div>
                             <div class="search-result-subtitle">${o.product_name || ''} • ${o.status}</div>
@@ -545,60 +499,10 @@ function performGlobalSearch(query) {
                 </div>
                 ${productsResults.map(p => `
                     <button class="search-result-item" onclick="goToProductFromSearch(${p.id})">
-                        <div class="search-result-icon">
-                            <span class="material-icons">inventory_2</span>
-                        </div>
+                        <div class="search-result-icon"><span class="material-icons">inventory_2</span></div>
                         <div class="search-result-content">
                             <div class="search-result-title">${p.name}</div>
                             <div class="search-result-subtitle">${p.base_price}$ • ${categoriesData.find(c => c.id === p.category_id)?.name || ''}</div>
-                        </div>
-                        <span class="material-icons search-result-arrow">chevron_left</span>
-                    </button>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    if (paymentResults.length) {
-        totalFound += paymentResults.length;
-        html += `
-            <div class="search-result-section">
-                <div class="search-result-section-title">
-                    <span class="material-icons">payment</span>
-                    طرق الدفع (${paymentResults.length})
-                </div>
-                ${paymentResults.map(m => `
-                    <button class="search-result-item" onclick="goToPaymentFromSearch()">
-                        <div class="search-result-icon">
-                            <span class="material-icons">credit_card</span>
-                        </div>
-                        <div class="search-result-content">
-                            <div class="search-result-title">${m.name}</div>
-                            <div class="search-result-subtitle">${m.account_name || ''}</div>
-                        </div>
-                        <span class="material-icons search-result-arrow">chevron_left</span>
-                    </button>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    if (depositsResults.length) {
-        totalFound += depositsResults.length;
-        html += `
-            <div class="search-result-section">
-                <div class="search-result-section-title">
-                    <span class="material-icons">account_balance_wallet</span>
-                    الإيداعات (${depositsResults.length})
-                </div>
-                ${depositsResults.map(d => `
-                    <button class="search-result-item" onclick="goToDepositsFromSearch()">
-                        <div class="search-result-icon">
-                            <span class="material-icons">wallet</span>
-                        </div>
-                        <div class="search-result-content">
-                            <div class="search-result-title ltr">${d.transaction_id}</div>
-                            <div class="search-result-subtitle">${d.amount}$ • ${d.status}</div>
                         </div>
                         <span class="material-icons search-result-arrow">chevron_left</span>
                     </button>
@@ -651,17 +555,6 @@ function goToProductFromSearch(productId) {
     switchSection('products');
     showToast('تم فتح قسم المنتجات', 'info');
 }
-
-function goToPaymentFromSearch() {
-    closeGlobalSearch();
-    switchSection('payment-methods');
-}
-
-function goToDepositsFromSearch() {
-    closeGlobalSearch();
-    switchSection('deposits');
-}
-
 // ============================================================
 // ============ Login + OTP ============
 // ============================================================
@@ -695,7 +588,6 @@ async function doLogin() {
     if (btn) { btn.disabled = true; btn.innerHTML = 'جارٍ التحقق...'; }
     try {
         const result = await adminLogin(username, password);
-
         if (result.require_otp) {
             _otpSessionId = result.session_id;
             showOTPForm();
@@ -806,6 +698,7 @@ async function loadAllData() {
             fetchAdminKYC(),
             fetchServiceRequests(),
             fetchAdminCoupons(),
+            fetchArchive(),
         ]);
         usersData = results[0].status === 'fulfilled' ? results[0].value : [];
         categoriesData = results[1].status === 'fulfilled' ? results[1].value : [];
@@ -816,6 +709,7 @@ async function loadAllData() {
         kycData = results[6].status === 'fulfilled' ? results[6].value : [];
         serviceRequestsData = results[7].status === 'fulfilled' ? results[7].value : [];
         couponsData = results[8].status === 'fulfilled' ? results[8].value : [];
+        archiveData = results[9].status === 'fulfilled' ? results[9].value : { categories: [], products: [] };
 
         updateNavBadges();
     } catch (error) {
@@ -863,7 +757,9 @@ function switchSection(sectionId) {
     if (sectionId === 'service-requests') renderServiceRequests();
     if (sectionId === 'coupons') renderCoupons();
     if (sectionId === 'referrals') loadReferrals();
+    if (sectionId === 'archive') renderArchive();
     if (sectionId === 'activities') loadActivities();
+    if (sectionId === 'audit-log') loadAuditLog();
 }
 
 // ============================================================
@@ -906,31 +802,15 @@ function renderOrdersChart() {
     const canvas = document.getElementById('chartOrdersPie');
     if (!canvas) return;
 
-    const statusCounts = {
-        pending: 0,
-        review: 0,
-        processing: 0,
-        completed: 0,
-        failed: 0,
-        cancelled: 0
-    };
-    ordersData.forEach(o => {
-        if (statusCounts.hasOwnProperty(o.status)) {
-            statusCounts[o.status]++;
-        }
-    });
+    const statusCounts = { pending: 0, review: 0, processing: 0, completed: 0, failed: 0, cancelled: 0 };
+    ordersData.forEach(o => { if (statusCounts.hasOwnProperty(o.status)) statusCounts[o.status]++; });
 
     const labels = [];
     const data = [];
     const colors = [];
-
     const colorMap = {
-        pending: '#F59E0B',
-        review: '#0EA5E9',
-        processing: '#3B82F6',
-        completed: '#10B981',
-        failed: '#EF4444',
-        cancelled: '#94A3B8'
+        pending: '#F59E0B', review: '#0EA5E9', processing: '#3B82F6',
+        completed: '#10B981', failed: '#EF4444', cancelled: '#94A3B8'
     };
 
     Object.keys(statusCounts).forEach(key => {
@@ -942,10 +822,7 @@ function renderOrdersChart() {
     });
 
     if (data.length === 0) {
-        if (chartOrdersPieInstance) {
-            chartOrdersPieInstance.destroy();
-            chartOrdersPieInstance = null;
-        }
+        if (chartOrdersPieInstance) { chartOrdersPieInstance.destroy(); chartOrdersPieInstance = null; }
         const ctx = canvas.getContext('2d');
         const c = getChartColors();
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -956,10 +833,7 @@ function renderOrdersChart() {
         return;
     }
 
-    if (chartOrdersPieInstance) {
-        chartOrdersPieInstance.destroy();
-    }
-
+    if (chartOrdersPieInstance) chartOrdersPieInstance.destroy();
     const c = getChartColors();
 
     chartOrdersPieInstance = new Chart(canvas, {
@@ -1035,7 +909,6 @@ function renderDepositsChart() {
     days.forEach((day, index) => {
         const nextDay = new Date(day);
         nextDay.setDate(nextDay.getDate() + 1);
-
         const dayTotal = depositsData
             .filter(d => d.status === 'approved')
             .filter(d => {
@@ -1045,20 +918,13 @@ function renderDepositsChart() {
             })
             .reduce((sum, d) => sum + (d.amount || 0), 0);
 
-        if (index >= 4) {
-            labels.push(dayNames[day.getDay()]);
-        } else {
-            labels.push(`${day.getDate()}/${day.getMonth() + 1}`);
-        }
+        if (index >= 4) labels.push(dayNames[day.getDay()]);
+        else labels.push(`${day.getDate()}/${day.getMonth() + 1}`);
         values.push(dayTotal);
     });
 
-    if (chartDepositsLineInstance) {
-        chartDepositsLineInstance.destroy();
-    }
-
+    if (chartDepositsLineInstance) chartDepositsLineInstance.destroy();
     const c = getChartColors();
-
     const ctx = canvas.getContext('2d');
     const gradient = ctx.createLinearGradient(0, 0, 0, 240);
     gradient.addColorStop(0, 'rgba(14, 165, 233, 0.3)');
@@ -1098,31 +964,14 @@ function renderDepositsChart() {
                     titleFont: { family: 'Cairo', weight: '700' },
                     bodyFont: { family: 'Cairo' },
                     displayColors: false,
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.parsed.y.toFixed(2)}$`;
-                        }
-                    }
+                    callbacks: { label: function(context) { return `${context.parsed.y.toFixed(2)}$`; } }
                 }
             },
             scales: {
-                x: {
-                    grid: { color: c.grid, display: false },
-                    ticks: {
-                        color: c.textSecondary,
-                        font: { family: 'Cairo', size: 11 }
-                    }
-                },
+                x: { grid: { color: c.grid, display: false }, ticks: { color: c.textSecondary, font: { family: 'Cairo', size: 11 } } },
                 y: {
-                    beginAtZero: true,
-                    grid: { color: c.grid },
-                    ticks: {
-                        color: c.textSecondary,
-                        font: { family: 'Cairo', size: 11 },
-                        callback: function(value) {
-                            return value + '$';
-                        }
-                    }
+                    beginAtZero: true, grid: { color: c.grid },
+                    ticks: { color: c.textSecondary, font: { family: 'Cairo', size: 11 }, callback: function(value) { return value + '$'; } }
                 }
             }
         }
@@ -1131,14 +980,9 @@ function renderDepositsChart() {
 
 function getStatusArabic(status) {
     const map = {
-        pending: 'قيد المعالجة',
-        review: 'قيد المراجعة',
-        processing: 'قيد التنفيذ',
-        completed: 'مكتمل',
-        failed: 'فشل',
-        cancelled: 'ملغي',
-        approved: 'مقبول',
-        rejected: 'مرفوض'
+        pending: 'قيد المعالجة', review: 'قيد المراجعة', processing: 'قيد التنفيذ',
+        completed: 'مكتمل', failed: 'فشل', cancelled: 'ملغي',
+        approved: 'مقبول', rejected: 'مرفوض'
     };
     return map[status] || status;
 }
@@ -1201,7 +1045,6 @@ async function toggleKYC(userId, currentStatus) {
 async function adjustBalance(userId) {
     const user = usersData.find(u => u.id === userId);
     if (!user) return;
-
     openModal('تعديل الرصيد', `
         <div style="text-align:right;">
             <div style="background:var(--primary-light);padding:12px;border-radius:12px;margin-bottom:14px;">
@@ -1236,10 +1079,7 @@ async function confirmAdjustBalance(userId) {
     const rawAmount = parseFloat(document.getElementById('adjustAmount').value);
     const note = document.getElementById('adjustNote').value || '';
 
-    if (!rawAmount || rawAmount <= 0) {
-        showToast('أدخل مبلغاً صحيحاً', 'warning');
-        return;
-    }
+    if (!rawAmount || rawAmount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'warning'); return; }
 
     const amount = type === 'add' ? rawAmount : -rawAmount;
 
@@ -1286,10 +1126,7 @@ async function setVIP(userId, currentLevel) {
     const level = prompt('أدخل مستوى VIP (0 لإلغاء، 1-7):', currentLevel);
     if (level === null) return;
     const parsed = parseInt(level);
-    if (isNaN(parsed) || parsed < 0) {
-        showToast('مستوى غير صحيح', 'warning');
-        return;
-    }
+    if (isNaN(parsed) || parsed < 0) { showToast('مستوى غير صحيح', 'warning'); return; }
     try {
         await setUserVIP(userId, parsed);
         await loadAllData();
@@ -1315,7 +1152,7 @@ function renderCategories() {
             <div class="card-icon">${cat.image ? `<img src="${cat.image}" alt="${cat.name}">` : '📁'}</div>
             <div class="card-title">${cat.name}</div>
             <div class="card-actions">
-                <button class="btn-danger btn-sm" onclick="deleteCategoryHandler(${cat.id})">حذف</button>
+                <button class="btn-danger btn-sm" onclick="archiveCategoryHandler(${cat.id})">حذف</button>
             </div>
         </div>
     `).join('');
@@ -1364,21 +1201,21 @@ async function saveCategory(btn) {
     }
 }
 
-async function deleteCategoryHandler(categoryId) {
+async function archiveCategoryHandler(categoryId) {
     const confirmed = await showConfirm({
-        title: 'حذف القسم',
-        message: 'هل أنت متأكد من حذف هذا القسم؟ سيتم حذف جميع المنتجات المرتبطة به.',
-        confirmText: 'حذف',
+        title: 'أرشفة القسم',
+        message: 'سيتم نقل القسم وجميع منتجاته إلى الأرشيف. يمكن استرجاعه لاحقاً.',
+        confirmText: 'أرشفة',
         type: 'danger'
     });
     if (!confirmed) return;
     try {
-        await deleteCategory(categoryId);
+        const result = await deleteCategory(categoryId);
         await loadAllData();
         renderCategories();
-        showToast('تم حذف القسم بنجاح', 'success');
+        showToast(result.message || 'تم أرشفة القسم بنجاح', 'success');
     } catch (error) {
-        showToast(`فشل حذف القسم: ${error.message}`, 'error');
+        showToast(`فشل أرشفة القسم: ${error.message}`, 'error');
     }
 }
 
@@ -1402,7 +1239,8 @@ function renderProducts() {
             <td data-label="الحد الأقصى">${prod.max_quantity > 0 ? prod.max_quantity.toLocaleString('ar') : 'بلا حد'}</td>
             <td data-label="النوع"><span class="status-badge ${prod.product_type === 'bundle' ? 'pending' : prod.product_type === 'topup' ? 'verified' : 'completed'}">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span></td>
             <td data-label="إجراءات">
-                <button class="btn-danger btn-sm" onclick="deleteProductHandler(${prod.id})">حذف</button>
+                <button class="btn-outline btn-sm" onclick="openEditProductModal(${prod.id})">تعديل</button>
+                <button class="btn-danger btn-sm" onclick="archiveProductHandler(${prod.id})">حذف</button>
             </td>
         </tr>
     `).join('');
@@ -1420,7 +1258,7 @@ function openProductModal() {
             <label>الحد الأقصى للكمية للطلب الواحد</label>
             <input type="number" id="productMaxQuantity" value="0" min="0" placeholder="0">
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 0 = بلا حد أقصى. مثال: 5,000,000 = الحد الأقصى 5 مليون
+                💡 0 = بلا حد أقصى
             </small>
         </div>
         <div class="form-group">
@@ -1437,8 +1275,7 @@ function openProductModal() {
             <div class="image-preview" id="productImagePreview">لا صورة</div>
             <input type="file" id="productImage" accept="image/*" onchange="previewImage(this,'productImagePreview')">
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
-                سيتم قص الصورة تلقائياً إلى مربع 512×512
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)
             </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1472,14 +1309,9 @@ async function saveProduct(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
         await createProduct({
-            name,
-            category_id: categoryId,
-            product_type: type,
-            base_price: price,
-            base_quantity: baseQuantity,
-            input_type: inputType,
-            max_quantity: maxQuantity,
-            image
+            name, category_id: categoryId, product_type: type,
+            base_price: price, base_quantity: baseQuantity,
+            input_type: inputType, max_quantity: maxQuantity, image
         });
         closeModal();
         await loadAllData();
@@ -1491,21 +1323,258 @@ async function saveProduct(btn) {
     }
 }
 
-async function deleteProductHandler(productId) {
+// ============================================================
+// ============ Edit Product Modal ============
+// ============================================================
+function openEditProductModal(productId) {
+    const prod = productsData.find(p => p.id === productId);
+    if (!prod) { showToast('المنتج غير موجود', 'error'); return; }
+
+    const body = `
+        <h3 style="margin-bottom:14px;">تعديل المنتج</h3>
+        <div style="background:var(--primary-light);padding:10px 14px;border-radius:12px;margin-bottom:14px;text-align:center;">
+            <div style="font-weight:700;font-size:1.1rem;">${prod.name}</div>
+            <div style="color:var(--text-secondary);font-size:0.8rem;">ID: ${prod.id}</div>
+        </div>
+
+        <div class="form-group">
+            <label>اسم المنتج</label>
+            <input type="text" id="editProductName" value="${prod.name || ''}">
+        </div>
+
+        <div class="form-group">
+            <label>الوصف</label>
+            <textarea id="editProductDescription" rows="2">${prod.description || ''}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>القسم</label>
+            <select id="editProductCategoryId">
+                ${categoriesData.map(c => `<option value="${c.id}" ${c.id === prod.category_id ? 'selected' : ''}>${c.name}</option>`).join('')}
+            </select>
+        </div>
+
+        <div class="edit-modal-grid">
+            <div class="form-group">
+                <label>السعر الأساسي ($)</label>
+                <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="0.01" min="0">
+            </div>
+            <div class="form-group">
+                <label>الكمية الأساسية</label>
+                <input type="number" id="editProductQuantity" value="${prod.base_quantity || 0}" min="0">
+            </div>
+        </div>
+
+        <div class="edit-modal-grid">
+            <div class="form-group">
+                <label>الحد الأقصى للطلب</label>
+                <input type="number" id="editProductMaxQuantity" value="${prod.max_quantity || 0}" min="0">
+                <small style="color:var(--text-secondary);font-size:0.7rem;display:block;margin-top:4px;">0 = بلا حد</small>
+            </div>
+            <div class="form-group">
+                <label>المخزون</label>
+                <input type="number" id="editProductStock" value="${prod.stock || 0}" min="0">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>نوع الحقل المخصص</label>
+            <select id="editProductInputType">
+                <option value="id" ${prod.input_type === 'id' ? 'selected' : ''}>معرف اللاعب (ID)</option>
+                <option value="account_id" ${prod.input_type === 'account_id' ? 'selected' : ''}>ID الحساب</option>
+                <option value="phone" ${prod.input_type === 'phone' ? 'selected' : ''}>رقم الهاتف</option>
+                <option value="none" ${prod.input_type === 'none' ? 'selected' : ''}>بدون</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>نوع المنتج</label>
+            <select id="editProductType">
+                <option value="quantity" ${prod.product_type === 'quantity' ? 'selected' : ''}>كمية</option>
+                <option value="bundle" ${prod.product_type === 'bundle' ? 'selected' : ''}>باقة</option>
+                <option value="topup" ${prod.product_type === 'topup' ? 'selected' : ''}>رصيد</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>تغيير الصورة (اختياري)</label>
+            <div class="image-preview" id="editProductImagePreview">
+                ${prod.image ? `<img src="${prod.image}" alt="${prod.name}">` : 'لا صورة'}
+            </div>
+            <input type="file" id="editProductImage" accept="image/*" onchange="previewImage(this,'editProductImagePreview')">
+        </div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+            <button class="btn-primary" onclick="saveEditedProduct(${productId}, this)">حفظ التعديلات</button>
+            <button class="btn-outline" onclick="closeModal()">إلغاء</button>
+        </div>
+    `;
+    openModal('تعديل المنتج', body);
+}
+
+async function saveEditedProduct(productId, btn) {
+    const name = document.getElementById('editProductName').value;
+    const description = document.getElementById('editProductDescription').value;
+    const categoryId = parseInt(document.getElementById('editProductCategoryId').value);
+    const price = parseFloat(document.getElementById('editProductPrice').value);
+    const quantity = parseInt(document.getElementById('editProductQuantity').value) || 0;
+    const maxQuantity = parseInt(document.getElementById('editProductMaxQuantity').value) || 0;
+    const stock = parseInt(document.getElementById('editProductStock').value) || 0;
+    const inputType = document.getElementById('editProductInputType').value;
+    const productType = document.getElementById('editProductType').value;
+
+    if (!name || !name.trim()) { showToast('أدخل اسم المنتج', 'warning'); return; }
+    if (isNaN(price) || price < 0) { showToast('أدخل سعراً صحيحاً', 'warning'); return; }
+
+    const data = {
+        name: name.trim(),
+        description: description,
+        category_id: categoryId,
+        base_price: price,
+        base_quantity: quantity,
+        max_quantity: maxQuantity,
+        stock: stock,
+        input_type: inputType,
+        product_type: productType,
+    };
+
+    const imageFile = document.getElementById('editProductImage').files[0];
+    if (imageFile) {
+        data.image = await fileToSquareBase64(imageFile, 512);
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+    try {
+        await updateProduct(productId, data);
+        closeModal();
+        await loadAllData();
+        renderProducts();
+        showToast('تم تعديل المنتج بنجاح', 'success');
+    } catch (error) {
+        showToast(`فشل تعديل المنتج: ${error.message}`, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
+    }
+}
+
+async function archiveProductHandler(productId) {
     const confirmed = await showConfirm({
-        title: 'حذف المنتج',
-        message: 'هل أنت متأكد من حذف هذا المنتج؟',
-        confirmText: 'حذف',
+        title: 'أرشفة المنتج',
+        message: 'سيتم نقل المنتج إلى الأرشيف. يمكن استرجاعه لاحقاً.',
+        confirmText: 'أرشفة',
         type: 'danger'
     });
     if (!confirmed) return;
     try {
-        await deleteProduct(productId);
+        const result = await deleteProduct(productId);
         await loadAllData();
         renderProducts();
-        showToast('تم حذف المنتج بنجاح', 'success');
+        showToast(result.message || 'تم أرشفة المنتج', 'success');
     } catch (error) {
-        showToast(`فشل حذف المنتج: ${error.message}`, 'error');
+        showToast(`فشل أرشفة المنتج: ${error.message}`, 'error');
+    }
+}
+// ============================================================
+// ============ Archive Section ============
+// ============================================================
+function renderArchive() {
+    const catsCount = archiveData.categories?.length || 0;
+    const prodsCount = archiveData.products?.length || 0;
+
+    const catsCountEl = document.getElementById('archiveCatsCount');
+    const prodsCountEl = document.getElementById('archiveProdsCount');
+    if (catsCountEl) catsCountEl.textContent = catsCount;
+    if (prodsCountEl) prodsCountEl.textContent = prodsCount;
+
+    renderArchiveCats();
+    renderArchiveProds();
+}
+
+function switchArchiveTab(tab) {
+    currentArchiveTab = tab;
+    document.querySelectorAll('.archive-tab').forEach(t => {
+        t.classList.toggle('active', t.getAttribute('data-tab') === tab);
+    });
+    const catsContainer = document.getElementById('archiveCatsContainer');
+    const prodsContainer = document.getElementById('archiveProdsContainer');
+    if (catsContainer) catsContainer.style.display = tab === 'cats' ? 'block' : 'none';
+    if (prodsContainer) prodsContainer.style.display = tab === 'prods' ? 'block' : 'none';
+}
+
+function renderArchiveCats() {
+    const container = document.getElementById('archiveCatsList');
+    if (!container) return;
+    const cats = archiveData.categories || [];
+    if (!cats.length) {
+        container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><span class="material-icons">inventory</span>لا توجد أقسام مؤرشفة</div>';
+        return;
+    }
+    container.innerHTML = cats.map(cat => `
+        <div class="category-card" style="opacity:0.85;">
+            <div class="card-icon">${cat.image ? `<img src="${cat.image}" alt="${cat.name}">` : '📁'}</div>
+            <div class="card-title">${cat.name}</div>
+            <div style="font-size:0.7rem;color:var(--error);font-weight:700;margin-top:2px;">مؤرشف</div>
+            <div class="card-actions">
+                <button class="btn-success btn-sm" onclick="restoreCategoryHandler(${cat.id})">استرجاع</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderArchiveProds() {
+    const tbody = document.getElementById('archiveProdsList');
+    if (!tbody) return;
+    const prods = archiveData.products || [];
+    if (!prods.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><span class="material-icons">inventory_2</span>لا توجد منتجات مؤرشفة</td></tr>';
+        return;
+    }
+    tbody.innerHTML = prods.map(prod => `
+        <tr style="opacity:0.85;">
+            <td data-label="الصورة"><img src="${prod.image || ''}" alt="${prod.name}" onerror="this.style.display='none'" style="max-width:60px;max-height:60px;border-radius:8px;object-fit:cover;"></td>
+            <td data-label="الاسم">${prod.name}</td>
+            <td data-label="القسم">${prod.category_name || '-'}</td>
+            <td data-label="السعر">${prod.base_price}$</td>
+            <td data-label="الكمية">${prod.base_quantity}</td>
+            <td data-label="إجراءات">
+                <button class="btn-success btn-sm" onclick="restoreProductHandler(${prod.id})">استرجاع</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function restoreCategoryHandler(catId) {
+    const confirmed = await showConfirm({
+        title: 'استرجاع القسم',
+        message: 'سيتم استرجاع القسم وجميع منتجاته إلى القائمة الرئيسية.',
+        confirmText: 'استرجاع',
+        type: 'success'
+    });
+    if (!confirmed) return;
+    try {
+        const result = await restoreCategory(catId);
+        await loadAllData();
+        renderArchive();
+        showToast(result.message || 'تم استرجاع القسم', 'success');
+    } catch (error) {
+        showToast(`فشل الاسترجاع: ${error.message}`, 'error');
+    }
+}
+
+async function restoreProductHandler(prodId) {
+    const confirmed = await showConfirm({
+        title: 'استرجاع المنتج',
+        message: 'سيتم استرجاع المنتج إلى قائمة المنتجات الرئيسية.',
+        confirmText: 'استرجاع',
+        type: 'success'
+    });
+    if (!confirmed) return;
+    try {
+        const result = await restoreProduct(prodId);
+        await loadAllData();
+        renderArchive();
+        showToast(result.message || 'تم استرجاع المنتج', 'success');
+    } catch (error) {
+        showToast(`فشل الاسترجاع: ${error.message}`, 'error');
     }
 }
 
@@ -1546,9 +1615,6 @@ function openPaymentMethodModal() {
             <label>لوجو الطريقة</label>
             <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
             <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)
-            </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="savePaymentMethod(this)">حفظ</button>
@@ -1573,13 +1639,8 @@ async function savePaymentMethod(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
         await createPaymentMethod({
-            name,
-            description: '',
-            account_name,
-            account,
-            icon: logo_image,
-            qr_image,
-            is_active: true
+            name, description: '', account_name, account,
+            icon: logo_image, qr_image, is_active: true
         });
         closeModal();
         await loadAllData();
@@ -1647,10 +1708,7 @@ async function changeOrderStatus(orderId, status) {
         confirmText: 'تأكيد',
         type: 'warning'
     });
-    if (!confirmed) {
-        renderOrders(filteredOrders.length ? filteredOrders : ordersData);
-        return;
-    }
+    if (!confirmed) { renderOrders(filteredOrders.length ? filteredOrders : ordersData); return; }
     try {
         await updateOrderStatus(orderId, status);
         await loadAllData();
@@ -1786,30 +1844,25 @@ function renderKYC() {
 function viewKYCImage(kycId) {
     const kyc = kycData.find(k => k.id === kycId);
     if (!kyc) return;
-
     const body = `
         <div style="text-align:center;">
             <h3 style="margin-bottom:16px;">تفاصيل طلب التوثيق</h3>
-
             <div style="text-align:right;background:var(--primary-light);padding:14px;border-radius:12px;margin-bottom:16px;">
                 <div style="margin-bottom:8px;"><strong>الاسم:</strong> ${kyc.full_name}</div>
                 <div style="margin-bottom:8px;"><strong>الهاتف:</strong> <span class="ltr">${kyc.phone}</span></div>
                 <div style="margin-bottom:8px;"><strong>العنوان:</strong> ${kyc.address || '-'}</div>
                 <div><strong>الحالة:</strong> <span class="status-badge ${kyc.status === 'approved' ? 'completed' : kyc.status === 'rejected' ? 'failed' : 'pending'}">${kyc.status === 'approved' ? 'مقبول' : kyc.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></div>
             </div>
-
             <div style="margin-bottom:8px;text-align:right;font-weight:700;">صورة السيلفي:</div>
             <div style="background:var(--background);border-radius:12px;padding:8px;max-height:60vh;overflow:auto;">
                 <img src="${kyc.selfie_image}" style="width:100%;height:auto;border-radius:8px;display:block;" alt="KYC Selfie">
             </div>
-
             ${kyc.status === 'pending' ? `
                 <div style="display:flex;gap:8px;margin-top:16px;">
                     <button class="btn-primary" style="flex:1;" onclick="closeModal(); window.approveKYCRequest(${kyc.id})">قبول التوثيق</button>
                     <button class="btn-danger" style="flex:1;" onclick="closeModal(); window.rejectKYCRequest(${kyc.id})">رفض</button>
                 </div>
             ` : ''}
-
             <button class="btn-outline" style="width:100%;margin-top:12px;" onclick="closeModal()">إغلاق</button>
         </div>
     `;
@@ -1924,14 +1977,8 @@ async function saveCoupon(btn) {
     if (!discount_value || discount_value <= 0) { showToast('أدخل قيمة خصم صحيحة', 'warning'); return; }
 
     const couponData = {
-        code,
-        description,
-        discount_type,
-        discount_value,
-        min_amount,
-        max_discount,
-        max_uses,
-        is_active: true,
+        code, description, discount_type, discount_value,
+        min_amount, max_discount, max_uses, is_active: true,
     };
     if (expiryDate) couponData.expires_at = new Date(expiryDate).toISOString();
 
@@ -2031,6 +2078,75 @@ async function loadActivities() {
 }
 
 // ============================================================
+// ============ Audit Log ============
+// ============================================================
+async function loadAuditLog() {
+    const tbody = document.getElementById('auditLogTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">جار التحميل...</td></tr>';
+    try {
+        auditLogData = await fetchAuditLog({ limit: 200 });
+        filteredAuditLog = [...auditLogData];
+        renderAuditLog();
+    } catch (error) {
+        tbody.innerHTML = `<tr><td colspan="8" class="empty-state">فشل تحميل السجل: ${error.message}</td></tr>`;
+    }
+}
+
+function filterAuditLog() {
+    const userQuery = (document.getElementById('auditUserSearch')?.value || '').trim();
+    const actionFilter = document.getElementById('auditActionFilter')?.value || '';
+
+    let filtered = [...auditLogData];
+    if (userQuery) {
+        filtered = filtered.filter(l => (l.user_id + '').includes(userQuery));
+    }
+    if (actionFilter) {
+        filtered = filtered.filter(l => l.action === actionFilter);
+    }
+    filteredAuditLog = filtered;
+    renderAuditLog();
+}
+
+function getActionArabic(action) {
+    const map = {
+        order_created: '🛒 شراء طلب',
+        order_refund: '💸 استرداد طلب',
+        order_cancelled: '❌ إلغاء طلب',
+        deposit_approved: '✅ قبول إيداع',
+        deposit_rejected: '🚫 رفض إيداع',
+        admin_adjustment: '⚙️ تعديل رصيد',
+        referral_reward: '🎁 مكافأة إحالة',
+    };
+    return map[action] || action;
+}
+
+function renderAuditLog() {
+    const tbody = document.getElementById('auditLogTableBody');
+    if (!tbody) return;
+    if (!filteredAuditLog.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><span class="material-icons">fact_check</span>لا توجد سجلات</td></tr>';
+        return;
+    }
+    tbody.innerHTML = filteredAuditLog.map(l => {
+        const amountColor = l.amount > 0 ? 'var(--success)' : 'var(--error)';
+        const amountSign = l.amount > 0 ? '+' : '';
+        return `
+            <tr>
+                <td data-label="#">${l.id}</td>
+                <td data-label="المستخدم"><span class="ltr">${l.user_id}</span></td>
+                <td data-label="العملية">${getActionArabic(l.action)}</td>
+                <td data-label="المبلغ" style="color:${amountColor};font-weight:800;direction:ltr;">${amountSign}${l.amount.toFixed(2)}$</td>
+                <td data-label="الرصيد قبل" style="direction:ltr;">${l.balance_before.toFixed(2)}$</td>
+                <td data-label="الرصيد بعد" style="direction:ltr;">${l.balance_after.toFixed(2)}$</td>
+                <td data-label="IP"><span class="ltr" style="font-size:0.7rem;">${l.ip_address || '-'}</span></td>
+                <td data-label="التاريخ" style="font-size:0.75rem;">${l.created_at ? new Date(l.created_at).toLocaleString('ar') : ''}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ============================================================
 // ============ Order Filters ============
 // ============================================================
 function applyOrderFilters() {
@@ -2048,70 +2164,49 @@ function applyOrderFilters() {
             (o.user_id + '').includes(searchQuery)
         );
     }
-
-    if (statusFilter !== 'all') {
-        filtered = filtered.filter(o => o.status === statusFilter);
-    }
-
+    if (statusFilter !== 'all') filtered = filtered.filter(o => o.status === statusFilter);
     if (fromDate) {
         const fromTime = new Date(fromDate).getTime();
         filtered = filtered.filter(o => o.created_at && new Date(o.created_at).getTime() >= fromTime);
     }
-
     if (toDate) {
         const toTime = new Date(toDate).getTime() + (24 * 60 * 60 * 1000);
         filtered = filtered.filter(o => o.created_at && new Date(o.created_at).getTime() <= toTime);
     }
-
-    if (sortFilter === 'newest') {
-        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    } else if (sortFilter === 'oldest') {
-        filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-    } else if (sortFilter === 'price_high') {
-        filtered.sort((a, b) => (b.total_price || 0) - (a.total_price || 0));
-    } else if (sortFilter === 'price_low') {
-        filtered.sort((a, b) => (a.total_price || 0) - (b.total_price || 0));
-    }
+    if (sortFilter === 'newest') filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    else if (sortFilter === 'oldest') filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    else if (sortFilter === 'price_high') filtered.sort((a, b) => (b.total_price || 0) - (a.total_price || 0));
+    else if (sortFilter === 'price_low') filtered.sort((a, b) => (a.total_price || 0) - (b.total_price || 0));
 
     filteredOrders = filtered;
     renderOrders(filtered);
 }
 
 function resetOrderFilters() {
-    const searchInput = document.getElementById('orderSearchQuery');
+    const ids = ['orderSearchQuery', 'orderFromDate', 'orderToDate'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
     const statusSelect = document.getElementById('orderStatusFilter');
-    const fromInput = document.getElementById('orderFromDate');
-    const toInput = document.getElementById('orderToDate');
     const sortSelect = document.getElementById('orderSortFilter');
-
-    if (searchInput) searchInput.value = '';
     if (statusSelect) statusSelect.value = 'all';
-    if (fromInput) fromInput.value = '';
-    if (toInput) toInput.value = '';
     if (sortSelect) sortSelect.value = 'newest';
-
     filteredOrders = [...ordersData];
     renderOrders(ordersData);
 }
 
 // ============================================================
-// ============ 📊 Excel Export (XLSX) ============
+// ============ Excel Export ============
 // ============================================================
 function exportToExcel(filename, sheetName, rows) {
     try {
-        // التحقق من وجود SheetJS
         if (typeof XLSX === 'undefined') {
-            showToast('مكتبة Excel لم تُحمّل بعد، حاول لاحقاً', 'error');
+            showToast('مكتبة Excel لم تُحمّل بعد', 'error');
             return;
         }
-
-        // إنشاء workbook
         const wb = XLSX.utils.book_new();
-
-        // تحويل الصفوف إلى worksheet
         const ws = XLSX.utils.aoa_to_sheet(rows);
-
-        // ضبط عرض الأعمدة تلقائياً
         const colWidths = [];
         const maxCols = Math.max(...rows.map(r => r.length));
         for (let i = 0; i < maxCols; i++) {
@@ -2123,14 +2218,9 @@ function exportToExcel(filename, sheetName, rows) {
             colWidths.push({ wch: maxLen + 2 });
         }
         ws['!cols'] = colWidths;
-
-        // إضافة الـ worksheet للـ workbook
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
-
-        // حفظ الملف
         const timestamp = new Date().toISOString().slice(0, 10);
         XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
-
         showToast('تم تصدير الملف بنجاح', 'success');
     } catch (error) {
         console.error('Excel export error:', error);
@@ -2139,95 +2229,47 @@ function exportToExcel(filename, sheetName, rows) {
 }
 
 function exportUsersExcel() {
-    if (!usersData.length) {
-        showToast('لا يوجد مستخدمون للتصدير', 'warning');
-        return;
-    }
-    const rows = [
-        ['Telegram ID', 'الاسم', 'Username', 'الرصيد', 'الحالة', 'VIP', 'KYC', 'تاريخ التسجيل']
-    ];
+    if (!usersData.length) { showToast('لا يوجد مستخدمون للتصدير', 'warning'); return; }
+    const rows = [['Telegram ID', 'الاسم', 'Username', 'الرصيد', 'الحالة', 'VIP', 'KYC', 'تاريخ التسجيل']];
     usersData.forEach(u => {
-        rows.push([
-            u.telegram_id,
-            u.first_name || '',
-            u.username || '',
-            u.balance.toFixed(2),
-            u.is_banned ? 'محظور' : 'نشط',
-            u.vip_level > 0 ? 'VIP' + u.vip_level : '-',
-            u.kyc_status,
-            u.created_at ? new Date(u.created_at).toLocaleString('ar') : ''
-        ]);
+        rows.push([u.telegram_id, u.first_name || '', u.username || '', u.balance.toFixed(2),
+            u.is_banned ? 'محظور' : 'نشط', u.vip_level > 0 ? 'VIP' + u.vip_level : '-',
+            u.kyc_status, u.created_at ? new Date(u.created_at).toLocaleString('ar') : '']);
     });
     exportToExcel('users', 'المستخدمون', rows);
 }
 
 function exportOrdersExcel() {
     const dataToExport = filteredOrders.length ? filteredOrders : ordersData;
-    if (!dataToExport.length) {
-        showToast('لا توجد طلبات للتصدير', 'warning');
-        return;
-    }
-    const rows = [
-        ['رقم الطلب', 'معرف المستخدم', 'المنتج', 'الكمية', 'سعر الوحدة', 'الإجمالي', 'الخصم', 'الكوبون', 'الحالة', 'التاريخ']
-    ];
+    if (!dataToExport.length) { showToast('لا توجد طلبات للتصدير', 'warning'); return; }
+    const rows = [['رقم الطلب', 'معرف المستخدم', 'المنتج', 'الكمية', 'سعر الوحدة', 'الإجمالي', 'الخصم', 'الكوبون', 'الحالة', 'التاريخ']];
     dataToExport.forEach(o => {
-        rows.push([
-            o.order_number,
-            o.user_id,
-            o.product_name || o.product_id,
-            o.quantity,
-            o.unit_price || 0,
-            o.total_price,
-            o.discount_amount || 0,
-            o.coupon_code || '-',
-            getStatusArabic(o.status),
-            o.created_at ? new Date(o.created_at).toLocaleString('ar') : ''
-        ]);
+        rows.push([o.order_number, o.user_id, o.product_name || o.product_id, o.quantity,
+            o.unit_price || 0, o.total_price, o.discount_amount || 0, o.coupon_code || '-',
+            getStatusArabic(o.status), o.created_at ? new Date(o.created_at).toLocaleString('ar') : '']);
     });
     exportToExcel('orders', 'الطلبات', rows);
 }
 
 function exportDepositsExcel() {
-    if (!depositsData.length) {
-        showToast('لا توجد إيداعات للتصدير', 'warning');
-        return;
-    }
-    const rows = [
-        ['رقم العملية', 'معرف المستخدم', 'المبلغ', 'العملة', 'الطريقة', 'الحالة', 'ملاحظة', 'التاريخ']
-    ];
+    if (!depositsData.length) { showToast('لا توجد إيداعات للتصدير', 'warning'); return; }
+    const rows = [['رقم العملية', 'معرف المستخدم', 'المبلغ', 'العملة', 'الطريقة', 'الحالة', 'ملاحظة', 'التاريخ']];
     depositsData.forEach(d => {
-        rows.push([
-            d.transaction_id,
-            d.user_id,
-            d.amount,
-            d.currency || 'USD',
-            d.method,
+        rows.push([d.transaction_id, d.user_id, d.amount, d.currency || 'USD', d.method,
             d.status === 'approved' ? 'مقبول' : d.status === 'rejected' ? 'مرفوض' : 'معلق',
-            d.admin_note || '-',
-            d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''
-        ]);
+            d.admin_note || '-', d.created_at ? new Date(d.created_at).toLocaleString('ar') : '']);
     });
     exportToExcel('deposits', 'الإيداعات', rows);
 }
 
 function exportReferralsExcel() {
-    if (!referralsData || !referralsData.length) {
-        showToast('لا توجد إحالات للتصدير', 'warning');
-        return;
-    }
-    const rows = [
-        ['#', 'المُحيل (Telegram)', 'المُحال (Telegram)', 'المكافأة', 'الحالة', 'التاريخ', 'تاريخ الإكمال']
-    ];
+    if (!referralsData || !referralsData.length) { showToast('لا توجد إحالات للتصدير', 'warning'); return; }
+    const rows = [['#', 'المُحيل (Telegram)', 'المُحال (Telegram)', 'المكافأة', 'الحالة', 'التاريخ', 'تاريخ الإكمال']];
     referralsData.forEach(r => {
-        rows.push([
-            r.id,
-            r.referrer_telegram || r.referrer_id,
-            r.referred_telegram || r.referred_user_id,
-            r.reward_amount,
-            r.status === 'completed' ? 'مكتملة' : 'قيد الانتظار',
+        rows.push([r.id, r.referrer_telegram || r.referrer_id, r.referred_telegram || r.referred_user_id,
+            r.reward_amount, r.status === 'completed' ? 'مكتملة' : 'قيد الانتظار',
             r.created_at ? new Date(r.created_at).toLocaleString('ar') : '',
-            r.completed_at ? new Date(r.completed_at).toLocaleString('ar') : '-'
-        ]);
+            r.completed_at ? new Date(r.completed_at).toLocaleString('ar') : '-']);
     });
     exportToExcel('referrals', 'الإحالات', rows);
 }
@@ -2301,8 +2343,7 @@ function fileToBase64(file, maxWidth = 512) {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, width, height);
                 ctx.drawImage(img, 0, 0, width, height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                resolve(dataUrl);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
             };
             img.onerror = reject;
             img.src = reader.result;
@@ -2320,25 +2361,15 @@ function fileToSquareBase64(file, size = 512) {
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-
                 const minSide = Math.min(img.width, img.height);
                 const sx = (img.width - minSide) / 2;
                 const sy = (img.height - minSide) / 2;
-
                 canvas.width = size;
                 canvas.height = size;
-
                 ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, size, size);
-
-                ctx.drawImage(
-                    img,
-                    sx, sy, minSide, minSide,
-                    0, 0, size, size
-                );
-
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                resolve(dataUrl);
+                ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
             };
             img.onerror = reject;
             img.src = reader.result;

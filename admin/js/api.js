@@ -55,6 +55,9 @@ async function adminLogin(username, password) {
     return await res.json();
 }
 
+// ============================================================
+// ============ Users ============
+// ============================================================
 async function fetchAdminUsers() {
     return await apiRequest('/admin/api/users');
 }
@@ -84,6 +87,9 @@ async function toggleUserKYC(userId, status) {
     });
 }
 
+// ============================================================
+// ============ Categories ============
+// ============================================================
 async function fetchAdminCategories() {
     return await apiRequest('/admin/api/categories');
 }
@@ -99,6 +105,13 @@ async function deleteCategory(categoryId) {
     return await apiRequest(`/admin/api/categories/${categoryId}`, { method: 'DELETE' });
 }
 
+async function restoreCategory(categoryId) {
+    return await apiRequest(`/admin/api/categories/${categoryId}/restore`, { method: 'POST' });
+}
+
+// ============================================================
+// ============ Products ============
+// ============================================================
 async function fetchAdminProducts() {
     return await apiRequest('/admin/api/products');
 }
@@ -121,6 +134,10 @@ async function deleteProduct(productId) {
     return await apiRequest(`/admin/api/products/${productId}`, { method: 'DELETE' });
 }
 
+async function restoreProduct(productId) {
+    return await apiRequest(`/admin/api/products/${productId}/restore`, { method: 'POST' });
+}
+
 async function fetchProductBundles(productId) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`);
 }
@@ -132,6 +149,16 @@ async function createProductBundle(productId, bundleData) {
     });
 }
 
+// ============================================================
+// ============ 🆕 Archive ============
+// ============================================================
+async function fetchArchive() {
+    return await apiRequest('/admin/api/archive');
+}
+
+// ============================================================
+// ============ Payment Methods ============
+// ============================================================
 async function fetchAdminPaymentMethods() {
     return await apiRequest('/admin/api/payment-methods');
 }
@@ -147,6 +174,9 @@ async function deletePaymentMethod(methodId) {
     return await apiRequest(`/admin/api/payment-methods/${methodId}`, { method: 'DELETE' });
 }
 
+// ============================================================
+// ============ Orders ============
+// ============================================================
 async function fetchAdminOrders() {
     return await apiRequest('/admin/api/orders');
 }
@@ -162,6 +192,9 @@ async function updateOrderStatus(orderId, status) {
     });
 }
 
+// ============================================================
+// ============ Deposits ============
+// ============================================================
 async function fetchAdminDeposits() {
     return await apiRequest('/admin/api/deposits');
 }
@@ -174,6 +207,9 @@ async function rejectDeposit(depositId) {
     return await apiRequest(`/admin/api/deposits/${depositId}/reject`, { method: 'POST' });
 }
 
+// ============================================================
+// ============ KYC ============
+// ============================================================
 async function fetchAdminKYC() {
     return await apiRequest('/admin/api/kyc');
 }
@@ -186,6 +222,9 @@ async function rejectKYCRequest(kycId) {
     return await apiRequest(`/admin/api/kyc/${kycId}/reject`, { method: 'POST' });
 }
 
+// ============================================================
+// ============ Notifications ============
+// ============================================================
 async function sendNotification(notificationData) {
     return await apiRequest('/admin/api/notifications', {
         method: 'POST',
@@ -193,6 +232,9 @@ async function sendNotification(notificationData) {
     });
 }
 
+// ============================================================
+// ============ Service Requests ============
+// ============================================================
 async function fetchServiceRequests() {
     return await apiRequest('/admin/api/service-requests');
 }
@@ -204,12 +246,28 @@ async function updateServiceRequest(requestId, status, response) {
     });
 }
 
-// ============ سجل النشاطات ============
+// ============================================================
+// ============ Activities ============
+// ============================================================
 async function fetchActivities() {
     return await apiRequest('/admin/api/activities');
 }
 
-// ============ كودات الخصم ============
+// ============================================================
+// ============ 🆕 Audit Log ============
+// ============================================================
+async function fetchAuditLog(params = {}) {
+    const query = new URLSearchParams();
+    if (params.user_id) query.set('user_id', params.user_id);
+    if (params.action) query.set('action', params.action);
+    if (params.limit) query.set('limit', params.limit);
+    const qs = query.toString();
+    return await apiRequest(`/admin/api/audit-log${qs ? '?' + qs : ''}`);
+}
+
+// ============================================================
+// ============ Coupons ============
+// ============================================================
 async function fetchAdminCoupons() {
     return await apiRequest('/admin/api/coupons');
 }
@@ -232,11 +290,16 @@ async function deleteCoupon(couponId) {
     return await apiRequest(`/admin/api/coupons/${couponId}`, { method: 'DELETE' });
 }
 
-// ============ الإحالات ============
+// ============================================================
+// ============ Referrals ============
+// ============================================================
 async function fetchAdminReferrals() {
     return await apiRequest('/admin/api/referrals');
 }
 
+// ============================================================
+// ============ Logout ============
+// ============================================================
 function logout() {
     clearToken();
     location.reload();
