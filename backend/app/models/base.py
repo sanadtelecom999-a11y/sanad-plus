@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from ..extensions import db
 
+
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
@@ -25,6 +26,7 @@ class User(db.Model):
     kyc_requests = db.relationship("KYCRequest", backref="user", lazy=True)
     notifications = db.relationship("Notification", backref="user", lazy=True)
 
+
 class Category(db.Model):
     __tablename__ = "categories"
     id = db.Column(db.Integer, primary_key=True)
@@ -34,6 +36,7 @@ class Category(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
     products = db.relationship("Product", backref="category", lazy=True)
+
 
 class Product(db.Model):
     __tablename__ = "products"
@@ -46,13 +49,15 @@ class Product(db.Model):
     base_quantity = db.Column(db.Integer, default=0)
     base_price = db.Column(db.Float, nullable=False, default=0.0)
     unit_name = db.Column(db.String(50), default="قطعة")
-    input_type = db.Column(db.String(20), default="id")
+    input_type = db.Column(db.String(20), default="id")  # id / account_id / phone / none
     custom_input_label = db.Column(db.String(100))
     stock = db.Column(db.Integer, default=0)
+    max_quantity = db.Column(db.Integer, default=0)  # 0 = بلا حد أقصى
     is_bundle = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     bundles = db.relationship("ProductBundle", backref="product", lazy=True)
     orders = db.relationship("Order", backref="product", lazy=True)
+
 
 class ProductBundle(db.Model):
     __tablename__ = "product_bundles"
@@ -62,6 +67,7 @@ class ProductBundle(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price_usd = db.Column(db.Float, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+
 
 class Order(db.Model):
     __tablename__ = "orders"
@@ -81,6 +87,7 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+
 class Deposit(db.Model):
     __tablename__ = "deposits"
     id = db.Column(db.Integer, primary_key=True)
@@ -98,6 +105,7 @@ class Deposit(db.Model):
     admin_note = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+
 class PaymentMethod(db.Model):
     __tablename__ = "payment_methods"
     id = db.Column(db.Integer, primary_key=True)
@@ -112,6 +120,7 @@ class PaymentMethod(db.Model):
     requires_kyc = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
 
+
 class KYCRequest(db.Model):
     __tablename__ = "kyc_requests"
     id = db.Column(db.Integer, primary_key=True)
@@ -125,6 +134,7 @@ class KYCRequest(db.Model):
     submitted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at = db.Column(db.DateTime)
 
+
 class Notification(db.Model):
     __tablename__ = "notifications"
     id = db.Column(db.Integer, primary_key=True)
@@ -134,6 +144,7 @@ class Notification(db.Model):
     is_read = db.Column(db.Boolean, default=False)
     type = db.Column(db.String(50), default="info")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class Transaction(db.Model):
     __tablename__ = "transactions"
@@ -146,11 +157,13 @@ class Transaction(db.Model):
     reference_id = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+
 class Setting(db.Model):
     __tablename__ = "settings"
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(100), unique=True, nullable=False)
     value = db.Column(db.Text)
+
 
 class Admin(db.Model):
     __tablename__ = "admins"
@@ -158,12 +171,14 @@ class Admin(db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
+
 class AdminActivity(db.Model):
     __tablename__ = "admin_activities"
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey("admins.id"))
     action = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class ServiceRequest(db.Model):
     __tablename__ = "service_requests"
@@ -175,6 +190,7 @@ class ServiceRequest(db.Model):
     status = db.Column(db.String(20), default="pending")
     admin_response = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class Coupon(db.Model):
     __tablename__ = "coupons"
@@ -191,6 +207,7 @@ class Coupon(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+
 class CouponUsage(db.Model):
     __tablename__ = "coupon_usages"
     id = db.Column(db.Integer, primary_key=True)
@@ -198,6 +215,7 @@ class CouponUsage(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"))
     used_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
 
 class Referral(db.Model):
     __tablename__ = "referrals"

@@ -4,7 +4,6 @@ import threading
 import sqlalchemy as sa
 from sqlalchemy import text
 
-# إضافة جذر المشروع للمسار
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import create_app
@@ -18,9 +17,7 @@ def upgrade_database():
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # ============================================================
-        # 1) إزالة FK من admin_activities وجعل admin_id يقبل NULL
-        # ============================================================
+        # 1) إزالة FK من admin_activities
         fk_removals = [
             "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
             "ALTER TABLE admin_activities ALTER COLUMN admin_id DROP NOT NULL",
@@ -31,14 +28,11 @@ def upgrade_database():
             try:
                 db.session.execute(text(sql))
                 db.session.commit()
-                print(f"✔️ {sql[:70]}...")
             except Exception as e:
                 db.session.rollback()
                 print(f"⚠️ فشل: {sql[:70]}... → {e}")
 
-        # ============================================================
         # 2) تحويل حقول الصور إلى TEXT
-        # ============================================================
         image_columns = {
             'categories': ['image'],
             'products': ['image'],
@@ -46,7 +40,6 @@ def upgrade_database():
             'deposits': ['proof_image'],
             'kyc_requests': ['selfie_image'],
         }
-
         for table, cols in image_columns.items():
             if not inspector.has_table(table):
                 continue
@@ -56,14 +49,11 @@ def upgrade_database():
                     try:
                         db.session.execute(text(f'ALTER TABLE {table} ALTER COLUMN {col} TYPE TEXT'))
                         db.session.commit()
-                        print(f"✔️ {table}.{col} → TEXT")
                     except Exception as e:
                         db.session.rollback()
                         print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
-        # ============================================================
         # 3) إضافة الأعمدة المفقودة
-        # ============================================================
         required_columns = {
             'deposits': {'admin_note': 'TEXT'},
             'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
@@ -75,6 +65,7 @@ def upgrade_database():
             'products': {
                 'rating_sum': 'INTEGER DEFAULT 0',
                 'rating_count': 'INTEGER DEFAULT 0',
+                'max_quantity': 'INTEGER DEFAULT 0',
             },
             'orders': {
                 'discount_amount': 'FLOAT DEFAULT 0',
@@ -82,7 +73,6 @@ def upgrade_database():
                 'is_rated': 'BOOLEAN DEFAULT FALSE',
             },
         }
-
         for table, cols in required_columns.items():
             if not inspector.has_table(table):
                 continue
@@ -92,18 +82,15 @@ def upgrade_database():
                     try:
                         db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN {col_name} {col_type}'))
                         db.session.commit()
-                        print(f"✔️ {table}.{col_name} مضاف")
+                        print(f"✅ تمت إضافة {col_name} إلى {table}")
                     except Exception as e:
                         db.session.rollback()
                         print(f"⚠️ فشل إضافة {table}.{col_name}: {e}")
 
-        # ============================================================
-        # 4) إنشاء الجداول الجديدة (Coupons, Referrals, etc.)
-        # ============================================================
+        # 4) إنشاء الجداول الجديدة
         try:
             db.create_all()
             db.session.commit()
-            print("✅ تم إنشاء/التحقق من جميع الجداول")
         except Exception as e:
             db.session.rollback()
             print(f"⚠️ فشل إنشاء الجداول: {e}")
@@ -118,9 +105,7 @@ def run_flask():
 
 if __name__ == "__main__":
     upgrade_database()
-
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
-
     from bot.bot import run_polling
     run_polling()

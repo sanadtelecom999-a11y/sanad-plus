@@ -1,4 +1,7 @@
 import uuid
+import base64
+import binascii
+import re
 from datetime import datetime, timezone
 from flask import request, jsonify
 from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRequest
@@ -6,6 +9,72 @@ from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
 
+
+# ============================================================
+# 🛡️ KYC Image Validation — 3 طبقات حماية
+# ============================================================
+
+ALLOWED_MIME_TYPES = {
+    "image/jpeg": [b"\xff\xd8\xff"],
+    "image/png":  [b"\x89PNG\r\n\x1a\n"],
+    "image/webp": [b"RIFF"],
+}
+
+MAX_IMAGE_SIZE_BYTES = 500 * 1024       # 500 KB
+MAX_DATA_URL_LENGTH = 800 * 1024        # ~800 KB (Base64 أطول 33%)
+
+
+def validate_kyc_image(data_url, field_name="selfie_image"):
+    """
+    تحقق من صورة KYC على 3 طبقات:
+    1. MIME مسموح
+    2. Base64 صحيح
+    3. Magic Bytes (المحتوى الحقيقي)
+    """
+    if not data_url or not isinstance(data_url, str):
+        return False, f"{field_name}: الصورة مطلوبة"
+
+    if len(data_url) > MAX_DATA_URL_LENGTH:
+        return False, f"{field_name}: الصورة كبيرة جداً"
+
+    if not data_url.startswith("data:image/"):
+        return False, f"{field_name}: صيغة الصورة غير صحيحة"
+
+    match = re.match(r"^data:(image/[a-z]+);base64,(.+)$", data_url, re.DOTALL)
+    if not match:
+        return False, f"{field_name}: صيغة Base64 غير صحيحة"
+
+    mime_type, b64_data = match.group(1), match.group(2)
+
+    if mime_type not in ALLOWED_MIME_TYPES:
+        return False, f"{field_name}: صيغة غير مدعومة ({mime_type})"
+
+    try:
+        binary_data = base64.b64decode(b64_data, validate=True)
+    except (binascii.Error, ValueError):
+        return False, f"{field_name}: بيانات Base64 تالفة"
+
+    if len(binary_data) > MAX_IMAGE_SIZE_BYTES:
+        return False, f"{field_name}: حجم الصورة يتجاوز 500KB"
+
+    if len(binary_data) < 100:
+        return False, f"{field_name}: الصورة صغيرة جداً"
+
+    # Magic Bytes — الأهم
+    signatures = ALLOWED_MIME_TYPES[mime_type]
+    if not any(binary_data.startswith(sig) for sig in signatures):
+        return False, f"{field_name}: محتوى الملف لا يطابق الصيغة"
+
+    if mime_type == "image/webp":
+        if len(binary_data) < 12 or binary_data[8:12] != b"WEBP":
+            return False, f"{field_name}: ملف WebP تالف"
+
+    return True, None
+
+
+# ============================================================
+# Helpers
+# ============================================================
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
@@ -39,6 +108,10 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
             db.session.commit()
     return user
 
+
+# ============================================================
+# Endpoints
+# ============================================================
 @main.route("/api/user/me", methods=["GET"])
 def get_user():
     telegram_id = request.args.get("telegram_id", type=int)
@@ -55,8 +128,10 @@ def get_user():
             "role": user.role,
             "is_banned": user.is_banned,
             "vip_level": user.vip_level,
+            "referral_code": user.referral_code,
         })
     return jsonify({"error": "telegram_id مطلوب"}), 400
+
 
 @main.route("/api/kyc/submit", methods=["POST"])
 def submit_kyc():
@@ -65,23 +140,40 @@ def submit_kyc():
     if not telegram_id:
         return jsonify({"error": "telegram_id مطلوب"}), 400
 
-    user = get_or_create_user(
-        telegram_id,
-        data.get("first_name", ""),
-        data.get("last_name", ""),
-        data.get("username", "")
-    )
+    user = get_or_create_user(telegram_id)
 
+    # فحص وجود طلب معلّق
     existing = KYCRequest.query.filter_by(user_id=user.id, status="pending").first()
     if existing:
         return jsonify({"error": "لديك طلب توثيق قيد المراجعة بالفعل"}), 400
 
+    # استخراج الحقول
+    full_name = (data.get("full_name") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    address = (data.get("address") or "").strip()
+    selfie_image = data.get("selfie_image", "")
+
+    # فحوصات نصية
+    if len(full_name) < 3:
+        return jsonify({"error": "الاسم الكامل مطلوب (3 أحرف على الأقل)"}), 400
+
+    if not re.match(r"^\+?[0-9]{8,15}$", phone):
+        return jsonify({"error": "رقم الهاتف غير صحيح"}), 400
+
+    if len(address) < 3:
+        return jsonify({"error": "العنوان مطلوب"}), 400
+
+    # 🛡️ فحص الصورة
+    is_valid, error_msg = validate_kyc_image(selfie_image, "selfie_image")
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
     kyc = KYCRequest(
         user_id=user.id,
-        full_name=data.get("full_name"),
-        phone=data.get("phone"),
-        address=data.get("address", ""),
-        selfie_image=data.get("selfie_image", ""),
+        full_name=full_name,
+        phone=phone,
+        address=address,
+        selfie_image=selfie_image,
         status="pending",
         submitted_at=datetime.now(timezone.utc),
     )
@@ -98,9 +190,10 @@ def submit_kyc():
     db.session.commit()
 
     send_telegram_notification(user.telegram_id, "تم إرسال طلب التوثيق بنجاح")
-    notify_admins(f"🪪 طلب توثيق جديد!\nالمستخدم: {user.telegram_id}\nالاسم: {data.get('full_name')}\nالهاتف: {data.get('phone')}")
+    notify_admins(f"🪪 طلب توثيق جديد!\nالمستخدم: {user.telegram_id}\nالاسم: {full_name}\nالهاتف: {phone}")
 
     return jsonify({"message": "تم إرسال طلب التوثيق بنجاح"}), 200
+
 
 @main.route("/api/kyc/my", methods=["GET"])
 def get_my_kyc():
@@ -116,9 +209,9 @@ def get_my_kyc():
         "full_name": kyc.full_name,
         "phone": kyc.phone,
         "address": kyc.address,
-        "selfie_image": kyc.selfie_image,
         "submitted_at": kyc.submitted_at.isoformat() if kyc.submitted_at else None,
     })
+
 
 @main.route("/api/user/notifications", methods=["GET"])
 def get_notifications():
@@ -136,6 +229,7 @@ def get_notifications():
         "created_at": n.created_at.isoformat() if n.created_at else None,
     } for n in notifications])
 
+
 @main.route("/api/user/notifications/read", methods=["POST"])
 def mark_notification_read():
     data = request.get_json()
@@ -146,6 +240,7 @@ def mark_notification_read():
             notif.is_read = True
             db.session.commit()
     return jsonify({"success": True})
+
 
 @main.route("/api/user/request-service", methods=["POST"])
 def request_service():
@@ -171,7 +266,6 @@ def request_service():
     db.session.add(req)
     db.session.commit()
 
-    # إشعار الأدمن بطلب الخدمة الجديد
     notify_admins(f"🛠️ طلب خدمة مخصصة جديد!\nالمستخدم: {user.telegram_id}\nالخدمة: {service_name}")
 
     return jsonify({"message": "تم إرسال طلب الخدمة المخصصة"}), 200

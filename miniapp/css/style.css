@@ -13,8 +13,11 @@
     --success: #4CAF50;
     --success-bg: #E8F5E9;
     --danger: #F44336;
+    --danger-bg: #FFEBEE;
     --warning: #FFC107;
     --warning-bg: #FFF8E1;
+    --info: #2196F3;
+    --info-bg: #E3F2FD;
     --vip-bg: #FFF9C4;
     --vip-text: #B8860B;
     --radius-lg: 24px;
@@ -36,6 +39,10 @@
     --primary-light: #1E2A35;
     --vip-bg: #4A3F00;
     --vip-text: #FFD54F;
+    --danger-bg: #4A1F1F;
+    --warning-bg: #4A3F00;
+    --success-bg: #1B3A1F;
+    --info-bg: #1A2A3F;
     --shadow: 0 4px 12px rgba(0,0,0,0.3);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
 }
@@ -56,8 +63,14 @@ body {
     user-select: none;
 }
 
+.ltr {
+    direction: ltr;
+    display: inline-block;
+    unicode-bidi: embed;
+}
+
 /* ============================================================
-   ============ شاشة البداية Splash Screen ============
+   ============ Splash Screen ============
    ============================================================ */
 #splashScreen {
     position: fixed;
@@ -108,9 +121,6 @@ body {
     z-index: 3;
 }
 
-/* ============================================================
-   المرحلة 1-3: الدرع
-   ============================================================ */
 .splash-shield-stage {
     position: absolute;
     top: 50%;
@@ -226,9 +236,6 @@ body {
     to { opacity: 1; }
 }
 
-/* ============================================================
-   شعاع الضوء
-   ============================================================ */
 .splash-light-sweep {
     opacity: 0;
     will-change: transform, opacity;
@@ -255,9 +262,6 @@ body {
     }
 }
 
-/* ============================================================
-   النص النهائي في Splash
-   ============================================================ */
 .splash-text-stage {
     position: absolute;
     top: 50%;
@@ -410,9 +414,6 @@ body {
     }
 }
 
-/* ============================================================
-   prefers-reduced-motion
-   ============================================================ */
 @media (prefers-reduced-motion: reduce) {
     .splash-shield-stage,
     .splash-text-stage,
@@ -429,45 +430,105 @@ body {
 }
 
 @media (max-width: 360px) {
-    .splash-brand-ar {
-        font-size: 2.6rem;
-        gap: 4px;
-    }
-    .splash-plus-mark {
-        font-size: 1.7rem;
-    }
-    .splash-brand-en {
-        font-size: 0.85rem;
-        letter-spacing: 4px;
-        margin-top: 18px;
-    }
-    .splash-shield-stage {
-        width: 150px;
-        height: 175px;
-        margin: -75px 0 0 -75px;
-    }
-    .splash-bg-glow {
-        width: 340px;
-        height: 340px;
-        margin: -170px 0 0 -170px;
-    }
+    .splash-brand-ar { font-size: 2.6rem; gap: 4px; }
+    .splash-plus-mark { font-size: 1.7rem; }
+    .splash-brand-en { font-size: 0.85rem; letter-spacing: 4px; margin-top: 18px; }
+    .splash-shield-stage { width: 150px; height: 175px; margin: -75px 0 0 -75px; }
+    .splash-bg-glow { width: 340px; height: 340px; margin: -170px 0 0 -170px; }
 }
 
 @media (max-width: 320px) {
-    .splash-brand-ar {
-        font-size: 2.3rem;
-    }
-    .splash-plus-mark {
-        font-size: 1.5rem;
-    }
-    .splash-brand-en {
-        font-size: 0.78rem;
-        letter-spacing: 3px;
+    .splash-brand-ar { font-size: 2.3rem; }
+    .splash-plus-mark { font-size: 1.5rem; }
+    .splash-brand-en { font-size: 0.78rem; letter-spacing: 3px; }
+}
+
+/* ============================================================
+   ============ Pull to Refresh ============
+   ============================================================ */
+.ptr-indicator {
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    right: 0;
+    height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 99;
+    opacity: 0;
+    will-change: height, opacity;
+    pointer-events: none;
+}
+
+.ptr-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 250ms ease, background-color 250ms ease;
+}
+
+.ptr-icon .material-icons {
+    font-size: 20px;
+    color: var(--primary);
+    transition: transform 250ms ease, color 250ms ease;
+}
+
+.ptr-indicator.ready .ptr-icon {
+    background: var(--primary);
+    transform: scale(1.1);
+}
+
+.ptr-indicator.ready .ptr-icon .material-icons {
+    color: white;
+}
+
+.ptr-indicator.refreshing .ptr-icon .material-icons {
+    animation: ptrSpin 0.9s linear infinite;
+    color: var(--primary);
+}
+
+.ptr-indicator.refreshing .ptr-icon {
+    background: var(--primary-light);
+    transform: scale(1);
+}
+
+@keyframes ptrSpin {
+    to { transform: rotate(360deg); }
+}
+
+.ptr-text {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.3px;
+}
+
+.ptr-indicator.ready .ptr-text,
+.ptr-indicator.refreshing .ptr-text {
+    color: var(--primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ptr-indicator,
+    .ptr-icon,
+    .ptr-icon .material-icons {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
     }
 }
 
 /* ============================================================
-   ============ الشريط العلوي ============
+   ============ Topbar ============
    ============================================================ */
 .topbar {
     position: fixed;
@@ -581,7 +642,7 @@ body {
 }
 
 /* ============================================================
-   ============ المحتوى الرئيسي ============
+   ============ Main Content ============
    ============================================================ */
 .main-content {
     margin-top: var(--topbar-height);
@@ -590,6 +651,8 @@ body {
     overflow-y: auto;
     height: calc(100vh - var(--topbar-height) - var(--nav-height));
     background-color: var(--background);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 .page {
@@ -612,9 +675,7 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ============================================================
-   ============ عناصر عامة ============
-   ============================================================ */
+/* ============ عناصر عامة ============ */
 .search-box {
     display: flex;
     align-items: center;
@@ -760,9 +821,7 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* ============================================================
-   Skeleton Loading
-   ============================================================ */
+/* ============ Skeleton ============ */
 .skeleton-card {
     background: linear-gradient(90deg, var(--border) 25%, var(--primary-light) 50%, var(--border) 75%);
     background-size: 200% 100%;
@@ -776,24 +835,7 @@ body {
     100% { background-position: -200% 0; }
 }
 
-.skeleton-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-}
-
-.skeleton-list-item {
-    background: linear-gradient(90deg, var(--border) 25%, var(--primary-light) 50%, var(--border) 75%);
-    background-size: 200% 100%;
-    animation: skeletonShimmer 1.5s infinite;
-    border-radius: var(--radius-md);
-    height: 80px;
-    margin-bottom: 12px;
-}
-
-/* ============================================================
-   ============ شاشة الرئيسية ============
-   ============================================================ */
+/* ============ شاشة الرئيسية ============ */
 .user-greeting {
     display: flex;
     align-items: center;
@@ -854,8 +896,88 @@ body {
 }
 
 /* ============================================================
-   ============ الأقسام (Categories) — مربعة 1:1 + Overlay ============
+   ============ 📌 شوهد حديثاً ============
    ============================================================ */
+.recently-viewed-container {
+    margin-bottom: 16px;
+}
+
+.recently-viewed-list {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 2px 10px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.recently-viewed-list::-webkit-scrollbar {
+    height: 4px;
+}
+
+.recently-viewed-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.recently-viewed-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+.recently-viewed-item {
+    flex-shrink: 0;
+    width: 80px;
+    cursor: pointer;
+    text-align: center;
+    scroll-snap-align: start;
+    transition: var(--transition);
+}
+
+.recently-viewed-item:hover {
+    transform: translateY(-2px);
+}
+
+.recently-viewed-image {
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-md);
+    background-color: #FFFFFF;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: #ccc;
+    padding: 6px;
+    margin-bottom: 4px;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+}
+
+[data-theme="dark"] .recently-viewed-image {
+    background-color: var(--surface);
+}
+
+.recently-viewed-item:hover .recently-viewed-image {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.recently-viewed-name {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    line-height: 1.3;
+}
+
+/* ============ الأقسام ============ */
 .categories-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -914,9 +1036,7 @@ body {
     line-height: 1.2;
 }
 
-/* ============================================================
-   ============ المنتجات (Products) — 3 أعمدة + 1:1 contain ============
-   ============================================================ */
+/* ============ المنتجات ============ */
 .products-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -957,6 +1077,10 @@ body {
     color: #ccc;
     overflow: hidden;
     position: relative;
+}
+
+[data-theme="dark"] .product-image {
+    background-color: var(--surface);
 }
 
 .product-badges {
@@ -1032,10 +1156,7 @@ body {
     color: var(--text);
 }
 
-/* -- تم حذف السعر وشارة النوع بناءً على التصميم الجديد -- */
-/* ============================================================
-   ============ شاشة طلباتي (Orders) ============
-   ============================================================ */
+/* ============ الطلبات ============ */
 .orders-list,
 .deposits-list {
     display: flex;
@@ -1063,6 +1184,8 @@ body {
     font-weight: 700;
     color: var(--primary-dark);
     font-size: 0.9rem;
+    direction: ltr;
+    display: inline-block;
 }
 
 .status-badge {
@@ -1078,7 +1201,7 @@ body {
 }
 
 .status-badge.failed {
-    background-color: #FFEBEE;
+    background-color: var(--danger-bg);
     color: var(--danger);
 }
 
@@ -1120,8 +1243,193 @@ body {
 }
 
 /* ============================================================
-   ============ شريط تقدم حالة الطلب ============
+   ============ Order Timeline (Vertical) ============
    ============================================================ */
+.order-timeline {
+    margin-top: 14px;
+    padding: 12px 4px 12px 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: linear-gradient(180deg, transparent 0%, var(--primary-light) 50%, transparent 100%);
+    border-radius: var(--radius-sm);
+}
+
+[data-theme="dark"] .order-timeline {
+    background: linear-gradient(180deg, transparent 0%, rgba(30, 42, 53, 0.6) 50%, transparent 100%);
+}
+
+.timeline-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    padding: 4px 8px;
+    opacity: 0.5;
+    transition: var(--transition);
+}
+
+.timeline-step.done,
+.timeline-step.current,
+.timeline-step.failed,
+.timeline-step.cancelled {
+    opacity: 1;
+}
+
+.timeline-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 38px;
+    right: 24px;
+    width: 2px;
+    height: calc(100% - 30px);
+    background-color: var(--border);
+    z-index: 1;
+}
+
+.timeline-step.done:not(:last-child)::before {
+    background-color: var(--success);
+}
+
+.timeline-marker {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: var(--border);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    transition: var(--transition);
+    border: 2px solid var(--surface);
+    box-shadow: 0 0 0 2px var(--border);
+}
+
+.timeline-marker .material-icons {
+    font-size: 18px;
+    transition: var(--transition);
+}
+
+.timeline-step.done .timeline-marker {
+    background-color: var(--success);
+    color: white;
+    box-shadow: 0 0 0 2px var(--success-bg);
+}
+
+.timeline-step.current .timeline-marker {
+    background-color: var(--primary);
+    color: white;
+    box-shadow: 0 0 0 2px var(--primary-light);
+    animation: timelinePulse 2s ease-in-out infinite;
+}
+
+@keyframes timelinePulse {
+    0%, 100% {
+        box-shadow: 0 0 0 2px var(--primary-light), 0 0 0 0 rgba(0, 160, 233, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 0 2px var(--primary-light), 0 0 0 8px rgba(0, 160, 233, 0);
+    }
+}
+
+.timeline-step.current .timeline-marker .material-icons {
+    animation: spin 3s linear infinite;
+}
+
+.timeline-step.failed .timeline-marker {
+    background-color: var(--danger);
+    color: white;
+    box-shadow: 0 0 0 2px var(--danger-bg);
+}
+
+.timeline-step.cancelled .timeline-marker {
+    background-color: var(--text-secondary);
+    color: white;
+    box-shadow: 0 0 0 2px var(--border);
+}
+
+.timeline-content {
+    flex: 1;
+    padding-top: 6px;
+    text-align: right;
+}
+
+.timeline-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.timeline-step.pending .timeline-title {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.timeline-step.done .timeline-title {
+    color: var(--success);
+}
+
+.timeline-step.current .timeline-title {
+    color: var(--primary);
+}
+
+.timeline-step.failed .timeline-title {
+    color: var(--danger);
+}
+
+.timeline-step.cancelled .timeline-title {
+    color: var(--text-secondary);
+}
+
+.timeline-time {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 3px;
+    font-weight: 500;
+}
+
+/* ============================================================
+   ============ تفاصيل التسليم ============
+   ============================================================ */
+.order-delivery-info {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background-color: var(--primary-light);
+    border-radius: var(--radius-sm);
+    border-right: 3px solid var(--primary);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.delivery-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+
+.delivery-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.delivery-value {
+    color: var(--text);
+    font-weight: 700;
+    text-align: left;
+    word-break: break-all;
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+/* ============ شريط التقدم الأفقي ============ */
 .order-progress {
     display: flex;
     align-items: center;
@@ -1165,27 +1473,18 @@ body {
     color: white;
 }
 
-.progress-step::before {
+.progress-step::before,
+.progress-step::after {
     content: '';
     position: absolute;
     top: 11px;
-    left: 0;
-    right: 50%;
     height: 2px;
     background-color: var(--border);
     z-index: 1;
 }
 
-.progress-step::after {
-    content: '';
-    position: absolute;
-    top: 11px;
-    left: 50%;
-    right: 0;
-    height: 2px;
-    background-color: var(--border);
-    z-index: 1;
-}
+.progress-step::before { left: 0; right: 50%; }
+.progress-step::after { left: 50%; right: 0; }
 
 .progress-step:first-child::before,
 .progress-step:last-child::after {
@@ -1197,9 +1496,7 @@ body {
     background-color: var(--success);
 }
 
-/* ============================================================
-   ============ عداد الإلغاء ============
-   ============================================================ */
+/* ============ عداد الإلغاء ============ */
 .cancel-timer {
     display: flex;
     align-items: center;
@@ -1218,9 +1515,7 @@ body {
     font-size: 16px;
 }
 
-/* ============================================================
-   ============ شاشة شحن الرصيد ============
-   ============================================================ */
+/* ============ شحن الرصيد ============ */
 .balance-card-gradient {
     background: linear-gradient(135deg, #00A0E9, #0D47A1);
     border-radius: var(--radius-lg);
@@ -1289,19 +1584,11 @@ body {
     color: var(--text-secondary);
 }
 
-/* ============================================================
-   ============ شاشة الإيداعات (Deposits) ============
-   ============================================================ */
+/* ============ الإيداعات ============ */
 .page-title h2 {
     font-size: 1.5rem;
     font-weight: 800;
     margin-bottom: 4px;
-}
-
-.page-title p {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 12px;
 }
 
 .text-secondary {
@@ -1325,9 +1612,7 @@ body {
     color: var(--border);
 }
 
-/* ============================================================
-   ============ شاشة حسابي (Account) ============
-   ============================================================ */
+/* ============ الحساب ============ */
 .account-card {
     display: flex;
     align-items: center;
@@ -1421,15 +1706,6 @@ body {
     transform: translateX(-4px);
 }
 
-.setting-icon {
-    font-size: 1.5rem;
-    color: var(--primary);
-}
-
-.setting-info {
-    flex: 1;
-}
-
 .setting-title {
     font-weight: 700;
     font-size: 0.9rem;
@@ -1440,14 +1716,7 @@ body {
     color: var(--text-secondary);
 }
 
-.setting-arrow {
-    color: var(--text-secondary);
-    font-size: 1.2rem;
-}
-
-/* ============================================================
-   ============ Toggle Switch (الوضع الليلي) ============
-   ============================================================ */
+/* ============ Toggle Switch ============ */
 .toggle-switch {
     position: relative;
     width: 40px;
@@ -1464,10 +1733,7 @@ body {
 .toggle-slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: #ccc;
     border-radius: 34px;
     transition: var(--transition);
@@ -1493,9 +1759,7 @@ input:checked + .toggle-slider:before {
     transform: translateX(18px);
 }
 
-/* ============================================================
-   ============ شاشة KYC ============
-   ============================================================ */
+/* ============ KYC ============ */
 .kyc-container {
     padding: 20px;
     text-align: center;
@@ -1577,8 +1841,6 @@ input:checked + .toggle-slider:before {
     font-size: 0.85rem;
     margin-top: 8px;
     overflow: hidden;
-    background-size: cover;
-    background-position: center;
 }
 
 .image-preview img {
@@ -1587,9 +1849,7 @@ input:checked + .toggle-slider:before {
     object-fit: cover;
 }
 
-/* ============================================================
-   ============ الأسئلة الشائعة (FAQ) ============
-   ============================================================ */
+/* ============ FAQ ============ */
 .faq-list {
     display: flex;
     flex-direction: column;
@@ -1637,9 +1897,7 @@ input:checked + .toggle-slider:before {
     transform: rotate(180deg);
 }
 
-/* ============================================================
-   ============ زر الدعم العائم (Floating Support) ============
-   ============================================================ */
+/* ============ زر الدعم ============ */
 .floating-support-btn {
     position: fixed;
     bottom: calc(var(--nav-height) + 16px);
@@ -1691,17 +1949,12 @@ input:checked + .toggle-slider:before {
     50% { box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
 }
 
-/* ============================================================
-   ============ المودال (Modal) ============
-   ============================================================ */
+/* ============ المودال ============ */
 .modal {
     display: none;
     position: fixed;
     z-index: 200;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     background-color: rgba(0, 0, 0, 0.5);
     overflow: auto;
 }
@@ -1740,13 +1993,7 @@ input:checked + .toggle-slider:before {
     color: var(--danger);
 }
 
-.modal-body {
-    padding-top: 10px;
-}
-
-/* ============================================================
-   ============ Form Groups (داخل المودال) ============
-   ============================================================ */
+/* ============ Form Groups ============ */
 .form-group {
     margin-bottom: 16px;
 }
@@ -1781,15 +2028,158 @@ input:checked + .toggle-slider:before {
 }
 
 /* ============================================================
-   ============ شاشة النجاح (Success Overlay) ============
+   ============ Purchase Modal ============
+   ============================================================ */
+.purchase-modal {
+    text-align: center;
+}
+
+.purchase-header {
+    margin-bottom: 16px;
+}
+
+.purchase-image-lg {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 12px;
+    border-radius: 20px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #FFFFFF;
+    border: 1px solid var(--border);
+    padding: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .purchase-image-lg {
+    background-color: var(--surface);
+}
+
+.purchase-image-lg.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #ccc;
+}
+
+.purchase-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 6px 0;
+}
+
+.purchase-price-info {
+    font-size: 1rem;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.purchase-price-info small {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.purchase-max-info {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.quantity-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--primary-light);
+    border-radius: var(--radius-md);
+    padding: 4px;
+}
+
+.qty-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: none;
+    background-color: var(--surface);
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    line-height: 1;
+    padding-bottom: 3px;
+}
+
+.qty-btn:hover {
+    background-color: var(--primary);
+    color: white;
+    transform: scale(1.05);
+}
+
+.qty-btn:active {
+    transform: scale(0.95);
+}
+
+.qty-input {
+    flex: 1;
+    text-align: center;
+    border: none;
+    background: transparent;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text);
+    font-family: inherit;
+    outline: none;
+    min-width: 0;
+    padding: 8px;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.purchase-total-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, var(--primary-light), var(--surface));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 1rem;
+}
+
+.purchase-total-box span {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.purchase-total-box strong {
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+
+/* ============================================================
+   ============ Success Overlay ============
    ============================================================ */
 .success-overlay {
     display: none;
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 300;
     align-items: center;
@@ -1806,8 +2196,8 @@ input:checked + .toggle-slider:before {
     border-radius: var(--radius-lg);
     padding: 32px 24px;
     text-align: center;
-    max-width: 320px;
-    width: 85%;
+    max-width: 340px;
+    width: 87%;
     box-shadow: var(--shadow-lg);
     animation: successPop 0.4s ease;
 }
@@ -1822,16 +2212,39 @@ input:checked + .toggle-slider:before {
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background-color: var(--success-bg);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 16px;
+    transition: background-color 0.2s ease;
+    background-color: var(--success-bg);
 }
 
 .success-icon .material-icons {
     font-size: 3.5rem;
     color: var(--success);
+    transition: color 0.2s ease;
+}
+
+.success-icon.error {
+    background-color: var(--danger-bg);
+}
+.success-icon.error .material-icons {
+    color: var(--danger);
+}
+
+.success-icon.warning {
+    background-color: var(--warning-bg);
+}
+.success-icon.warning .material-icons {
+    color: #F57F17;
+}
+
+.success-icon.info {
+    background-color: var(--info-bg);
+}
+.success-icon.info .material-icons {
+    color: var(--info);
 }
 
 .success-title {
@@ -1844,12 +2257,19 @@ input:checked + .toggle-slider:before {
 .success-message {
     font-size: 0.9rem;
     color: var(--text-secondary);
-    line-height: 1.6;
+    line-height: 1.7;
+    word-break: break-word;
 }
 
-/* ============================================================
-   ============ شريط التنقل السفلي (Bottom Nav) ============
-   ============================================================ */
+.success-overlay[data-type="error"] .success-title {
+    color: var(--danger);
+}
+
+.success-overlay[data-type="warning"] .success-title {
+    color: #F57F17;
+}
+
+/* ============ Bottom Nav ============ */
 .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -1894,9 +2314,22 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
 }
 
-/* ============================================================
-   ============ زر تبديل العملة ============
-   ============================================================ */
+/* ============ Responsive ============ */
+@media (min-width: 768px) {
+    .main-content {
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .ptr-indicator {
+        max-width: 600px;
+        margin: 0 auto;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
+
+/* ============ Currency Toggle ============ */
 .currency-toggle {
     display: inline-flex;
     align-items: center;
@@ -1924,15 +2357,10 @@ input:checked + .toggle-slider:before {
     font-size: 16px;
 }
 
-/* ============================================================
-   ============ وميض الشاشة عند إشعار (Flash Overlay) ============
-   ============================================================ */
+/* ============ Flash Overlay ============ */
 .flash-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: rgba(0, 160, 233, 0.25);
     pointer-events: none;
     opacity: 0;
@@ -1952,37 +2380,33 @@ input:checked + .toggle-slider:before {
     100% { opacity: 0; }
 }
 
-/* ============================================================
-   ============ استجابة للشاشات الكبيرة ============
-   ============================================================ */
-@media (min-width: 768px) {
-    .main-content {
-        max-width: 600px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-}
-
-/* ============================================================
-   ============ شاشات صغيرة جداً (تعديلات إضافية) ============
-   ============================================================ */
+/* ============ Small Screens ============ */
 @media (max-width: 360px) {
-    .products-grid {
-        gap: 6px;
-    }
-    .product-name {
-        font-size: 0.68rem;
-        padding: 6px 4px;
-    }
-    .category-name {
-        font-size: 0.75rem;
-        padding: 16px 6px 6px;
-    }
-    .favorite-btn {
-        width: 22px;
-        height: 22px;
-    }
-    .favorite-btn .material-icons {
-        font-size: 12px;
-    }
+    .products-grid { gap: 6px; }
+    .product-name { font-size: 0.68rem; padding: 6px 4px; }
+    .category-name { font-size: 0.75rem; padding: 16px 6px 6px; }
+    .favorite-btn { width: 22px; height: 22px; }
+    .favorite-btn .material-icons { font-size: 12px; }
+
+    .purchase-image-lg { width: 80px; height: 80px; }
+    .purchase-title { font-size: 1.05rem; }
+    .qty-btn { width: 38px; height: 38px; font-size: 1.2rem; }
+    .qty-input { font-size: 1.15rem; }
+    .purchase-total-box strong { font-size: 1.2rem; }
+
+    .success-content { padding: 24px 18px; }
+    .success-icon { width: 68px; height: 68px; }
+    .success-icon .material-icons { font-size: 2.8rem; }
+    .success-title { font-size: 1.15rem; }
+    .success-message { font-size: 0.85rem; }
+
+    .timeline-marker { width: 30px; height: 30px; }
+    .timeline-marker .material-icons { font-size: 16px; }
+    .timeline-step:not(:last-child)::before { right: 22px; }
+    .timeline-title { font-size: 0.8rem; }
+
+    .recently-viewed-item,
+    .recently-viewed-image { width: 70px; }
+    .recently-viewed-image { height: 70px; }
+    .recently-viewed-name { font-size: 0.65rem; max-width: 70px; }
 }

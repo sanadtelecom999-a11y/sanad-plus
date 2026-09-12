@@ -2,9 +2,48 @@
 
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
-async function apiFetch(url, options = {}) {
+// ============================================================
+// ⚙️ إعدادات Retry (Cold Start على Render Free)
+// ============================================================
+const RETRY_CONFIG = {
+    maxRetries: 2,
+    baseDelay: 3000,
+    maxDelay: 15000,
+    timeout: 60000,  // 60 ثانية
+    retryOnStatus: [0, 408, 429, 500, 502, 503, 504],
+};
+
+
+async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
+    // دمج الإعدادات مع إضافة Authorization إن وجد
+    const config = {
+        method: options.method || 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+        },
+        ...options,
+    };
+
+    // Timeout عبر AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RETRY_CONFIG.timeout);
+    config.signal = controller.signal;
+
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, config);
+        clearTimeout(timeoutId);
+
+        // 5xx → أعد المحاولة
+        if (RETRY_CONFIG.retryOnStatus.includes(response.status) && retries > 0) {
+            const delay = calculateDelay(retries);
+            console.warn(`⚠️ Status ${response.status} — Retry in ${delay}ms`);
+            showConnectingIndicator(RETRY_CONFIG.maxRetries - retries + 1);
+            await sleep(delay);
+            return apiFetch(url, options, retries - 1);
+        }
+
+        // معالجة الرد
         let data;
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
@@ -12,6 +51,7 @@ async function apiFetch(url, options = {}) {
         } else {
             data = await response.text();
         }
+
         if (!response.ok) {
             let errorMessage = `خطأ ${response.status}`;
             if (typeof data === 'object' && data.error) {
@@ -21,24 +61,109 @@ async function apiFetch(url, options = {}) {
             }
             throw new Error(errorMessage);
         }
+
+        hideConnectingIndicator();
         return data;
+
     } catch (error) {
-        console.error('API Error:', error);
+        clearTimeout(timeoutId);
+
+        const isRetryable = (
+            error.name === 'AbortError' ||
+            error.message.includes('Failed to fetch') ||
+            error.message.includes('NetworkError')
+        );
+
+        if (isRetryable && retries > 0) {
+            const delay = calculateDelay(retries);
+            console.warn(`⚠️ Network error — Retry in ${delay}ms`);
+            showConnectingIndicator(RETRY_CONFIG.maxRetries - retries + 1);
+            await sleep(delay);
+            return apiFetch(url, options, retries - 1);
+        }
+
+        hideConnectingIndicator();
         throw error;
     }
 }
 
-/**
- * مصادقة المستخدم مع Backend
- * ⚠️ لا يوجد fallback — إذا لم نتعرف على المستخدم، نرفض المصادقة
- */
+
+function calculateDelay(retriesLeft) {
+    const attempt = RETRY_CONFIG.maxRetries - retriesLeft;
+    const delay = RETRY_CONFIG.baseDelay * Math.pow(2, attempt);
+    return Math.min(delay, RETRY_CONFIG.maxDelay);
+}
+
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+// ============================================================
+// 📢 مؤشر "جاري الاتصال" أثناء Retry
+// ============================================================
+function showConnectingIndicator(attempt) {
+    let el = document.getElementById('__connecting_msg');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = '__connecting_msg';
+        el.style.cssText = `
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0D47A1;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-size: 13px;
+            z-index: 99999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Tajawal', sans-serif;
+        `;
+        document.body.appendChild(el);
+    }
+    el.innerHTML = `
+        <span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:__spin 0.8s linear infinite;"></span>
+        جاري الاتصال... (محاولة ${attempt})
+    `;
+
+    if (!document.getElementById('__spin_style')) {
+        const style = document.createElement('style');
+        style.id = '__spin_style';
+        style.textContent = '@keyframes __spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+    }
+}
+
+
+function hideConnectingIndicator() {
+    const el = document.getElementById('__connecting_msg');
+    if (el) el.remove();
+}
+
+
+// ============================================================
+// 🚀 Ping لتنبيه Render عند فتح التطبيق
+// ============================================================
+function pingBackend() {
+    fetch(`${API_BASE_URL}/`, { method: 'GET' }).catch(() => {});
+}
+
+
+// ============================================================
+// 🔌 API Wrappers
+// ============================================================
 async function authenticateUser(initData) {
     let telegram_id = null;
     let first_name = '';
     let last_name = '';
     let username = '';
 
-    // المصدر الوحيد الموثوق: Telegram WebApp
     if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
         const u = window.Telegram.WebApp.initDataUnsafe.user;
         telegram_id = u.id;
@@ -52,17 +177,12 @@ async function authenticateUser(initData) {
         username = window.currentUser.username || '';
     }
 
-    // إذا لم نجد telegram_id → نرفض بدلاً من استخدام مستخدم تجريبي
     if (!telegram_id) {
-        console.error('❌ لا يمكن المصادقة: لم يتم العثور على telegram_id');
         throw new Error('TELEGRAM_ID_MISSING');
     }
 
-    console.log('🔐 المصادقة للمستخدم:', telegram_id);
-
-    const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
+    return await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             telegram_id,
             first_name,
@@ -71,8 +191,6 @@ async function authenticateUser(initData) {
             initData: initData || '',
         }),
     });
-
-    return data;
 }
 
 async function fetchCategories() {
@@ -101,7 +219,6 @@ async function fetchUserDeposits(telegramId) {
 async function createOrder(orderData) {
     return await apiFetch(`${API_BASE_URL}/api/orders/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
     });
 }
@@ -109,7 +226,6 @@ async function createOrder(orderData) {
 async function createDeposit(depositData) {
     return await apiFetch(`${API_BASE_URL}/api/deposits/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(depositData),
     });
 }
@@ -117,7 +233,6 @@ async function createDeposit(depositData) {
 async function submitKYC(kycData) {
     return await apiFetch(`${API_BASE_URL}/api/kyc/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(kycData),
     });
 }
@@ -133,7 +248,6 @@ async function fetchNotifications(telegramId) {
 async function markNotificationRead(notificationId) {
     await apiFetch(`${API_BASE_URL}/api/user/notifications/read`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: notificationId }),
     });
 }
@@ -141,7 +255,15 @@ async function markNotificationRead(notificationId) {
 async function requestCustomService(serviceData) {
     return await apiFetch(`${API_BASE_URL}/api/user/request-service`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(serviceData),
+    });
+}
+
+
+// Ping عند التحميل
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+        // تأخير بسيط لتنبيه Render دون تأخير المستخدم
+        setTimeout(pingBackend, 100);
     });
 }

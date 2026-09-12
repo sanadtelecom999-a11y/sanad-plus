@@ -139,21 +139,26 @@ def create_order():
                 "message": "طلب مكرر — تم إرجاعه من السجل",
             }), 200
 
-    # التحقق من الحقول المخصصة
+    # ============ التحقق من الحقول المخصصة ============
+    delivery_data = {}
     if product.input_type == "id":
         player_id = data.get("player_id", "")
-        if not player_id.strip():
+        if not player_id or not str(player_id).strip():
             return jsonify({"error": "يرجى إدخال معرف اللاعب (ID)"}), 400
-        delivery_data = {"player_id": player_id}
+        delivery_data = {"player_id": str(player_id).strip()}
+    elif product.input_type == "account_id":
+        account_id = data.get("account_id", "")
+        if not account_id or not str(account_id).strip():
+            return jsonify({"error": "يرجى إدخال ID الحساب"}), 400
+        delivery_data = {"account_id": str(account_id).strip()}
     elif product.input_type == "phone":
         phone = data.get("phone", "")
-        if not phone.strip():
+        if not phone or not str(phone).strip():
             return jsonify({"error": "يرجى إدخال رقم الهاتف"}), 400
-        delivery_data = {"phone": phone}
-    else:
-        delivery_data = {}
+        delivery_data = {"phone": str(phone).strip()}
+    # input_type == "none" → لا يوجد حقل مطلوب
 
-    # تحديد السعر والكمية
+    # ============ تحديد السعر والكمية ============
     if product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
@@ -169,9 +174,12 @@ def create_order():
         if quantity <= 0:
             return jsonify({"error": "الكمية غير صالحة"}), 400
 
-        # ✅ حد أقصى للكمية
-        if quantity > 1000:
-            return jsonify({"error": "الحد الأقصى للكمية 1000"}), 400
+        # ✅ الحد الأقصى للكمية — من المنتج (0 = بلا حد)
+        max_qty = product.max_quantity or 0
+        if max_qty > 0 and quantity > max_qty:
+            return jsonify({
+                "error": f"الحد الأقصى للكمية هو {max_qty:,}"
+            }), 400
 
         # ✅ فحص المخزون
         if product.stock is not None and product.stock > 0 and product.stock < quantity:
@@ -185,8 +193,8 @@ def create_order():
             unit_price = product.base_price
         total_price = round(unit_price * quantity, 4)
 
-    # تطبيق كود الخصم
-    coupon_code = data.get("coupon_code", "").strip()
+    # ============ تطبيق كود الخصم ============
+    coupon_code = (data.get("coupon_code") or "").strip()
     discount_amount = 0
     coupon_obj = None
     if coupon_code:
@@ -194,7 +202,7 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # ✅ Atomic check + update — ضد race condition
+    # ============ Atomic check + update — ضد race condition ============
     result = db.session.execute(
         sa_update(User)
         .where(User.id == user.id, User.balance >= total_price)
@@ -206,6 +214,7 @@ def create_order():
 
     db.session.refresh(user)
 
+    # ============ إنشاء الطلب ============
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
         user_id=user.id,
@@ -359,6 +368,7 @@ def get_my_orders():
             "order_number": o.order_number,
             "product_id": o.product_id,
             "product_name": product.name if product else "منتج محذوف",
+            "product_image": product.image if product else None,
             "quantity": o.quantity,
             "unit_price": o.unit_price,
             "total_price": o.total_price,

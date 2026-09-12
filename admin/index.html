@@ -12,14 +12,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="css/admin.css?v=5">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="css/admin.css?v=8">
 </head>
 <body>
 
-    <!-- Sidebar Overlay (Mobile) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+    <!-- ============ Pull to Refresh ============ -->
+    <div class="admin-ptr" id="adminPTr">
+        <div class="admin-ptr-icon">
+            <span class="material-icons" id="adminPTrIcon">arrow_downward</span>
+        </div>
+        <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
+    </div>
 
-    <!-- Header -->
+    <!-- ============ Topbar ============ -->
     <header class="admin-topbar">
         <div class="admin-topbar-right">
             <button class="icon-btn menu-btn" onclick="toggleSidebar()" aria-label="القائمة">
@@ -27,9 +34,18 @@
             </button>
             <span class="logo-text">SANAD<span class="highlight">+</span></span>
         </div>
+
+        <div class="admin-topbar-center">
+            <button class="global-search-btn" onclick="openGlobalSearch()" aria-label="بحث شامل">
+                <span class="material-icons">search</span>
+                <span class="global-search-text">بحث شامل...</span>
+                <kbd class="global-search-kbd">Ctrl+K</kbd>
+            </button>
+        </div>
+
         <div class="admin-topbar-left">
-            <button class="icon-btn" onclick="switchSection('notifications')" aria-label="الإشعارات">
-                <span class="material-icons">notifications</span>
+            <button class="icon-btn" id="themeToggleBtn" onclick="toggleAdminTheme()" aria-label="الوضع الليلي">
+                <span class="material-icons" id="themeIcon">dark_mode</span>
             </button>
             <span class="admin-badge">أدمن</span>
             <button class="icon-btn" onclick="logout()" aria-label="خروج">
@@ -38,60 +54,68 @@
         </div>
     </header>
 
-    <!-- Sidebar -->
+    <!-- ============ Sidebar Overlay ============ -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- ============ Sidebar ============ -->
     <aside class="sidebar" id="sidebar">
         <nav class="sidebar-nav">
             <button class="sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
-                <span class="material-icons">dashboard</span><span>لوحة التحكم</span>
+                <span class="material-icons">dashboard</span> لوحة التحكم
             </button>
             <button class="sidebar-item" data-section="users" onclick="switchSection('users')">
-                <span class="material-icons">people</span><span>المستخدمون</span>
+                <span class="material-icons">people</span> المستخدمون
             </button>
             <button class="sidebar-item" data-section="categories" onclick="switchSection('categories')">
-                <span class="material-icons">category</span><span>الأقسام</span>
+                <span class="material-icons">category</span> الأقسام
             </button>
             <button class="sidebar-item" data-section="products" onclick="switchSection('products')">
-                <span class="material-icons">inventory_2</span><span>المنتجات</span>
+                <span class="material-icons">inventory_2</span> المنتجات
             </button>
             <button class="sidebar-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
-                <span class="material-icons">payment</span><span>طرق الدفع</span>
+                <span class="material-icons">payment</span> طرق الدفع
             </button>
             <button class="sidebar-item" data-section="orders" onclick="switchSection('orders')">
-                <span class="material-icons">receipt_long</span><span>الطلبات</span>
+                <span class="material-icons">receipt_long</span> الطلبات
+                <span class="nav-badge" id="badge-orders" style="display:none;">0</span>
             </button>
             <button class="sidebar-item" data-section="deposits" onclick="switchSection('deposits')">
-                <span class="material-icons">account_balance_wallet</span><span>الإيداعات</span>
+                <span class="material-icons">account_balance_wallet</span> الإيداعات
+                <span class="nav-badge" id="badge-deposits" style="display:none;">0</span>
             </button>
             <button class="sidebar-item" data-section="kyc" onclick="switchSection('kyc')">
-                <span class="material-icons">verified_user</span><span>طلبات التوثيق</span>
+                <span class="material-icons">verified_user</span> طلبات التوثيق
+                <span class="nav-badge" id="badge-kyc" style="display:none;">0</span>
             </button>
             <button class="sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
-                <span class="material-icons">build</span><span>طلبات الخدمة</span>
+                <span class="material-icons">build</span> طلبات الخدمة
+                <span class="nav-badge" id="badge-services" style="display:none;">0</span>
             </button>
             <button class="sidebar-item" data-section="coupons" onclick="switchSection('coupons')">
-                <span class="material-icons">local_offer</span><span>كودات الخصم</span>
+                <span class="material-icons">local_offer</span> كودات الخصم
             </button>
             <button class="sidebar-item" data-section="referrals" onclick="switchSection('referrals')">
-                <span class="material-icons">card_giftcard</span><span>الإحالات</span>
+                <span class="material-icons">card_giftcard</span> الإحالات
             </button>
             <button class="sidebar-item" data-section="activities" onclick="switchSection('activities')">
-                <span class="material-icons">history</span><span>سجل النشاطات</span>
+                <span class="material-icons">history</span> سجل النشاطات
             </button>
             <button class="sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
-                <span class="material-icons">notifications</span><span>الإشعارات</span>
+                <span class="material-icons">notifications</span> الإشعارات
             </button>
             <button class="sidebar-item" data-section="settings" onclick="switchSection('settings')">
-                <span class="material-icons">settings</span><span>الإعدادات</span>
+                <span class="material-icons">settings</span> الإعدادات
             </button>
         </nav>
     </aside>
 
-    <!-- Main Content -->
-    <main class="admin-content">
+    <!-- ============ Main Content ============ -->
+    <main class="admin-content" id="adminContent">
 
         <!-- Dashboard -->
         <section id="section-dashboard" class="admin-section active">
-            <h2 class="section-title">لوحة التحكم</h2>
+            <h1 class="section-title">لوحة التحكم</h1>
+
             <div class="stats-cards">
                 <div class="stat-card">
                     <div class="stat-icon stat-icon-primary"><span class="material-icons">payments</span></div>
@@ -114,31 +138,58 @@
                     <div class="stat-label">المنتجات</div>
                 </div>
             </div>
-            <div class="card">
+
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>الطلبات حسب الحالة</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="chartOrdersPie"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>الإيداعات - آخر 7 أيام</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="chartDepositsLine"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:20px;">
                 <div class="card-header">
                     <h3>آخر العمليات</h3>
                 </div>
-                <div id="recentActivities" class="empty-state">لا توجد عمليات</div>
+                <div id="recentActivities">لا توجد عمليات</div>
             </div>
         </section>
 
         <!-- Users -->
         <section id="section-users" class="admin-section">
-            <h2 class="section-title">المستخدمون</h2>
+            <h1 class="section-title">المستخدمون</h1>
             <div class="toolbar">
                 <div class="search-box">
                     <span class="material-icons">search</span>
                     <input type="text" id="userSearch" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
                 </div>
-                <button class="btn-outline" onclick="exportUsersCSV()">
-                    <span class="material-icons">download</span> تصدير CSV
+                <button class="btn-outline" onclick="exportUsersExcel()">
+                    <span class="material-icons">file_download</span> تصدير Excel
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>Telegram ID</th><th>الاسم</th><th>الرصيد</th><th>الحالة</th><th>VIP</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Telegram ID</th>
+                            <th>الاسم</th>
+                            <th>الرصيد</th>
+                            <th>الحالة</th>
+                            <th>VIP</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="usersTableBody"></tbody>
                 </table>
             </div>
@@ -147,7 +198,7 @@
         <!-- Categories -->
         <section id="section-categories" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">الأقسام</h2>
+                <h1 class="section-title">الأقسام</h1>
                 <button class="btn-primary" onclick="openCategoryModal()">
                     <span class="material-icons">add</span> إضافة قسم
                 </button>
@@ -158,16 +209,25 @@
         <!-- Products -->
         <section id="section-products" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">المنتجات</h2>
+                <h1 class="section-title">المنتجات</h1>
                 <button class="btn-primary" onclick="openProductModal()">
                     <span class="material-icons">add</span> إضافة منتج
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>الصورة</th><th>الاسم</th><th>القسم</th><th>السعر</th><th>الكمية</th><th>النوع</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>الصورة</th>
+                            <th>الاسم</th>
+                            <th>القسم</th>
+                            <th>السعر</th>
+                            <th>الكمية</th>
+                            <th>الحد الأقصى</th>
+                            <th>النوع</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="productsTableBody"></tbody>
                 </table>
             </div>
@@ -176,7 +236,7 @@
         <!-- Payment Methods -->
         <section id="section-payment-methods" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">طرق الدفع</h2>
+                <h1 class="section-title">طرق الدفع</h1>
                 <button class="btn-primary" onclick="openPaymentMethodModal()">
                     <span class="material-icons">add</span> إضافة طريقة
                 </button>
@@ -187,11 +247,12 @@
         <!-- Orders -->
         <section id="section-orders" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">الطلبات</h2>
-                <button class="btn-outline" onclick="exportOrdersCSV()">
-                    <span class="material-icons">download</span> تصدير CSV
+                <h1 class="section-title">الطلبات</h1>
+                <button class="btn-outline" onclick="exportOrdersExcel()">
+                    <span class="material-icons">file_download</span> تصدير Excel
                 </button>
             </div>
+
             <div class="advanced-filters">
                 <div class="filter-group">
                     <label>بحث</label>
@@ -230,11 +291,19 @@
                     <span class="material-icons">refresh</span> إعادة تعيين
                 </button>
             </div>
+
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>رقم الطلب</th><th>المنتج</th><th>الكمية</th><th>السعر</th><th>الحالة</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>رقم الطلب</th>
+                            <th>المنتج</th>
+                            <th>الكمية</th>
+                            <th>السعر</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="ordersTableBody"></tbody>
                 </table>
             </div>
@@ -243,16 +312,23 @@
         <!-- Deposits -->
         <section id="section-deposits" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">الإيداعات</h2>
-                <button class="btn-outline" onclick="exportDepositsCSV()">
-                    <span class="material-icons">download</span> تصدير CSV
+                <h1 class="section-title">الإيداعات</h1>
+                <button class="btn-outline" onclick="exportDepositsExcel()">
+                    <span class="material-icons">file_download</span> تصدير Excel
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>رقم العملية</th><th>المستخدم</th><th>المبلغ</th><th>الطريقة</th><th>الحالة</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>رقم العملية</th>
+                            <th>المستخدم</th>
+                            <th>المبلغ</th>
+                            <th>الطريقة</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="depositsTableBody"></tbody>
                 </table>
             </div>
@@ -260,12 +336,20 @@
 
         <!-- KYC -->
         <section id="section-kyc" class="admin-section">
-            <h2 class="section-title">طلبات التوثيق</h2>
+            <h1 class="section-title">طلبات التوثيق</h1>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>معرف المستخدم</th><th>الاسم الكامل</th><th>الهاتف</th><th>العنوان</th><th>الصورة</th><th>الحالة</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>معرف المستخدم</th>
+                            <th>الاسم الكامل</th>
+                            <th>الهاتف</th>
+                            <th>العنوان</th>
+                            <th>الصورة</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="kycTableBody"></tbody>
                 </table>
             </div>
@@ -273,12 +357,19 @@
 
         <!-- Service Requests -->
         <section id="section-service-requests" class="admin-section">
-            <h2 class="section-title">طلبات الخدمة المخصصة</h2>
+            <h1 class="section-title">طلبات الخدمة المخصصة</h1>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>معرف المستخدم</th><th>اسم الخدمة</th><th>الوصف</th><th>السعر المتوقع</th><th>الحالة</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>معرف المستخدم</th>
+                            <th>اسم الخدمة</th>
+                            <th>الوصف</th>
+                            <th>السعر المتوقع</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="serviceRequestsTableBody"></tbody>
                 </table>
             </div>
@@ -287,16 +378,25 @@
         <!-- Coupons -->
         <section id="section-coupons" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">كودات الخصم</h2>
+                <h1 class="section-title">كودات الخصم</h1>
                 <button class="btn-primary" onclick="openCouponModal()">
                     <span class="material-icons">add</span> إضافة كود
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>الكود</th><th>النوع</th><th>القيمة</th><th>الحد الأدنى</th><th>الاستخدامات</th><th>الصلاحية</th><th>الحالة</th><th>إجراءات</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>الكود</th>
+                            <th>النوع</th>
+                            <th>القيمة</th>
+                            <th>الحد الأدنى</th>
+                            <th>الاستخدامات</th>
+                            <th>الصلاحية</th>
+                            <th>الحالة</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
                     <tbody id="couponsTableBody"></tbody>
                 </table>
             </div>
@@ -305,18 +405,25 @@
         <!-- Referrals -->
         <section id="section-referrals" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">الإحالات</h2>
-                <button class="btn-outline" onclick="exportReferralsCSV()">
-                    <span class="material-icons">download</span> تصدير CSV
+                <h1 class="section-title">الإحالات</h1>
+                <button class="btn-outline" onclick="exportReferralsExcel()">
+                    <span class="material-icons">file_download</span> تصدير Excel
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>#</th><th>المُحيل</th><th>المُحال</th><th>المكافأة</th><th>الحالة</th><th>التاريخ</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>المُحيل</th>
+                            <th>المُحال</th>
+                            <th>المكافأة</th>
+                            <th>الحالة</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
                     <tbody id="referralsTableBody">
-                        <tr><td colspan="6" style="text-align:center;">جار التحميل...</td></tr>
+                        <tr><td colspan="6" class="empty-state">جار التحميل...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -325,18 +432,22 @@
         <!-- Activities -->
         <section id="section-activities" class="admin-section">
             <div class="section-header">
-                <h2 class="section-title">سجل نشاطات الأدمن</h2>
+                <h1 class="section-title">سجل نشاطات الأدمن</h1>
                 <button class="btn-outline" onclick="loadActivities()">
                     <span class="material-icons">refresh</span> تحديث
                 </button>
             </div>
             <div class="table-container">
                 <table>
-                    <thead><tr>
-                        <th>#</th><th>النشاط</th><th>التاريخ</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>النشاط</th>
+                            <th>التاريخ</th>
+                        </tr>
+                    </thead>
                     <tbody id="activitiesTableBody">
-                        <tr><td colspan="3" style="text-align:center;">جار التحميل...</td></tr>
+                        <tr><td colspan="3" class="empty-state">جار التحميل...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -344,7 +455,7 @@
 
         <!-- Notifications -->
         <section id="section-notifications" class="admin-section">
-            <h2 class="section-title">إرسال إشعار</h2>
+            <h1 class="section-title">إرسال إشعار</h1>
             <div class="card">
                 <div class="form-group">
                     <label>نوع الإشعار</label>
@@ -377,7 +488,7 @@
 
         <!-- Settings -->
         <section id="section-settings" class="admin-section">
-            <h2 class="section-title">الإعدادات</h2>
+            <h1 class="section-title">الإعدادات</h1>
             <div class="card">
                 <div class="form-group">
                     <label>اسم المتجر</label>
@@ -395,18 +506,43 @@
 
     </main>
 
-    <!-- Modal -->
+    <!-- ============ Bottom Nav ============ -->
+    <nav class="admin-bottom-nav" id="adminBottomNav">
+        <button class="bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+            <span class="material-icons">dashboard</span>
+            <span>الرئيسية</span>
+        </button>
+        <button class="bottom-nav-item" data-section="orders" onclick="switchSection('orders')">
+            <span class="material-icons">receipt_long</span>
+            <span>الطلبات</span>
+            <span class="bottom-nav-badge" id="badge-mobile-orders" style="display:none;">0</span>
+        </button>
+        <button class="bottom-nav-item" data-section="products" onclick="switchSection('products')">
+            <span class="material-icons">inventory_2</span>
+            <span>المنتجات</span>
+        </button>
+        <button class="bottom-nav-item" data-section="users" onclick="switchSection('users')">
+            <span class="material-icons">people</span>
+            <span>المستخدمون</span>
+        </button>
+        <button class="bottom-nav-item" onclick="toggleSidebar()">
+            <span class="material-icons">menu</span>
+            <span>المزيد</span>
+        </button>
+    </nav>
+
+    <!-- ============ Modal ============ -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <span class="close-modal" onclick="closeModal()" aria-label="إغلاق">&times;</span>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
             </div>
             <div id="modalBody"></div>
         </div>
     </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal confirm-modal">
+    <!-- ============ Confirm Modal ============ -->
+    <div id="confirmModal" class="modal">
         <div class="modal-content confirm-content">
             <div class="confirm-icon" id="confirmIcon">
                 <span class="material-icons">help_outline</span>
@@ -414,17 +550,37 @@
             <h3 id="confirmTitle">تأكيد العملية</h3>
             <p id="confirmMessage">هل أنت متأكد؟</p>
             <div class="confirm-actions">
+                <button class="btn-primary" id="confirmBtn" onclick="closeConfirm(true)">تأكيد</button>
                 <button class="btn-outline" onclick="closeConfirm(false)">إلغاء</button>
-                <button class="btn-danger" id="confirmBtn" onclick="closeConfirm(true)">تأكيد</button>
             </div>
         </div>
     </div>
 
-    <!-- Toast Container -->
+    <!-- ============ Global Search Modal ============ -->
+    <div id="globalSearchModal" class="modal global-search-modal">
+        <div class="modal-content global-search-content">
+            <div class="global-search-header">
+                <span class="material-icons">search</span>
+                <input type="text" id="globalSearchInput" placeholder="ابحث في المستخدمين، الطلبات، المنتجات..." oninput="performGlobalSearch(this.value)" autocomplete="off">
+                <button class="close-modal-inline" onclick="closeGlobalSearch()">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="global-search-results" id="globalSearchResults">
+                <div class="global-search-hint">
+                    <span class="material-icons">search</span>
+                    <p>ابدأ الكتابة للبحث...</p>
+                    <small>مثال: رقم طلب، Telegram ID، اسم منتج</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ Toast Container ============ -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <!-- ✅ Cache Busting: ?v=5 -->
-    <script src="js/api.js?v=5"></script>
-    <script src="js/admin.js?v=5"></script>
+    <!-- ============ Cache Busting: ?v=8 ============ -->
+    <script src="js/api.js?v=8"></script>
+    <script src="js/admin.js?v=8"></script>
 </body>
 </html>

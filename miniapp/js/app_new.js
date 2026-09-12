@@ -20,6 +20,82 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 const USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
+// ============ Splash للمستخدمين العائدين ============
+const SPLASH_SEEN_KEY = 'splash_seen_v11';
+function hasSeenSplash() {
+    try {
+        return localStorage.getItem(SPLASH_SEEN_KEY) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+function markSplashSeen() {
+    try {
+        localStorage.setItem(SPLASH_SEEN_KEY, '1');
+    } catch (e) {}
+}
+
+// ============ شوهد حديثاً ============
+const RECENTLY_VIEWED_KEY = 'recently_viewed';
+const RECENTLY_VIEWED_MAX = 6;
+
+function getRecentlyViewed() {
+    try {
+        return JSON.parse(localStorage.getItem(RECENTLY_VIEWED_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function addToRecentlyViewed(productId) {
+    try {
+        let list = getRecentlyViewed();
+        // إزالة المكرر
+        list = list.filter(id => id !== productId);
+        // إضافة في المقدمة
+        list.unshift(productId);
+        // حد أقصى
+        if (list.length > RECENTLY_VIEWED_MAX) {
+            list = list.slice(0, RECENTLY_VIEWED_MAX);
+        }
+        localStorage.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(list));
+    } catch (e) {
+        console.warn('فشل حفظ شوهد حديثاً:', e);
+    }
+}
+
+function renderRecentlyViewed() {
+    const container = document.getElementById('recentlyViewedContainer');
+    const list = document.getElementById('recentlyViewedList');
+    if (!container || !list) return;
+
+    const ids = getRecentlyViewed();
+    if (!ids.length) {
+        container.style.display = 'none';
+        return;
+    }
+
+    // فلترة المنتجات الموجودة فقط
+    const products = ids
+        .map(id => productsData.find(p => p.id === id))
+        .filter(Boolean);
+
+    if (!products.length) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    list.innerHTML = products.map(prod => `
+        <div class="recently-viewed-item" onclick="openPurchaseModal(${prod.id})">
+            <div class="recently-viewed-image" style="background-image:url('${prod.image || ''}');">
+                ${prod.image ? '' : '📦'}
+            </div>
+            <div class="recently-viewed-name">${prod.name}</div>
+        </div>
+    `).join('');
+}
+
 function formatPrice(usdAmount) {
     if (currentCurrency === 'SYP') {
         const syp = Math.round(usdAmount * USD_TO_SYP);
@@ -39,6 +115,7 @@ function toggleCurrency() {
     renderCategories();
     renderProductsList(productsData);
     renderFavorites();
+    renderRecentlyViewed();
     renderPaymentMethods();
 }
 
@@ -76,6 +153,7 @@ function toggleFavorite(productId, event) {
     renderCategories();
     renderProductsList(productsData);
     renderFavorites();
+    renderRecentlyViewed();
 }
 
 function renderFavorites() {
@@ -89,6 +167,295 @@ function renderFavorites() {
     const favProducts = productsData.filter(p => favorites.includes(p.id));
     list.innerHTML = favProducts.map(prod => renderProductCard(prod)).join('');
 }
+
+// ============================================================
+// =========== 📱 Pull to Refresh ===========
+// ============================================================
+const PullToRefresh = (() => {
+    const THRESHOLD = 70;
+    const MAX_PULL = 110;
+    let startY = 0;
+    let currentY = 0;
+    let isPulling = false;
+    let isRefreshing = false;
+    let mainContent = null;
+    let indicator = null;
+
+    function createIndicator() {
+        const el = document.createElement('div');
+        el.className = 'ptr-indicator';
+        el.innerHTML = `
+            <div class="ptr-icon">
+                <span class="material-icons">arrow_downward</span>
+            </div>
+            <div class="ptr-text">اسحب للتحديث</div>
+        `;
+        return el;
+    }
+
+    function init() {
+        mainContent = document.querySelector('.main-content');
+        if (!mainContent) {
+            console.warn('PullToRefresh: main-content not found');
+            return;
+        }
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        indicator = createIndicator();
+        document.body.insertBefore(indicator, mainContent);
+
+        mainContent.addEventListener('touchstart', handleTouchStart, { passive: true });
+        mainContent.addEventListener('touchmove', handleTouchMove, { passive: false });
+        mainContent.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+        mainContent.addEventListener('mousedown', handleMouseDown);
+    }
+
+    function handleTouchStart(e) {
+        if (isRefreshing) return;
+        if (mainContent.scrollTop > 0) return;
+        startY = e.touches[0].clientY;
+        isPulling = true;
+    }
+
+    function handleTouchMove(e) {
+        if (!isPulling || isRefreshing) return;
+        currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        if (diff > 0 && mainContent.scrollTop === 0) {
+            e.preventDefault();
+            const pull = Math.min(diff * 0.5, MAX_PULL);
+            updateIndicator(pull);
+        } else if (diff < 0) {
+            isPulling = false;
+            resetIndicator();
+        }
+    }
+
+    function handleTouchEnd() {
+        if (!isPulling) return;
+        const diff = currentY - startY;
+        const pull = Math.min(diff * 0.5, MAX_PULL);
+
+        if (pull >= THRESHOLD && !isRefreshing) {
+            triggerRefresh();
+        } else {
+            resetIndicator();
+        }
+        isPulling = false;
+    }
+
+    function handleMouseDown(e) {
+        if (isRefreshing) return;
+        if (mainContent.scrollTop > 0) return;
+
+        startY = e.clientY;
+        isPulling = true;
+
+        const onMove = (ev) => {
+            if (!isPulling) return;
+            currentY = ev.clientY;
+            const diff = currentY - startY;
+            if (diff > 0) {
+                const pull = Math.min(diff * 0.5, MAX_PULL);
+                updateIndicator(pull);
+            }
+        };
+
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+
+            if (!isPulling) return;
+            const diff = currentY - startY;
+            const pull = Math.min(diff * 0.5, MAX_PULL);
+
+            if (pull >= THRESHOLD && !isRefreshing) {
+                triggerRefresh();
+            } else {
+                resetIndicator();
+            }
+            isPulling = false;
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    }
+
+    function updateIndicator(pull) {
+        if (!indicator) return;
+        indicator.style.height = pull + 'px';
+        indicator.style.opacity = Math.min(pull / THRESHOLD, 1);
+
+        const icon = indicator.querySelector('.ptr-icon .material-icons');
+        const text = indicator.querySelector('.ptr-text');
+
+        if (pull >= THRESHOLD) {
+            if (icon) icon.textContent = 'refresh';
+            if (text) text.textContent = 'اترك للتحديث';
+            indicator.classList.add('ready');
+        } else {
+            if (icon) icon.textContent = 'arrow_downward';
+            if (text) text.textContent = 'اسحب للتحديث';
+            indicator.classList.remove('ready');
+        }
+    }
+
+    function resetIndicator() {
+        if (!indicator) return;
+        indicator.style.transition = 'height 300ms ease, opacity 300ms ease';
+        indicator.style.height = '0px';
+        indicator.style.opacity = '0';
+        indicator.classList.remove('ready', 'refreshing');
+        setTimeout(() => {
+            indicator.style.transition = '';
+        }, 300);
+    }
+
+    async function triggerRefresh() {
+        if (isRefreshing || !indicator) return;
+        isRefreshing = true;
+
+        indicator.style.transition = 'height 250ms ease';
+        indicator.style.height = '60px';
+        indicator.style.opacity = '1';
+        indicator.classList.add('refreshing');
+
+        const icon = indicator.querySelector('.ptr-icon .material-icons');
+        const text = indicator.querySelector('.ptr-text');
+        if (icon) icon.textContent = 'sync';
+        if (text) text.textContent = 'جارٍ التحديث...';
+
+        if (navigator.vibrate) {
+            try { navigator.vibrate(15); } catch (e) {}
+        }
+
+        try {
+            await refreshAllData();
+            if (text) text.textContent = 'تم التحديث ✓';
+            setTimeout(() => {
+                resetIndicator();
+                isRefreshing = false;
+            }, 500);
+        } catch (error) {
+            console.error('Refresh error:', error);
+            if (text) text.textContent = 'فشل التحديث';
+            setTimeout(() => {
+                resetIndicator();
+                isRefreshing = false;
+            }, 800);
+        }
+    }
+
+    async function refreshAllData() {
+        if (userData?.telegram_id) {
+            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
+        }
+        await loadInitialData();
+    }
+
+    return { init };
+})();
+
+// ============================================================
+// =========== 👆 Swipe Navigation ===========
+// ============================================================
+const SwipeNav = (() => {
+    const PAGES = ['page-home', 'page-orders', 'page-charge', 'page-deposits', 'page-account'];
+    const SWIPE_THRESHOLD = 60;
+    const MAX_VERTICAL = 80;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    let isSwiping = false;
+    let target = null;
+
+    function init() {
+        target = document.querySelector('.main-content');
+        if (!target) {
+            console.warn('SwipeNav: main-content not found');
+            return;
+        }
+
+        // تجاهل prefers-reduced-motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        target.addEventListener('touchstart', handleStart, { passive: true });
+        target.addEventListener('touchmove', handleMove, { passive: true });
+        target.addEventListener('touchend', handleEnd, { passive: true });
+    }
+
+    function handleStart(e) {
+        if (e.touches.length !== 1) return;
+        // تجاهل السحب من العناصر التفاعلية
+        const el = e.target;
+        if (el.closest('input, textarea, select, button, .modal, .purchase-modal, .order-timeline')) {
+            isSwiping = false;
+            return;
+        }
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        isSwiping = true;
+    }
+
+    function handleMove(e) {
+        if (!isSwiping) return;
+        const diffX = Math.abs(e.touches[0].clientX - touchStartX);
+        const diffY = Math.abs(e.touches[0].clientY - touchStartY);
+
+        // إذا تحرك رأسياً كثيراً → إلغاء (تمرير عمودي)
+        if (diffY > MAX_VERTICAL && diffY > diffX) {
+            isSwiping = false;
+        }
+    }
+
+    function handleEnd(e) {
+        if (!isSwiping) return;
+        touchEndX = e.changedTouches[0].clientX;
+        touchEndY = e.changedTouches[0].clientY;
+        isSwiping = false;
+
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        // التحقق من أنها سحبة أفقية
+        if (Math.abs(diffX) < SWIPE_THRESHOLD) return;
+        if (Math.abs(diffY) > Math.abs(diffX)) return;
+
+        // إذا نحن في صفحة غير مدعومة → لا نتفاعل
+        if (!PAGES.includes(currentPage)) return;
+
+        const currentIdx = PAGES.indexOf(currentPage);
+
+        // RTL: السحب لليسار (diffX < 0) = الصفحة السابقة
+        // السحب لليمين (diffX > 0) = الصفحة التالية
+        let newIdx;
+        if (diffX > 0) {
+            // سحب يمين → التالي في RTL (الأسفل في القائمة)
+            newIdx = currentIdx + 1;
+        } else {
+            // سحب يسار → السابق في RTL (الأعلى)
+            newIdx = currentIdx - 1;
+        }
+
+        if (newIdx >= 0 && newIdx < PAGES.length) {
+            navigateTo(PAGES[newIdx]);
+            // اهتزاز خفيف
+            if (navigator.vibrate) {
+                try { navigator.vibrate(10); } catch (err) {}
+            }
+        }
+    }
+
+    return { init };
+})();
 
 // ============================================================
 // =========== Splash Screen — 8s ===========
@@ -105,6 +472,15 @@ const SplashScreen = (() => {
         close: 7500
     };
 
+    // نسخة سريعة للعائدين
+    const QUICK_T = {
+        shieldIn: 0,
+        textReveal: 400,
+        revealPlus: 700,
+        revealEn: 950,
+        close: 1400
+    };
+
     const PARTICLE_COUNT = 180;
     const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC', '#0D47A1', '#BAE6FD'];
 
@@ -114,6 +490,7 @@ const SplashScreen = (() => {
     let rafId = null;
     let shatterTime = 0;
     let running = false;
+    let isQuickMode = false;
 
     function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
@@ -164,7 +541,7 @@ const SplashScreen = (() => {
                 this.y += Math.cos(elapsed * this.wobbleSpeed * 0.7 + this.wobblePhase) * this.wobbleAmp;
 
                 const fadeStart = 600;
-                const fadeEnd = 4300;
+                const fadeEnd = isQuickMode ? 1000 : 4300;
                 const fadeRange = fadeEnd - fadeStart;
                 const p = Math.min(1, Math.max(0, (elapsed - fadeStart) / fadeRange));
                 this.opacity = 1 - easeOutQuart(p);
@@ -207,9 +584,10 @@ const SplashScreen = (() => {
     function spawnParticles() {
         particles = [];
         const shieldRadius = 70;
+        const count = isQuickMode ? 60 : PARTICLE_COUNT;
 
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-            const a = (i / PARTICLE_COUNT) * Math.PI * 2 + Math.random() * 0.5;
+        for (let i = 0; i < count; i++) {
+            const a = (i / count) * Math.PI * 2 + Math.random() * 0.5;
             const r = shieldRadius * (0.35 + Math.random() * 0.65);
             const sx = center.x + Math.cos(a) * r;
             const sy = center.y + Math.sin(a) * r * 0.92;
@@ -252,6 +630,7 @@ const SplashScreen = (() => {
         particles = [];
 
         splash.classList.add('hidden');
+        markSplashSeen();
 
         setTimeout(() => {
             splash.style.display = 'none';
@@ -267,6 +646,8 @@ const SplashScreen = (() => {
     function initSplashScreen() {
         const splash = document.getElementById('splashScreen');
         if (!splash) return;
+
+        isQuickMode = hasSeenSplash();
 
         if (prefersReducedMotion()) {
             const shieldStage = document.getElementById('splashShieldStage');
@@ -288,42 +669,52 @@ const SplashScreen = (() => {
 
         if (!shieldStage || !textStage) { closeSplash(); return; }
 
-        schedule(T.shieldIn, () => {
+        const timeline = isQuickMode ? QUICK_T : T;
+
+        schedule(timeline.shieldIn, () => {
             shieldStage.classList.add('appearing');
             splash.classList.add('shield-visible');
         });
 
-        schedule(T.lightSweep, () => {
-            shieldStage.classList.add('sweeping');
-        });
+        if (!isQuickMode) {
+            schedule(timeline.lightSweep, () => {
+                shieldStage.classList.add('sweeping');
+            });
 
-        schedule(T.disintegrate, () => {
-            shieldStage.classList.remove('pulsing', 'sweeping');
-            shieldStage.classList.add('disintegrating');
-            spawnParticles();
-            shatterTime = performance.now();
-            running = true;
-            rafId = requestAnimationFrame(animate);
-        });
+            schedule(timeline.disintegrate, () => {
+                shieldStage.classList.remove('pulsing', 'sweeping');
+                shieldStage.classList.add('disintegrating');
+                spawnParticles();
+                shatterTime = performance.now();
+                running = true;
+                rafId = requestAnimationFrame(animate);
+            });
+        } else {
+            schedule(300, () => {
+                shieldStage.classList.add('disintegrating');
+            });
+        }
 
-        schedule(T.textReveal, () => {
+        schedule(timeline.textReveal, () => {
             textStage.classList.add('visible');
         });
 
-        schedule(T.revealPlus, () => {
+        schedule(timeline.revealPlus, () => {
             textStage.classList.add('reveal-plus');
         });
 
-        schedule(T.revealEn, () => {
+        schedule(timeline.revealEn, () => {
             textStage.classList.add('reveal-en');
         });
 
-        schedule(T.confirm, () => {
-            textStage.classList.add('confirming');
-            shieldStage.style.display = 'none';
-        });
+        if (!isQuickMode) {
+            schedule(timeline.confirm, () => {
+                textStage.classList.add('confirming');
+                shieldStage.style.display = 'none';
+            });
+        }
 
-        schedule(T.close, closeSplash);
+        schedule(timeline.close, closeSplash);
     }
 
     return { initSplashScreen, closeSplash };
@@ -334,139 +725,6 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => SplashScreen.initSplashScreen());
 } else {
     SplashScreen.initSplashScreen();
-}
-
-// ============ تهيئة التطبيق ============
-document.addEventListener('DOMContentLoaded', async () => {
-    initTelegram();
-    applyTelegramTheme();
-
-    let telegram_id = window.currentUser?.id || window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (telegram_id) {
-        userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
-    } else {
-        showSuccessScreen('خطأ', 'لا يمكن الوصول لبيانات تيليجرام. افتح التطبيق من البوت.');
-        userData = null;
-    }
-
-    updateCurrencyUI();
-    updateUserUI();
-    await loadInitialData();
-    setupNavigation();
-    setupFilters();
-    setupSearch();
-    setupFAQ();
-
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        const darkToggle = document.getElementById('darkModeToggle');
-        if (darkToggle) darkToggle.checked = savedTheme === 'dark';
-    }
-
-    startNotificationPolling();
-});
-
-async function loadInitialData() {
-    showSkeletons();
-    try {
-        categoriesData = await fetchCategories();
-        productsData = await fetchProducts();
-        paymentMethodsData = await fetchPaymentMethods();
-
-        if (userData?.telegram_id) {
-            ordersData = await fetchUserOrders(userData.telegram_id);
-            depositsData = await fetchUserDeposits(userData.telegram_id);
-            notificationsData = await fetchNotifications(userData.telegram_id);
-            const kycInfo = await getMyKYC(userData.telegram_id);
-            kycStatus = kycInfo.status || 'none';
-            saveLastSeenNotificationId();
-        }
-
-        renderCategories();
-        renderPaymentMethods();
-        renderOrders(ordersData);
-        renderLatestOrders();
-        renderDeposits(depositsData);
-        renderFavorites();
-        updateKYCUI();
-        updateNotificationBadge();
-    } catch (error) {
-        console.error('Error loading data:', error);
-        showSuccessScreen('خطأ', 'حدث خطأ أثناء تحميل البيانات');
-    }
-}
-
-function showSkeletons() {
-    const categoriesGrid = document.getElementById('categoriesGrid');
-    if (categoriesGrid) {
-        categoriesGrid.innerHTML = Array(6).fill('<div class="skeleton-card"></div>').join('');
-    }
-}
-
-// ============ المراقبة الفورية للإشعارات ============
-function startNotificationPolling() {
-    if (notificationPollerId) clearInterval(notificationPollerId);
-    notificationPollerId = setInterval(checkForNewNotifications, 30000);
-}
-
-async function checkForNewNotifications() {
-    if (!userData?.telegram_id) return;
-    try {
-        const notifications = await fetchNotifications(userData.telegram_id);
-        const lastSeen = parseInt(localStorage.getItem('lastSeenNotificationId') || '0');
-        const newOnes = notifications.filter(n => n.id > lastSeen);
-
-        if (newOnes.length > 0) {
-            playNotificationSound();
-            flashScreen();
-            notificationsData = notifications;
-            updateNotificationBadge();
-            const maxId = Math.max(...notifications.map(n => n.id));
-            localStorage.setItem('lastSeenNotificationId', maxId);
-        }
-    } catch (error) {
-        console.error('Polling error:', error);
-    }
-}
-
-function saveLastSeenNotificationId() {
-    if (!notificationsData.length) return;
-    const maxId = Math.max(...notificationsData.map(n => n.id));
-    localStorage.setItem('lastSeenNotificationId', maxId);
-}
-
-function playNotificationSound() {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-        const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-
-        oscillator.type = 'sine';
-        oscillator.frequency.value = 880;
-        gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.05);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.4);
-    } catch (e) {
-        console.warn('تعذر تشغيل الصوت:', e);
-    }
-}
-
-function flashScreen() {
-    const overlay = document.getElementById('flashOverlay');
-    if (!overlay) return;
-    overlay.classList.remove('active');
-    void overlay.offsetWidth;
-    overlay.classList.add('active');
-    setTimeout(() => overlay.classList.remove('active'), 1300);
 }
 
 // ============ واجهة المستخدم ============
@@ -521,6 +779,21 @@ function updateUserUI() {
         if (ha) ha.textContent = (userData.first_name || userData.username || 'م')[0];
     }
 
+    // عدّاد الطلبات والإيداعات
+    const orderCountEl = document.getElementById('orderCount');
+    if (orderCountEl) orderCountEl.textContent = ordersData.length;
+    const depositCountEl = document.getElementById('depositCount');
+    if (depositCountEl) depositCountEl.textContent = depositsData.length;
+
+    // إجمالي الإنفاق
+    const totalSpentEl = document.getElementById('totalSpent');
+    if (totalSpentEl) {
+        const totalSpent = ordersData
+            .filter(o => o.status !== 'cancelled' && o.status !== 'failed')
+            .reduce((sum, o) => sum + (o.total_price || 0), 0);
+        totalSpentEl.textContent = formatPrice(totalSpent);
+    }
+
     updateKYCBadge();
     updateCurrencyUI();
 }
@@ -534,6 +807,17 @@ function updateKYCBadge() {
         badge.innerHTML = '<span class="status-badge pending">قيد المراجعة</span>';
     } else {
         badge.innerHTML = '<span class="status-badge unverified">غير موثق</span>';
+    }
+
+    const descEl = document.getElementById('kycSettingDesc');
+    if (descEl && userData) {
+        if (userData.kyc_status === 'verified' || userData.is_verified) {
+            descEl.textContent = 'حسابك موثق ✓';
+        } else if (userData.kyc_status === 'pending' || kycStatus === 'pending') {
+            descEl.textContent = 'طلب التوثيق قيد المراجعة';
+        } else {
+            descEl.textContent = 'وثق حسابك لاستخدام كل طرق الدفع';
+        }
     }
 }
 
@@ -599,6 +883,10 @@ function renderProductsList(products) {
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     if (!container) return;
+    if (!paymentMethodsData.length) {
+        container.innerHTML = '<div class="empty-state"><span class="material-icons">payment</span>لا توجد طرق دفع متاحة</div>';
+        return;
+    }
     container.innerHTML = paymentMethodsData.map(m => `
         <div class="payment-method" data-id="${m.id}" onclick="showDepositStep1(${m.id})">
             <div class="payment-method-info">
@@ -613,7 +901,7 @@ function renderPaymentMethods() {
     `).join('');
 }
 
-// ============ رسم حالة الطلب ============
+// ============ شريط التقدم الأفقي ============
 function renderOrderProgress(status) {
     const steps = [
         { key: 'pending', label: 'قيد المعالجة' },
@@ -639,6 +927,88 @@ function renderOrderProgress(status) {
     `;
 }
 
+// ============================================================
+// ============ 📈 Vertical Timeline للطلب ============
+// ============================================================
+function getTimelineSteps(status) {
+    const allSteps = [
+        { key: 'pending', label: 'قيد المعالجة', icon: 'schedule' },
+        { key: 'review', label: 'قيد المراجعة', icon: 'visibility' },
+        { key: 'processing', label: 'قيد التنفيذ', icon: 'autorenew' },
+        { key: 'completed', label: 'مكتمل', icon: 'check_circle' }
+    ];
+    const order = ['pending', 'review', 'processing', 'completed'];
+    const currentIdx = order.indexOf(status);
+
+    if (status === 'failed') {
+        return [
+            { state: 'done', label: 'تم الطلب', icon: 'receipt' },
+            { state: 'failed', label: 'فشل الطلب', icon: 'cancel' }
+        ];
+    }
+    if (status === 'cancelled') {
+        return [
+            { state: 'done', label: 'تم الطلب', icon: 'receipt' },
+            { state: 'cancelled', label: 'تم الإلغاء', icon: 'block' }
+        ];
+    }
+
+    return allSteps.map((s, i) => ({
+        state: i < currentIdx ? 'done' : (i === currentIdx ? 'current' : 'pending'),
+        label: s.label,
+        icon: s.icon
+    }));
+}
+
+function buildOrderTimelineHTML(order) {
+    const steps = getTimelineSteps(order.status);
+    const dateStr = order.created_at ? new Date(order.created_at).toLocaleString('ar') : '';
+
+    return `
+        <div class="order-timeline">
+            ${steps.map((step, i) => `
+                <div class="timeline-step ${step.state}">
+                    <div class="timeline-marker">
+                        <span class="material-icons">${step.icon}</span>
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">${step.label}</div>
+                        ${i === 0 ? `<div class="timeline-time">${dateStr}</div>` : ''}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// ============ تفاصيل التسليم ============
+function buildDeliveryDetailsHTML(order) {
+    if (!order.delivery_data) return '';
+    let delivery = null;
+    try {
+        delivery = JSON.parse(order.delivery_data);
+    } catch (e) {
+        return `<div class="order-delivery-info"><div>${order.delivery_data}</div></div>`;
+    }
+    if (!delivery || typeof delivery !== 'object') return '';
+
+    const rows = [];
+    if (delivery.player_id) {
+        rows.push(`<div class="delivery-row"><span class="delivery-label">معرف اللاعب (ID):</span><span class="delivery-value ltr">${delivery.player_id}</span></div>`);
+    }
+    if (delivery.account_id) {
+        rows.push(`<div class="delivery-row"><span class="delivery-label">ID الحساب:</span><span class="delivery-value ltr">${delivery.account_id}</span></div>`);
+    }
+    if (delivery.phone) {
+        rows.push(`<div class="delivery-row"><span class="delivery-label">رقم الهاتف:</span><span class="delivery-value ltr">${delivery.phone}</span></div>`);
+    }
+    if (delivery.bundle_name) {
+        rows.push(`<div class="delivery-row"><span class="delivery-label">الباقة:</span><span class="delivery-value">${delivery.bundle_name}</span></div>`);
+    }
+    if (!rows.length) return '';
+    return `<div class="order-delivery-info">${rows.join('')}</div>`;
+}
+
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if (!list) return;
@@ -656,11 +1026,11 @@ function renderOrders(orders) {
             </div>
             <div class="order-details">
                 <div>المنتج: ${order.product_name || order.product_id}</div>
-                <div>الكمية: ${order.quantity}</div>
+                <div>الكمية: ${Number(order.quantity).toLocaleString('ar')}</div>
                 <div>السعر: ${formatPrice(order.total_price)}</div>
-                <div>التاريخ: ${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
             </div>
-            ${renderOrderProgress(order.status)}
+            ${buildDeliveryDetailsHTML(order)}
+            ${buildOrderTimelineHTML(order)}
             ${canCancel ? `
                 <div class="cancel-timer" id="timer-${order.id}">
                     <span class="material-icons">timer</span>
@@ -704,7 +1074,7 @@ function renderLatestOrders() {
             </div>
             <div class="order-details">
                 <div>المنتج: ${order.product_name || order.product_id}</div>
-                <div>الكمية: ${order.quantity}</div>
+                <div>الكمية: ${Number(order.quantity).toLocaleString('ar')}</div>
                 <div>السعر: ${formatPrice(order.total_price)}</div>
             </div>
         </div>
@@ -746,9 +1116,9 @@ async function cancelOrder(orderId) {
             body: JSON.stringify({ telegram_id: userData.telegram_id }),
         });
         if (result && result.error) {
-            showSuccessScreen('خطأ', result.error);
+            showNotification('فشل الإلغاء', result.error, 'error');
         } else {
-            showSuccessScreen('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك');
+            showNotification('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك', 'success');
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
             renderLatestOrders();
@@ -756,7 +1126,7 @@ async function cancelOrder(orderId) {
             updateUserUI();
         }
     } catch (error) {
-        showSuccessScreen('خطأ', `فشل إلغاء الطلب: ${error.message}`);
+        showNotification('خطأ', `فشل إلغاء الطلب: ${error.message}`, 'error');
     }
 }
 
@@ -797,7 +1167,7 @@ function renderDeposits(deposits) {
     list.innerHTML = deposits.map(d => `
         <div class="order-card">
             <div class="order-header">
-                <span>${d.transaction_id}</span>
+                <span class="ltr">${d.transaction_id}</span>
                 <span class="status-badge ${d.status === 'approved' ? 'completed' : d.status}">${d.status === 'approved' ? 'مكتمل' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span>
             </div>
             <div class="order-details">
@@ -858,12 +1228,12 @@ async function submitKYCRequest(btn) {
     const selfieFile = document.getElementById('kycSelfieImage')?.files[0];
 
     if (!fullName || !phone || !address || !selfieFile) {
-        showSuccessScreen('تنبيه', 'يرجى تعبئة جميع الحقول ورفع الصورة');
+        showNotification('تنبيه', 'يرجى تعبئة جميع الحقول ورفع الصورة', 'warning');
         return;
     }
 
     if (!userData || !userData.telegram_id) {
-        showSuccessScreen('خطأ', 'بيانات المستخدم غير متوفرة');
+        showNotification('خطأ', 'بيانات المستخدم غير متوفرة', 'error');
         return;
     }
 
@@ -906,9 +1276,9 @@ async function submitKYCRequest(btn) {
         });
 
         if (result && result.error) {
-            showSuccessScreen('خطأ', result.error);
+            showNotification('فشل الإرسال', result.error, 'error');
         } else {
-            showSuccessScreen('تم الإرسال', 'تم إرسال طلب التوثيق بنجاح، انتظر المراجعة');
+            showNotification('تم الإرسال', 'تم إرسال طلب التوثيق بنجاح، انتظر المراجعة', 'success');
             kycStatus = 'pending';
             updateKYCUI();
             navigateTo('page-account');
@@ -916,7 +1286,7 @@ async function submitKYCRequest(btn) {
         }
     } catch (error) {
         console.error('KYC submit error:', error);
-        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+        showNotification('خطأ', `فشل إرسال الطلب: ${error.message}`, 'error');
     } finally {
         setButtonLoading(btn, false);
     }
@@ -938,18 +1308,46 @@ function setButtonLoading(btn, loading) {
     }
 }
 
-// ============ شاشة النجاح ============
-function showSuccessScreen(title, message) {
+// ============================================================
+// ============ شاشة الإشعار ============
+// ============================================================
+function showNotification(title, message, type = 'success') {
     const overlay = document.getElementById('successOverlay');
+    if (!overlay) return;
+
     const titleEl = document.getElementById('successTitle');
     const msgEl = document.getElementById('successMessage');
-    if (!overlay) return;
-    titleEl.textContent = title;
-    msgEl.textContent = message;
+    const iconContainer = overlay.querySelector('.success-icon');
+    const iconEl = overlay.querySelector('.success-icon .material-icons');
+
+    const icons = {
+        success: 'check_circle',
+        error: 'cancel',
+        warning: 'warning',
+        info: 'info'
+    };
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (iconEl) iconEl.textContent = icons[type] || 'check_circle';
+
+    if (iconContainer) {
+        iconContainer.className = 'success-icon ' + type;
+    }
+    overlay.setAttribute('data-type', type);
+
     overlay.classList.add('active');
+
+    const duration = (type === 'error') ? 4000 : 2200;
+
     setTimeout(() => {
         overlay.classList.remove('active');
-    }, 2200);
+        overlay.removeAttribute('data-type');
+    }, duration);
+}
+
+function showSuccessScreen(title, message) {
+    showNotification(title, message, 'success');
 }
 
 // ============ شراء منتج ============
@@ -957,19 +1355,53 @@ function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
 
+    // ⭐ إضافة إلى "شوهد حديثاً"
+    addToRecentlyViewed(productId);
+
     const unitPrice = product.base_quantity > 0 ? product.base_price / product.base_quantity : product.base_price;
+    const maxQty = product.max_quantity || 0;
+    const maxQtyLabel = maxQty > 0 ? `<small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:4px;">الحد الأقصى: ${maxQty.toLocaleString('ar')}</small>` : '';
+
+    let customInputHTML = '';
+    if (product.input_type === 'id') {
+        customInputHTML = `<div class="form-group"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field"></div>`;
+    } else if (product.input_type === 'account_id') {
+        customInputHTML = `<div class="form-group"><label>ID الحساب</label><input type="text" id="purchaseAccountId" placeholder="أدخل ID الحساب" class="input-field"></div>`;
+    } else if (product.input_type === 'phone') {
+        customInputHTML = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field"></div>`;
+    }
 
     let modalContent = `
         <div class="purchase-modal">
-            <h3 style="text-align:center; margin: 0 0 12px;">${product.name}</h3>
-            <div class="purchase-image" style="background-image:url('${product.image || ''}'); background-color:#f0f0f0; background-size:cover; background-position:center; width:48px; height:48px; border-radius:12px; margin: 0 auto 12px;">${product.image ? '' : '📦'}</div>
-            <div class="form-group"><label>الكمية المطلوبة</label><input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" class="input-field"></div>
-            <div style="font-weight:bold; font-size:1.2rem; margin: 16px 0; text-align:center;" id="purchaseTotal">الإجمالي: ${formatPrice(unitPrice * (product.base_quantity || 1))}</div>
-            <div class="form-group"><label>كود الخصم (اختياري)</label><input type="text" id="purchaseCoupon" placeholder="أدخل كود الخصم"></div>
-            ${product.input_type === 'id' ? `<div class="form-group"><label>معرف اللاعب (ID)</label><input type="text" id="purchasePlayerId" placeholder="أدخل المعرف" class="input-field"></div>` : ''}
-            ${product.input_type === 'phone' ? `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchasePhone" placeholder="أدخل رقم الهاتف" class="input-field"></div>` : ''}
+            <div class="purchase-header">
+                ${product.image ? `<div class="purchase-image-lg" style="background-image:url('${product.image}');"></div>` : '<div class="purchase-image-lg placeholder">📦</div>'}
+                <h3 class="purchase-title">${product.name}</h3>
+                <div class="purchase-price-info">
+                    <span>${formatPrice(unitPrice)}</span>
+                    ${product.unit_name ? `<small> / ${product.unit_name}</small>` : ''}
+                </div>
+                ${maxQty > 0 ? `<div class="purchase-max-info">📦 الحد الأقصى: ${maxQty.toLocaleString('ar')}</div>` : ''}
+            </div>
+
+            <div class="form-group">
+                <label>الكمية المطلوبة</label>
+                <div class="quantity-selector">
+                    <button type="button" class="qty-btn" onclick="adjustQuantity(-1)">−</button>
+                    <input type="number" id="purchaseQuantity" value="${product.base_quantity || 1}" min="1" ${maxQty > 0 ? `max="${maxQty}"` : ''} class="qty-input">
+                    <button type="button" class="qty-btn" onclick="adjustQuantity(1)">+</button>
+                </div>
+                ${maxQtyLabel}
+            </div>
+
+            ${customInputHTML}
+
+            <div class="purchase-total-box">
+                <span>الإجمالي:</span>
+                <strong id="purchaseTotal">${formatPrice(unitPrice * (product.base_quantity || 1))}</strong>
+            </div>
+
             <div style="display:flex; gap:8px; margin-top:16px;">
-                <button class="btn-primary" style="flex:1;" onclick="confirmPurchaseDialog(${product.id}, this)">شراء</button>
+                <button class="btn-primary" style="flex:1;" onclick="confirmPurchaseDialog(${product.id}, this)">شراء الآن</button>
                 <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
             </div>
         </div>
@@ -981,11 +1413,23 @@ function openPurchaseModal(productId) {
         const qty = parseFloat(document.getElementById('purchaseQuantity')?.value) || 0;
         total = unitPrice * qty;
         const totalEl = document.getElementById('purchaseTotal');
-        if (totalEl) totalEl.textContent = `الإجمالي: ${formatPrice(total)}`;
+        if (totalEl) totalEl.textContent = formatPrice(total);
     };
 
     document.getElementById('purchaseQuantity')?.addEventListener('input', updateTotal);
     updateTotal();
+}
+
+function adjustQuantity(delta) {
+    const input = document.getElementById('purchaseQuantity');
+    if (!input) return;
+    let current = parseInt(input.value) || 1;
+    let newVal = current + delta;
+    if (newVal < 1) newVal = 1;
+    const max = parseInt(input.getAttribute('max')) || 0;
+    if (max > 0 && newVal > max) newVal = max;
+    input.value = newVal;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function confirmPurchaseDialog(productId, btn) {
@@ -995,23 +1439,36 @@ function confirmPurchaseDialog(productId, btn) {
     if (product.input_type === 'id') {
         const playerId = document.getElementById('purchasePlayerId')?.value;
         if (!playerId || !playerId.trim()) {
-            showSuccessScreen('تنبيه', 'يرجى إدخال معرف اللاعب (ID)');
+            showNotification('تنبيه', 'يرجى إدخال معرف اللاعب (ID)', 'warning');
+            return;
+        }
+    } else if (product.input_type === 'account_id') {
+        const accountId = document.getElementById('purchaseAccountId')?.value;
+        if (!accountId || !accountId.trim()) {
+            showNotification('تنبيه', 'يرجى إدخال ID الحساب', 'warning');
             return;
         }
     } else if (product.input_type === 'phone') {
         const phone = document.getElementById('purchasePhone')?.value;
         if (!phone || !phone.trim()) {
-            showSuccessScreen('تنبيه', 'يرجى إدخال رقم الهاتف');
+            showNotification('تنبيه', 'يرجى إدخال رقم الهاتف', 'warning');
             return;
         }
     }
 
     const qty = parseInt(document.getElementById('purchaseQuantity')?.value) || 1;
+
+    const maxQty = product.max_quantity || 0;
+    if (maxQty > 0 && qty > maxQty) {
+        showNotification('خطأ', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'error');
+        return;
+    }
+
     const total = product.base_quantity > 0
         ? (product.base_price / product.base_quantity) * qty
         : product.base_price * qty;
 
-    const confirmed = confirm(`هل أنت متأكد من شراء ${qty} من ${product.name}؟\nالإجمالي: ${formatPrice(total)}`);
+    const confirmed = confirm(`هل أنت متأكد من شراء ${qty.toLocaleString('ar')} من ${product.name}؟\nالإجمالي: ${formatPrice(total)}`);
     if (!confirmed) return;
 
     executeConfirmPurchase(productId, btn);
@@ -1028,6 +1485,7 @@ async function executeConfirmPurchase(productId, btn) {
     orderData.quantity = parseInt(document.getElementById('purchaseQuantity')?.value);
 
     if (product.input_type === 'id') orderData.player_id = document.getElementById('purchasePlayerId')?.value;
+    else if (product.input_type === 'account_id') orderData.account_id = document.getElementById('purchaseAccountId')?.value;
     else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
 
     if (btn) setButtonLoading(btn, true);
@@ -1035,9 +1493,9 @@ async function executeConfirmPurchase(productId, btn) {
     try {
         const result = await createOrder(orderData);
         if (result && result.error) {
-            showSuccessScreen('خطأ', result.error);
+            showNotification('فشل إرسال الطلب', result.error, 'error');
         } else {
-            showSuccessScreen('تم الطلب', 'طلبك قيد المعالجة');
+            showNotification('تم الطلب بنجاح', `طلبك ${result.order_number} قيد المعالجة`, 'success');
             closeModal();
             ordersData = await fetchUserOrders(userData.telegram_id);
             renderOrders(ordersData);
@@ -1047,7 +1505,7 @@ async function executeConfirmPurchase(productId, btn) {
         }
     } catch (error) {
         console.error('Order error:', error);
-        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+        showNotification('فشل إرسال الطلب', error.message || 'حدث خطأ غير متوقع', 'error');
     } finally {
         if (btn) setButtonLoading(btn, false);
     }
@@ -1060,8 +1518,8 @@ function showDepositStep1(methodId) {
     selectedMethodForDeposit = method;
 
     const qrCode = method.qr_image && method.qr_image.length > 100
-        ? `<img src="${method.qr_image}" style="width:180px;height:180px;border-radius:16px;object-fit:cover;" />`
-        : '<span style="color:var(--text-secondary);">لا يوجد رمز QR بعد</span>';
+        ? `<img src="${method.qr_image}" style="width:220px;height:220px;border-radius:16px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
+        : '<div style="color:var(--text-secondary); padding:20px;">لا يوجد رمز QR بعد</div>';
 
     const logo = method.icon && method.icon.length > 100
         ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
@@ -1101,7 +1559,7 @@ function copyText(elementId) {
     const text = document.getElementById(elementId)?.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => showSuccessScreen('تم النسخ', 'تم نسخ النص بنجاح')).catch(() => fallbackCopy(text));
+        navigator.clipboard.writeText(text).then(() => showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success')).catch(() => fallbackCopy(text));
     } else {
         fallbackCopy(text);
     }
@@ -1112,7 +1570,7 @@ function fallbackCopy(text) {
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
-    try { document.execCommand('copy'); showSuccessScreen('تم النسخ', 'تم نسخ النص بنجاح'); } catch (e) { showSuccessScreen('خطأ', 'تعذر النسخ'); }
+    try { document.execCommand('copy'); showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success'); } catch (e) { showNotification('خطأ', 'تعذر النسخ', 'error'); }
     document.body.removeChild(textarea);
 }
 
@@ -1123,9 +1581,9 @@ async function submitDeposit(btn) {
     const senderName = document.getElementById('depositSenderName')?.value;
     const proofFile = document.getElementById('depositProofImage')?.files[0];
 
-    if (!amount || amount <= 0) { showSuccessScreen('تنبيه', 'أدخل مبلغ صحيح'); return; }
-    if (!senderName || !senderName.trim()) { showSuccessScreen('تنبيه', 'أدخل اسم المرسل'); return; }
-    if (!proofFile) { showSuccessScreen('تنبيه', 'ارفع صورة الإثبات'); return; }
+    if (!amount || amount <= 0) { showNotification('تنبيه', 'أدخل مبلغ صحيح', 'warning'); return; }
+    if (!senderName || !senderName.trim()) { showNotification('تنبيه', 'أدخل اسم المرسل', 'warning'); return; }
+    if (!proofFile) { showNotification('تنبيه', 'ارفع صورة الإثبات', 'warning'); return; }
 
     setButtonLoading(btn, true);
 
@@ -1146,17 +1604,18 @@ async function submitDeposit(btn) {
             sender_name: senderName,
         });
         if (result && result.error) {
-            showSuccessScreen('خطأ', result.error);
+            showNotification('فشل الإيداع', result.error, 'error');
         } else {
-            showSuccessScreen('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح');
+            showNotification('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح', 'success');
             closeModal();
             selectedMethodForDeposit = null;
             depositsData = await fetchUserDeposits(userData.telegram_id);
             renderDeposits(depositsData);
+            updateUserUI();
         }
     } catch (error) {
         console.error('Deposit error:', error);
-        showSuccessScreen('خطأ', `فشل إرسال الإيداع: ${error.message}`);
+        showNotification('خطأ', `فشل إرسال الإيداع: ${error.message}`, 'error');
     } finally {
         setButtonLoading(btn, false);
     }
@@ -1177,19 +1636,19 @@ async function submitServiceRequest(btn) {
     const service_name = document.getElementById('serviceName').value;
     const description = document.getElementById('serviceDesc').value;
     const estimated_price = parseFloat(document.getElementById('servicePrice').value) || 0;
-    if (!service_name) { showSuccessScreen('تنبيه', 'أدخل اسم الخدمة'); return; }
+    if (!service_name) { showNotification('تنبيه', 'أدخل اسم الخدمة', 'warning'); return; }
 
     setButtonLoading(btn, true);
     try {
         const result = await requestCustomService({ telegram_id: userData.telegram_id, service_name, description, estimated_price });
         if (result && result.error) {
-            showSuccessScreen('خطأ', result.error);
+            showNotification('خطأ', result.error, 'error');
         } else {
-            showSuccessScreen('تم الإرسال', 'تم إرسال طلب الخدمة بنجاح');
+            showNotification('تم الإرسال', 'تم إرسال طلب الخدمة بنجاح', 'success');
             closeModal();
         }
     } catch (error) {
-        showSuccessScreen('خطأ', `فشل إرسال الطلب: ${error.message}`);
+        showNotification('خطأ', `فشل إرسال الطلب: ${error.message}`, 'error');
     } finally {
         setButtonLoading(btn, false);
     }
@@ -1269,7 +1728,7 @@ function openSupport() {
 }
 
 function openNotificationsPage() {
-    if (!userData) { showSuccessScreen('تنبيه', 'افتح التطبيق من تيليجرام'); return; }
+    if (!userData) { showNotification('تنبيه', 'افتح التطبيق من تيليجرام', 'warning'); return; }
     fetchNotifications(userData.telegram_id).then(notifications => {
         const bodyHTML = `
             <div style="text-align:center;">
@@ -1365,7 +1824,7 @@ function navigateTo(pageId) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-page') === pageId));
     currentPage = pageId;
 
-    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); }
+    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); renderRecentlyViewed(); }
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);
@@ -1373,6 +1832,10 @@ function navigateTo(pageId) {
     if (pageId === 'page-kyc') updateKYCUI();
     if (pageId === 'page-favorites') renderFavorites();
     if (pageId === 'page-faq') setupFAQ();
+
+    // تمرير لأعلى
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) mainContent.scrollTop = 0;
 }
 
 // ============ أدوات عامة ============
