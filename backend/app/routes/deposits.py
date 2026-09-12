@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from ..models.base import User, Deposit, Transaction, Notification
+from ..models.base import User, Deposit, Transaction, Notification, log_financial
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins

@@ -49,10 +49,10 @@ class Product(db.Model):
     base_quantity = db.Column(db.Integer, default=0)
     base_price = db.Column(db.Float, nullable=False, default=0.0)
     unit_name = db.Column(db.String(50), default="قطعة")
-    input_type = db.Column(db.String(20), default="id")  # id / account_id / phone / none
+    input_type = db.Column(db.String(20), default="id")
     custom_input_label = db.Column(db.String(100))
     stock = db.Column(db.Integer, default=0)
-    max_quantity = db.Column(db.Integer, default=0)  # 0 = بلا حد أقصى
+    max_quantity = db.Column(db.Integer, default=0)
     is_bundle = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     bundles = db.relationship("ProductBundle", backref="product", lazy=True)
@@ -210,6 +210,9 @@ class Coupon(db.Model):
 
 class CouponUsage(db.Model):
     __tablename__ = "coupon_usages"
+    __table_args__ = (
+        db.UniqueConstraint('coupon_id', 'user_id', name='uq_coupon_user'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     coupon_id = db.Column(db.Integer, db.ForeignKey("coupons.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
@@ -226,3 +229,62 @@ class Referral(db.Model):
     status = db.Column(db.String(20), default="pending")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = db.Column(db.DateTime)
+
+
+# ============================================================
+# 🆕 Financial Audit Log — سجل التدقيق المالي
+# ============================================================
+class FinancialAuditLog(db.Model):
+    __tablename__ = "financial_audit_log"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    action = db.Column(db.String(50), nullable=False)
+    # order_created / order_refund / order_cancelled
+    # deposit_approved / deposit_rejected
+    # admin_adjustment / referral_reward
+
+    amount = db.Column(db.Float, nullable=False)
+    balance_before = db.Column(db.Float, nullable=False)
+    balance_after = db.Column(db.Float, nullable=False)
+
+    reference_type = db.Column(db.String(50))
+    reference_id = db.Column(db.Integer)
+
+    admin_id = db.Column(db.Integer, nullable=True)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+
+    note = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+# ============================================================
+# 🆕 Helper Function للـ Audit Log
+# ============================================================
+def log_financial(user, action, amount, balance_before, balance_after,
+                  ref_type=None, ref_id=None, admin_id=None, note=None):
+    """تسجيل عملية مالية في سجل التدقيق"""
+    from flask import request, has_request_context
+
+    ip = None
+    ua = None
+    if has_request_context():
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip:
+            ip = ip.split(",")[0].strip()
+        ua = request.headers.get("User-Agent", "")[:500]
+
+    log = FinancialAuditLog(
+        user_id=user.id,
+        action=action,
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=balance_after,
+        reference_type=ref_type,
+        reference_id=ref_id,
+        admin_id=admin_id,
+        ip_address=ip,
+        user_agent=ua,
+        note=note,
+    )
+    db.session.add(log)

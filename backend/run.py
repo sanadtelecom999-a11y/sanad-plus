@@ -13,11 +13,11 @@ app = create_app()
 
 
 def upgrade_database():
-    """ترقية قاعدة البيانات: FK، أعمدة، وأنواع البيانات"""
+    """ترقية قاعدة البيانات: FK، أعمدة، أنواع، قيود، جداول"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # 1) إزالة FK من admin_activities
+        # 1) إزالة FK من admin_activities + referrals
         fk_removals = [
             "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
             "ALTER TABLE admin_activities ALTER COLUMN admin_id DROP NOT NULL",
@@ -63,14 +63,11 @@ def upgrade_database():
                 'referral_count': 'INTEGER DEFAULT 0',
             },
             'products': {
-                'rating_sum': 'INTEGER DEFAULT 0',
-                'rating_count': 'INTEGER DEFAULT 0',
                 'max_quantity': 'INTEGER DEFAULT 0',
             },
             'orders': {
                 'discount_amount': 'FLOAT DEFAULT 0',
                 'coupon_code': 'VARCHAR(50)',
-                'is_rated': 'BOOLEAN DEFAULT FALSE',
             },
         }
         for table, cols in required_columns.items():
@@ -87,7 +84,56 @@ def upgrade_database():
                         db.session.rollback()
                         print(f"⚠️ فشل إضافة {table}.{col_name}: {e}")
 
-        # 4) إنشاء الجداول الجديدة
+        # 4) تنظيف coupon_usages المكرر قبل إضافة UNIQUE
+        if inspector.has_table('coupon_usages'):
+            try:
+                dup_sql = """
+                DELETE FROM coupon_usages a
+                USING coupon_usages b
+                WHERE a.id > b.id
+                  AND a.coupon_id = b.coupon_id
+                  AND a.user_id = b.user_id
+                """
+                db.session.execute(text(dup_sql))
+                db.session.commit()
+                print("✅ تم تنظيف coupon_usages المكررة")
+            except Exception as e:
+                db.session.rollback()
+                print(f"⚠️ فشل تنظيف coupon_usages: {e}")
+
+        # 5) إضافة UNIQUE constraint على coupon_usages
+        if inspector.has_table('coupon_usages'):
+            try:
+                unique_sql = """
+                ALTER TABLE coupon_usages
+                ADD CONSTRAINT uq_coupon_user UNIQUE (coupon_id, user_id)
+                """
+                db.session.execute(text(unique_sql))
+                db.session.commit()
+                print("✅ تمت إضافة UNIQUE على coupon_usages")
+            except Exception as e:
+                db.session.rollback()
+                if 'already exists' not in str(e).lower():
+                    print(f"⚠️ فشل إضافة UNIQUE: {e}")
+
+        # 6) إنشاء indexes للأداء
+        indexes = [
+            ("CREATE INDEX IF NOT EXISTS idx_orders_user_status ON orders(user_id, status)"),
+            ("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)"),
+            ("CREATE INDEX IF NOT EXISTS idx_deposits_user_status ON deposits(user_id, status)"),
+            ("CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read)"),
+            ("CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at DESC)"),
+            ("CREATE INDEX IF NOT EXISTS idx_audit_user_created ON financial_audit_log(user_id, created_at DESC)"),
+        ]
+        for idx_sql in indexes:
+            try:
+                db.session.execute(text(idx_sql))
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                print(f"⚠️ فشل إنشاء index: {idx_sql[:60]}... → {e}")
+
+        # 7) إنشاء الجداول الجديدة (financial_audit_log)
         try:
             db.create_all()
             db.session.commit()

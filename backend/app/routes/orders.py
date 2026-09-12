@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import update as sa_update
 from ..models.base import (
     User, Product, ProductBundle, Order, Transaction,
-    Notification, Coupon, CouponUsage, Referral
+    Notification, Coupon, CouponUsage, Referral, log_financial
 )
 from ..extensions import db
 from . import main
@@ -69,9 +69,12 @@ def complete_referral_if_first_order(user):
     ).first()
     if not referral:
         return
+
+    balance_before = referrer.balance
     referrer.balance += REFERRAL_REWARD
     referrer.referral_earnings = (referrer.referral_earnings or 0) + REFERRAL_REWARD
     referrer.referral_count = (referrer.referral_count or 0) + 1
+
     txn = Transaction(
         user_id=referrer.id,
         type="referral_reward",
@@ -81,9 +84,22 @@ def complete_referral_if_first_order(user):
         reference_id=referral.id,
     )
     db.session.add(txn)
+
+    # 🆕 Audit Log
+    log_financial(
+        user=referrer,
+        action="referral_reward",
+        amount=REFERRAL_REWARD,
+        balance_before=balance_before,
+        balance_after=referrer.balance,
+        ref_type="referral",
+        ref_id=referral.id,
+    )
+
     referral.reward_amount = REFERRAL_REWARD
     referral.status = "completed"
     referral.completed_at = datetime.now(timezone.utc)
+
     notif = Notification(
         user_id=referrer.id,
         title="مكافأة إحالة",
@@ -95,7 +111,7 @@ def complete_referral_if_first_order(user):
 
 
 # ============================================================
-# ============ /api/orders/ — إنشاء طلب (JWT) ============
+# ============ /api/orders/ — إنشاء طلب ============
 # ============================================================
 @main.route("/api/orders/", methods=["POST"])
 @jwt_required()
@@ -188,7 +204,9 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # Atomic balance update
+    # ✅ Atomic balance update + Stock في نفس الوقت
+    balance_before = user.balance
+
     result = db.session.execute(
         sa_update(User)
         .where(User.id == user.id, User.balance >= total_price)
@@ -199,6 +217,10 @@ def create_order():
         return jsonify({"error": "رصيد غير كافٍ"}), 400
 
     db.session.refresh(user)
+
+    # 🆕 خصم المخزون في نفس الـ transaction
+    if product.stock is not None and product.stock > 0:
+        product.stock = max(0, product.stock - quantity)
 
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
@@ -227,6 +249,17 @@ def create_order():
     )
     db.session.add(txn)
 
+    # 🆕 Audit Log
+    log_financial(
+        user=user,
+        action="order_created",
+        amount=-total_price,
+        balance_before=balance_before,
+        balance_after=user.balance,
+        ref_type="order",
+        ref_id=order.id,
+    )
+
     notif = Notification(
         user_id=user.id,
         title="طلب جديد",
@@ -234,22 +267,29 @@ def create_order():
         type="info",
     )
     db.session.add(notif)
-    db.session.commit()
 
+    # 🆕 كل شيء في commit واحد
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"فشل إنشاء الطلب: {str(e)}"}), 500
+
+    # Coupon usage بعد نجاح الطلب
     if coupon_obj:
-        coupon_obj.used_count = (coupon_obj.used_count or 0) + 1
-        usage = CouponUsage(
-            coupon_id=coupon_obj.id,
-            user_id=user.id,
-            order_id=order.id,
-            used_at=datetime.now(timezone.utc),
-        )
-        db.session.add(usage)
-        db.session.commit()
-
-    if product.stock is not None and product.stock > 0:
-        product.stock = max(0, product.stock - quantity)
-        db.session.commit()
+        try:
+            coupon_obj.used_count = (coupon_obj.used_count or 0) + 1
+            usage = CouponUsage(
+                coupon_id=coupon_obj.id,
+                user_id=user.id,
+                order_id=order.id,
+                used_at=datetime.now(timezone.utc),
+            )
+            db.session.add(usage)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️ فشل تسجيل استخدام الكوبون: {e}")
 
     complete_referral_if_first_order(user)
 
@@ -303,7 +343,9 @@ def cancel_order(order_id):
     if product and product.stock is not None and product.stock >= 0:
         product.stock = product.stock + order.quantity
 
+    balance_before = user.balance
     user.balance += order.total_price
+
     txn = Transaction(
         user_id=user.id,
         type="refund",
@@ -313,6 +355,17 @@ def cancel_order(order_id):
         reference_id=order.id,
     )
     db.session.add(txn)
+
+    # 🆕 Audit Log
+    log_financial(
+        user=user,
+        action="order_cancelled",
+        amount=order.total_price,
+        balance_before=balance_before,
+        balance_after=user.balance,
+        ref_type="order",
+        ref_id=order.id,
+    )
 
     order.status = "cancelled"
     order.updated_at = datetime.now(timezone.utc)

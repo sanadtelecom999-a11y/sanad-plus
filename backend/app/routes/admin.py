@@ -12,11 +12,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from ..models.base import (
     User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod,
     KYCRequest, Notification, Setting, AdminActivity, ServiceRequest,
-    Transaction, Coupon, CouponUsage, Referral
+    Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, log_financial
 )
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
+from .. import limiter
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
@@ -52,7 +53,7 @@ def cleanup_expired_sessions():
 
 
 # ============================================================
-# ============ Login Rate Limiting ============
+# ============ Login Rate Limiting (fallback in-memory) ============
 # ============================================================
 _login_attempts = defaultdict(list)
 LOGIN_RATE_WINDOW = 300
@@ -133,6 +134,7 @@ def get_arabic_status(status):
 # ============ Authentication with 2FA (OTP) ============
 # ============================================================
 @main.route("/admin/login", methods=["POST"])
+@limiter.limit("5 per 5 minutes")
 @handle_errors
 def admin_login():
     ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
@@ -184,6 +186,7 @@ def admin_login():
 
 
 @main.route("/admin/verify-otp", methods=["POST"])
+@limiter.limit("10 per 5 minutes")
 @handle_errors
 def admin_verify_otp():
     data = request.get_json() or {}
@@ -242,6 +245,44 @@ def admin_activities():
         "action": a.action,
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in activities])
+
+
+# ============================================================
+# ============ 🆕 Financial Audit Log API ============
+# ============================================================
+@main.route("/admin/api/audit-log", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_audit_log():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    user_id = request.args.get("user_id", type=int)
+    action = request.args.get("action")
+    limit = min(int(request.args.get("limit", 100)), 500)
+
+    query = FinancialAuditLog.query
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+    if action:
+        query = query.filter_by(action=action)
+
+    logs = query.order_by(FinancialAuditLog.created_at.desc()).limit(limit).all()
+
+    return jsonify([{
+        "id": l.id,
+        "user_id": l.user_id,
+        "action": l.action,
+        "amount": l.amount,
+        "balance_before": l.balance_before,
+        "balance_after": l.balance_after,
+        "reference_type": l.reference_type,
+        "reference_id": l.reference_id,
+        "admin_id": l.admin_id,
+        "ip_address": l.ip_address,
+        "note": l.note,
+        "created_at": l.created_at.isoformat() if l.created_at else None,
+    } for l in logs])
 
 
 # ============================================================
@@ -321,6 +362,7 @@ def admin_adjust_balance(user_id):
     if user.balance + amount < 0:
         return jsonify({"error": "التعديل سيؤدي إلى رصيد سالب"}), 400
 
+    balance_before = user.balance
     user.balance += amount
 
     txn = Transaction(
@@ -332,6 +374,18 @@ def admin_adjust_balance(user_id):
         reference_id=user.id,
     )
     db.session.add(txn)
+
+    # 🆕 Audit Log
+    log_financial(
+        user=user,
+        action="admin_adjustment",
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=user.balance,
+        ref_type="admin_adjustment",
+        ref_id=user.id,
+        note=note,
+    )
 
     notif = Notification(
         user_id=user.id,
@@ -464,7 +518,8 @@ def admin_products():
             "product_type": p.product_type, "base_quantity": p.base_quantity,
             "base_price": p.base_price, "unit_name": p.unit_name,
             "input_type": p.input_type, "custom_input_label": p.custom_input_label,
-            "stock": p.stock, "is_bundle": p.is_bundle, "is_active": p.is_active,
+            "stock": p.stock, "max_quantity": p.max_quantity,
+            "is_bundle": p.is_bundle, "is_active": p.is_active,
         } for p in products])
 
     data = request.get_json() or {}
@@ -480,6 +535,7 @@ def admin_products():
         input_type=data.get("input_type", "id"),
         custom_input_label=data.get("custom_input_label", ""),
         stock=data.get("stock", 0),
+        max_quantity=data.get("max_quantity", 0),
         is_bundle=data.get("is_bundle", False),
         is_active=data.get("is_active", True),
     )
@@ -693,6 +749,7 @@ def admin_update_order_status(order_id):
     user = User.query.get(order.user_id)
 
     if new_status == "failed" and old_status != "failed" and user:
+        balance_before = user.balance
         user.balance += order.total_price
         txn = Transaction(
             user_id=user.id, type="refund",
@@ -700,6 +757,19 @@ def admin_update_order_status(order_id):
             reference_type="order_refund", reference_id=order.id,
         )
         db.session.add(txn)
+
+        # 🆕 Audit Log
+        log_financial(
+            user=user,
+            action="order_refund",
+            amount=order.total_price,
+            balance_before=balance_before,
+            balance_after=user.balance,
+            ref_type="order",
+            ref_id=order.id,
+            note="استرداد بسبب فشل الطلب",
+        )
+
         notif = Notification(
             user_id=user.id, title="استرداد مبلغ",
             message=f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}",
@@ -765,12 +835,25 @@ def admin_approve_deposit(deposit_id):
     deposit.status = "approved"
     user = User.query.get(deposit.user_id)
     if user:
+        balance_before = user.balance
         user.balance += deposit.amount
         txn = Transaction(
             user_id=user.id, type="deposit", amount=deposit.amount,
             balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
         )
         db.session.add(txn)
+
+        # 🆕 Audit Log
+        log_financial(
+            user=user,
+            action="deposit_approved",
+            amount=deposit.amount,
+            balance_before=balance_before,
+            balance_after=user.balance,
+            ref_type="deposit",
+            ref_id=deposit.id,
+        )
+
         notif = Notification(
             user_id=user.id, title="إيداع مقبول",
             message=f"تم قبول إيداعك بقيمة {deposit.amount}$", type="success"
