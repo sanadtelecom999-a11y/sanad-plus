@@ -27,7 +27,6 @@ def get_current_user():
 
 
 def get_syp_rate():
-    """جلب سعر صرف الليرة السورية مقابل الدولار"""
     try:
         setting = Setting.query.filter_by(key="syp_rate").first()
         if setting and setting.value:
@@ -67,6 +66,10 @@ def apply_coupon_to_order(user, coupon_code, order_amount):
 
 
 def complete_referral_if_first_order(user):
+    """
+    منح مكافأة الإحالة عند أول طلب للمستخدم.
+    ⚠️ رسالة الإحالة للمُحيل تبقى — لأنها تخبره بأنه ربح مبلغ.
+    """
     if not user.referred_by:
         return
     order_count = Order.query.filter_by(user_id=user.id).count()
@@ -82,10 +85,12 @@ def complete_referral_if_first_order(user):
     ).first()
     if not referral:
         return
+
     balance_before = referrer.balance
-    referrer.balance += REFERRAL_REWARD
-    referrer.referral_earnings = (referrer.referral_earnings or 0) + REFERRAL_REWARD
+    referrer.balance = round(referrer.balance + REFERRAL_REWARD, 2)
+    referrer.referral_earnings = round((referrer.referral_earnings or 0) + REFERRAL_REWARD, 2)
     referrer.referral_count = (referrer.referral_count or 0) + 1
+
     txn = Transaction(
         user_id=referrer.id,
         type="referral_reward",
@@ -95,6 +100,7 @@ def complete_referral_if_first_order(user):
         reference_id=referral.id,
     )
     db.session.add(txn)
+
     log_financial(
         user=referrer,
         action="referral_reward",
@@ -104,17 +110,24 @@ def complete_referral_if_first_order(user):
         ref_type="referral",
         ref_id=referral.id,
     )
+
     referral.reward_amount = REFERRAL_REWARD
     referral.status = "completed"
     referral.completed_at = datetime.now(timezone.utc)
+
     notif = Notification(
         user_id=referrer.id,
         title="مكافأة إحالة",
-        message=f"حصلت على مكافأة {REFERRAL_REWARD}$ من إحالة",
+        message=f"حصلت على مكافأة {REFERRAL_REWARD:.2f}$ من إحالة",
         type="success",
     )
     db.session.add(notif)
-    send_telegram_notification(referrer.telegram_id, f"🎁 حصلت على مكافأة إحالة بقيمة {REFERRAL_REWARD}$")
+
+    # ✅ رسالة الإحالة تبقى (تخص مال)
+    send_telegram_notification(
+        referrer.telegram_id,
+        f"🎁 حصلت على مكافأة إحالة بقيمة {REFERRAL_REWARD:.2f}$"
+    )
 
 
 # ============================================================
@@ -136,7 +149,6 @@ def create_order():
     if not product or not product.is_active:
         return jsonify({"error": "منتج غير موجود"}), 404
 
-    # Idempotency
     idempotency_key = data.get("idempotency_key")
     if idempotency_key:
         existing = Order.query.filter_by(idempotency_key=idempotency_key).first()
@@ -149,7 +161,6 @@ def create_order():
                 "message": "طلب مكرر — تم إرجاعه من السجل",
             }), 200
 
-    # Custom input validation
     delivery_data = {}
     if product.input_type == "id":
         player_id = data.get("player_id", "")
@@ -173,7 +184,6 @@ def create_order():
             return jsonify({"error": "يرجى إدخال أرقام فقط في رقم الهاتف"}), 400
         delivery_data = {"phone": str(phone).strip()}
 
-    # ============ معالجة الرصيد السوري (topup) ============
     syp_amount = None
 
     if product.product_type == "topup":
@@ -222,7 +232,6 @@ def create_order():
             unit_price = product.base_price
         total_price = round(unit_price * quantity, 4)
 
-    # Coupon
     coupon_code = (data.get("coupon_code") or "").strip()
     discount_amount = 0
     coupon_obj = None
@@ -231,24 +240,21 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # ============ 🆕 فحص الرصيد (مع دعم السالب) ============
+    # فحص الرصيد مع دعم السالب
     balance_before = user.balance
-    new_balance = balance_before - total_price
+    new_balance = round(balance_before - total_price, 2)
 
-    # إذا كان الرصيد سيصبح سالباً
     if new_balance < 0:
-        # فحص هل السالب مسموح لهذا المستخدم
         if not user.allow_negative_balance:
             return jsonify({
                 "error": "رصيد غير كافٍ. يجب تفعيل الرصيد السالب من الإدارة.",
                 "code": "NEGATIVE_NOT_ALLOWED"
             }), 400
 
-        # فحص الحد الأقصى للسالب
         max_neg = user.max_negative_balance or 0
         if max_neg <= 0:
             return jsonify({
-                "error": "لا يمكن الشراء — رصيدك غير كافٍ. تفعيل الرصيد السالب متاح لكن الحد الأقصى صفر.",
+                "error": "لا يمكن الشراء — رصيدك غير كافٍ.",
                 "code": "NEGATIVE_LIMIT_ZERO"
             }), 400
 
@@ -259,10 +265,8 @@ def create_order():
                 "max_negative": max_neg
             }), 400
 
-    # تحديث الرصيد
     user.balance = new_balance
 
-    # خصم المخزون
     if product.stock is not None and product.stock > 0:
         product.stock = max(0, product.stock - (syp_amount if syp_amount else quantity))
 
@@ -333,23 +337,22 @@ def create_order():
 
     complete_referral_if_first_order(user)
 
+    # ❌ لا رسالة للمستخدم — فقط للأدمن
     if syp_amount:
-        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} بقيمة {syp_amount} ل.س قيد المعالجة")
         notify_admins(
             f"🆕 طلب جديد (رصيد سوري)!\n"
             f"رقم الطلب: {order.order_number}\n"
             f"المنتج: {product.name}\n"
             f"المبلغ: {syp_amount} ل.س\n"
-            f"بالدولار: {total_price}$"
+            f"بالدولار: {total_price:.2f}$"
         )
     else:
-        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
         notify_admins(
             f"🆕 طلب جديد!\n"
             f"رقم الطلب: {order.order_number}\n"
             f"المنتج: {product.name}\n"
             f"الكمية: {quantity}\n"
-            f"الإجمالي: {total_price}$"
+            f"الإجمالي: {total_price:.2f}$"
         )
 
     response = {
@@ -401,7 +404,7 @@ def cancel_order(order_id):
         product.stock = product.stock + order.quantity
 
     balance_before = user.balance
-    user.balance += order.total_price
+    user.balance = round(user.balance + order.total_price, 2)
 
     txn = Transaction(
         user_id=user.id,
@@ -435,7 +438,7 @@ def cancel_order(order_id):
     db.session.add(notif)
     db.session.commit()
 
-    send_telegram_notification(user.telegram_id, f"تم إلغاء طلبك {order.order_number} واسترداد المبلغ")
+    # ❌ لا رسالة للمستخدم — فقط للأدمن
     notify_admins(f"❌ طلب {order.order_number} أُلغي من قبل المستخدم")
 
     return jsonify({"message": "تم إلغاء الطلب واسترداد المبلغ"}), 200

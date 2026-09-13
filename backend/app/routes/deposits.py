@@ -5,7 +5,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import User, Deposit, Transaction, Notification, log_financial
 from ..extensions import db
 from . import main
-from ..services.telegram_service import send_telegram_notification, notify_admins
+from ..services.telegram_service import notify_admins
 
 
 def get_current_user():
@@ -26,7 +26,6 @@ def create_deposit():
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
 
-    # فحص KYC
     if user.kyc_status != "verified" and not user.is_verified:
         return jsonify({
             "error": "يجب توثيق حسابك أولاً قبل الإيداع",
@@ -63,14 +62,14 @@ def create_deposit():
     notif = Notification(
         user_id=user.id,
         title="إيداع جديد",
-        message=f"تم استلام طلب الإيداع بقيمة {amount}$ وهو قيد المراجعة",
+        message=f"تم استلام طلب الإيداع بقيمة {amount:.2f}$ وهو قيد المراجعة",
         type="info",
     )
     db.session.add(notif)
     db.session.commit()
 
-    send_telegram_notification(user.telegram_id, f"تم استلام طلب الإيداع بقيمة {amount}$ وهو قيد المراجعة")
-    notify_admins(f"💰 إيداع جديد!\nالمستخدم: {user.telegram_id}\nالمبلغ: {amount}$\nالطريقة: {method}")
+    # ❌ لا رسالة للمستخدم عند الإنشاء
+    notify_admins(f"💰 إيداع جديد!\nالمستخدم: {user.telegram_id}\nالمبلغ: {amount:.2f}$\nالطريقة: {method}")
 
     return jsonify({
         "message": "تم إرسال طلب الإيداع بنجاح",

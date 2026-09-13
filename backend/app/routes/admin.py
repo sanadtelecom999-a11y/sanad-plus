@@ -93,7 +93,7 @@ def log_admin_activity(action):
         activity = AdminActivity(admin_id=None, action=action, created_at=datetime.now(timezone.utc))
         db.session.add(activity)
         db.session.flush()
-    except Exception as e:
+    except Exception:
         db.session.rollback()
 
 
@@ -254,13 +254,12 @@ def admin_get_users():
     return jsonify([{
         "id": u.id, "telegram_id": u.telegram_id, "username": u.username,
         "first_name": u.first_name, "last_name": u.last_name,
-        "balance": u.balance, "kyc_status": u.kyc_status,
+        "balance": round(u.balance, 2), "kyc_status": u.kyc_status,
         "is_verified": u.is_verified, "role": u.role,
         "is_banned": u.is_banned, "vip_level": u.vip_level,
         "referral_code": u.referral_code,
         "referral_count": u.referral_count or 0,
-        "referral_earnings": u.referral_earnings or 0,
-        # 🆕 الرصيد السالب
+        "referral_earnings": round(u.referral_earnings or 0, 2),
         "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else True,
         "max_negative_balance": u.max_negative_balance or 0,
         "created_at": u.created_at.isoformat() if u.created_at else None,
@@ -268,13 +267,12 @@ def admin_get_users():
 
 
 # ============================================================
-# ============ 🆕 Negative Balance ============
+# ============ Negative Balance ============
 # ============================================================
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
 @jwt_required()
 @handle_errors
 def admin_set_negative_balance(user_id):
-    """تفعيل/تعديل الرصيد السالب لمستخدم"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -360,7 +358,7 @@ def admin_adjust_balance(user_id):
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
     balance_before = user.balance
-    user.balance += amount
+    user.balance = round(user.balance + amount, 2)
 
     txn = Transaction(
         user_id=user.id, type="adjustment", amount=amount,
@@ -376,7 +374,7 @@ def admin_adjust_balance(user_id):
 
     notif = Notification(
         user_id=user.id, title="تعديل الرصيد",
-        message=f"تم تعديل رصيدك بمقدار {amount}$" + (f" ({note})" if note else ""),
+        message=f"تم تعديل رصيدك بمقدار {amount:.2f}$" + (f" ({note})" if note else ""),
         type="info",
     )
     db.session.add(notif)
@@ -384,8 +382,9 @@ def admin_adjust_balance(user_id):
     log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
     db.session.commit()
 
-    send_telegram_notification(user.telegram_id, f"تم تعديل رصيدك بمقدار {amount}$")
-    notify_admins(f"💵 تم تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
+    # رسالة Telegram للمستخدم عند تعديل الرصيد (تخص المال)
+    send_telegram_notification(user.telegram_id, f"💰 تم تعديل رصيدك بمقدار {amount:.2f}$")
+    notify_admins(f"💵 تم تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount:.2f}$")
 
     return jsonify({"balance": user.balance})
 
@@ -781,7 +780,7 @@ def admin_update_order_status(order_id):
 
     if new_status == "failed" and old_status != "failed" and user:
         balance_before = user.balance
-        user.balance += order.total_price
+        user.balance = round(user.balance + order.total_price, 2)
         txn = Transaction(
             user_id=user.id, type="refund", amount=order.total_price,
             balance_after=user.balance, reference_type="order_refund", reference_id=order.id,
@@ -796,7 +795,7 @@ def admin_update_order_status(order_id):
 
         notif = Notification(
             user_id=user.id, title="استرداد مبلغ",
-            message=f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}",
+            message=f"تم استرداد مبلغ {order.total_price:.2f}$ لطلبك {order.order_number}",
             type="success",
         )
         db.session.add(notif)
@@ -814,12 +813,7 @@ def admin_update_order_status(order_id):
 
     db.session.commit()
 
-    if user:
-        status_arabic = get_arabic_status(new_status)
-        if new_status == "failed" and old_status != "failed":
-            send_telegram_notification(user.telegram_id, f"تم استرداد مبلغ {order.total_price}$ لطلبك {order.order_number}")
-        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} أصبح {status_arabic}")
-
+    # ❌ لا رسائل Telegram للمستخدم — فقط للأدمن
     notify_admins(f"🔄 طلب {order.order_number} أصبح {get_arabic_status(new_status)}")
     return jsonify({"status": order.status, "message": f"تم تحديث الحالة إلى {get_arabic_status(new_status)}"})
 
@@ -859,48 +853,53 @@ def admin_approve_deposit(deposit_id):
     deposit.status = "approved"
     user = User.query.get(deposit.user_id)
 
-    paid_debt = 0
-    added_amount = deposit.amount
+    paid_debt = 0.0
+    added_amount = round(deposit.amount, 2)
 
     if user:
-        balance_before = user.balance
-        # 🆕 خصم الدين أولاً
-        if user.balance < 0:
-            debt = abs(user.balance)
-            if deposit.amount >= debt:
+        balance_before = round(user.balance, 2)
+        current_balance = round(user.balance, 2)
+        deposit_amount = round(deposit.amount, 2)
+
+        if current_balance < 0:
+            debt = abs(current_balance)
+            if deposit_amount >= debt:
                 # يسدد الدين كاملاً
-                paid_debt = debt
-                added_amount = deposit.amount - debt
+                paid_debt = round(debt, 2)
+                added_amount = round(deposit_amount - debt, 2)
                 user.balance = added_amount
             else:
                 # يسدد جزءاً من الدين
-                paid_debt = deposit.amount
-                added_amount = 0
-                user.balance = user.balance + deposit.amount
+                paid_debt = deposit_amount
+                added_amount = 0.0
+                user.balance = round(current_balance + deposit_amount, 2)
         else:
-            user.balance += deposit.amount
-            added_amount = deposit.amount
+            user.balance = round(current_balance + deposit_amount, 2)
+            added_amount = deposit_amount
+
+        # تأكد من تقريب الرصيد النهائي
+        user.balance = round(user.balance, 2)
 
         txn = Transaction(
-            user_id=user.id, type="deposit", amount=deposit.amount,
+            user_id=user.id, type="deposit", amount=deposit_amount,
             balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
         )
         db.session.add(txn)
 
         log_financial(
-            user=user, action="deposit_approved", amount=deposit.amount,
+            user=user, action="deposit_approved", amount=deposit_amount,
             balance_before=balance_before, balance_after=user.balance,
             ref_type="deposit", ref_id=deposit.id,
-            note=f"دفع دين: ${paid_debt}, إضافة: ${added_amount}" if paid_debt > 0 else None,
+            note=f"دفع دين: ${paid_debt:.2f}, إضافة: ${added_amount:.2f}" if paid_debt > 0 else None,
         )
 
         # رسالة مخصصة
         if paid_debt > 0 and added_amount > 0:
-            msg = f"تم خصم {paid_debt:.2f}$ لسداد دينك، وإضافة {added_amount:.2f}$ لرصيدك"
+            msg = f"✅ تم خصم {paid_debt:.2f}$ لسداد دينك، وإضافة {added_amount:.2f}$ لرصيدك"
         elif paid_debt > 0 and added_amount == 0:
-            msg = f"تم خصم {paid_debt:.2f}$ لسداد دينك. الرصيد المتبقي: {user.balance:.2f}$"
+            msg = f"✅ تم خصم {paid_debt:.2f}$ لسداد دينك. رصيدك الآن: {user.balance:.2f}$"
         else:
-            msg = f"تم قبول إيداعك بقيمة {deposit.amount}$"
+            msg = f"✅ تمت إضافة {added_amount:.2f}$ لرصيدك"
 
         notif = Notification(
             user_id=user.id, title="إيداع مقبول",
@@ -911,13 +910,14 @@ def admin_approve_deposit(deposit_id):
     log_admin_activity(f"قبول إيداع {deposit.id} بقيمة {deposit.amount}$")
     db.session.commit()
 
+    # ✅ رسالة واحدة مخصصة للمستخدم
     if user:
-        send_telegram_notification(user.telegram_id, f"✅ {msg if user and 'msg' in locals() else 'تم قبول إيداعك'}")
+        send_telegram_notification(user.telegram_id, msg)
 
     notify_admins(
-        f"✅ تم قبول إيداع بقيمة {deposit.amount}$\n"
+        f"✅ تم قبول إيداع بقيمة {deposit.amount:.2f}$\n"
         f"المستخدم: {deposit.user_id}\n"
-        + (f"سداد دين: ${paid_debt}\nإضافة: ${added_amount}" if paid_debt > 0 else "")
+        + (f"سداد دين: ${paid_debt:.2f}\nإضافة: ${added_amount:.2f}" if paid_debt > 0 else "")
     )
     return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
 
@@ -946,7 +946,7 @@ def admin_reject_deposit(deposit_id):
     if user:
         notif = Notification(
             user_id=user.id, title="إيداع مرفوض",
-            message=f"تم رفض إيداعك بقيمة {deposit.amount}$" + (f" - {reason}" if reason else ""),
+            message=f"تم رفض إيداعك بقيمة {deposit.amount:.2f}$" + (f" - {reason}" if reason else ""),
             type="warning"
         )
         db.session.add(notif)
@@ -954,10 +954,11 @@ def admin_reject_deposit(deposit_id):
     log_admin_activity(f"رفض إيداع {deposit.id} بقيمة {deposit.amount}$")
     db.session.commit()
 
+    # ✅ رسالة الرفض تبقى
     if user:
-        send_telegram_notification(user.telegram_id, f"تم رفض إيداعك بقيمة {deposit.amount}$")
+        send_telegram_notification(user.telegram_id, f"❌ تم رفض إيداعك بقيمة {deposit.amount:.2f}$")
 
-    notify_admins(f"❌ تم رفض إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
+    notify_admins(f"❌ تم رفض إيداع بقيمة {deposit.amount:.2f}$ للمستخدم {deposit.user_id}")
     return jsonify({"status": deposit.status})
 
 
@@ -1004,8 +1005,9 @@ def admin_approve_kyc(kyc_id):
     log_admin_activity(f"قبول توثيق المستخدم {kyc.user_id}")
     db.session.commit()
 
+    # ✅ رسالة التوثيق تبقى
     if user:
-        send_telegram_notification(user.telegram_id, "تم توثيق حسابك بنجاح")
+        send_telegram_notification(user.telegram_id, "✅ تم توثيق حسابك بنجاح")
 
     notify_admins(f"✅ تم قبول توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "approved"})
@@ -1043,8 +1045,9 @@ def admin_reject_kyc(kyc_id):
     log_admin_activity(f"رفض توثيق المستخدم {kyc.user_id}")
     db.session.commit()
 
+    # ✅ رسالة الرفض تبقى
     if user:
-        send_telegram_notification(user.telegram_id, "تم رفض طلب التوثيق")
+        send_telegram_notification(user.telegram_id, "❌ تم رفض طلب التوثيق")
 
     notify_admins(f"❌ تم رفض توثيق المستخدم {kyc.user_id}")
     return jsonify({"status": "rejected"})
