@@ -12,6 +12,7 @@ let notificationsData = [];
 let selectedMethodForDeposit = null;
 let notificationPollerId = null;
 let cancelTimers = {};
+let publicSettings = { syp_rate: 132, store_name: 'SANAD+', support_url: 'https://t.me/SANADST' };
 
 const BOT_USERNAME = 'Sa3pls1_bot';
 const USD_TO_SYP = 132;
@@ -71,10 +72,14 @@ function renderRecentlyViewed() {
 // ============ Currency ============
 function formatPrice(usdAmount) {
     if (currentCurrency === 'SYP') {
-        const syp = Math.round(usdAmount * USD_TO_SYP);
+        const syp = Math.round(usdAmount * getSypRate());
         return `${syp.toLocaleString('ar')} ل.س`;
     }
     return `${usdAmount.toFixed(2)}$`;
+}
+
+function getSypRate() {
+    return parseFloat(publicSettings?.syp_rate) || 132;
 }
 
 function toggleCurrency() {
@@ -153,10 +158,7 @@ const PullToRefresh = (() => {
 
     function init() {
         mainContent = document.querySelector('.main-content');
-        if (!mainContent) {
-            console.warn('PullToRefresh: main-content not found');
-            return;
-        }
+        if (!mainContent) return;
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         indicator = createIndicator();
@@ -354,21 +356,13 @@ const SwipeNav = (() => {
 // ============================================================
 const SplashScreen = (() => {
     const T = {
-        shieldIn: 0,
-        lightSweep: 700,
-        disintegrate: 1400,
-        textReveal: 5000,
-        revealPlus: 6000,
-        revealEn: 6700,
-        confirm: 7300,
-        close: 7500
+        shieldIn: 0, lightSweep: 700, disintegrate: 1400,
+        textReveal: 5000, revealPlus: 6000, revealEn: 6700,
+        confirm: 7300, close: 7500
     };
     const QUICK_T = {
-        shieldIn: 0,
-        textReveal: 400,
-        revealPlus: 700,
-        revealEn: 950,
-        close: 1400
+        shieldIn: 0, textReveal: 400, revealPlus: 700,
+        revealEn: 950, close: 1400
     };
     const PARTICLE_COUNT = 180;
     const COLORS = ['#38BDF8', '#0EA5E9', '#7DD3FC', '#0D47A1', '#BAE6FD'];
@@ -505,7 +499,6 @@ const SplashScreen = (() => {
         if (!shieldStage || !textStage) { closeSplash(); return; }
 
         const timeline = isQuickMode ? QUICK_T : T;
-
         setTimeout(() => { shieldStage.classList.add('appearing'); splash.classList.add('shield-visible'); }, timeline.shieldIn);
 
         if (!isQuickMode) {
@@ -525,11 +518,9 @@ const SplashScreen = (() => {
         setTimeout(() => textStage.classList.add('visible'), timeline.textReveal);
         setTimeout(() => textStage.classList.add('reveal-plus'), timeline.revealPlus);
         setTimeout(() => textStage.classList.add('reveal-en'), timeline.revealEn);
-
         if (!isQuickMode) {
             setTimeout(() => { textStage.classList.add('confirming'); shieldStage.style.display = 'none'; }, timeline.confirm);
         }
-
         setTimeout(closeSplash, timeline.close);
     }
 
@@ -628,6 +619,11 @@ function updateKYCBadge() {
     }
 }
 
+function isUserVerified() {
+    if (!userData) return false;
+    return userData.kyc_status === 'verified' || userData.is_verified === true;
+}
+
 // ============ Product Card ============
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
@@ -687,6 +683,7 @@ function renderProductsList(products) {
     list.innerHTML = products.map(prod => renderProductCard(prod)).join('');
 }
 
+// ============ Payment Methods (مع القفل) ============
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     if (!container) return;
@@ -694,18 +691,34 @@ function renderPaymentMethods() {
         container.innerHTML = '<div class="empty-state"><span class="material-icons">payment</span>لا توجد طرق دفع متاحة</div>';
         return;
     }
-    container.innerHTML = paymentMethodsData.map(m => `
-        <div class="payment-method" data-id="${m.id}" onclick="showDepositStep1(${m.id})">
+
+    const verified = isUserVerified();
+
+    container.innerHTML = paymentMethodsData.map(m => {
+        const locked = m.requires_kyc && !verified;
+
+        return `
+        <div class="payment-method ${locked ? 'locked' : ''}" data-id="${m.id}" onclick="${locked ? `showLockedPaymentMessage()` : `showDepositStep1(${m.id})`}">
             <div class="payment-method-info">
-                ${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
+                ${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
                 <div>
                     <div class="payment-method-name">${m.name}</div>
                     <div class="payment-method-desc">${m.description || ''}</div>
+                    ${locked ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق الحساب</div>' : ''}
                 </div>
             </div>
-            <span class="material-icons">chevron_left</span>
+            <span class="material-icons">${locked ? 'lock' : 'chevron_left'}</span>
         </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+function showLockedPaymentMessage() {
+    showNotification(
+        'التوثيق مطلوب',
+        'يجب توثيق حسابك أولاً لاستخدام هذه الطريقة. اذهب إلى "حسابي" → "توثيق الحساب"',
+        'warning'
+    );
 }
 // ============================================================
 // 📈 Order Timeline (Vertical)
@@ -762,7 +775,7 @@ function buildOrderTimelineHTML(order) {
 }
 
 // ============================================================
-// 📦 تفاصيل التسليم — سطر inline مع أيقونة
+// 📦 تفاصيل التسليم
 // ============================================================
 function buildDeliveryDetailsHTML(order) {
     if (!order.delivery_data) return '';
@@ -789,6 +802,9 @@ function buildDeliveryDetailsHTML(order) {
     if (delivery.bundle_name) {
         items.push({ icon: 'inventory_2', label: 'الباقة', value: delivery.bundle_name });
     }
+    if (delivery.syp_amount) {
+        items.push({ icon: 'payments', label: 'المبلغ (ل.س)', value: delivery.syp_amount.toLocaleString('ar') });
+    }
 
     if (!items.length) return '';
 
@@ -814,6 +830,15 @@ function renderOrders(orders) {
 
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
+        const isTopup = order.product_type === 'topup';
+
+        let qtyDisplay = Number(order.quantity).toLocaleString('ar');
+        let priceDisplay = formatPrice(order.total_price);
+
+        if (isTopup) {
+            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ل.س`;
+        }
+
         return `
         <div class="order-card" data-status="${order.status}" data-id="${order.id}">
             <div class="order-header">
@@ -822,8 +847,8 @@ function renderOrders(orders) {
             </div>
             <div class="order-details">
                 <div>المنتج: ${order.product_name || order.product_id}</div>
-                <div>الكمية: ${Number(order.quantity).toLocaleString('ar')}</div>
-                <div>السعر: ${formatPrice(order.total_price)}</div>
+                <div>الكمية: ${qtyDisplay}</div>
+                <div>السعر: ${priceDisplay}</div>
             </div>
             ${buildDeliveryDetailsHTML(order)}
             ${buildOrderTimelineHTML(order)}
@@ -899,13 +924,13 @@ async function cancelOrder(orderId) {
         const result = await apiFetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id: userData.telegram_id }),
+            body: JSON.stringify({}),
         });
         if (result && result.error) {
             showNotification('فشل الإلغاء', result.error, 'error');
         } else {
             showNotification('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك', 'success');
-            ordersData = await fetchUserOrders(userData.telegram_id);
+            ordersData = await fetchUserOrders();
             renderOrders(ordersData);
             renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
@@ -1043,7 +1068,6 @@ async function submitKYCRequest(btn) {
     try {
         const selfieBase64 = await compressImage(selfieFile);
         const result = await submitKYC({
-            telegram_id: userData.telegram_id,
             full_name: fullName,
             phone: phone,
             address: address,
@@ -1122,8 +1146,9 @@ function showNotification(title, message, type = 'success') {
 function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
+
 // ============================================================
-// 🛒 Purchase Modal — الكمية قابلة للتعديل
+// 🛒 Purchase Modal — مع دعم Topup السوري
 // ============================================================
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
@@ -1131,13 +1156,16 @@ function openPurchaseModal(productId) {
 
     addToRecentlyViewed(productId);
 
+    const isTopup = product.product_type === 'topup';
+    const sypRate = getSypRate();
+
     const baseQty = product.base_quantity || 1;
     const basePrice = product.base_price || 0;
-    // سعر الوحدة = السعر الإجمالي للكمية الأساسية ÷ الكمية الأساسية
     const unitPrice = baseQty > 0 ? basePrice / baseQty : basePrice;
 
-    // حفظ سعر الوحدة لاستخدامه في حساب الإجمالي
     window.__currentPurchaseUnitPrice = unitPrice;
+    window.__currentSypRate = sypRate;
+    window.__currentIsTopup = isTopup;
 
     let customInputHTML = '';
 
@@ -1169,6 +1197,48 @@ function openPurchaseModal(productId) {
 
     const fav = isFavorite(product.id);
 
+    // ============ Topup: نموذج مختلف ============
+    let infoRowHTML, defaultAmount, defaultTotal;
+
+    if (isTopup) {
+        defaultAmount = baseQty;
+        defaultTotal = baseQty / sypRate;
+
+        infoRowHTML = `
+            <div class="new-info-row">
+                <div class="new-info-box">
+                    <div class="new-info-label">المبلغ (ل.س)</div>
+                    <input type="text" id="newSypAmount" inputmode="numeric" pattern="[0-9]*"
+                           value="${defaultAmount}" class="new-qty-input"
+                           oninput="updateTopupTotal()">
+                </div>
+                <div class="new-info-box primary">
+                    <div class="new-info-label">الإجمالي ($)</div>
+                    <div class="new-info-value" id="newTotalDisplay">$${defaultTotal.toFixed(2)}</div>
+                </div>
+            </div>
+            <div class="topup-rate-info">
+                <span class="material-icons">info</span>
+                سعر الصرف: <strong>${sypRate.toLocaleString('ar')} ل.س</strong> = <strong>1.00$</strong>
+            </div>
+        `;
+    } else {
+        infoRowHTML = `
+            <div class="new-info-row">
+                <div class="new-info-box">
+                    <div class="new-info-label">الكمية</div>
+                    <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
+                           value="${baseQty}" class="new-qty-input"
+                           oninput="updatePurchaseTotal()">
+                </div>
+                <div class="new-info-box primary">
+                    <div class="new-info-label">الاجمالي</div>
+                    <div class="new-info-value" id="newTotalDisplay">${formatPrice(basePrice)}</div>
+                </div>
+            </div>
+        `;
+    }
+
     const modalContent = `
         <div class="new-purchase-modal">
             <div class="new-purchase-header">
@@ -1184,18 +1254,7 @@ function openPurchaseModal(productId) {
                 </div>
             </div>
 
-            <div class="new-info-row">
-                <div class="new-info-box">
-                    <div class="new-info-label">الكمية</div>
-                    <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
-                           value="${baseQty}" class="new-qty-input"
-                           oninput="updatePurchaseTotal()">
-                </div>
-                <div class="new-info-box primary">
-                    <div class="new-info-label">الاجمالي</div>
-                    <div class="new-info-value" id="newTotalDisplay">${formatPrice(basePrice)}</div>
-                </div>
-            </div>
+            ${infoRowHTML}
 
             ${customInputHTML}
 
@@ -1210,13 +1269,12 @@ function openPurchaseModal(productId) {
 }
 
 // ============================================================
-// 🔢 تحديث الإجمالي عند تغيير الكمية
+// 🔢 تحديث الإجمالي — للكمية العادية
 // ============================================================
 function updatePurchaseTotal() {
     const input = document.getElementById('newQtyInput');
     if (!input) return;
 
-    // احذف كل ما ليس رقماً
     const cleaned = input.value.replace(/[^0-9]/g, '');
     if (cleaned !== input.value) input.value = cleaned;
 
@@ -1229,13 +1287,84 @@ function updatePurchaseTotal() {
 }
 
 // ============================================================
+// 🔢 تحديث الإجمالي — للرصيد السوري
+// ============================================================
+function updateTopupTotal() {
+    const input = document.getElementById('newSypAmount');
+    if (!input) return;
+
+    const cleaned = input.value.replace(/[^0-9]/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+
+    const sypAmount = parseInt(input.value) || 0;
+    const sypRate = window.__currentSypRate || 132;
+    const totalUsd = sypAmount / sypRate;
+
+    const display = document.getElementById('newTotalDisplay');
+    if (display) display.textContent = `$${totalUsd.toFixed(2)}`;
+}
+
+// ============================================================
 // ✅ تأكيد الشراء
 // ============================================================
 function confirmPurchaseDialog(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
 
-    // فحص الكمية
+    const isTopup = product.product_type === 'topup';
+
+    if (isTopup) {
+        // فحص الرصيد السوري
+        const amountInput = document.getElementById('newSypAmount');
+        const sypAmount = parseInt(amountInput?.value);
+        if (!sypAmount || sypAmount < 1) {
+            showNotification('تنبيه', 'يرجى إدخال مبلغ صحيح بالليرة السورية', 'warning');
+            return;
+        }
+
+        const maxQty = product.max_quantity || 0;
+        if (maxQty > 0 && sypAmount > maxQty) {
+            showNotification('تنبيه', `الحد الأقصى هو ${maxQty.toLocaleString('ar')} ل.س`, 'warning');
+            return;
+        }
+
+        // فحص الحقول المخصصة
+        if (product.input_type === 'id') {
+            const val = document.getElementById('purchasePlayerId')?.value;
+            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
+                return;
+            }
+        } else if (product.input_type === 'account_id') {
+            const val = document.getElementById('purchaseAccountId')?.value;
+            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
+                return;
+            }
+        } else if (product.input_type === 'phone') {
+            const val = document.getElementById('purchasePhone')?.value;
+            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
+                return;
+            }
+        }
+
+        // تأكيد
+        const sypRate = window.__currentSypRate || 132;
+        const totalUsd = sypAmount / sypRate;
+
+        const confirmed = confirm(
+            `هل أنت متأكد من شراء ${sypAmount.toLocaleString('ar')} ل.س؟\n` +
+            `سيتم خصم ${totalUsd.toFixed(2)}$ من رصيدك.\n` +
+            `(سعر الصرف: ${sypRate} ل.س / $)`
+        );
+        if (!confirmed) return;
+
+        executeConfirmPurchase(productId, btn);
+        return;
+    }
+
+    // منتجات عادية
     const qtyInput = document.getElementById('newQtyInput');
     const qty = parseInt(qtyInput?.value);
     if (!qty || qty < 1) {
@@ -1243,14 +1372,12 @@ function confirmPurchaseDialog(productId, btn) {
         return;
     }
 
-    // فحص الحد الأقصى
     const maxQty = product.max_quantity || 0;
     if (maxQty > 0 && qty > maxQty) {
         showNotification('تنبيه', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'warning');
         return;
     }
 
-    // فحص حقول الإدخال
     if (product.input_type === 'id') {
         const val = document.getElementById('purchasePlayerId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
@@ -1278,15 +1405,20 @@ async function executeConfirmPurchase(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product || !userData) return;
 
-    const qtyInput = document.getElementById('newQtyInput');
-    const qty = parseInt(qtyInput?.value);
+    const isTopup = product.product_type === 'topup';
+
+    let quantity;
+    if (isTopup) {
+        quantity = parseInt(document.getElementById('newSypAmount')?.value);
+    } else {
+        quantity = parseInt(document.getElementById('newQtyInput')?.value);
+    }
 
     const idempotencyKey = `ord-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const orderData = {
-        telegram_id: userData.telegram_id,
         product_id: productId,
-        quantity: qty,
+        quantity: quantity,
         idempotency_key: idempotencyKey,
     };
 
@@ -1305,9 +1437,13 @@ async function executeConfirmPurchase(productId, btn) {
         if (result && result.error) {
             showNotification('فشل إرسال الطلب', result.error, 'error');
         } else {
-            showNotification('تم الطلب بنجاح', `طلبك ${result.order_number} قيد المعالجة`, 'success');
+            let msg = `طلبك ${result.order_number} قيد المعالجة`;
+            if (isTopup && result.syp_amount) {
+                msg = `${result.syp_amount.toLocaleString('ar')} ل.س — طلبك ${result.order_number} قيد المعالجة`;
+            }
+            showNotification('تم الطلب بنجاح', msg, 'success');
             closeModal();
-            ordersData = await fetchUserOrders(userData.telegram_id);
+            ordersData = await fetchUserOrders();
             renderOrders(ordersData);
             renderLatestOrders();
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
@@ -1320,13 +1456,23 @@ async function executeConfirmPurchase(productId, btn) {
         if (btn) setButtonLoading(btn, false);
     }
 }
-
 // ============================================================
-// 💰 Deposit Flow
+// 💰 Deposit Flow — مع فحص KYC
 // ============================================================
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
+
+    // 🆕 فحص KYC قبل الإيداع
+    if (!isUserVerified()) {
+        showNotification(
+            'التوثيق مطلوب',
+            'يجب توثيق حسابك أولاً قبل الإيداع. اذهب إلى "حسابي" → "توثيق الحساب"',
+            'warning'
+        );
+        return;
+    }
+
     selectedMethodForDeposit = method;
 
     const qrCode = method.qr_image && method.qr_image.length > 100
@@ -1370,11 +1516,24 @@ function showDepositStep1(methodId) {
 function showDepositStep2() {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
+
+    // 🆕 فحص KYC مرة أخرى
+    if (!isUserVerified()) {
+        showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
+        return;
+    }
+
     const body = `
         <div style="text-align:right;">
             <h3>إتمام الإيداع</h3>
-            <div class="form-group"><label>المبلغ بالدولار</label><input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field"></div>
-            <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field"></div>
+            <div class="form-group">
+                <label>المبلغ بالدولار</label>
+                <input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field">
+            </div>
+            <div class="form-group">
+                <label>اسم المرسل</label>
+                <input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field">
+            </div>
             <div class="form-group">
                 <label>إثبات التحويل (صورة)</label>
                 <div class="image-preview" id="depositProofPreview">📷</div>
@@ -1414,6 +1573,13 @@ function fallbackCopy(text) {
 
 async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
+
+    // 🆕 فحص KYC
+    if (!isUserVerified()) {
+        showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع', 'warning');
+        return;
+    }
+
     const method = selectedMethodForDeposit;
     const amount = parseFloat(document.getElementById('depositAmount')?.value);
     const senderName = document.getElementById('depositSenderName')?.value;
@@ -1435,19 +1601,23 @@ async function submitDeposit(btn) {
     try {
         const proofBase64 = await toBase64(proofFile);
         const result = await createDeposit({
-            telegram_id: userData.telegram_id,
             amount,
             method: method.id,
             proof_image: proofBase64,
             sender_name: senderName,
         });
+
         if (result && result.error) {
-            showNotification('فشل الإيداع', result.error, 'error');
+            if (result.code === 'KYC_REQUIRED') {
+                showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
+            } else {
+                showNotification('فشل الإيداع', result.error, 'error');
+            }
         } else {
             showNotification('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح', 'success');
             closeModal();
             selectedMethodForDeposit = null;
-            depositsData = await fetchUserDeposits(userData.telegram_id);
+            depositsData = await fetchUserDeposits();
             renderDeposits(depositsData);
             updateUserUI();
         }
@@ -1481,7 +1651,6 @@ async function submitServiceRequest(btn) {
     setButtonLoading(btn, true);
     try {
         const result = await requestCustomService({
-            telegram_id: userData.telegram_id,
             service_name,
             description,
             estimated_price
@@ -1542,11 +1711,12 @@ function shareReferral(link) {
 // ❓ FAQ
 // ============================================================
 const faqData = [
-    { q: 'كيف أشحن رصيدي؟', a: 'اذهب إلى قسم "شحن" في الأسفل، اختر طريقة الدفع، ثم اتبع التعليمات.' },
+    { q: 'كيف أشحن رصيدي؟', a: 'يجب توثيق حسابك أولاً (KYC)، ثم اذهب إلى قسم "شحن" واختر طريقة الدفع.' },
     { q: 'كم يستغرق تنفيذ الطلب؟', a: 'عادة ما يتم تنفيذ الطلب خلال 5-15 دقيقة، لكن قد يتأخر في بعض الحالات.' },
-    { q: 'ما هو KYC ولماذا أحتاجه؟', a: 'KYC هو توثيق الهوية، يمنحك وصولاً لجميع طرق الدفع ويزيد حدود الاستخدام.' },
+    { q: 'ما هو KYC ولماذا أحتاجه؟', a: 'KYC هو توثيق الهوية، يمنحك وصولاً لجميع طرق الدفع والإيداع.' },
     { q: 'كيف ألغي طلباً؟', a: 'يمكنك إلغاء الطلب خلال 120 ثانية من إنشائه، عبر زر "إلغاء الطلب" في قسم طلباتي.' },
     { q: 'ماذا يحدث إذا فشل الطلب؟', a: 'في حال فشل الطلب، يتم استرداد المبلغ تلقائياً إلى رصيدك.' },
+    { q: 'ما هو الرصيد السوري؟', a: 'رصيد للاتصالات (MTN، Syriatel) يُشترى بالليرة السورية. أدخل المبلغ بالليرة وسيتم تحويله تلقائياً للدولار.' },
     { q: 'كيف أتواصل مع الدعم؟', a: 'استخدم زر الدعم العائم أسفل الشاشة للتواصل معنا مباشرة.' }
 ];
 
@@ -1573,7 +1743,7 @@ function toggleFAQ(index) {
 // 🎧 Support & Notifications
 // ============================================================
 function openSupport() {
-    window.open('https://t.me/SANADST', '_blank');
+    window.open(publicSettings?.support_url || 'https://t.me/SANADST', '_blank');
 }
 
 async function openNotificationsPage() {
@@ -1582,7 +1752,7 @@ async function openNotificationsPage() {
         return;
     }
 
-    notificationsData = await fetchNotifications(userData.telegram_id);
+    notificationsData = await fetchNotifications();
 
     const bodyHTML = `
         <div style="text-align:center;">
@@ -1745,23 +1915,28 @@ function showNotifications() { openNotificationsPage(); }
 // ============================================================
 async function loadInitialData() {
     const results = await Promise.allSettled([
+        fetchPublicSettings(),
         fetchCategories(),
         fetchProducts(),
         fetchPaymentMethods(),
-        userData?.telegram_id ? fetchUserOrders(userData.telegram_id) : Promise.resolve([]),
-        userData?.telegram_id ? fetchUserDeposits(userData.telegram_id) : Promise.resolve([]),
-        userData?.telegram_id ? fetchNotifications(userData.telegram_id) : Promise.resolve([]),
-        userData?.telegram_id ? getMyKYC(userData.telegram_id) : Promise.resolve({ status: 'none' }),
+        userData?.telegram_id ? fetchUserOrders() : Promise.resolve([]),
+        userData?.telegram_id ? fetchUserDeposits() : Promise.resolve([]),
+        userData?.telegram_id ? fetchNotifications() : Promise.resolve([]),
+        userData?.telegram_id ? getMyKYC() : Promise.resolve({ status: 'none' }),
     ]);
 
-    categoriesData = results[0].status === 'fulfilled' ? results[0].value : [];
-    productsData = results[1].status === 'fulfilled' ? results[1].value : [];
-    paymentMethodsData = results[2].status === 'fulfilled' ? results[2].value : [];
-    ordersData = results[3].status === 'fulfilled' ? results[3].value : [];
-    depositsData = results[4].status === 'fulfilled' ? results[4].value : [];
-    notificationsData = results[5].status === 'fulfilled' ? results[5].value : [];
+    if (results[0].status === 'fulfilled') {
+        publicSettings = { ...publicSettings, ...results[0].value };
+        USD_TO_SYP = parseFloat(publicSettings.syp_rate) || 132;
+    }
+    categoriesData = results[1].status === 'fulfilled' ? results[1].value : [];
+    productsData = results[2].status === 'fulfilled' ? results[2].value : [];
+    paymentMethodsData = results[3].status === 'fulfilled' ? results[3].value : [];
+    ordersData = results[4].status === 'fulfilled' ? results[4].value : [];
+    depositsData = results[5].status === 'fulfilled' ? results[5].value : [];
+    notificationsData = results[6].status === 'fulfilled' ? results[6].value : [];
 
-    const kycResult = results[6].status === 'fulfilled' ? results[6].value : { status: 'none' };
+    const kycResult = results[7].status === 'fulfilled' ? results[7].value : { status: 'none' };
     kycStatus = kycResult?.status || 'none';
 
     results.forEach((r, i) => {

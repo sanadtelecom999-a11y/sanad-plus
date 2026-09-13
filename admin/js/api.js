@@ -304,3 +304,13 @@ function logout() {
     clearToken();
     location.reload();
 }
+async function fetchAdminSettings() {
+    return await apiRequest('/admin/api/settings');
+}
+
+async function saveAdminSettings(settingsData) {
+    return await apiRequest('/admin/api/settings', {
+        method: 'PUT',
+        body: JSON.stringify(settingsData),
+    });
+}

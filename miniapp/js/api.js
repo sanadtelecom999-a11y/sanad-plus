@@ -62,7 +62,6 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
         // 401 → التوكن منتهي أو غير صالح
         if (response.status === 401) {
             clearAuthToken();
-            // حاول تسجيل الدخول مرة أخرى عبر initData
             const initData = window.Telegram?.WebApp?.initData || '';
             if (initData && !options.__retried_auth) {
                 console.warn('⚠️ Token منتهي — إعادة المصادقة');
@@ -76,7 +75,6 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
                         const authData = await authRes.json();
                         if (authData.access_token) {
                             setAuthToken(authData.access_token);
-                            // أعد المحاولة بنفس الطلب
                             return apiFetch(url, { ...options, __retried_auth: true }, retries);
                         }
                     }
@@ -209,7 +207,6 @@ async function authenticateUser(initData) {
         throw new Error('INITDATA_MISSING');
     }
 
-    // استخدم fetch مباشرة (بدون التوكن القديم)
     const response = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,18 +230,30 @@ async function authenticateUser(initData) {
 
     const data = await response.json();
 
-    // ✅ احفظ التوكن
     if (data.access_token) {
         setAuthToken(data.access_token);
         console.log('✅ تم حفظ JWT');
     }
 
-    // أرجع بيانات المستخدم
     return data.user || data;
 }
 
 // ============================================================
-// 🔌 API Wrappers — كلها محمية بـ JWT الآن
+// 🆕 Public Settings (بدون مصادقة)
+// ============================================================
+async function fetchPublicSettings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/settings/public`);
+        if (!response.ok) return {};
+        return await response.json();
+    } catch (e) {
+        console.warn('فشل تحميل الإعدادات العامة:', e);
+        return {};
+    }
+}
+
+// ============================================================
+// 🔌 API Wrappers — كلها محمية بـ JWT
 // ============================================================
 async function fetchCategories() {
     return await apiFetch(`${API_BASE_URL}/api/categories/`);
@@ -271,7 +280,7 @@ async function fetchUserDeposits() {
 }
 
 async function createOrder(orderData) {
-    // احذف telegram_id من الطلب — غير مطلوب الآن
+    // احذف telegram_id — غير مطلوب
     const { telegram_id, ...cleanData } = orderData;
     return await apiFetch(`${API_BASE_URL}/api/orders/`, {
         method: 'POST',

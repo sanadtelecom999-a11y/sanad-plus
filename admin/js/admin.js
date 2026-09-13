@@ -4,6 +4,7 @@ let currentSection = 'dashboard';
 let usersData = [];
 let categoriesData = [];
 let productsData = [];
+let filteredProducts = [];
 let paymentMethodsData = [];
 let ordersData = [];
 let depositsData = [];
@@ -17,6 +18,7 @@ let auditLogData = [];
 let filteredOrders = [];
 let filteredAuditLog = [];
 let currentArchiveTab = 'cats';
+let currentSettings = {};
 let _otpSessionId = null;
 
 // Chart instances
@@ -212,6 +214,7 @@ const AdminPTR = (() => {
         if (currentSection === 'coupons') renderCoupons();
         if (currentSection === 'archive') renderArchive();
         if (currentSection === 'audit-log') renderAuditLog();
+        if (currentSection === 'settings') loadSettings();
     }
 
     return { init };
@@ -699,6 +702,7 @@ async function loadAllData() {
             fetchServiceRequests(),
             fetchAdminCoupons(),
             fetchArchive(),
+            fetchAdminSettings(),
         ]);
         usersData = results[0].status === 'fulfilled' ? results[0].value : [];
         categoriesData = results[1].status === 'fulfilled' ? results[1].value : [];
@@ -710,6 +714,16 @@ async function loadAllData() {
         serviceRequestsData = results[7].status === 'fulfilled' ? results[7].value : [];
         couponsData = results[8].status === 'fulfilled' ? results[8].value : [];
         archiveData = results[9].status === 'fulfilled' ? results[9].value : { categories: [], products: [] };
+        currentSettings = results[10].status === 'fulfilled' ? results[10].value : {};
+
+        filteredProducts = [...productsData];
+
+        // تعبئة فلتر الأقسام
+        const catFilter = document.getElementById('productCategoryFilter');
+        if (catFilter) {
+            catFilter.innerHTML = '<option value="all">جميع الأقسام</option>' +
+                categoriesData.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
 
         updateNavBadges();
     } catch (error) {
@@ -749,7 +763,7 @@ function switchSection(sectionId) {
     if (sectionId === 'dashboard') renderDashboard();
     if (sectionId === 'users') renderUsers();
     if (sectionId === 'categories') renderCategories();
-    if (sectionId === 'products') renderProducts();
+    if (sectionId === 'products') { filteredProducts = [...productsData]; renderProducts(); }
     if (sectionId === 'payment-methods') renderPaymentMethods();
     if (sectionId === 'orders') { filteredOrders = [...ordersData]; renderOrders(ordersData); }
     if (sectionId === 'deposits') renderDeposits(depositsData);
@@ -760,6 +774,7 @@ function switchSection(sectionId) {
     if (sectionId === 'archive') renderArchive();
     if (sectionId === 'activities') loadActivities();
     if (sectionId === 'audit-log') loadAuditLog();
+    if (sectionId === 'settings') loadSettings();
 }
 
 // ============================================================
@@ -1168,8 +1183,7 @@ function openCategoryModal() {
             <div class="image-preview" id="categoryImagePreview">لا صورة</div>
             <input type="file" id="categoryImage" accept="image/*" onchange="previewImage(this,'categoryImagePreview')">
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)<br>
-                سيتم قص الصورة تلقائياً إلى مربع 512×512
+                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)
             </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1220,30 +1234,81 @@ async function archiveCategoryHandler(categoryId) {
 }
 
 // ============================================================
-// ============ Products ============
+// ============ Products + Search Filter ============
 // ============================================================
+function filterProducts() {
+    const searchQuery = (document.getElementById('productSearch')?.value || '').toLowerCase().trim();
+    const categoryFilter = document.getElementById('productCategoryFilter')?.value || 'all';
+    const typeFilter = document.getElementById('productTypeFilter')?.value || 'all';
+
+    let filtered = [...productsData];
+
+    if (searchQuery) {
+        filtered = filtered.filter(p =>
+            (p.name || '').toLowerCase().includes(searchQuery) ||
+            (p.description || '').toLowerCase().includes(searchQuery)
+        );
+    }
+
+    if (categoryFilter !== 'all') {
+        const catId = parseInt(categoryFilter);
+        filtered = filtered.filter(p => p.category_id === catId);
+    }
+
+    if (typeFilter !== 'all') {
+        filtered = filtered.filter(p => p.product_type === typeFilter);
+    }
+
+    filteredProducts = filtered;
+    renderProducts();
+}
+
+function resetProductFilters() {
+    const searchEl = document.getElementById('productSearch');
+    const catEl = document.getElementById('productCategoryFilter');
+    const typeEl = document.getElementById('productTypeFilter');
+    if (searchEl) searchEl.value = '';
+    if (catEl) catEl.value = 'all';
+    if (typeEl) typeEl.value = 'all';
+    filteredProducts = [...productsData];
+    renderProducts();
+}
+
 function renderProducts() {
     const tbody = document.getElementById('productsTableBody');
     if (!tbody) return;
-    if (!productsData.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><span class="material-icons">inventory_2</span>لا توجد منتجات</td></tr>';
+
+    const products = filteredProducts.length ? filteredProducts : productsData;
+
+    if (!products.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><span class="material-icons">inventory_2</span>لا توجد منتجات مطابقة</td></tr>';
         return;
     }
-    tbody.innerHTML = productsData.map(prod => `
+
+    tbody.innerHTML = products.map(prod => {
+        let priceDisplay = `${prod.base_price}$`;
+        let qtyDisplay = prod.base_quantity;
+
+        if (prod.product_type === 'topup') {
+            priceDisplay = `<span style="color:var(--warning);font-weight:800;">${prod.base_price} ل.س</span>`;
+            qtyDisplay = '-';
+        }
+
+        return `
         <tr>
             <td data-label="الصورة"><img src="${prod.image || ''}" alt="${prod.name}" onerror="this.style.display='none'"></td>
             <td data-label="الاسم">${prod.name}</td>
             <td data-label="القسم">${categoriesData.find(c => c.id === prod.category_id)?.name || '-'}</td>
-            <td data-label="السعر">${prod.base_price}$</td>
-            <td data-label="الكمية">${prod.base_quantity}</td>
+            <td data-label="السعر">${priceDisplay}</td>
+            <td data-label="الكمية">${qtyDisplay}</td>
             <td data-label="الحد الأقصى">${prod.max_quantity > 0 ? prod.max_quantity.toLocaleString('ar') : 'بلا حد'}</td>
-            <td data-label="النوع"><span class="status-badge ${prod.product_type === 'bundle' ? 'pending' : prod.product_type === 'topup' ? 'verified' : 'completed'}">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد' : 'كمية'}</span></td>
+            <td data-label="النوع"><span class="status-badge ${prod.product_type === 'bundle' ? 'pending' : prod.product_type === 'topup' ? 'verified' : 'completed'}">${prod.product_type === 'bundle' ? 'باقة' : prod.product_type === 'topup' ? 'رصيد سوري' : 'كمية'}</span></td>
             <td data-label="إجراءات">
                 <button class="btn-outline btn-sm" onclick="openEditProductModal(${prod.id})">تعديل</button>
                 <button class="btn-danger btn-sm" onclick="archiveProductHandler(${prod.id})">حذف</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 function openProductModal() {
@@ -1251,11 +1316,24 @@ function openProductModal() {
         <h3 style="margin-bottom:14px;">إضافة منتج</h3>
         <div class="form-group"><label>اسم المنتج</label><input type="text" id="productName"></div>
         <div class="form-group"><label>القسم</label><select id="productCategoryId">${categoriesData.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
-        <div class="form-group"><label>النوع</label><select id="productType" onchange="toggleProductTypeFields()"><option value="quantity">كمية</option><option value="bundle">باقة</option><option value="topup">رصيد</option></select></div>
-        <div class="form-group"><label>السعر الأساسي (دولار)</label><input type="number" id="productPrice" value="0" step="0.01"></div>
+        <div class="form-group">
+            <label>النوع</label>
+            <select id="productType" onchange="toggleProductTypeFields()">
+                <option value="quantity">كمية</option>
+                <option value="bundle">باقة</option>
+                <option value="topup">رصيد سوري (ل.س)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label id="priceLabel">السعر الأساسي (دولار)</label>
+            <input type="number" id="productPrice" value="0" step="0.01">
+            <small id="priceHelp" style="color:var(--text-secondary);font-size:0.75rem;display:none;margin-top:6px;">
+                💡 لمنتج الرصيد السوري: أدخل السعر هنا لكنه سيُتجاهل — السعر يُحسب من سعر الصرف
+            </small>
+        </div>
         <div class="form-group" id="quantityField"><label>الكمية الأساسية</label><input type="number" id="productQuantity" value="0"></div>
         <div class="form-group">
-            <label>الحد الأقصى للكمية للطلب الواحد</label>
+            <label id="maxQtyLabel">الحد الأقصى للكمية للطلب الواحد</label>
             <input type="number" id="productMaxQuantity" value="0" min="0" placeholder="0">
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
                 💡 0 = بلا حد أقصى
@@ -1289,7 +1367,21 @@ function openProductModal() {
 function toggleProductTypeFields() {
     const type = document.getElementById('productType').value;
     const qf = document.getElementById('quantityField');
+    const priceLabel = document.getElementById('priceLabel');
+    const priceHelp = document.getElementById('priceHelp');
+    const maxQtyLabel = document.getElementById('maxQtyLabel');
+
     if (qf) qf.style.display = type === 'bundle' ? 'none' : 'block';
+
+    if (type === 'topup') {
+        if (priceLabel) priceLabel.textContent = 'سعر الليرة الواحدة بالدولار (تلقائي)';
+        if (priceHelp) priceHelp.style.display = 'block';
+        if (maxQtyLabel) maxQtyLabel.textContent = 'الحد الأقصى للمبلغ بالليرة السورية';
+    } else {
+        if (priceLabel) priceLabel.textContent = 'السعر الأساسي (دولار)';
+        if (priceHelp) priceHelp.style.display = 'none';
+        if (maxQtyLabel) maxQtyLabel.textContent = 'الحد الأقصى للكمية للطلب الواحد';
+    }
 }
 
 async function saveProduct(btn) {
@@ -1315,7 +1407,7 @@ async function saveProduct(btn) {
         });
         closeModal();
         await loadAllData();
-        renderProducts();
+        filterProducts();
         showToast('تم إضافة المنتج بنجاح', 'success');
     } catch (error) {
         showToast(`فشل إضافة المنتج: ${error.message}`, 'error');
@@ -1329,6 +1421,8 @@ async function saveProduct(btn) {
 function openEditProductModal(productId) {
     const prod = productsData.find(p => p.id === productId);
     if (!prod) { showToast('المنتج غير موجود', 'error'); return; }
+
+    const isTopup = prod.product_type === 'topup';
 
     const body = `
         <h3 style="margin-bottom:14px;">تعديل المنتج</h3>
@@ -1354,6 +1448,16 @@ function openEditProductModal(productId) {
             </select>
         </div>
 
+        <div class="form-group">
+            <label>نوع المنتج</label>
+            <select id="editProductType">
+                <option value="quantity" ${prod.product_type === 'quantity' ? 'selected' : ''}>كمية</option>
+                <option value="bundle" ${prod.product_type === 'bundle' ? 'selected' : ''}>باقة</option>
+                <option value="topup" ${prod.product_type === 'topup' ? 'selected' : ''}>رصيد سوري</option>
+            </select>
+        </div>
+
+        ${!isTopup ? `
         <div class="edit-modal-grid">
             <div class="form-group">
                 <label>السعر الأساسي ($)</label>
@@ -1364,10 +1468,18 @@ function openEditProductModal(productId) {
                 <input type="number" id="editProductQuantity" value="${prod.base_quantity || 0}" min="0">
             </div>
         </div>
+        ` : `
+        <div class="form-group">
+            <label>السعر بالليرة السورية</label>
+            <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="1" min="0">
+            <small style="color:var(--warning);font-size:0.75rem;display:block;margin-top:4px;">💡 السعر يُدخل بالليرة السورية</small>
+        </div>
+        <input type="hidden" id="editProductQuantity" value="0">
+        `}
 
         <div class="edit-modal-grid">
             <div class="form-group">
-                <label>الحد الأقصى للطلب</label>
+                <label>${isTopup ? 'الحد الأقصى (ل.س)' : 'الحد الأقصى للطلب'}</label>
                 <input type="number" id="editProductMaxQuantity" value="${prod.max_quantity || 0}" min="0">
                 <small style="color:var(--text-secondary);font-size:0.7rem;display:block;margin-top:4px;">0 = بلا حد</small>
             </div>
@@ -1384,15 +1496,6 @@ function openEditProductModal(productId) {
                 <option value="account_id" ${prod.input_type === 'account_id' ? 'selected' : ''}>ID الحساب</option>
                 <option value="phone" ${prod.input_type === 'phone' ? 'selected' : ''}>رقم الهاتف</option>
                 <option value="none" ${prod.input_type === 'none' ? 'selected' : ''}>بدون</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>نوع المنتج</label>
-            <select id="editProductType">
-                <option value="quantity" ${prod.product_type === 'quantity' ? 'selected' : ''}>كمية</option>
-                <option value="bundle" ${prod.product_type === 'bundle' ? 'selected' : ''}>باقة</option>
-                <option value="topup" ${prod.product_type === 'topup' ? 'selected' : ''}>رصيد</option>
             </select>
         </div>
 
@@ -1448,7 +1551,7 @@ async function saveEditedProduct(productId, btn) {
         await updateProduct(productId, data);
         closeModal();
         await loadAllData();
-        renderProducts();
+        filterProducts();
         showToast('تم تعديل المنتج بنجاح', 'success');
     } catch (error) {
         showToast(`فشل تعديل المنتج: ${error.message}`, 'error');
@@ -1467,7 +1570,7 @@ async function archiveProductHandler(productId) {
     try {
         const result = await deleteProduct(productId);
         await loadAllData();
-        renderProducts();
+        filterProducts();
         showToast(result.message || 'تم أرشفة المنتج', 'success');
     } catch (error) {
         showToast(`فشل أرشفة المنتج: ${error.message}`, 'error');
@@ -1533,7 +1636,7 @@ function renderArchiveProds() {
             <td data-label="الصورة"><img src="${prod.image || ''}" alt="${prod.name}" onerror="this.style.display='none'" style="max-width:60px;max-height:60px;border-radius:8px;object-fit:cover;"></td>
             <td data-label="الاسم">${prod.name}</td>
             <td data-label="القسم">${prod.category_name || '-'}</td>
-            <td data-label="السعر">${prod.base_price}$</td>
+            <td data-label="السعر">${prod.base_price}${prod.product_type === 'topup' ? ' ل.س' : '$'}</td>
             <td data-label="الكمية">${prod.base_quantity}</td>
             <td data-label="إجراءات">
                 <button class="btn-success btn-sm" onclick="restoreProductHandler(${prod.id})">استرجاع</button>
@@ -1578,6 +1681,16 @@ async function restoreProductHandler(prodId) {
     }
 }
 
+async function loadArchive() {
+    try {
+        archiveData = await fetchArchive();
+        renderArchive();
+        updateNavBadges();
+    } catch (error) {
+        showToast(`فشل تحميل الأرشيف: ${error.message}`, 'error');
+    }
+}
+
 // ============================================================
 // ============ Payment Methods ============
 // ============================================================
@@ -1593,6 +1706,7 @@ function renderPaymentMethods() {
             <div class="card-icon">${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" alt="${m.name}">` : '💳'}</div>
             <div class="card-title">${m.name}</div>
             <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px;">${m.description || ''}</div>
+            ${m.requires_kyc ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق</div>' : ''}
             <div class="card-actions">
                 <button class="btn-danger btn-sm" onclick="deletePaymentMethodHandler(${m.id})">حذف</button>
             </div>
@@ -1606,6 +1720,18 @@ function openPaymentMethodModal() {
         <div class="form-group"><label>اسم طريقة الدفع</label><input type="text" id="paymentName"></div>
         <div class="form-group"><label>اسم الحساب</label><input type="text" id="paymentAccountName"></div>
         <div class="form-group"><label>رقم الحساب</label><input type="text" id="paymentAccount"></div>
+
+        <!-- 🆕 خيار التوثيق الإلزامي -->
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--primary-light);padding:12px;border-radius:12px;">
+                <input type="checkbox" id="paymentRequiresKyc" style="width:20px;height:20px;cursor:pointer;">
+                <span style="font-weight:600;">🔒 تتطلب هذه الطريقة توثيق الحساب</span>
+            </label>
+            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
+                💡 إذا فُعّل: المستخدمون غير الموثقين لن يستطيعوا استخدام هذه الطريقة
+            </small>
+        </div>
+
         <div class="form-group">
             <label>صورة QR</label>
             <div class="image-preview" id="paymentQRPreview">لا صورة</div>
@@ -1628,6 +1754,7 @@ async function savePaymentMethod(btn) {
     const name = document.getElementById('paymentName').value;
     const account_name = document.getElementById('paymentAccountName').value;
     const account = document.getElementById('paymentAccount').value;
+    const requires_kyc = document.getElementById('paymentRequiresKyc').checked;
     if (!name) { showToast('أدخل اسم الطريقة', 'warning'); return; }
     const qrFile = document.getElementById('paymentQR').files[0];
     const logoFile = document.getElementById('paymentLogo').files[0];
@@ -1640,7 +1767,7 @@ async function savePaymentMethod(btn) {
     try {
         await createPaymentMethod({
             name, description: '', account_name, account,
-            icon: logo_image, qr_image, is_active: true
+            icon: logo_image, qr_image, requires_kyc, is_active: true
         });
         closeModal();
         await loadAllData();
@@ -1680,11 +1807,16 @@ function renderOrders(orders) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><span class="material-icons">receipt_long</span>لا توجد طلبات</td></tr>';
         return;
     }
-    tbody.innerHTML = orders.map(order => `
+    tbody.innerHTML = orders.map(order => {
+        let qtyDisplay = order.quantity.toLocaleString('ar');
+        if (order.product_type === 'topup') {
+            qtyDisplay = `${order.quantity.toLocaleString('ar')} ل.س`;
+        }
+        return `
         <tr>
             <td data-label="رقم الطلب"><span class="ltr">${order.order_number}</span></td>
             <td data-label="المنتج">${order.product_name || order.product_id}</td>
-            <td data-label="الكمية">${order.quantity.toLocaleString('ar')}</td>
+            <td data-label="الكمية">${qtyDisplay}</td>
             <td data-label="السعر">${order.total_price}$</td>
             <td data-label="الحالة">
                 <select onchange="changeOrderStatus(${order.id}, this.value)">
@@ -1698,7 +1830,7 @@ function renderOrders(orders) {
             </td>
             <td data-label="إجراءات"><button class="btn-outline btn-sm" onclick="viewOrderDetails(${order.id})">عرض</button></td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 async function changeOrderStatus(orderId, status) {
@@ -1731,6 +1863,8 @@ function viewOrderDetails(orderId) {
         if (delivery.account_id) deliveryInfo += `<div style="margin-bottom:6px;"><strong>ID الحساب:</strong> <span class="ltr">${delivery.account_id}</span></div>`;
         if (delivery.phone) deliveryInfo += `<div style="margin-bottom:6px;"><strong>رقم الهاتف:</strong> <span class="ltr">${delivery.phone}</span></div>`;
         if (delivery.bundle_name) deliveryInfo += `<div style="margin-bottom:6px;"><strong>الباقة:</strong> ${delivery.bundle_name}</div>`;
+        if (delivery.syp_amount) deliveryInfo += `<div style="margin-bottom:6px;"><strong>المبلغ بالليرة السورية:</strong> ${delivery.syp_amount.toLocaleString('ar')} ل.س</div>`;
+        if (delivery.syp_rate) deliveryInfo += `<div style="margin-bottom:6px;"><strong>سعر الصرف:</strong> ${delivery.syp_rate} ل.س / $</div>`;
     } catch (e) {
         deliveryInfo = `<div>${order.delivery_data || '-'}</div>`;
     }
@@ -1868,6 +2002,42 @@ function viewKYCImage(kycId) {
     `;
     openModal('طلب التوثيق', body);
 }
+
+window.approveKYCRequest = async function(kycId) {
+    const confirmed = await showConfirm({
+        title: 'قبول التوثيق',
+        message: 'هل أنت متأكد من قبول طلب التوثيق؟',
+        confirmText: 'قبول',
+        type: 'success'
+    });
+    if (!confirmed) return;
+    try {
+        await approveKYCRequest(kycId);
+        await loadAllData();
+        renderKYC();
+        showToast('تم قبول التوثيق بنجاح', 'success');
+    } catch (error) {
+        showToast(`فشل القبول: ${error.message}`, 'error');
+    }
+};
+
+window.rejectKYCRequest = async function(kycId) {
+    const confirmed = await showConfirm({
+        title: 'رفض التوثيق',
+        message: 'هل أنت متأكد من رفض طلب التوثيق؟',
+        confirmText: 'رفض',
+        type: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+        await rejectKYCRequest(kycId);
+        await loadAllData();
+        renderKYC();
+        showToast('تم رفض التوثيق', 'warning');
+    } catch (error) {
+        showToast(`فشل الرفض: ${error.message}`, 'error');
+    }
+};
 
 // ============================================================
 // ============ Service Requests ============
@@ -2297,6 +2467,63 @@ function sendAdminNotification() {
 }
 
 // ============================================================
+// ============ Settings (with SYP Rate) ============
+// ============================================================
+function loadSettings() {
+    if (!currentSettings) return;
+    const storeNameEl = document.getElementById('storeName');
+    const supportUrlEl = document.getElementById('supportUrl');
+    const sypRateEl = document.getElementById('sypRate');
+
+    if (storeNameEl) storeNameEl.value = currentSettings.store_name || 'SANAD+';
+    if (supportUrlEl) supportUrlEl.value = currentSettings.support_url || 'https://t.me/SANADST';
+    if (sypRateEl) sypRateEl.value = currentSettings.syp_rate || '132';
+
+    updateSypPreview();
+
+    if (sypRateEl && !sypRateEl.dataset.listenerAttached) {
+        sypRateEl.addEventListener('input', updateSypPreview);
+        sypRateEl.dataset.listenerAttached = '1';
+    }
+}
+
+function updateSypPreview() {
+    const rateEl = document.getElementById('sypRate');
+    if (!rateEl) return;
+    const rate = parseFloat(rateEl.value) || 132;
+
+    const p1000 = document.getElementById('sypPreview1000');
+    const p5000 = document.getElementById('sypPreview5000');
+    const p10000 = document.getElementById('sypPreview10000');
+
+    if (p1000) p1000.textContent = `${(1000 / rate).toFixed(2)}$`;
+    if (p5000) p5000.textContent = `${(5000 / rate).toFixed(2)}$`;
+    if (p10000) p10000.textContent = `${(10000 / rate).toFixed(2)}$`;
+}
+
+async function saveSettings() {
+    const storeName = document.getElementById('storeName')?.value || 'SANAD+';
+    const supportUrl = document.getElementById('supportUrl')?.value || '';
+    const sypRate = parseFloat(document.getElementById('sypRate')?.value) || 132;
+
+    if (sypRate <= 0) { showToast('سعر الصرف غير صحيح', 'warning'); return; }
+
+    try {
+        await saveAdminSettings({
+            store_name: storeName,
+            support_url: supportUrl,
+            syp_rate: sypRate.toString(),
+        });
+        currentSettings.store_name = storeName;
+        currentSettings.support_url = supportUrl;
+        currentSettings.syp_rate = sypRate.toString();
+        showToast('تم حفظ الإعدادات بنجاح', 'success');
+    } catch (error) {
+        showToast(`فشل الحفظ: ${error.message}`, 'error');
+    }
+}
+
+// ============================================================
 // ============ Modal ============
 // ============================================================
 function openModal(title, bodyHTML) {
@@ -2377,8 +2604,4 @@ function fileToSquareBase64(file, size = 512) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
-}
-
-function saveSettings() {
-    showToast('تم حفظ الإعدادات', 'success');
 }

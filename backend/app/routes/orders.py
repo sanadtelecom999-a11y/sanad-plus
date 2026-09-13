@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import update as sa_update
 from ..models.base import (
     User, Product, ProductBundle, Order, Transaction,
-    Notification, Coupon, CouponUsage, Referral, log_financial
+    Notification, Coupon, CouponUsage, Referral, Setting, log_financial
 )
 from ..extensions import db
 from . import main
@@ -24,6 +24,19 @@ def get_current_user():
     except (ValueError, TypeError):
         return None
     return User.query.get(user_id)
+
+
+def get_syp_rate():
+    """جلب سعر صرف الليرة السورية مقابل الدولار"""
+    try:
+        setting = Setting.query.filter_by(key="syp_rate").first()
+        if setting and setting.value:
+            rate = float(setting.value)
+            if rate > 0:
+                return rate
+    except (ValueError, TypeError):
+        pass
+    return 132.0  # الافتراضي
 
 
 def apply_coupon_to_order(user, coupon_code, order_amount):
@@ -69,12 +82,10 @@ def complete_referral_if_first_order(user):
     ).first()
     if not referral:
         return
-
     balance_before = referrer.balance
     referrer.balance += REFERRAL_REWARD
     referrer.referral_earnings = (referrer.referral_earnings or 0) + REFERRAL_REWARD
     referrer.referral_count = (referrer.referral_count or 0) + 1
-
     txn = Transaction(
         user_id=referrer.id,
         type="referral_reward",
@@ -84,8 +95,6 @@ def complete_referral_if_first_order(user):
         reference_id=referral.id,
     )
     db.session.add(txn)
-
-    # 🆕 Audit Log
     log_financial(
         user=referrer,
         action="referral_reward",
@@ -95,11 +104,9 @@ def complete_referral_if_first_order(user):
         ref_type="referral",
         ref_id=referral.id,
     )
-
     referral.reward_amount = REFERRAL_REWARD
     referral.status = "completed"
     referral.completed_at = datetime.now(timezone.utc)
-
     notif = Notification(
         user_id=referrer.id,
         title="مكافأة إحالة",
@@ -166,8 +173,32 @@ def create_order():
             return jsonify({"error": "يرجى إدخال أرقام فقط في رقم الهاتف"}), 400
         delivery_data = {"phone": str(phone).strip()}
 
-    # Price & Quantity
-    if product.product_type == "bundle":
+    # ============ 🆕 معالجة الرصيد السوري (topup) ============
+    syp_amount = None
+
+    if product.product_type == "topup":
+        # المستخدم يدخل المبلغ بالليرة السورية
+        syp_amount = int(data.get("quantity", 0))
+        if syp_amount <= 0:
+            return jsonify({"error": "الرجاء إدخال مبلغ صحيح بالليرة السورية"}), 400
+
+        # الحد الأقصى والأدنى
+        max_qty = product.max_quantity or 0
+        if max_qty > 0 and syp_amount > max_qty:
+            return jsonify({"error": f"الحد الأقصى هو {max_qty:,} ل.س"}), 400
+
+        # تحويل إلى دولار
+        syp_rate = get_syp_rate()
+        total_price = round(syp_amount / syp_rate, 4)
+        quantity = syp_amount  # للعرض
+        unit_price = round(1 / syp_rate, 6)  # سعر الليرة الواحدة بالدولار
+
+        # حفظ تفاصيل إضافية
+        delivery_data["syp_amount"] = syp_amount
+        delivery_data["syp_rate"] = syp_rate
+        delivery_data["usd_amount"] = total_price
+
+    elif product.product_type == "bundle":
         bundle_id = data.get("bundle_id")
         bundle = ProductBundle.query.get(bundle_id)
         if not bundle or bundle.product_id != product.id:
@@ -204,7 +235,7 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # ✅ Atomic balance update + Stock في نفس الوقت
+    # Atomic balance update
     balance_before = user.balance
 
     result = db.session.execute(
@@ -218,9 +249,9 @@ def create_order():
 
     db.session.refresh(user)
 
-    # 🆕 خصم المخزون في نفس الـ transaction
+    # خصم المخزون
     if product.stock is not None and product.stock > 0:
-        product.stock = max(0, product.stock - quantity)
+        product.stock = max(0, product.stock - (syp_amount if syp_amount else quantity))
 
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
@@ -249,7 +280,6 @@ def create_order():
     )
     db.session.add(txn)
 
-    # 🆕 Audit Log
     log_financial(
         user=user,
         action="order_created",
@@ -268,14 +298,12 @@ def create_order():
     )
     db.session.add(notif)
 
-    # 🆕 كل شيء في commit واحد
     try:
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"فشل إنشاء الطلب: {str(e)}"}), 500
 
-    # Coupon usage بعد نجاح الطلب
     if coupon_obj:
         try:
             coupon_obj.used_count = (coupon_obj.used_count or 0) + 1
@@ -293,23 +321,39 @@ def create_order():
 
     complete_referral_if_first_order(user)
 
-    send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
-    notify_admins(
-        f"🆕 طلب جديد!\n"
-        f"رقم الطلب: {order.order_number}\n"
-        f"المنتج: {product.name}\n"
-        f"الكمية: {quantity}\n"
-        f"الإجمالي: {total_price}$"
-    )
+    if syp_amount:
+        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} بقيمة {syp_amount} ل.س قيد المعالجة")
+        notify_admins(
+            f"🆕 طلب جديد (رصيد سوري)!\n"
+            f"رقم الطلب: {order.order_number}\n"
+            f"المنتج: {product.name}\n"
+            f"المبلغ: {syp_amount} ل.س\n"
+            f"بالدولار: {total_price}$"
+        )
+    else:
+        send_telegram_notification(user.telegram_id, f"طلبك {order.order_number} قيد المعالجة")
+        notify_admins(
+            f"🆕 طلب جديد!\n"
+            f"رقم الطلب: {order.order_number}\n"
+            f"المنتج: {product.name}\n"
+            f"الكمية: {quantity}\n"
+            f"الإجمالي: {total_price}$"
+        )
 
-    return jsonify({
+    response = {
         "order_id": order.id,
         "order_number": order.order_number,
         "status": order.status,
         "total_price": total_price,
         "discount_amount": discount_amount,
         "message": "طلبك قيد المعالجة",
-    }), 201
+    }
+
+    if syp_amount:
+        response["syp_amount"] = syp_amount
+        response["syp_rate"] = delivery_data["syp_rate"]
+
+    return jsonify(response), 201
 
 
 # ============================================================
@@ -356,7 +400,6 @@ def cancel_order(order_id):
     )
     db.session.add(txn)
 
-    # 🆕 Audit Log
     log_financial(
         user=user,
         action="order_cancelled",
@@ -405,6 +448,7 @@ def get_my_orders():
             "product_id": o.product_id,
             "product_name": product.name if product else "منتج محذوف",
             "product_image": product.image if product else None,
+            "product_type": product.product_type if product else None,
             "quantity": o.quantity,
             "unit_price": o.unit_price,
             "total_price": o.total_price,
