@@ -13,11 +13,11 @@ app = create_app()
 
 
 def upgrade_database():
-    """ترقية قاعدة البيانات: FK، أعمدة، أنواع، قيود، جداول"""
+    """ترقية قاعدة البيانات"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
 
-        # 1) إزالة FK من admin_activities + referrals
+        # 1) إزالة FK
         fk_removals = [
             "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
             "ALTER TABLE admin_activities ALTER COLUMN admin_id DROP NOT NULL",
@@ -30,7 +30,7 @@ def upgrade_database():
                 db.session.commit()
             except Exception as e:
                 db.session.rollback()
-                print(f"⚠️ فشل: {sql[:70]}... → {e}")
+                print(f"⚠️ فشل: {sql[:70]}...")
 
         # 2) تحويل حقول الصور إلى TEXT
         image_columns = {
@@ -51,16 +51,18 @@ def upgrade_database():
                         db.session.commit()
                     except Exception as e:
                         db.session.rollback()
-                        print(f"⚠️ فشل تحويل {table}.{col}: {e}")
 
         # 3) إضافة الأعمدة المفقودة
         required_columns = {
             'deposits': {'admin_note': 'TEXT'},
             'kyc_requests': {'address': 'VARCHAR(255)', 'selfie_image': 'TEXT'},
-            'payment_methods': {'account_name': 'VARCHAR(100)', 'qr_image': 'TEXT'},
+            'payment_methods': {'account_name': 'VARCHAR(100)', 'qr_image': 'TEXT', 'requires_kyc': 'BOOLEAN DEFAULT FALSE'},
             'users': {
                 'referral_earnings': 'FLOAT DEFAULT 0',
                 'referral_count': 'INTEGER DEFAULT 0',
+                # 🆕 الرصيد السالب
+                'allow_negative_balance': 'BOOLEAN DEFAULT TRUE',
+                'max_negative_balance': 'FLOAT DEFAULT 0',
             },
             'products': {
                 'max_quantity': 'INTEGER DEFAULT 0',
@@ -82,9 +84,9 @@ def upgrade_database():
                         print(f"✅ تمت إضافة {col_name} إلى {table}")
                     except Exception as e:
                         db.session.rollback()
-                        print(f"⚠️ فشل إضافة {table}.{col_name}: {e}")
+                        print(f"⚠️ فشل إضافة {table}.{col_name}")
 
-        # 4) تنظيف coupon_usages المكرر قبل إضافة UNIQUE
+        # 4) تنظيف coupon_usages المكرر
         if inspector.has_table('coupon_usages'):
             try:
                 dup_sql = """
@@ -96,12 +98,10 @@ def upgrade_database():
                 """
                 db.session.execute(text(dup_sql))
                 db.session.commit()
-                print("✅ تم تنظيف coupon_usages المكررة")
             except Exception as e:
                 db.session.rollback()
-                print(f"⚠️ فشل تنظيف coupon_usages: {e}")
 
-        # 5) إضافة UNIQUE constraint على coupon_usages
+        # 5) UNIQUE constraint
         if inspector.has_table('coupon_usages'):
             try:
                 unique_sql = """
@@ -114,9 +114,9 @@ def upgrade_database():
             except Exception as e:
                 db.session.rollback()
                 if 'already exists' not in str(e).lower():
-                    print(f"⚠️ فشل إضافة UNIQUE: {e}")
+                    print(f"⚠️ فشل إضافة UNIQUE")
 
-        # 6) إنشاء indexes للأداء
+        # 6) Indexes
         indexes = [
             ("CREATE INDEX IF NOT EXISTS idx_orders_user_status ON orders(user_id, status)"),
             ("CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)"),
@@ -129,17 +129,15 @@ def upgrade_database():
             try:
                 db.session.execute(text(idx_sql))
                 db.session.commit()
-            except Exception as e:
+            except Exception:
                 db.session.rollback()
-                print(f"⚠️ فشل إنشاء index: {idx_sql[:60]}... → {e}")
 
-        # 7) إنشاء الجداول الجديدة (financial_audit_log)
+        # 7) إنشاء الجداول الجديدة
         try:
             db.create_all()
             db.session.commit()
         except Exception as e:
             db.session.rollback()
-            print(f"⚠️ فشل إنشاء الجداول: {e}")
 
         print("🎉 اكتملت ترقية قاعدة البيانات")
 

@@ -22,11 +22,11 @@ from .. import limiter
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 if not ADMIN_PASSWORD_HASH:
-    raise RuntimeError("❌ ADMIN_PASSWORD_HASH إلزامي — لا قيمة افتراضية")
+    raise RuntimeError("❌ ADMIN_PASSWORD_HASH إلزامي")
 
 
 # ============================================================
-# ============ OTP Sessions (in-memory) ============
+# ============ OTP Sessions ============
 # ============================================================
 _otp_sessions = {}
 OTP_TTL_SECONDS = 300
@@ -52,9 +52,6 @@ def cleanup_expired_sessions():
         _otp_sessions.pop(sid, None)
 
 
-# ============================================================
-# ============ Login Rate Limiting (fallback in-memory) ============
-# ============================================================
 _login_attempts = defaultdict(list)
 LOGIN_RATE_WINDOW = 300
 LOGIN_RATE_MAX = 5
@@ -62,18 +59,13 @@ LOGIN_RATE_MAX = 5
 
 def check_login_rate_limit(ip: str) -> bool:
     now = time.time()
-    _login_attempts[ip] = [
-        t for t in _login_attempts[ip] if now - t < LOGIN_RATE_WINDOW
-    ]
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < LOGIN_RATE_WINDOW]
     if len(_login_attempts[ip]) >= LOGIN_RATE_MAX:
         return False
     _login_attempts[ip].append(now)
     return True
 
 
-# ============================================================
-# ============ Error Handling Decorator ============
-# ============================================================
 def handle_errors(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -84,16 +76,10 @@ def handle_errors(f):
             tb = traceback.format_exc()
             print(f"❌ Error in {f.__name__}: {e}")
             print(tb)
-            return jsonify({
-                "error": f"خطأ داخلي: {str(e)}",
-                "function": f.__name__
-            }), 500
+            return jsonify({"error": f"خطأ داخلي: {str(e)}", "function": f.__name__}), 500
     return wrapper
 
 
-# ============================================================
-# ============ Helpers ============
-# ============================================================
 def is_admin_user(identity):
     return identity == "admin"
 
@@ -104,34 +90,24 @@ def verify_admin_password(password):
 
 def log_admin_activity(action):
     try:
-        activity = AdminActivity(
-            admin_id=None,
-            action=action,
-            created_at=datetime.now(timezone.utc),
-        )
+        activity = AdminActivity(admin_id=None, action=action, created_at=datetime.now(timezone.utc))
         db.session.add(activity)
         db.session.flush()
     except Exception as e:
         db.session.rollback()
-        print(f"⚠️ فشل تسجيل النشاط: {e}")
 
 
 def get_arabic_status(status):
     status_map = {
-        "pending": "قيد المعالجة",
-        "review": "قيد المراجعة",
-        "processing": "قيد التنفيذ",
-        "completed": "مكتمل",
-        "failed": "فشل",
-        "cancelled": "ملغي",
-        "approved": "مقبول",
-        "rejected": "مرفوض"
+        "pending": "قيد المعالجة", "review": "قيد المراجعة", "processing": "قيد التنفيذ",
+        "completed": "مكتمل", "failed": "فشل", "cancelled": "ملغي",
+        "approved": "مقبول", "rejected": "مرفوض"
     }
     return status_map.get(status, status)
 
 
 # ============================================================
-# ============ Authentication with 2FA (OTP) ============
+# ============ Authentication ============
 # ============================================================
 @main.route("/admin/login", methods=["POST"])
 @limiter.limit("5 per 5 minutes")
@@ -150,7 +126,6 @@ def admin_login():
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
     cleanup_expired_sessions()
-
     otp_code = generate_otp_code()
     session_id = uuid.uuid4().hex
 
@@ -166,8 +141,7 @@ def admin_login():
             admin_id,
             f"🔐 رمز التحقق للدخول إلى لوحة التحكم\n\n"
             f"الرمز: {otp_code}\n\n"
-            f"⏱️ صالح لمدة 5 دقائق فقط.\n"
-            f"⚠️ إذا لم تطلب هذا الدخول، تجاهل الرسالة."
+            f"⏱️ صالح لمدة 5 دقائق فقط."
         )
         if success:
             sent_count += 1
@@ -175,8 +149,6 @@ def admin_login():
     if sent_count == 0:
         _otp_sessions.pop(session_id, None)
         return jsonify({"error": "تعذر إرسال رمز التحقق"}), 500
-
-    print(f"🔐 تم إرسال رمز OTP للأدمن — الجلسة: {session_id[:8]}")
 
     return jsonify({
         "require_otp": True,
@@ -197,10 +169,9 @@ def admin_verify_otp():
         return jsonify({"error": "بيانات ناقصة"}), 400
 
     cleanup_expired_sessions()
-
     session = _otp_sessions.get(session_id)
     if not session:
-        return jsonify({"error": "انتهت الجلسة، يرجى تسجيل الدخول مجدداً"}), 400
+        return jsonify({"error": "انتهت الجلسة"}), 400
 
     if time.time() > session["expires"]:
         _otp_sessions.pop(session_id, None)
@@ -216,7 +187,6 @@ def admin_verify_otp():
         return jsonify({"error": f"رمز خاطئ. محاولات متبقية: {remaining}"}), 401
 
     _otp_sessions.pop(session_id, None)
-
     token = create_access_token(identity="admin")
     log_admin_activity("تسجيل دخول الأدمن (مع OTP)")
     try:
@@ -224,13 +194,11 @@ def admin_verify_otp():
     except Exception:
         db.session.rollback()
 
-    print(f"✅ تم تسجيل دخول الأدمن عبر OTP")
-
     return jsonify({"token": token}), 200
 
 
 # ============================================================
-# ============ Activities Log ============
+# ============ Activities & Audit ============
 # ============================================================
 @main.route("/admin/api/activities", methods=["GET"])
 @jwt_required()
@@ -240,16 +208,11 @@ def admin_activities():
         return jsonify({"error": "غير مصرح"}), 403
     activities = AdminActivity.query.order_by(AdminActivity.created_at.desc()).limit(200).all()
     return jsonify([{
-        "id": a.id,
-        "admin_id": a.admin_id,
-        "action": a.action,
+        "id": a.id, "admin_id": a.admin_id, "action": a.action,
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in activities])
 
 
-# ============================================================
-# ============ Financial Audit Log API ============
-# ============================================================
 @main.route("/admin/api/audit-log", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -270,17 +233,10 @@ def admin_audit_log():
     logs = query.order_by(FinancialAuditLog.created_at.desc()).limit(limit).all()
 
     return jsonify([{
-        "id": l.id,
-        "user_id": l.user_id,
-        "action": l.action,
-        "amount": l.amount,
-        "balance_before": l.balance_before,
-        "balance_after": l.balance_after,
-        "reference_type": l.reference_type,
-        "reference_id": l.reference_id,
-        "admin_id": l.admin_id,
-        "ip_address": l.ip_address,
-        "note": l.note,
+        "id": l.id, "user_id": l.user_id, "action": l.action,
+        "amount": l.amount, "balance_before": l.balance_before, "balance_after": l.balance_after,
+        "reference_type": l.reference_type, "reference_id": l.reference_id,
+        "admin_id": l.admin_id, "ip_address": l.ip_address, "note": l.note,
         "created_at": l.created_at.isoformat() if l.created_at else None,
     } for l in logs])
 
@@ -296,24 +252,69 @@ def admin_get_users():
         return jsonify({"error": "غير مصرح"}), 403
     users = User.query.all()
     return jsonify([{
-        "id": u.id,
-        "telegram_id": u.telegram_id,
-        "username": u.username,
-        "first_name": u.first_name,
-        "last_name": u.last_name,
-        "balance": u.balance,
-        "kyc_status": u.kyc_status,
-        "is_verified": u.is_verified,
-        "role": u.role,
-        "is_banned": u.is_banned,
-        "vip_level": u.vip_level,
+        "id": u.id, "telegram_id": u.telegram_id, "username": u.username,
+        "first_name": u.first_name, "last_name": u.last_name,
+        "balance": u.balance, "kyc_status": u.kyc_status,
+        "is_verified": u.is_verified, "role": u.role,
+        "is_banned": u.is_banned, "vip_level": u.vip_level,
         "referral_code": u.referral_code,
         "referral_count": u.referral_count or 0,
         "referral_earnings": u.referral_earnings or 0,
+        # 🆕 الرصيد السالب
+        "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else True,
+        "max_negative_balance": u.max_negative_balance or 0,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     } for u in users])
 
 
+# ============================================================
+# ============ 🆕 Negative Balance ============
+# ============================================================
+@main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_set_negative_balance(user_id):
+    """تفعيل/تعديل الرصيد السالب لمستخدم"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    data = request.get_json() or {}
+    allow = bool(data.get("allow", False))
+    max_neg = float(data.get("max_negative", 0))
+
+    if max_neg < 0:
+        return jsonify({"error": "الحد الأقصى لا يمكن أن يكون سالباً"}), 400
+    if max_neg > 10000:
+        return jsonify({"error": "الحد الأقصى هو $10,000"}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    user.allow_negative_balance = allow
+    user.max_negative_balance = max_neg
+
+    log_admin_activity(
+        f"{'تفعيل' if allow else 'إلغاء'} الرصيد السالب للمستخدم {user.telegram_id} "
+        f"(حد: ${max_neg})"
+    )
+    db.session.commit()
+
+    notify_admins(
+        f"💰 تم {'تفعيل' if allow else 'إلغاء'} الرصيد السالب\n"
+        f"المستخدم: {user.telegram_id}\n"
+        f"الحد الأقصى: ${max_neg}"
+    )
+
+    return jsonify({
+        "allow_negative_balance": user.allow_negative_balance,
+        "max_negative_balance": user.max_negative_balance,
+    })
+
+
+# ============================================================
+# ============ User Actions ============
+# ============================================================
 @main.route("/admin/api/users/<int:user_id>/kyc", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -335,7 +336,6 @@ def admin_toggle_kyc(user_id):
 
     log_admin_activity(f"تغيير توثيق المستخدم {user.telegram_id} إلى {new_status}")
     db.session.commit()
-
     notify_admins(f"🔄 تم تغيير حالة توثيق المستخدم {user.telegram_id} إلى {new_status}")
     return jsonify({"kyc_status": user.kyc_status, "is_verified": user.is_verified})
 
@@ -359,36 +359,23 @@ def admin_adjust_balance(user_id):
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
-    if user.balance + amount < 0:
-        return jsonify({"error": "التعديل سيؤدي إلى رصيد سالب"}), 400
-
     balance_before = user.balance
     user.balance += amount
 
     txn = Transaction(
-        user_id=user.id,
-        type="adjustment",
-        amount=amount,
-        balance_after=user.balance,
-        reference_type="admin_adjustment",
-        reference_id=user.id,
+        user_id=user.id, type="adjustment", amount=amount,
+        balance_after=user.balance, reference_type="admin_adjustment", reference_id=user.id,
     )
     db.session.add(txn)
 
     log_financial(
-        user=user,
-        action="admin_adjustment",
-        amount=amount,
-        balance_before=balance_before,
-        balance_after=user.balance,
-        ref_type="admin_adjustment",
-        ref_id=user.id,
-        note=note,
+        user=user, action="admin_adjustment", amount=amount,
+        balance_before=balance_before, balance_after=user.balance,
+        ref_type="admin_adjustment", ref_id=user.id, note=note,
     )
 
     notif = Notification(
-        user_id=user.id,
-        title="تعديل الرصيد",
+        user_id=user.id, title="تعديل الرصيد",
         message=f"تم تعديل رصيدك بمقدار {amount}$" + (f" ({note})" if note else ""),
         type="info",
     )
@@ -427,6 +414,8 @@ def admin_set_vip(user_id):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     vip_level = int(data.get("vip_level", 0))
+    if vip_level < 0 or vip_level > 7:
+        return jsonify({"error": "مستوى VIP يجب أن يكون بين 0 و 7"}), 400
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
@@ -447,7 +436,6 @@ def admin_categories():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     if request.method == "GET":
-        # ✅ فقط الأقسام النشطة
         categories = Category.query.filter_by(is_active=True).order_by(Category.order).all()
         return jsonify([{
             "id": c.id, "name": c.name, "description": c.description,
@@ -456,10 +444,8 @@ def admin_categories():
 
     data = request.get_json() or {}
     cat = Category(
-        name=data.get("name"),
-        description=data.get("description", ""),
-        image=data.get("image", ""),
-        is_active=data.get("is_active", True),
+        name=data.get("name"), description=data.get("description", ""),
+        image=data.get("image", ""), is_active=data.get("is_active", True),
         order=data.get("order", 0),
     )
     db.session.add(cat)
@@ -473,7 +459,6 @@ def admin_categories():
 @jwt_required()
 @handle_errors
 def admin_delete_category(cat_id):
-    """Soft Delete — إخفاء القسم ومنتجاته"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     cat = Category.query.get(cat_id)
@@ -482,48 +467,33 @@ def admin_delete_category(cat_id):
 
     cat_name = cat.name
     cat.is_active = False
-
-    # Soft delete لكل المنتجات التابعة
     products = Product.query.filter_by(category_id=cat_id).all()
     for product in products:
         product.is_active = False
 
     log_admin_activity(f"أرشفة قسم: {cat_name} ({len(products)} منتج)")
     db.session.commit()
-
     notify_admins(f"📦 تم أرشفة القسم: {cat_name}")
-    return jsonify({
-        "success": True,
-        "message": f"تم أرشفة القسم و{len(products)} منتج"
-    })
+    return jsonify({"success": True, "message": f"تم أرشفة القسم و{len(products)} منتج"})
 
 
 @main.route("/admin/api/categories/<int:cat_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
 def admin_restore_category(cat_id):
-    """استرجاع قسم من الأرشيف + منتجاته"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     cat = Category.query.get(cat_id)
     if not cat:
         return jsonify({"error": "قسم غير موجود"}), 404
-
     cat.is_active = True
-
-    # استرجاع كل المنتجات التابعة
     products = Product.query.filter_by(category_id=cat_id).all()
     for product in products:
         product.is_active = True
-
-    log_admin_activity(f"استرجاع قسم: {cat.name} ({len(products)} منتج)")
+    log_admin_activity(f"استرجاع قسم: {cat.name}")
     db.session.commit()
-
     notify_admins(f"♻️ تم استرجاع القسم: {cat.name}")
-    return jsonify({
-        "success": True,
-        "message": f"تم استرجاع القسم و{len(products)} منتج"
-    })
+    return jsonify({"success": True, "message": f"تم استرجاع القسم و{len(products)} منتج"})
 
 
 # ============================================================
@@ -536,7 +506,6 @@ def admin_products():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     if request.method == "GET":
-        # ✅ فقط المنتجات النشطة
         products = Product.query.filter_by(is_active=True).all()
         return jsonify([{
             "id": p.id, "category_id": p.category_id, "name": p.name,
@@ -550,20 +519,16 @@ def admin_products():
 
     data = request.get_json() or {}
     product = Product(
-        category_id=data.get("category_id"),
-        name=data.get("name"),
-        description=data.get("description", ""),
-        image=data.get("image", ""),
+        category_id=data.get("category_id"), name=data.get("name"),
+        description=data.get("description", ""), image=data.get("image", ""),
         product_type=data.get("product_type", "quantity"),
         base_quantity=data.get("base_quantity", 0),
         base_price=data.get("base_price", 0.0),
         unit_name=data.get("unit_name", "قطعة"),
         input_type=data.get("input_type", "id"),
         custom_input_label=data.get("custom_input_label", ""),
-        stock=data.get("stock", 0),
-        max_quantity=data.get("max_quantity", 0),
-        is_bundle=data.get("is_bundle", False),
-        is_active=data.get("is_active", True),
+        stock=data.get("stock", 0), max_quantity=data.get("max_quantity", 0),
+        is_bundle=data.get("is_bundle", False), is_active=data.get("is_active", True),
     )
     db.session.add(product)
     log_admin_activity(f"إضافة منتج: {product.name}")
@@ -584,7 +549,6 @@ def admin_product_actions(product_id):
 
     if request.method == "PUT":
         data = request.get_json() or {}
-        # ✅ قائمة الحقول المسموح تعديلها
         ALLOWED_FIELDS = {
             "name", "description", "image", "category_id",
             "product_type", "base_quantity", "base_price", "unit_name",
@@ -599,45 +563,31 @@ def admin_product_actions(product_id):
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True, "message": "تم تعديل المنتج"})
 
-    # Soft Delete → أرشفة
     product_name = product.name
     product.is_active = False
-
     log_admin_activity(f"أرشفة المنتج: {product_name}")
     db.session.commit()
     notify_admins(f"📦 تم أرشفة المنتج: {product_name}")
-    return jsonify({
-        "success": True,
-        "message": "تم أرشفة المنتج"
-    })
+    return jsonify({"success": True, "message": "تم أرشفة المنتج"})
 
 
 @main.route("/admin/api/products/<int:product_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
 def admin_restore_product(product_id):
-    """استرجاع منتج من الأرشيف"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     product = Product.query.get(product_id)
     if not product:
         return jsonify({"error": "منتج غير موجود"}), 404
-
     product.is_active = True
-
-    # تأكد أن القسم نشط
     category = Category.query.get(product.category_id)
     if category and not category.is_active:
         category.is_active = True
-
     log_admin_activity(f"استرجاع منتج: {product.name}")
     db.session.commit()
-
     notify_admins(f"♻️ تم استرجاع المنتج: {product.name}")
-    return jsonify({
-        "success": True,
-        "message": "تم استرجاع المنتج"
-    })
+    return jsonify({"success": True, "message": "تم استرجاع المنتج"})
 
 
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
@@ -655,10 +605,8 @@ def admin_bundles(product_id):
 
     data = request.get_json() or {}
     bundle = ProductBundle(
-        product_id=product_id,
-        name=data.get("name"),
-        quantity=data.get("quantity"),
-        price_usd=data.get("price_usd"),
+        product_id=product_id, name=data.get("name"),
+        quantity=data.get("quantity"), price_usd=data.get("price_usd"),
         is_active=data.get("is_active", True),
     )
     db.session.add(bundle)
@@ -669,13 +617,12 @@ def admin_bundles(product_id):
 
 
 # ============================================================
-# ============ 🆕 Archive API ============
+# ============ Archive ============
 # ============================================================
 @main.route("/admin/api/archive", methods=["GET"])
 @jwt_required()
 @handle_errors
 def admin_archive():
-    """جلب الأقسام والمنتجات المؤرشفة"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -684,21 +631,14 @@ def admin_archive():
 
     return jsonify({
         "categories": [{
-            "id": c.id,
-            "name": c.name,
-            "description": c.description,
-            "image": c.image,
-            "order": c.order,
+            "id": c.id, "name": c.name, "description": c.description,
+            "image": c.image, "order": c.order,
         } for c in archived_cats],
         "products": [{
-            "id": p.id,
-            "name": p.name,
-            "description": p.description,
-            "image": p.image,
-            "category_id": p.category_id,
+            "id": p.id, "name": p.name, "description": p.description,
+            "image": p.image, "category_id": p.category_id,
             "category_name": (Category.query.get(p.category_id).name if Category.query.get(p.category_id) else "قسم محذوف"),
-            "base_price": p.base_price,
-            "base_quantity": p.base_quantity,
+            "base_price": p.base_price, "base_quantity": p.base_quantity,
             "product_type": p.product_type,
         } for p in archived_prods],
     })
@@ -725,16 +665,11 @@ def admin_payment_methods():
 
     data = request.get_json() or {}
     method = PaymentMethod(
-        name=data.get("name"),
-        description=data.get("description", ""),
-        account_name=data.get("account_name", ""),
-        account=data.get("account", ""),
-        icon=data.get("icon", ""),
-        qr_image=data.get("qr_image", ""),
-        min_amount=data.get("min_amount", 0),
-        fee=data.get("fee", 0),
-        requires_kyc=data.get("requires_kyc", False),
-        is_active=data.get("is_active", True),
+        name=data.get("name"), description=data.get("description", ""),
+        account_name=data.get("account_name", ""), account=data.get("account", ""),
+        icon=data.get("icon", ""), qr_image=data.get("qr_image", ""),
+        min_amount=data.get("min_amount", 0), fee=data.get("fee", 0),
+        requires_kyc=data.get("requires_kyc", False), is_active=data.get("is_active", True),
     )
     db.session.add(method)
     log_admin_activity(f"إضافة طريقة دفع: {method.name}")
@@ -777,6 +712,7 @@ def admin_orders():
         result.append({
             "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
             "product_id": o.product_id, "product_name": product_name,
+            "product_type": product.product_type if product else None,
             "quantity": o.quantity, "unit_price": o.unit_price,
             "total_price": o.total_price, "discount_amount": o.discount_amount or 0,
             "coupon_code": o.coupon_code, "status": o.status,
@@ -847,21 +783,15 @@ def admin_update_order_status(order_id):
         balance_before = user.balance
         user.balance += order.total_price
         txn = Transaction(
-            user_id=user.id, type="refund",
-            amount=order.total_price, balance_after=user.balance,
-            reference_type="order_refund", reference_id=order.id,
+            user_id=user.id, type="refund", amount=order.total_price,
+            balance_after=user.balance, reference_type="order_refund", reference_id=order.id,
         )
         db.session.add(txn)
 
         log_financial(
-            user=user,
-            action="order_refund",
-            amount=order.total_price,
-            balance_before=balance_before,
-            balance_after=user.balance,
-            ref_type="order",
-            ref_id=order.id,
-            note="استرداد بسبب فشل الطلب",
+            user=user, action="order_refund", amount=order.total_price,
+            balance_before=balance_before, balance_after=user.balance,
+            ref_type="order", ref_id=order.id, note="استرداد بسبب فشل الطلب",
         )
 
         notif = Notification(
@@ -928,9 +858,29 @@ def admin_approve_deposit(deposit_id):
 
     deposit.status = "approved"
     user = User.query.get(deposit.user_id)
+
+    paid_debt = 0
+    added_amount = deposit.amount
+
     if user:
         balance_before = user.balance
-        user.balance += deposit.amount
+        # 🆕 خصم الدين أولاً
+        if user.balance < 0:
+            debt = abs(user.balance)
+            if deposit.amount >= debt:
+                # يسدد الدين كاملاً
+                paid_debt = debt
+                added_amount = deposit.amount - debt
+                user.balance = added_amount
+            else:
+                # يسدد جزءاً من الدين
+                paid_debt = deposit.amount
+                added_amount = 0
+                user.balance = user.balance + deposit.amount
+        else:
+            user.balance += deposit.amount
+            added_amount = deposit.amount
+
         txn = Transaction(
             user_id=user.id, type="deposit", amount=deposit.amount,
             balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
@@ -938,18 +888,23 @@ def admin_approve_deposit(deposit_id):
         db.session.add(txn)
 
         log_financial(
-            user=user,
-            action="deposit_approved",
-            amount=deposit.amount,
-            balance_before=balance_before,
-            balance_after=user.balance,
-            ref_type="deposit",
-            ref_id=deposit.id,
+            user=user, action="deposit_approved", amount=deposit.amount,
+            balance_before=balance_before, balance_after=user.balance,
+            ref_type="deposit", ref_id=deposit.id,
+            note=f"دفع دين: ${paid_debt}, إضافة: ${added_amount}" if paid_debt > 0 else None,
         )
+
+        # رسالة مخصصة
+        if paid_debt > 0 and added_amount > 0:
+            msg = f"تم خصم {paid_debt:.2f}$ لسداد دينك، وإضافة {added_amount:.2f}$ لرصيدك"
+        elif paid_debt > 0 and added_amount == 0:
+            msg = f"تم خصم {paid_debt:.2f}$ لسداد دينك. الرصيد المتبقي: {user.balance:.2f}$"
+        else:
+            msg = f"تم قبول إيداعك بقيمة {deposit.amount}$"
 
         notif = Notification(
             user_id=user.id, title="إيداع مقبول",
-            message=f"تم قبول إيداعك بقيمة {deposit.amount}$", type="success"
+            message=msg, type="success"
         )
         db.session.add(notif)
 
@@ -957,10 +912,14 @@ def admin_approve_deposit(deposit_id):
     db.session.commit()
 
     if user:
-        send_telegram_notification(user.telegram_id, f"تم قبول إيداعك بقيمة {deposit.amount}$")
+        send_telegram_notification(user.telegram_id, f"✅ {msg if user and 'msg' in locals() else 'تم قبول إيداعك'}")
 
-    notify_admins(f"✅ تم قبول إيداع بقيمة {deposit.amount}$ للمستخدم {deposit.user_id}")
-    return jsonify({"status": deposit.status})
+    notify_admins(
+        f"✅ تم قبول إيداع بقيمة {deposit.amount}$\n"
+        f"المستخدم: {deposit.user_id}\n"
+        + (f"سداد دين: ${paid_debt}\nإضافة: ${added_amount}" if paid_debt > 0 else "")
+    )
+    return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
 
 
 @main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST"])
@@ -1153,7 +1112,7 @@ def admin_update_service_request(req_id):
         return jsonify({"error": "طلب غير موجود"}), 404
     req.status = data.get("status", req.status)
     req.admin_response = data.get("admin_response", req.admin_response)
-    log_admin_activity(f"تحديث طلب الخدمة {req.id} إلى {req.status}")
+    log_admin_activity(f"تحديث طلب الخدمة {req.id}")
     db.session.commit()
     notify_admins(f"🛠️ تم تحديث طلب الخدمة {req.id} إلى {req.status}")
     return jsonify({"success": True})
@@ -1222,15 +1181,13 @@ def admin_coupons():
             expires_at = None
 
     coupon = Coupon(
-        code=code,
-        description=data.get("description", ""),
+        code=code, description=data.get("description", ""),
         discount_type=data.get("discount_type", "percentage"),
         discount_value=float(data.get("discount_value", 0)),
         min_amount=float(data.get("min_amount", 0)),
         max_discount=float(data.get("max_discount", 0)),
         max_uses=int(data.get("max_uses", 0)),
-        expires_at=expires_at,
-        is_active=data.get("is_active", True),
+        expires_at=expires_at, is_active=data.get("is_active", True),
     )
     db.session.add(coupon)
     log_admin_activity(f"إضافة كود خصم: {coupon.code}")

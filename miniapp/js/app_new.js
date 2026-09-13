@@ -18,6 +18,17 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
+// 🆕 VIP Config
+const VIP_LEVELS = {
+    1: { name: 'مستخدم جديد لسند بلس', icon: 'person', color: '#CD7F32' },
+    2: { name: 'مبتدئ سند بلس', icon: 'school', color: '#C0C0C0' },
+    3: { name: 'محترف سند بلس', icon: 'workspace_premium', color: '#FFD700' },
+    4: { name: 'أسطورة سند بلس', icon: 'military_tech', color: '#E5E4E2' },
+    5: { name: 'نجم سند بلس', icon: 'star', color: '#B9F2FF' },
+    6: { name: 'شريك سند بلس', icon: 'handshake', color: '#9333EA' },
+    7: { name: 'مستوى السند الأسطوري', icon: 'auto_awesome', color: '#DC2626' },
+};
+
 // ============ Splash Seen ============
 const SPLASH_SEEN_KEY = 'splash_seen_v11';
 function hasSeenSplash() {
@@ -532,9 +543,8 @@ if (document.readyState === 'loading') {
 } else {
     SplashScreen.initSplashScreen();
 }
-
 // ============================================================
-// 🎨 UI Update
+// 🎨 UI Update — مع VIP في الرئيسية
 // ============================================================
 function updateUserUI() {
     if (!userData) {
@@ -544,25 +554,30 @@ function updateUserUI() {
         if (gs) gs.textContent = 'لم يتم التعرف على حسابك';
         return;
     }
-    document.getElementById('headerBalance').textContent = formatPrice(userData.balance);
+
+    // الرصيد
+    const balanceEl = document.getElementById('headerBalance');
+    if (balanceEl) {
+        balanceEl.textContent = formatPrice(userData.balance);
+        if (userData.balance < 0) {
+            balanceEl.style.color = 'var(--danger)';
+        } else {
+            balanceEl.style.color = '';
+        }
+    }
+
     document.getElementById('chargeBalance').textContent = formatPrice(userData.balance);
     document.getElementById('accountBalance').textContent = formatPrice(userData.balance);
     document.getElementById('accountName').textContent = userData.first_name || userData.username || 'مستخدم';
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
-    if (userData.vip_level > 0) {
-        const vipBadge = document.getElementById('vipBadge');
-        if (vipBadge) {
-            vipBadge.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
-            vipBadge.style.display = 'inline-block';
-        }
-        const avb = document.getElementById('accountVipBadge');
-        if (avb) {
-            avb.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle;">star</span> VIP${userData.vip_level}`;
-            avb.style.display = 'inline-block';
-        }
-    }
+    // 🆕 VIP في الرئيسية — أسفل الترحيب
+    renderHomeVIPBadge();
+
+    // VIP في Account (يظهر لو موجود)
+    const avb = document.getElementById('accountVipBadge');
+    if (avb) avb.style.display = 'none';
 
     const hour = new Date().getHours();
     let greeting = 'مرحباً';
@@ -599,6 +614,41 @@ function updateUserUI() {
 
     updateKYCBadge();
     updateCurrencyUI();
+}
+
+// ============================================================
+// 🆕 عرض VIP في الرئيسية — أيقونة متحركة
+// ============================================================
+function renderHomeVIPBadge() {
+    let container = document.getElementById('homeVipBadge');
+
+    if (!container) {
+        // أنشئ العنصر ديناميكياً بعد greetingSub
+        const gs = document.getElementById('greetingSub');
+        if (!gs) return;
+
+        container = document.createElement('div');
+        container.id = 'homeVipBadge';
+        container.className = 'home-vip-badge-container';
+        gs.parentNode.insertBefore(container, gs.nextSibling);
+    }
+
+    const vipLevel = userData.vip_level || 0;
+
+    if (vipLevel === 0 || !VIP_LEVELS[vipLevel]) {
+        container.style.display = 'none';
+        return;
+    }
+
+    const config = VIP_LEVELS[vipLevel];
+    container.style.display = 'flex';
+    container.style.background = `linear-gradient(135deg, ${config.color}25 0%, ${config.color}10 100%)`;
+    container.style.borderColor = config.color;
+
+    container.innerHTML = `
+        <span class="material-icons vip-icon-pulse" style="color:${config.color};">${config.icon}</span>
+        <span class="vip-text" style="color:${config.color};">${config.name}</span>
+    `;
 }
 
 function updateKYCBadge() {
@@ -720,8 +770,9 @@ function showLockedPaymentMessage() {
         'warning'
     );
 }
+
 // ============================================================
-// 📈 Order Timeline (Vertical)
+// 📈 Order Timeline
 // ============================================================
 function getTimelineSteps(status) {
     const allSteps = [
@@ -1090,9 +1141,6 @@ async function submitKYCRequest(btn) {
     }
 }
 
-// ============================================================
-// 🔄 Button Loading
-// ============================================================
 function setButtonLoading(btn, loading) {
     if (!btn) return;
     if (loading) {
@@ -1146,7 +1194,6 @@ function showNotification(title, message, type = 'success') {
 function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
-
 // ============================================================
 // 🛒 Purchase Modal — مع دعم Topup السوري
 // ============================================================
@@ -1197,7 +1244,6 @@ function openPurchaseModal(productId) {
 
     const fav = isFavorite(product.id);
 
-    // ============ Topup: نموذج مختلف ============
     let infoRowHTML, defaultAmount, defaultTotal;
 
     if (isTopup) {
@@ -1268,9 +1314,6 @@ function openPurchaseModal(productId) {
     openModal('', modalContent);
 }
 
-// ============================================================
-// 🔢 تحديث الإجمالي — للكمية العادية
-// ============================================================
 function updatePurchaseTotal() {
     const input = document.getElementById('newQtyInput');
     if (!input) return;
@@ -1286,9 +1329,6 @@ function updatePurchaseTotal() {
     if (display) display.textContent = formatPrice(total);
 }
 
-// ============================================================
-// 🔢 تحديث الإجمالي — للرصيد السوري
-// ============================================================
 function updateTopupTotal() {
     const input = document.getElementById('newSypAmount');
     if (!input) return;
@@ -1313,8 +1353,8 @@ function confirmPurchaseDialog(productId, btn) {
 
     const isTopup = product.product_type === 'topup';
 
+    // ============ الرصيد السوري: لا confirm ============
     if (isTopup) {
-        // فحص الرصيد السوري
         const amountInput = document.getElementById('newSypAmount');
         const sypAmount = parseInt(amountInput?.value);
         if (!sypAmount || sypAmount < 1) {
@@ -1328,7 +1368,6 @@ function confirmPurchaseDialog(productId, btn) {
             return;
         }
 
-        // فحص الحقول المخصصة
         if (product.input_type === 'id') {
             const val = document.getElementById('purchasePlayerId')?.value;
             if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
@@ -1349,22 +1388,12 @@ function confirmPurchaseDialog(productId, btn) {
             }
         }
 
-        // تأكيد
-        const sypRate = window.__currentSypRate || 132;
-        const totalUsd = sypAmount / sypRate;
-
-        const confirmed = confirm(
-            `هل أنت متأكد من شراء ${sypAmount.toLocaleString('ar')} ل.س؟\n` +
-            `سيتم خصم ${totalUsd.toFixed(2)}$ من رصيدك.\n` +
-            `(سعر الصرف: ${sypRate} ل.س / $)`
-        );
-        if (!confirmed) return;
-
+        // ⚡ بدون confirm — إرسال مباشر
         executeConfirmPurchase(productId, btn);
         return;
     }
 
-    // منتجات عادية
+    // ============ منتجات عادية: confirm ============
     const qtyInput = document.getElementById('newQtyInput');
     const qty = parseInt(qtyInput?.value);
     if (!qty || qty < 1) {
@@ -1435,7 +1464,22 @@ async function executeConfirmPurchase(productId, btn) {
     try {
         const result = await createOrder(orderData);
         if (result && result.error) {
-            showNotification('فشل إرسال الطلب', result.error, 'error');
+            // 🆕 معالجة خاصة لأخطاء الرصيد السالب
+            if (result.code === 'NEGATIVE_LIMIT_EXCEEDED' || (result.error && result.error.includes('الحد الأقصى للرصيد السالب'))) {
+                showNotification(
+                    'الرصيد السالب ممتلئ',
+                    `${result.error}\n\n💡 قم بالإيداع لسداد دينك.`,
+                    'warning'
+                );
+            } else if (result.code === 'NEGATIVE_NOT_ALLOWED' || (result.error && result.error.includes('رصيد غير كاف'))) {
+                showNotification(
+                    'رصيد غير كافٍ',
+                    `${result.error}\n\n💡 قم بالإيداع أولاً.`,
+                    'warning'
+                );
+            } else {
+                showNotification('فشل إرسال الطلب', result.error, 'error');
+            }
         } else {
             let msg = `طلبك ${result.order_number} قيد المعالجة`;
             if (isTopup && result.syp_amount) {
@@ -1456,6 +1500,7 @@ async function executeConfirmPurchase(productId, btn) {
         if (btn) setButtonLoading(btn, false);
     }
 }
+
 // ============================================================
 // 💰 Deposit Flow — مع فحص KYC
 // ============================================================
@@ -1463,7 +1508,6 @@ function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
 
-    // 🆕 فحص KYC قبل الإيداع
     if (!isUserVerified()) {
         showNotification(
             'التوثيق مطلوب',
@@ -1517,7 +1561,6 @@ function showDepositStep2() {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
 
-    // 🆕 فحص KYC مرة أخرى
     if (!isUserVerified()) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
         return;
@@ -1574,7 +1617,6 @@ function fallbackCopy(text) {
 async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
 
-    // 🆕 فحص KYC
     if (!isUserVerified()) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع', 'warning');
         return;
@@ -1767,7 +1809,6 @@ async function openNotificationsPage() {
         </div>`;
     openModal('الإشعارات', bodyHTML);
 
-    // تعليم كل الإشعارات كمقروءة تلقائياً
     const unreadIds = notificationsData.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length) {
         for (const id of unreadIds) {
@@ -1854,7 +1895,7 @@ function navigateTo(pageId) {
     );
     currentPage = pageId;
 
-    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); renderRecentlyViewed(); }
+    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); renderRecentlyViewed(); renderHomeVIPBadge(); }
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);
@@ -1980,6 +2021,7 @@ async function initApp() {
         renderCategories();
         renderRecentlyViewed();
         renderLatestOrders();
+        renderHomeVIPBadge();
 
         setupNavigation();
         setupFilters();

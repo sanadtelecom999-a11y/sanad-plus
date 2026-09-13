@@ -2926,3 +2926,63 @@ input:checked + .toggle-slider:before {
 .payment-method.locked .material-icons {
     color: var(--warning);
 }
+/* ============================================================
+   ============ 🆕 VIP Badge — الرئيسية ============
+   ============================================================ */
+.home-vip-badge-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 50px;
+    border: 1.5px solid;
+    margin-top: 10px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    animation: vipFadeIn 0.5s ease;
+}
+
+@keyframes vipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.home-vip-badge-container .vip-icon-pulse {
+    font-size: 22px;
+    animation: vipPulse 2s ease-in-out infinite;
+}
+
+@keyframes vipPulse {
+    0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 3px currentColor);
+    }
+    50% {
+        transform: scale(1.15);
+        filter: drop-shadow(0 0 8px currentColor);
+    }
+}
+
+.home-vip-badge-container .vip-text {
+    letter-spacing: 0.3px;
+}
+
+/* ============ VIP in User Row (Admin) ============ */
+.vip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}

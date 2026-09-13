@@ -26,7 +26,7 @@ def create_deposit():
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
 
-    # 🆕 فحص KYC — يجب توثيق الحساب أولاً
+    # فحص KYC
     if user.kyc_status != "verified" and not user.is_verified:
         return jsonify({
             "error": "يجب توثيق حسابك أولاً قبل الإيداع",

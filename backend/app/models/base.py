@@ -19,6 +19,11 @@ class User(db.Model):
     referred_by = db.Column(db.BigInteger)
     referral_earnings = db.Column(db.Float, default=0.0)
     referral_count = db.Column(db.Integer, default=0)
+
+    # 🆕 الرصيد السالب
+    allow_negative_balance = db.Column(db.Boolean, default=True)
+    max_negative_balance = db.Column(db.Float, default=0.0)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     orders = db.relationship("Order", backref="user", lazy=True)
@@ -232,35 +237,25 @@ class Referral(db.Model):
 
 
 # ============================================================
-# 🆕 Financial Audit Log — سجل التدقيق المالي
+# Financial Audit Log
 # ============================================================
 class FinancialAuditLog(db.Model):
     __tablename__ = "financial_audit_log"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     action = db.Column(db.String(50), nullable=False)
-    # order_created / order_refund / order_cancelled
-    # deposit_approved / deposit_rejected
-    # admin_adjustment / referral_reward
-
     amount = db.Column(db.Float, nullable=False)
     balance_before = db.Column(db.Float, nullable=False)
     balance_after = db.Column(db.Float, nullable=False)
-
     reference_type = db.Column(db.String(50))
     reference_id = db.Column(db.Integer)
-
     admin_id = db.Column(db.Integer, nullable=True)
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.Text)
-
     note = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
-# ============================================================
-# 🆕 Helper Function للـ Audit Log
-# ============================================================
 def log_financial(user, action, amount, balance_before, balance_after,
                   ref_type=None, ref_id=None, admin_id=None, note=None):
     """تسجيل عملية مالية في سجل التدقيق"""

@@ -87,6 +87,14 @@ async function toggleUserKYC(userId, status) {
     });
 }
 
+// 🆕 الرصيد السالب
+async function setUserNegativeBalance(userId, allow, maxNegative) {
+    return await apiRequest(`/admin/api/users/${userId}/negative-balance`, {
+        method: 'POST',
+        body: JSON.stringify({ allow, max_negative: maxNegative }),
+    });
+}
+
 // ============================================================
 // ============ Categories ============
 // ============================================================
@@ -150,7 +158,7 @@ async function createProductBundle(productId, bundleData) {
 }
 
 // ============================================================
-// ============ 🆕 Archive ============
+// ============ Archive ============
 // ============================================================
 async function fetchArchive() {
     return await apiRequest('/admin/api/archive');
@@ -254,7 +262,7 @@ async function fetchActivities() {
 }
 
 // ============================================================
-// ============ 🆕 Audit Log ============
+// ============ Audit Log ============
 // ============================================================
 async function fetchAuditLog(params = {}) {
     const query = new URLSearchParams();
@@ -298,12 +306,8 @@ async function fetchAdminReferrals() {
 }
 
 // ============================================================
-// ============ Logout ============
+// ============ Settings ============
 // ============================================================
-function logout() {
-    clearToken();
-    location.reload();
-}
 async function fetchAdminSettings() {
     return await apiRequest('/admin/api/settings');
 }
@@ -313,4 +317,12 @@ async function saveAdminSettings(settingsData) {
         method: 'PUT',
         body: JSON.stringify(settingsData),
     });
+}
+
+// ============================================================
+// ============ Logout ============
+// ============================================================
+function logout() {
+    clearToken();
+    location.reload();
 }

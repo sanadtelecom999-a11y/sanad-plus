@@ -21,6 +21,17 @@ let currentArchiveTab = 'cats';
 let currentSettings = {};
 let _otpSessionId = null;
 
+// VIP Config — 🆕
+const VIP_LEVELS = {
+    1: { name: 'مستخدم جديد لسند بلس', icon: 'person', color: '#CD7F32' },
+    2: { name: 'مبتدئ سند بلس', icon: 'school', color: '#C0C0C0' },
+    3: { name: 'محترف سند بلس', icon: 'workspace_premium', color: '#FFD700' },
+    4: { name: 'أسطورة سند بلس', icon: 'military_tech', color: '#E5E4E2' },
+    5: { name: 'نجم سند بلس', icon: 'star', color: '#B9F2FF' },
+    6: { name: 'شريك سند بلس', icon: 'handshake', color: '#9333EA' },
+    7: { name: 'مستوى السند الأسطوري', icon: 'auto_awesome', color: '#DC2626' },
+};
+
 // Chart instances
 let chartOrdersPieInstance = null;
 let chartDepositsLineInstance = null;
@@ -718,7 +729,6 @@ async function loadAllData() {
 
         filteredProducts = [...productsData];
 
-        // تعبئة فلتر الأقسام
         const catFilter = document.getElementById('productCategoryFilter');
         if (catFilter) {
             catFilter.innerHTML = '<option value="all">جميع الأقسام</option>' +
@@ -1003,7 +1013,7 @@ function getStatusArabic(status) {
 }
 
 // ============================================================
-// ============ Users ============
+// ============ Users — مع VIP Dropdown + السالب ============
 // ============================================================
 function filterUsers(query) {
     const q = (query || '').toLowerCase().trim();
@@ -1017,27 +1027,202 @@ function filterUsers(query) {
 
 function renderUsers(users = usersData) {
     const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
     if (!users.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><span class="material-icons">people</span>لا يوجد مستخدمون</td></tr>';
         return;
     }
-    tbody.innerHTML = users.map(user => `
+
+    tbody.innerHTML = users.map(user => {
+        const balance = user.balance || 0;
+        const balanceColor = balance < 0 ? 'var(--error)' : (balance > 0 ? 'var(--success)' : 'var(--text)');
+        const negBadge = (balance < 0 && user.allow_negative_balance) ?
+            `<span style="font-size:0.7rem;background:var(--error-bg);color:var(--error);padding:2px 6px;border-radius:4px;margin-right:4px;">سالب</span>` : '';
+
+        const vipLevel = user.vip_level || 0;
+        const vipConfig = VIP_LEVELS[vipLevel];
+        const vipBadge = vipConfig ?
+            `<span class="vip-badge" style="background:${vipConfig.color};color:#000;" title="${vipConfig.name}">
+                <span class="material-icons" style="font-size:14px;vertical-align:middle;">${vipConfig.icon}</span>
+                ${vipLevel}
+            </span>` : '<span style="color:var(--text-secondary);">—</span>';
+
+        return `
         <tr>
             <td data-label="Telegram ID"><span class="ltr">${user.telegram_id}</span></td>
             <td data-label="الاسم">${user.username || user.first_name || 'مستخدم'}</td>
-            <td data-label="الرصيد">${user.balance.toFixed(2)}$</td>
+            <td data-label="الرصيد">
+                <span style="color:${balanceColor};font-weight:800;direction:ltr;">${balance.toFixed(2)}$</span>
+                ${negBadge}
+            </td>
             <td data-label="الحالة"><span class="status-badge ${user.is_banned ? 'failed' : 'completed'}">${user.is_banned ? 'محظور' : 'نشط'}</span></td>
-            <td data-label="VIP">${user.vip_level > 0 ? `<span class="vip-badge">⭐ VIP${user.vip_level}</span>` : '-'}</td>
+            <td data-label="VIP">${vipBadge}</td>
             <td data-label="إجراءات">
                 <button class="btn-outline btn-sm" onclick="adjustBalance(${user.id})">رصيد</button>
+                <button class="btn-outline btn-sm" onclick="openNegativeBalanceModal(${user.id})" title="الرصيد السالب">💳</button>
+                <button class="btn-outline btn-sm" onclick="openVIPModal(${user.id})" title="VIP">⭐</button>
                 <button class="btn-outline btn-sm" onclick="toggleBan(${user.id})">${user.is_banned ? 'فك الحظر' : 'حظر'}</button>
-                <button class="btn-outline btn-sm" onclick="setVIP(${user.id}, ${user.vip_level})">VIP</button>
-                <button class="btn-outline btn-sm" onclick="toggleKYC(${user.id}, '${user.kyc_status}')">${user.kyc_status === 'verified' ? 'إلغاء توثيق' : 'توثيق'}</button>
+                <button class="btn-outline btn-sm" onclick="toggleKYC(${user.id}, '${user.kyc_status}')">${user.kyc_status === 'verified' ? 'إلغاء KYC' : 'KYC'}</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
+// ============================================================
+// 🆕 Negative Balance Modal
+// ============================================================
+function openNegativeBalanceModal(userId) {
+    const user = usersData.find(u => u.id === userId);
+    if (!user) return;
+
+    const isAllowed = user.allow_negative_balance !== false;
+    const maxNeg = user.max_negative_balance || 0;
+
+    openModal('إعدادات الرصيد السالب', `
+        <div style="text-align:right;">
+            <div style="background:var(--primary-light);padding:12px;border-radius:12px;margin-bottom:14px;">
+                <div style="font-weight:700;">${user.username || user.first_name || 'مستخدم'}</div>
+                <div style="color:var(--text-secondary);font-size:0.85rem;">
+                    الرصيد الحالي: <strong style="color:${user.balance < 0 ? 'var(--error)' : 'var(--text)'};">
+                        ${user.balance.toFixed(2)}$
+                    </strong>
+                </div>
+            </div>
+
+            <div style="background:var(--warning-bg);border:1px solid var(--warning);border-radius:12px;padding:12px;margin-bottom:14px;font-size:0.8rem;line-height:1.6;">
+                <strong>💡 كيف تعمل الميزة:</strong><br>
+                • تفعيل: يسمح للمستخدم بالشراء حتى لو رصيده صفر<br>
+                • الحد الأقصى: كم يمكن أن يصبح سالباً<br>
+                • عند الإيداع: يُخصم الدين تلقائياً
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--surface);padding:12px;border-radius:12px;border:1px solid var(--border);">
+                    <input type="checkbox" id="negAllow" ${isAllowed ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;">
+                    <span style="font-weight:600;">تفعيل الرصيد السالب لهذا المستخدم</span>
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>الحد الأقصى للسالب ($)</label>
+                <input type="number" id="negMax" value="${maxNeg}" step="1" min="0" max="10000">
+                <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;">
+                    مثال: 100 → يمكن للمستخدم أن يصل رصيده إلى -100$
+                </small>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="btn-primary" style="flex:1;" onclick="saveNegativeBalance(${userId})">حفظ</button>
+                <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
+            </div>
+        </div>
+    `);
+}
+
+async function saveNegativeBalance(userId) {
+    const allow = document.getElementById('negAllow').checked;
+    const maxNeg = parseFloat(document.getElementById('negMax').value) || 0;
+
+    if (allow && maxNeg <= 0) {
+        showToast('يجب تحديد حد أقصى أكبر من صفر عند التفعيل', 'warning');
+        return;
+    }
+
+    try {
+        await setUserNegativeBalance(userId, allow, maxNeg);
+        await loadAllData();
+        renderUsers();
+        closeModal();
+        showToast('تم تحديث إعدادات الرصيد السالب', 'success');
+    } catch (error) {
+        showToast(`فشل التحديث: ${error.message}`, 'error');
+    }
+}
+
+// ============================================================
+// 🆕 VIP Modal
+// ============================================================
+function openVIPModal(userId) {
+    const user = usersData.find(u => u.id === userId);
+    if (!user) return;
+
+    const currentLevel = user.vip_level || 0;
+
+    const options = Object.entries(VIP_LEVELS).map(([lvl, config]) => `
+        <label class="vip-option ${parseInt(lvl) === currentLevel ? 'selected' : ''}" data-level="${lvl}">
+            <input type="radio" name="vipLevel" value="${lvl}" ${parseInt(lvl) === currentLevel ? 'checked' : ''} 
+                   style="width:18px;height:18px;">
+            <span class="material-icons" style="color:${config.color};font-size:22px;">${config.icon}</span>
+            <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.9rem;">${lvl} — ${config.name}</div>
+            </div>
+            <div style="width:14px;height:14px;border-radius:50%;background:${config.color};"></div>
+        </label>
+    `).join('');
+
+    openModal('اختيار مستوى VIP', `
+        <div style="text-align:right;">
+            <div style="background:var(--primary-light);padding:12px;border-radius:12px;margin-bottom:14px;">
+                <div style="font-weight:700;">${user.username || user.first_name || 'مستخدم'}</div>
+                <div style="color:var(--text-secondary);font-size:0.85rem;">
+                    المستوى الحالي: <strong>${currentLevel === 0 ? 'بدون VIP' : VIP_LEVELS[currentLevel]?.name}</strong>
+                </div>
+            </div>
+
+            <div class="vip-options-list">
+                <label class="vip-option ${currentLevel === 0 ? 'selected' : ''}">
+                    <input type="radio" name="vipLevel" value="0" ${currentLevel === 0 ? 'checked' : ''} style="width:18px;height:18px;">
+                    <span class="material-icons" style="color:var(--text-secondary);font-size:22px;">block</span>
+                    <div style="flex:1;">
+                        <div style="font-weight:700;font-size:0.9rem;">إلغاء VIP</div>
+                    </div>
+                </label>
+                ${options}
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:16px;">
+                <button class="btn-primary" style="flex:1;" onclick="saveVIPSelection(${userId})">حفظ</button>
+                <button class="btn-outline" style="flex:1;" onclick="closeModal()">إلغاء</button>
+            </div>
+        </div>
+    `);
+
+    // إضافة حدث للتحديد
+    setTimeout(() => {
+        document.querySelectorAll('.vip-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.querySelectorAll('.vip-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                const radio = opt.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+            });
+        });
+    }, 100);
+}
+
+async function saveVIPSelection(userId) {
+    const selected = document.querySelector('input[name="vipLevel"]:checked');
+    if (!selected) {
+        showToast('اختر مستوى', 'warning');
+        return;
+    }
+
+    const level = parseInt(selected.value);
+
+    try {
+        await setUserVIP(userId, level);
+        await loadAllData();
+        renderUsers();
+        closeModal();
+        showToast(level === 0 ? 'تم إلغاء VIP' : `تم تعيين ${VIP_LEVELS[level].name}`, 'success');
+    } catch (error) {
+        showToast(`فشل التعيين: ${error.message}`, 'error');
+    }
+}
+
+// ============================================================
+// Users — Actions
+// ============================================================
 async function toggleKYC(userId, currentStatus) {
     const newStatus = currentStatus === 'verified' ? 'unverified' : 'verified';
     const confirmed = await showConfirm({
@@ -1134,21 +1319,6 @@ async function toggleBan(userId) {
         showToast('تم تحديث حالة الحظر', 'success');
     } catch (error) {
         showToast(`فشل تغيير حالة الحظر: ${error.message}`, 'error');
-    }
-}
-
-async function setVIP(userId, currentLevel) {
-    const level = prompt('أدخل مستوى VIP (0 لإلغاء، 1-7):', currentLevel);
-    if (level === null) return;
-    const parsed = parseInt(level);
-    if (isNaN(parsed) || parsed < 0) { showToast('مستوى غير صحيح', 'warning'); return; }
-    try {
-        await setUserVIP(userId, parsed);
-        await loadAllData();
-        renderUsers();
-        showToast('تم تحديث مستوى VIP', 'success');
-    } catch (error) {
-        showToast(`فشل تعيين VIP: ${error.message}`, 'error');
     }
 }
 
@@ -1352,9 +1522,6 @@ function openProductModal() {
             <label>صورة المنتج</label>
             <div class="image-preview" id="productImagePreview">لا صورة</div>
             <input type="file" id="productImage" accept="image/*" onchange="previewImage(this,'productImagePreview')">
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 <strong>نصيحة:</strong> ارفع صورة مربعة (1:1)
-            </small>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button class="btn-primary" onclick="saveProduct(this)">حفظ</button>
@@ -1721,14 +1888,13 @@ function openPaymentMethodModal() {
         <div class="form-group"><label>اسم الحساب</label><input type="text" id="paymentAccountName"></div>
         <div class="form-group"><label>رقم الحساب</label><input type="text" id="paymentAccount"></div>
 
-        <!-- 🆕 خيار التوثيق الإلزامي -->
         <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--primary-light);padding:12px;border-radius:12px;">
                 <input type="checkbox" id="paymentRequiresKyc" style="width:20px;height:20px;cursor:pointer;">
                 <span style="font-weight:600;">🔒 تتطلب هذه الطريقة توثيق الحساب</span>
             </label>
             <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 إذا فُعّل: المستخدمون غير الموثقين لن يستطيعوا استخدام هذه الطريقة
+                💡 المستخدمون غير الموثقين لن يستطيعوا استخدامها
             </small>
         </div>
 
@@ -1920,10 +2086,14 @@ async function approveDepositHandler(depositId) {
     });
     if (!confirmed) return;
     try {
-        await approveDeposit(depositId);
+        const result = await approveDeposit(depositId);
         await loadAllData();
         renderDeposits(depositsData);
-        showToast('تم اعتماد الإيداع بنجاح', 'success');
+        if (result.paid_debt > 0) {
+            showToast(`تم اعتماد الإيداع (سداد دين: $${result.paid_debt})`, 'success');
+        } else {
+            showToast('تم اعتماد الإيداع بنجاح', 'success');
+        }
     } catch (error) {
         showToast(`فشل اعتماد الإيداع: ${error.message}`, 'error');
     }
@@ -2467,7 +2637,7 @@ function sendAdminNotification() {
 }
 
 // ============================================================
-// ============ Settings (with SYP Rate) ============
+// ============ Settings ============
 // ============================================================
 function loadSettings() {
     if (!currentSettings) return;

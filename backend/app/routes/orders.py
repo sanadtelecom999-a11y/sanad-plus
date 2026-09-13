@@ -36,7 +36,7 @@ def get_syp_rate():
                 return rate
     except (ValueError, TypeError):
         pass
-    return 132.0  # الافتراضي
+    return 132.0
 
 
 def apply_coupon_to_order(user, coupon_code, order_amount):
@@ -173,27 +173,23 @@ def create_order():
             return jsonify({"error": "يرجى إدخال أرقام فقط في رقم الهاتف"}), 400
         delivery_data = {"phone": str(phone).strip()}
 
-    # ============ 🆕 معالجة الرصيد السوري (topup) ============
+    # ============ معالجة الرصيد السوري (topup) ============
     syp_amount = None
 
     if product.product_type == "topup":
-        # المستخدم يدخل المبلغ بالليرة السورية
         syp_amount = int(data.get("quantity", 0))
         if syp_amount <= 0:
             return jsonify({"error": "الرجاء إدخال مبلغ صحيح بالليرة السورية"}), 400
 
-        # الحد الأقصى والأدنى
         max_qty = product.max_quantity or 0
         if max_qty > 0 and syp_amount > max_qty:
             return jsonify({"error": f"الحد الأقصى هو {max_qty:,} ل.س"}), 400
 
-        # تحويل إلى دولار
         syp_rate = get_syp_rate()
         total_price = round(syp_amount / syp_rate, 4)
-        quantity = syp_amount  # للعرض
-        unit_price = round(1 / syp_rate, 6)  # سعر الليرة الواحدة بالدولار
+        quantity = syp_amount
+        unit_price = round(1 / syp_rate, 6)
 
-        # حفظ تفاصيل إضافية
         delivery_data["syp_amount"] = syp_amount
         delivery_data["syp_rate"] = syp_rate
         delivery_data["usd_amount"] = total_price
@@ -235,19 +231,36 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # Atomic balance update
+    # ============ 🆕 فحص الرصيد (مع دعم السالب) ============
     balance_before = user.balance
+    new_balance = balance_before - total_price
 
-    result = db.session.execute(
-        sa_update(User)
-        .where(User.id == user.id, User.balance >= total_price)
-        .values(balance=User.balance - total_price)
-    )
-    if result.rowcount == 0:
-        db.session.rollback()
-        return jsonify({"error": "رصيد غير كافٍ"}), 400
+    # إذا كان الرصيد سيصبح سالباً
+    if new_balance < 0:
+        # فحص هل السالب مسموح لهذا المستخدم
+        if not user.allow_negative_balance:
+            return jsonify({
+                "error": "رصيد غير كافٍ. يجب تفعيل الرصيد السالب من الإدارة.",
+                "code": "NEGATIVE_NOT_ALLOWED"
+            }), 400
 
-    db.session.refresh(user)
+        # فحص الحد الأقصى للسالب
+        max_neg = user.max_negative_balance or 0
+        if max_neg <= 0:
+            return jsonify({
+                "error": "لا يمكن الشراء — رصيدك غير كافٍ. تفعيل الرصيد السالب متاح لكن الحد الأقصى صفر.",
+                "code": "NEGATIVE_LIMIT_ZERO"
+            }), 400
+
+        if abs(new_balance) > max_neg:
+            return jsonify({
+                "error": f"وصلت للحد الأقصى للرصيد السالب (${max_neg:.2f}). يرجى الإيداع أولاً.",
+                "code": "NEGATIVE_LIMIT_EXCEEDED",
+                "max_negative": max_neg
+            }), 400
+
+    # تحديث الرصيد
+    user.balance = new_balance
 
     # خصم المخزون
     if product.stock is not None and product.stock > 0:
@@ -315,9 +328,8 @@ def create_order():
             )
             db.session.add(usage)
             db.session.commit()
-        except Exception as e:
+        except Exception:
             db.session.rollback()
-            print(f"⚠️ فشل تسجيل استخدام الكوبون: {e}")
 
     complete_referral_if_first_order(user)
 
@@ -347,6 +359,7 @@ def create_order():
         "total_price": total_price,
         "discount_amount": discount_amount,
         "message": "طلبك قيد المعالجة",
+        "new_balance": user.balance,
     }
 
     if syp_amount:
