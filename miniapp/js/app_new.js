@@ -15,7 +15,7 @@ let cancelTimers = {};
 let publicSettings = { syp_rate: 132, store_name: 'SANAD+', support_url: 'https://t.me/SANADST' };
 
 const BOT_USERNAME = 'Sa3pls1_bot';
-const USD_TO_SYP = 132;
+let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
 // ============ Splash Seen ============
