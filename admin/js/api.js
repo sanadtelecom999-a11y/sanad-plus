@@ -87,7 +87,6 @@ async function toggleUserKYC(userId, status) {
     });
 }
 
-// 🆕 الرصيد السالب
 async function setUserNegativeBalance(userId, allow, maxNegative) {
     return await apiRequest(`/admin/api/users/${userId}/negative-balance`, {
         method: 'POST',
@@ -124,6 +123,10 @@ async function fetchAdminProducts() {
     return await apiRequest('/admin/api/products');
 }
 
+async function fetchProductDetail(productId) {
+    return await apiRequest(`/admin/api/products/${productId}`);
+}
+
 async function createProduct(productData) {
     return await apiRequest('/admin/api/products', {
         method: 'POST',
@@ -146,6 +149,9 @@ async function restoreProduct(productId) {
     return await apiRequest(`/admin/api/products/${productId}/restore`, { method: 'POST' });
 }
 
+// ============================================================
+// ============ Bundles (الباقات) ============
+// ============================================================
 async function fetchProductBundles(productId) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`);
 }
@@ -154,6 +160,19 @@ async function createProductBundle(productId, bundleData) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`, {
         method: 'POST',
         body: JSON.stringify(bundleData),
+    });
+}
+
+async function updateProductBundle(productId, bundleId, bundleData) {
+    return await apiRequest(`/admin/api/products/${productId}/bundles/${bundleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(bundleData),
+    });
+}
+
+async function deleteProductBundle(productId, bundleId) {
+    return await apiRequest(`/admin/api/products/${productId}/bundles/${bundleId}`, {
+        method: 'DELETE',
     });
 }
 

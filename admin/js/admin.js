@@ -21,7 +21,11 @@ let currentArchiveTab = 'cats';
 let currentSettings = {};
 let _otpSessionId = null;
 
-// VIP Config — 🆕
+// 🎁 Bundle management for product modal
+let editingBundles = []; // [{id?, name, quantity, price_usd, _new, _deleted}]
+let editingProductId = null;
+
+// VIP Config
 const VIP_LEVELS = {
     1: { name: 'مستخدم جديد لسند بلس', icon: 'person', color: '#CD7F32' },
     2: { name: 'مبتدئ سند بلس', icon: 'school', color: '#C0C0C0' },
@@ -1013,7 +1017,7 @@ function getStatusArabic(status) {
 }
 
 // ============================================================
-// ============ Users — مع VIP Dropdown + السالب ============
+// ============ Users — VIP + Negative Balance ============
 // ============================================================
 function filterUsers(query) {
     const q = (query || '').toLowerCase().trim();
@@ -1069,7 +1073,7 @@ function renderUsers(users = usersData) {
 }
 
 // ============================================================
-// 🆕 Negative Balance Modal
+// Negative Balance Modal
 // ============================================================
 function openNegativeBalanceModal(userId) {
     const user = usersData.find(u => u.id === userId);
@@ -1140,7 +1144,7 @@ async function saveNegativeBalance(userId) {
 }
 
 // ============================================================
-// 🆕 VIP Modal
+// VIP Modal
 // ============================================================
 function openVIPModal(userId) {
     const user = usersData.find(u => u.id === userId);
@@ -1150,7 +1154,7 @@ function openVIPModal(userId) {
 
     const options = Object.entries(VIP_LEVELS).map(([lvl, config]) => `
         <label class="vip-option ${parseInt(lvl) === currentLevel ? 'selected' : ''}" data-level="${lvl}">
-            <input type="radio" name="vipLevel" value="${lvl}" ${parseInt(lvl) === currentLevel ? 'checked' : ''} 
+            <input type="radio" name="vipLevel" value="${lvl}" ${parseInt(lvl) === currentLevel ? 'checked' : ''}
                    style="width:18px;height:18px;">
             <span class="material-icons" style="color:${config.color};font-size:22px;">${config.icon}</span>
             <div style="flex:1;">
@@ -1187,7 +1191,6 @@ function openVIPModal(userId) {
         </div>
     `);
 
-    // إضافة حدث للتحديد
     setTimeout(() => {
         document.querySelectorAll('.vip-option').forEach(opt => {
             opt.addEventListener('click', () => {
@@ -1402,9 +1405,8 @@ async function archiveCategoryHandler(categoryId) {
         showToast(`فشل أرشفة القسم: ${error.message}`, 'error');
     }
 }
-
 // ============================================================
-// ============ Products + Search Filter ============
+// ============ Products + Bundle Management ============
 // ============================================================
 function filterProducts() {
     const searchQuery = (document.getElementById('productSearch')?.value || '').toLowerCase().trim();
@@ -1458,16 +1460,23 @@ function renderProducts() {
     tbody.innerHTML = products.map(prod => {
         let priceDisplay = `${prod.base_price}$`;
         let qtyDisplay = prod.base_quantity;
+        let bundlesInfo = '';
 
         if (prod.product_type === 'topup') {
             priceDisplay = `<span style="color:var(--warning);font-weight:800;">${prod.base_price} ل.س</span>`;
             qtyDisplay = '-';
         }
 
+        if (prod.product_type === 'bundle' && prod.bundles && prod.bundles.length > 0) {
+            bundlesInfo = `<span style="font-size:0.7rem;background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:50px;font-weight:700;">🎁 ${prod.bundles.length} باقات</span>`;
+            priceDisplay = '-';
+            qtyDisplay = '-';
+        }
+
         return `
         <tr>
             <td data-label="الصورة"><img src="${prod.image || ''}" alt="${prod.name}" onerror="this.style.display='none'"></td>
-            <td data-label="الاسم">${prod.name}</td>
+            <td data-label="الاسم">${prod.name} ${bundlesInfo}</td>
             <td data-label="القسم">${categoriesData.find(c => c.id === prod.category_id)?.name || '-'}</td>
             <td data-label="السعر">${priceDisplay}</td>
             <td data-label="الكمية">${qtyDisplay}</td>
@@ -1481,7 +1490,83 @@ function renderProducts() {
     `}).join('');
 }
 
+// ============================================================
+// ============ Bundle Editor (reusable) ============
+// ============================================================
+function renderBundleEditor(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!editingBundles.length) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:20px;background:var(--background);border:1px dashed var(--border);border-radius:12px;color:var(--text-secondary);font-size:0.85rem;">
+                لا توجد باقات. اضغط "إضافة باقة" للبدء.
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = editingBundles.map((b, idx) => `
+        <div class="bundle-row ${b._deleted ? 'deleted' : ''}" data-idx="${idx}">
+            <div class="bundle-number">${idx + 1}</div>
+            <input type="text" class="bundle-input bundle-name" value="${b.name || ''}"
+                   placeholder="اسم الباقة" oninput="updateBundle(${idx}, 'name', this.value)">
+            <input type="number" class="bundle-input bundle-qty" value="${b.quantity || 0}"
+                   placeholder="الكمية" min="0" oninput="updateBundle(${idx}, 'quantity', this.value)">
+            <input type="number" class="bundle-input bundle-price" value="${b.price_usd || 0}"
+                   placeholder="السعر" step="0.01" min="0" oninput="updateBundle(${idx}, 'price_usd', this.value)">
+            <button type="button" class="bundle-delete-btn" onclick="removeBundle(${idx})">
+                <span class="material-icons">delete</span>
+            </button>
+        </div>
+    `).join('');
+}
+
+function updateBundle(idx, field, value) {
+    if (!editingBundles[idx]) return;
+    if (field === 'quantity') {
+        editingBundles[idx].quantity = parseInt(value) || 0;
+    } else if (field === 'price_usd') {
+        editingBundles[idx].price_usd = parseFloat(value) || 0;
+    } else {
+        editingBundles[idx].name = value;
+    }
+}
+
+function addBundleRow(containerId) {
+    editingBundles.push({
+        name: '',
+        quantity: 0,
+        price_usd: 0,
+        _new: true,
+    });
+    renderBundleEditor(containerId);
+}
+
+function removeBundle(idx) {
+    if (!editingBundles[idx]) return;
+
+    const b = editingBundles[idx];
+
+    if (b._new) {
+        // حذف مباشر للباقات الجديدة
+        editingBundles.splice(idx, 1);
+    } else {
+        // وسم للحذف (سيُحذف عند الحفظ)
+        editingBundles[idx]._deleted = true;
+    }
+
+    renderBundleEditor('bundlesEditor');
+    renderBundleEditor('editBundlesEditor');
+}
+
+// ============================================================
+// ============ Add Product Modal ============
+// ============================================================
 function openProductModal() {
+    editingBundles = [];
+    editingProductId = null;
+
     const body = `
         <h3 style="margin-bottom:14px;">إضافة منتج</h3>
         <div class="form-group"><label>اسم المنتج</label><input type="text" id="productName"></div>
@@ -1490,7 +1575,7 @@ function openProductModal() {
             <label>النوع</label>
             <select id="productType" onchange="toggleProductTypeFields()">
                 <option value="quantity">كمية</option>
-                <option value="bundle">باقة</option>
+                <option value="bundle">باقة (PUBG / Free Fire / إلخ)</option>
                 <option value="topup">رصيد سوري (ل.س)</option>
             </select>
         </div>
@@ -1502,6 +1587,15 @@ function openProductModal() {
             </small>
         </div>
         <div class="form-group" id="quantityField"><label>الكمية الأساسية</label><input type="number" id="productQuantity" value="0"></div>
+        <div class="form-group" id="bundlesField" style="display:none;">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>🎁 الباقات</span>
+                <button type="button" class="btn-outline btn-sm" onclick="addBundleRow('bundlesEditor')" style="font-size:0.75rem;">
+                    <span class="material-icons" style="font-size:14px;vertical-align:middle;">add</span> إضافة باقة
+                </button>
+            </label>
+            <div id="bundlesEditor" class="bundles-editor" style="margin-top:10px;"></div>
+        </div>
         <div class="form-group">
             <label id="maxQtyLabel">الحد الأقصى للكمية للطلب الواحد</label>
             <input type="number" id="productMaxQuantity" value="0" min="0" placeholder="0">
@@ -1534,16 +1628,24 @@ function openProductModal() {
 function toggleProductTypeFields() {
     const type = document.getElementById('productType').value;
     const qf = document.getElementById('quantityField');
+    const bf = document.getElementById('bundlesField');
+    const pf = document.getElementById('productPrice');
     const priceLabel = document.getElementById('priceLabel');
     const priceHelp = document.getElementById('priceHelp');
     const maxQtyLabel = document.getElementById('maxQtyLabel');
 
-    if (qf) qf.style.display = type === 'bundle' ? 'none' : 'block';
+    if (qf) qf.style.display = (type === 'bundle') ? 'none' : 'block';
+    if (bf) bf.style.display = (type === 'bundle') ? 'block' : 'none';
 
     if (type === 'topup') {
         if (priceLabel) priceLabel.textContent = 'سعر الليرة الواحدة بالدولار (تلقائي)';
         if (priceHelp) priceHelp.style.display = 'block';
         if (maxQtyLabel) maxQtyLabel.textContent = 'الحد الأقصى للمبلغ بالليرة السورية';
+    } else if (type === 'bundle') {
+        if (priceLabel) priceLabel.textContent = 'السعر الأساسي (سيُتجاهل — يعتمد على الباقات)';
+        if (priceHelp) { priceHelp.style.display = 'block'; priceHelp.textContent = '💡 للباقات: السعر يُحدد لكل باقة على حدة'; }
+        if (maxQtyLabel) maxQtyLabel.textContent = 'الحد الأقصى (اختياري)';
+        renderBundleEditor('bundlesEditor');
     } else {
         if (priceLabel) priceLabel.textContent = 'السعر الأساسي (دولار)';
         if (priceHelp) priceHelp.style.display = 'none';
@@ -1560,7 +1662,19 @@ async function saveProduct(btn) {
     const maxQuantity = parseInt(document.getElementById('productMaxQuantity').value) || 0;
     let baseQuantity = 0;
     if (type !== 'bundle') baseQuantity = parseInt(document.getElementById('productQuantity').value);
+
     if (!name || !categoryId) { showToast('أدخل البيانات المطلوبة', 'warning'); return; }
+
+    // فحص الباقات
+    let bundlesToSave = [];
+    if (type === 'bundle') {
+        bundlesToSave = editingBundles.filter(b => !b._deleted && b.name && b.price_usd > 0);
+        if (!bundlesToSave.length) {
+            showToast('أضف باقة واحدة على الأقل', 'warning');
+            return;
+        }
+    }
+
     const imageFile = document.getElementById('productImage').files[0];
     let image = '';
     if (imageFile) image = await fileToSquareBase64(imageFile, 512);
@@ -1568,9 +1682,19 @@ async function saveProduct(btn) {
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
         await createProduct({
-            name, category_id: categoryId, product_type: type,
-            base_price: price, base_quantity: baseQuantity,
-            input_type: inputType, max_quantity: maxQuantity, image
+            name,
+            category_id: categoryId,
+            product_type: type,
+            base_price: price || 0,
+            base_quantity: baseQuantity,
+            input_type: inputType,
+            max_quantity: maxQuantity,
+            image,
+            bundles: bundlesToSave.map(b => ({
+                name: b.name,
+                quantity: b.quantity,
+                price_usd: b.price_usd,
+            })),
         });
         closeModal();
         await loadAllData();
@@ -1589,7 +1713,18 @@ function openEditProductModal(productId) {
     const prod = productsData.find(p => p.id === productId);
     if (!prod) { showToast('المنتج غير موجود', 'error'); return; }
 
+    editingProductId = productId;
+    editingBundles = (prod.bundles || []).map(b => ({
+        id: b.id,
+        name: b.name,
+        quantity: b.quantity,
+        price_usd: b.price_usd,
+        _new: false,
+        _deleted: false,
+    }));
+
     const isTopup = prod.product_type === 'topup';
+    const isBundle = prod.product_type === 'bundle';
 
     const body = `
         <h3 style="margin-bottom:14px;">تعديل المنتج</h3>
@@ -1617,32 +1752,44 @@ function openEditProductModal(productId) {
 
         <div class="form-group">
             <label>نوع المنتج</label>
-            <select id="editProductType">
+            <select id="editProductType" onchange="toggleEditProductTypeFields()">
                 <option value="quantity" ${prod.product_type === 'quantity' ? 'selected' : ''}>كمية</option>
                 <option value="bundle" ${prod.product_type === 'bundle' ? 'selected' : ''}>باقة</option>
                 <option value="topup" ${prod.product_type === 'topup' ? 'selected' : ''}>رصيد سوري</option>
             </select>
         </div>
 
-        ${!isTopup ? `
-        <div class="edit-modal-grid">
-            <div class="form-group">
-                <label>السعر الأساسي ($)</label>
-                <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-                <label>الكمية الأساسية</label>
-                <input type="number" id="editProductQuantity" value="${prod.base_quantity || 0}" min="0">
-            </div>
+        <div id="editBundlesField" class="form-group" style="${isBundle ? 'display:block;' : 'display:none;'}">
+            <label style="display:flex;justify-content:space-between;align-items:center;">
+                <span>🎁 الباقات</span>
+                <button type="button" class="btn-outline btn-sm" onclick="addBundleRow('editBundlesEditor')" style="font-size:0.75rem;">
+                    <span class="material-icons" style="font-size:14px;vertical-align:middle;">add</span> إضافة باقة
+                </button>
+            </label>
+            <div id="editBundlesEditor" class="bundles-editor" style="margin-top:10px;"></div>
         </div>
-        ` : `
-        <div class="form-group">
-            <label>السعر بالليرة السورية</label>
-            <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="1" min="0">
-            <small style="color:var(--warning);font-size:0.75rem;display:block;margin-top:4px;">💡 السعر يُدخل بالليرة السورية</small>
+
+        <div id="editNonBundleFields" style="${isBundle ? 'display:none;' : 'display:block;'}">
+            ${!isTopup ? `
+            <div class="edit-modal-grid">
+                <div class="form-group">
+                    <label>السعر الأساسي ($)</label>
+                    <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>الكمية الأساسية</label>
+                    <input type="number" id="editProductQuantity" value="${prod.base_quantity || 0}" min="0">
+                </div>
+            </div>
+            ` : `
+            <div class="form-group">
+                <label>السعر بالليرة السورية</label>
+                <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="1" min="0">
+                <small style="color:var(--warning);font-size:0.75rem;display:block;margin-top:4px;">💡 السعر يُدخل بالليرة السورية</small>
+            </div>
+            <input type="hidden" id="editProductQuantity" value="0">
+            `}
         </div>
-        <input type="hidden" id="editProductQuantity" value="0">
-        `}
 
         <div class="edit-modal-grid">
             <div class="form-group">
@@ -1680,21 +1827,56 @@ function openEditProductModal(productId) {
         </div>
     `;
     openModal('تعديل المنتج', body);
+
+    // عرض الباقات بعد فتح Modal
+    setTimeout(() => {
+        if (isBundle) renderBundleEditor('editBundlesEditor');
+    }, 100);
+}
+
+function toggleEditProductTypeFields() {
+    const type = document.getElementById('editProductType').value;
+    const bf = document.getElementById('editBundlesField');
+    const nbf = document.getElementById('editNonBundleFields');
+
+    if (type === 'bundle') {
+        if (bf) bf.style.display = 'block';
+        if (nbf) nbf.style.display = 'none';
+        renderBundleEditor('editBundlesEditor');
+    } else {
+        if (bf) bf.style.display = 'none';
+        if (nbf) nbf.style.display = 'block';
+    }
 }
 
 async function saveEditedProduct(productId, btn) {
     const name = document.getElementById('editProductName').value;
     const description = document.getElementById('editProductDescription').value;
     const categoryId = parseInt(document.getElementById('editProductCategoryId').value);
-    const price = parseFloat(document.getElementById('editProductPrice').value);
-    const quantity = parseInt(document.getElementById('editProductQuantity').value) || 0;
+    const productType = document.getElementById('editProductType').value;
+    const inputType = document.getElementById('editProductInputType').value;
     const maxQuantity = parseInt(document.getElementById('editProductMaxQuantity').value) || 0;
     const stock = parseInt(document.getElementById('editProductStock').value) || 0;
-    const inputType = document.getElementById('editProductInputType').value;
-    const productType = document.getElementById('editProductType').value;
+
+    let price = 0;
+    let quantity = 0;
+
+    if (productType !== 'bundle') {
+        price = parseFloat(document.getElementById('editProductPrice')?.value) || 0;
+        quantity = parseInt(document.getElementById('editProductQuantity')?.value) || 0;
+    }
 
     if (!name || !name.trim()) { showToast('أدخل اسم المنتج', 'warning'); return; }
-    if (isNaN(price) || price < 0) { showToast('أدخل سعراً صحيحاً', 'warning'); return; }
+
+    // فحص الباقات إذا كان النوع "bundle"
+    let bundlesToSave = [];
+    if (productType === 'bundle') {
+        bundlesToSave = editingBundles.filter(b => !b._deleted && b.name && b.price_usd > 0);
+        if (!bundlesToSave.length) {
+            showToast('يجب أن يحتوي منتج الباقات على باقة واحدة على الأقل', 'warning');
+            return;
+        }
+    }
 
     const data = {
         name: name.trim(),
@@ -1706,9 +1888,14 @@ async function saveEditedProduct(productId, btn) {
         stock: stock,
         input_type: inputType,
         product_type: productType,
+        bundles: bundlesToSave.map(b => ({
+            name: b.name,
+            quantity: b.quantity,
+            price_usd: b.price_usd,
+        })),
     };
 
-    const imageFile = document.getElementById('editProductImage').files[0];
+    const imageFile = document.getElementById('editProductImage')?.files[0];
     if (imageFile) {
         data.image = await fileToSquareBase64(imageFile, 512);
     }
@@ -1743,6 +1930,7 @@ async function archiveProductHandler(productId) {
         showToast(`فشل أرشفة المنتج: ${error.message}`, 'error');
     }
 }
+
 // ============================================================
 // ============ Archive Section ============
 // ============================================================
@@ -1893,9 +2081,6 @@ function openPaymentMethodModal() {
                 <input type="checkbox" id="paymentRequiresKyc" style="width:20px;height:20px;cursor:pointer;">
                 <span style="font-weight:600;">🔒 تتطلب هذه الطريقة توثيق الحساب</span>
             </label>
-            <small style="color:var(--text-secondary);font-size:0.75rem;display:block;margin-top:6px;line-height:1.5;">
-                💡 المستخدمون غير الموثقين لن يستطيعوا استخدامها
-            </small>
         </div>
 
         <div class="form-group">
@@ -2090,7 +2275,7 @@ async function approveDepositHandler(depositId) {
         await loadAllData();
         renderDeposits(depositsData);
         if (result.paid_debt > 0) {
-            showToast(`تم اعتماد الإيداع (سداد دين: $${result.paid_debt})`, 'success');
+            showToast(`تم اعتماد الإيداع (سداد دين: $${result.paid_debt.toFixed(2)})`, 'success');
         } else {
             showToast('تم اعتماد الإيداع بنجاح', 'success');
         }
@@ -2416,7 +2601,6 @@ async function loadActivities() {
         tbody.innerHTML = `<tr><td colspan="3" class="empty-state">فشل تحميل النشاطات: ${error.message}</td></tr>`;
     }
 }
-
 // ============================================================
 // ============ Audit Log ============
 // ============================================================

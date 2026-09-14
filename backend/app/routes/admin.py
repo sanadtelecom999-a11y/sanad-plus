@@ -106,6 +106,17 @@ def get_arabic_status(status):
     return status_map.get(status, status)
 
 
+def serialize_bundle(b):
+    return {
+        "id": b.id,
+        "product_id": b.product_id,
+        "name": b.name,
+        "quantity": b.quantity,
+        "price_usd": b.price_usd,
+        "is_active": b.is_active,
+    }
+
+
 # ============================================================
 # ============ Authentication ============
 # ============================================================
@@ -266,9 +277,6 @@ def admin_get_users():
     } for u in users])
 
 
-# ============================================================
-# ============ Negative Balance ============
-# ============================================================
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -310,9 +318,6 @@ def admin_set_negative_balance(user_id):
     })
 
 
-# ============================================================
-# ============ User Actions ============
-# ============================================================
 @main.route("/admin/api/users/<int:user_id>/kyc", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -382,7 +387,6 @@ def admin_adjust_balance(user_id):
     log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount}$")
     db.session.commit()
 
-    # رسالة Telegram للمستخدم عند تعديل الرصيد (تخص المال)
     send_telegram_notification(user.telegram_id, f"💰 تم تعديل رصيدك بمقدار {amount:.2f}$")
     notify_admins(f"💵 تم تعديل رصيد المستخدم {user.telegram_id} بمقدار {amount:.2f}$")
 
@@ -496,7 +500,7 @@ def admin_restore_category(cat_id):
 
 
 # ============================================================
-# ============ Products ============
+# ============ Products (with Bundles) ============
 # ============================================================
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
@@ -504,17 +508,23 @@ def admin_restore_category(cat_id):
 def admin_products():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
+
     if request.method == "GET":
         products = Product.query.filter_by(is_active=True).all()
-        return jsonify([{
-            "id": p.id, "category_id": p.category_id, "name": p.name,
-            "description": p.description, "image": p.image,
-            "product_type": p.product_type, "base_quantity": p.base_quantity,
-            "base_price": p.base_price, "unit_name": p.unit_name,
-            "input_type": p.input_type, "custom_input_label": p.custom_input_label,
-            "stock": p.stock, "max_quantity": p.max_quantity,
-            "is_bundle": p.is_bundle, "is_active": p.is_active,
-        } for p in products])
+        result = []
+        for p in products:
+            bundles = ProductBundle.query.filter_by(product_id=p.id, is_active=True).order_by(ProductBundle.price_usd).all()
+            result.append({
+                "id": p.id, "category_id": p.category_id, "name": p.name,
+                "description": p.description, "image": p.image,
+                "product_type": p.product_type, "base_quantity": p.base_quantity,
+                "base_price": p.base_price, "unit_name": p.unit_name,
+                "input_type": p.input_type, "custom_input_label": p.custom_input_label,
+                "stock": p.stock, "max_quantity": p.max_quantity,
+                "is_bundle": p.is_bundle, "is_active": p.is_active,
+                "bundles": [serialize_bundle(b) for b in bundles],
+            })
+        return jsonify(result)
 
     data = request.get_json() or {}
     product = Product(
@@ -527,16 +537,40 @@ def admin_products():
         input_type=data.get("input_type", "id"),
         custom_input_label=data.get("custom_input_label", ""),
         stock=data.get("stock", 0), max_quantity=data.get("max_quantity", 0),
-        is_bundle=data.get("is_bundle", False), is_active=data.get("is_active", True),
+        is_bundle=(data.get("product_type") == "bundle"),
+        is_active=data.get("is_active", True),
     )
     db.session.add(product)
+    db.session.flush()  # للحصول على ID
+
+    # حفظ الباقات إذا كان النوع "bundle"
+    if product.product_type == "bundle":
+        bundles_data = data.get("bundles", [])
+        for b in bundles_data:
+            name = (b.get("name") or "").strip()
+            try:
+                price = float(b.get("price_usd", 0))
+                qty = int(b.get("quantity", 0))
+            except (ValueError, TypeError):
+                continue
+            if not name or price <= 0:
+                continue
+            bundle = ProductBundle(
+                product_id=product.id,
+                name=name,
+                quantity=qty,
+                price_usd=price,
+                is_active=True,
+            )
+            db.session.add(bundle)
+
     log_admin_activity(f"إضافة منتج: {product.name}")
     db.session.commit()
     notify_admins(f"📦 تم إضافة منتج جديد: {product.name}")
     return jsonify({"id": product.id}), 201
 
 
-@main.route("/admin/api/products/<int:product_id>", methods=["PUT", "DELETE"])
+@main.route("/admin/api/products/<int:product_id>", methods=["GET", "PUT", "DELETE"])
 @jwt_required()
 @handle_errors
 def admin_product_actions(product_id):
@@ -545,6 +579,19 @@ def admin_product_actions(product_id):
     product = Product.query.get(product_id)
     if not product:
         return jsonify({"error": "منتج غير موجود"}), 404
+
+    if request.method == "GET":
+        bundles = ProductBundle.query.filter_by(product_id=product.id).order_by(ProductBundle.price_usd).all()
+        return jsonify({
+            "id": product.id, "category_id": product.category_id, "name": product.name,
+            "description": product.description, "image": product.image,
+            "product_type": product.product_type, "base_quantity": product.base_quantity,
+            "base_price": product.base_price, "unit_name": product.unit_name,
+            "input_type": product.input_type, "custom_input_label": product.custom_input_label,
+            "stock": product.stock, "max_quantity": product.max_quantity,
+            "is_bundle": product.is_bundle, "is_active": product.is_active,
+            "bundles": [serialize_bundle(b) for b in bundles],
+        })
 
     if request.method == "PUT":
         data = request.get_json() or {}
@@ -557,11 +604,43 @@ def admin_product_actions(product_id):
         for key, value in data.items():
             if key in ALLOWED_FIELDS and hasattr(product, key):
                 setattr(product, key, value)
+
+        # تحديث الباقات إذا كان النوع "bundle"
+        if "bundles" in data:
+            # احذف كل الباقات القديمة
+            ProductBundle.query.filter_by(product_id=product.id).delete()
+
+            # أنشئ الجديدة
+            for b in data.get("bundles", []):
+                name = (b.get("name") or "").strip()
+                try:
+                    price = float(b.get("price_usd", 0))
+                    qty = int(b.get("quantity", 0))
+                except (ValueError, TypeError):
+                    continue
+                if not name or price <= 0:
+                    continue
+                bundle = ProductBundle(
+                    product_id=product.id,
+                    name=name,
+                    quantity=qty,
+                    price_usd=price,
+                    is_active=True,
+                )
+                db.session.add(bundle)
+
+            # مزامنة is_bundle مع النوع
+            if product.product_type == "bundle":
+                product.is_bundle = True
+            else:
+                product.is_bundle = False
+
         log_admin_activity(f"تعديل المنتج: {product.name}")
         db.session.commit()
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True, "message": "تم تعديل المنتج"})
 
+    # DELETE → أرشفة
     product_name = product.name
     product.is_active = False
     log_admin_activity(f"أرشفة المنتج: {product_name}")
@@ -589,30 +668,95 @@ def admin_restore_product(product_id):
     return jsonify({"success": True, "message": "تم استرجاع المنتج"})
 
 
+# ============================================================
+# ============ Bundles (Individual endpoints) ============
+# ============================================================
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
 def admin_bundles(product_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    if request.method == "GET":
-        bundles = ProductBundle.query.filter_by(product_id=product_id).all()
-        return jsonify([{
-            "id": b.id, "name": b.name, "quantity": b.quantity,
-            "price_usd": b.price_usd, "is_active": b.is_active,
-        } for b in bundles])
 
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "منتج غير موجود"}), 404
+
+    if request.method == "GET":
+        bundles = ProductBundle.query.filter_by(product_id=product_id).order_by(ProductBundle.price_usd).all()
+        return jsonify([serialize_bundle(b) for b in bundles])
+
+    # POST
     data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    try:
+        price = float(data.get("price_usd", 0))
+        qty = int(data.get("quantity", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "بيانات غير صالحة"}), 400
+
+    if not name:
+        return jsonify({"error": "اسم الباقة مطلوب"}), 400
+    if price <= 0:
+        return jsonify({"error": "السعر يجب أن يكون أكبر من صفر"}), 400
+
     bundle = ProductBundle(
-        product_id=product_id, name=data.get("name"),
-        quantity=data.get("quantity"), price_usd=data.get("price_usd"),
-        is_active=data.get("is_active", True),
+        product_id=product_id,
+        name=name,
+        quantity=qty,
+        price_usd=price,
+        is_active=True,
     )
     db.session.add(bundle)
-    log_admin_activity(f"إضافة باقة: {bundle.name}")
+    log_admin_activity(f"إضافة باقة: {bundle.name} لمنتج {product.name}")
     db.session.commit()
-    notify_admins(f"📦 تم إضافة باقة: {bundle.name}")
-    return jsonify({"id": bundle.id}), 201
+    notify_admins(f"📦 باقة جديدة: {bundle.name} (${price})")
+    return jsonify(serialize_bundle(bundle)), 201
+
+
+@main.route("/admin/api/products/<int:product_id>/bundles/<int:bundle_id>", methods=["PUT", "DELETE"])
+@jwt_required()
+@handle_errors
+def admin_bundle_actions(product_id, bundle_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    bundle = ProductBundle.query.filter_by(id=bundle_id, product_id=product_id).first()
+    if not bundle:
+        return jsonify({"error": "باقة غير موجودة"}), 404
+
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        if "name" in data:
+            name = (data.get("name") or "").strip()
+            if name:
+                bundle.name = name
+        if "quantity" in data:
+            try:
+                bundle.quantity = int(data.get("quantity"))
+            except (ValueError, TypeError):
+                pass
+        if "price_usd" in data:
+            try:
+                price = float(data.get("price_usd"))
+                if price > 0:
+                    bundle.price_usd = price
+            except (ValueError, TypeError):
+                pass
+        if "is_active" in data:
+            bundle.is_active = bool(data.get("is_active"))
+
+        log_admin_activity(f"تعديل باقة: {bundle.name}")
+        db.session.commit()
+        return jsonify(serialize_bundle(bundle))
+
+    # DELETE
+    bundle_name = bundle.name
+    db.session.delete(bundle)
+    log_admin_activity(f"حذف باقة: {bundle_name}")
+    db.session.commit()
+    notify_admins(f"🗑️ تم حذف باقة: {bundle_name}")
+    return jsonify({"success": True, "message": "تم حذف الباقة"})
 
 
 # ============================================================
@@ -813,7 +957,6 @@ def admin_update_order_status(order_id):
 
     db.session.commit()
 
-    # ❌ لا رسائل Telegram للمستخدم — فقط للأدمن
     notify_admins(f"🔄 طلب {order.order_number} أصبح {get_arabic_status(new_status)}")
     return jsonify({"status": order.status, "message": f"تم تحديث الحالة إلى {get_arabic_status(new_status)}"})
 
@@ -855,6 +998,7 @@ def admin_approve_deposit(deposit_id):
 
     paid_debt = 0.0
     added_amount = round(deposit.amount, 2)
+    msg = ""
 
     if user:
         balance_before = round(user.balance, 2)
@@ -864,12 +1008,10 @@ def admin_approve_deposit(deposit_id):
         if current_balance < 0:
             debt = abs(current_balance)
             if deposit_amount >= debt:
-                # يسدد الدين كاملاً
                 paid_debt = round(debt, 2)
                 added_amount = round(deposit_amount - debt, 2)
                 user.balance = added_amount
             else:
-                # يسدد جزءاً من الدين
                 paid_debt = deposit_amount
                 added_amount = 0.0
                 user.balance = round(current_balance + deposit_amount, 2)
@@ -877,7 +1019,6 @@ def admin_approve_deposit(deposit_id):
             user.balance = round(current_balance + deposit_amount, 2)
             added_amount = deposit_amount
 
-        # تأكد من تقريب الرصيد النهائي
         user.balance = round(user.balance, 2)
 
         txn = Transaction(
@@ -893,7 +1034,6 @@ def admin_approve_deposit(deposit_id):
             note=f"دفع دين: ${paid_debt:.2f}, إضافة: ${added_amount:.2f}" if paid_debt > 0 else None,
         )
 
-        # رسالة مخصصة
         if paid_debt > 0 and added_amount > 0:
             msg = f"✅ تم خصم {paid_debt:.2f}$ لسداد دينك، وإضافة {added_amount:.2f}$ لرصيدك"
         elif paid_debt > 0 and added_amount == 0:
@@ -910,8 +1050,7 @@ def admin_approve_deposit(deposit_id):
     log_admin_activity(f"قبول إيداع {deposit.id} بقيمة {deposit.amount}$")
     db.session.commit()
 
-    # ✅ رسالة واحدة مخصصة للمستخدم
-    if user:
+    if user and msg:
         send_telegram_notification(user.telegram_id, msg)
 
     notify_admins(
@@ -954,7 +1093,6 @@ def admin_reject_deposit(deposit_id):
     log_admin_activity(f"رفض إيداع {deposit.id} بقيمة {deposit.amount}$")
     db.session.commit()
 
-    # ✅ رسالة الرفض تبقى
     if user:
         send_telegram_notification(user.telegram_id, f"❌ تم رفض إيداعك بقيمة {deposit.amount:.2f}$")
 
@@ -1005,7 +1143,6 @@ def admin_approve_kyc(kyc_id):
     log_admin_activity(f"قبول توثيق المستخدم {kyc.user_id}")
     db.session.commit()
 
-    # ✅ رسالة التوثيق تبقى
     if user:
         send_telegram_notification(user.telegram_id, "✅ تم توثيق حسابك بنجاح")
 
@@ -1045,7 +1182,6 @@ def admin_reject_kyc(kyc_id):
     log_admin_activity(f"رفض توثيق المستخدم {kyc.user_id}")
     db.session.commit()
 
-    # ✅ رسالة الرفض تبقى
     if user:
         send_telegram_notification(user.telegram_id, "❌ تم رفض طلب التوثيق")
 

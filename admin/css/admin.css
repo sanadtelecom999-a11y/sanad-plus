@@ -1867,3 +1867,132 @@ tr:hover td { background: var(--primary-light); }
     color: var(--success);
     font-weight: 800;
 }
+/* ============================================================
+   ============ Bundles Editor ============
+   ============================================================ */
+.bundles-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bundle-row {
+    display: grid;
+    grid-template-columns: 32px 1.2fr 0.8fr 0.8fr 32px;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 8px;
+    transition: var(--transition);
+}
+
+.bundle-row:hover {
+    border-color: var(--primary);
+}
+
+.bundle-row.deleted {
+    opacity: 0.4;
+    background: var(--error-bg);
+    border-color: var(--error);
+}
+
+.bundle-number {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.bundle-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    outline: none;
+    transition: var(--transition);
+    min-width: 0;
+}
+
+.bundle-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+.bundle-name {
+    text-align: right;
+}
+
+.bundle-qty,
+.bundle-price {
+    text-align: center;
+    direction: ltr;
+}
+
+.bundle-delete-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--error-bg);
+    color: var(--error);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.bundle-delete-btn:hover {
+    background: var(--error);
+    color: white;
+}
+
+.bundle-delete-btn .material-icons {
+    font-size: 16px;
+}
+
+@media (max-width: 640px) {
+    .bundle-row {
+        grid-template-columns: 28px 1fr 28px;
+        grid-template-rows: auto auto;
+    }
+    .bundle-name {
+        grid-column: 2 / 3;
+        grid-row: 1;
+    }
+    .bundle-qty {
+        grid-column: 2 / 3;
+        grid-row: 2;
+        justify-self: start;
+        width: calc(50% - 4px);
+    }
+    .bundle-price {
+        grid-column: 2 / 3;
+        grid-row: 2;
+        justify-self: end;
+        width: calc(50% - 4px);
+    }
+    .bundle-number {
+        grid-row: 1 / 3;
+        align-self: center;
+    }
+    .bundle-delete-btn {
+        grid-row: 1 / 3;
+        align-self: center;
+    }
+}
