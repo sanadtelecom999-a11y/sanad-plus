@@ -18,7 +18,7 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
-// 🆕 VIP Config
+// VIP Config
 const VIP_LEVELS = {
     1: { name: 'مستخدم جديد لسند بلس', icon: 'person', color: '#CD7F32' },
     2: { name: 'مبتدئ سند بلس', icon: 'school', color: '#C0C0C0' },
@@ -323,7 +323,7 @@ const SwipeNav = (() => {
     function handleStart(e) {
         if (e.touches.length !== 1) return;
         const el = e.target;
-        if (el.closest('input, textarea, select, button, .modal, .new-purchase-modal, .order-timeline')) {
+        if (el.closest('input, textarea, select, button, .modal, .new-purchase-modal, .order-timeline, .bundle-option')) {
             isSwiping = false;
             return;
         }
@@ -544,7 +544,7 @@ if (document.readyState === 'loading') {
     SplashScreen.initSplashScreen();
 }
 // ============================================================
-// 🎨 UI Update — مع VIP في الرئيسية
+// 🎨 UI Update
 // ============================================================
 function updateUserUI() {
     if (!userData) {
@@ -555,7 +555,6 @@ function updateUserUI() {
         return;
     }
 
-    // الرصيد
     const balanceEl = document.getElementById('headerBalance');
     if (balanceEl) {
         balanceEl.textContent = formatPrice(userData.balance);
@@ -572,10 +571,8 @@ function updateUserUI() {
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
 
-    // 🆕 VIP في الرئيسية — أسفل الترحيب
     renderHomeVIPBadge();
 
-    // VIP في Account (يظهر لو موجود)
     const avb = document.getElementById('accountVipBadge');
     if (avb) avb.style.display = 'none';
 
@@ -617,13 +614,12 @@ function updateUserUI() {
 }
 
 // ============================================================
-// 🆕 عرض VIP في الرئيسية — أيقونة متحركة
+// VIP Badge
 // ============================================================
 function renderHomeVIPBadge() {
     let container = document.getElementById('homeVipBadge');
 
     if (!container) {
-        // أنشئ العنصر ديناميكياً بعد greetingSub
         const gs = document.getElementById('greetingSub');
         if (!gs) return;
 
@@ -678,6 +674,8 @@ function isUserVerified() {
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+    const isBundle = prod.product_type === 'bundle' && prod.bundles && prod.bundles.length > 0;
+
     return `
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
@@ -687,6 +685,7 @@ function renderProductCard(prod) {
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isNew ? '<span class="badge-new">جديد</span>' : ''}
+                    ${isBundle ? `<span class="badge-bundle">${prod.bundles.length} باقات</span>` : ''}
                 </div>
             </div>
             <div class="product-name">${prod.name}</div>
@@ -733,7 +732,7 @@ function renderProductsList(products) {
     list.innerHTML = products.map(prod => renderProductCard(prod)).join('');
 }
 
-// ============ Payment Methods (مع القفل) ============
+// ============ Payment Methods ============
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     if (!container) return;
@@ -882,6 +881,7 @@ function renderOrders(orders) {
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         const isTopup = order.product_type === 'topup';
+        const isBundle = order.product_type === 'bundle';
 
         let qtyDisplay = Number(order.quantity).toLocaleString('ar');
         let priceDisplay = formatPrice(order.total_price);
@@ -1195,8 +1195,10 @@ function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
 // ============================================================
-// 🛒 Purchase Modal — مع دعم Topup السوري
+// 🛒 Purchase Modal — مع دعم الباقات والرصيد السوري
 // ============================================================
+let selectedBundleId = null;
+
 function openPurchaseModal(productId) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
@@ -1204,6 +1206,7 @@ function openPurchaseModal(productId) {
     addToRecentlyViewed(productId);
 
     const isTopup = product.product_type === 'topup';
+    const isBundle = product.product_type === 'bundle' && product.bundles && product.bundles.length > 0;
     const sypRate = getSypRate();
 
     const baseQty = product.base_quantity || 1;
@@ -1213,6 +1216,11 @@ function openPurchaseModal(productId) {
     window.__currentPurchaseUnitPrice = unitPrice;
     window.__currentSypRate = sypRate;
     window.__currentIsTopup = isTopup;
+    window.__currentIsBundle = isBundle;
+    window.__currentProduct = product;
+
+    // اختيار أول باقة افتراضياً
+    selectedBundleId = isBundle ? product.bundles[0].id : null;
 
     let customInputHTML = '';
 
@@ -1243,12 +1251,45 @@ function openPurchaseModal(productId) {
     }
 
     const fav = isFavorite(product.id);
+    let infoRowHTML = '';
 
-    let infoRowHTML, defaultAmount, defaultTotal;
+    // ============ 1) الباقات ============
+    if (isBundle) {
+        const sortedBundles = [...product.bundles].sort((a, b) => a.price_usd - b.price_usd);
+        const firstBundle = sortedBundles[0];
 
-    if (isTopup) {
-        defaultAmount = baseQty;
-        defaultTotal = baseQty / sypRate;
+        infoRowHTML = `
+            <div class="bundle-selector">
+                <div class="bundle-selector-label">
+                    <span class="material-icons">redeem</span>
+                    اختر الباقة
+                </div>
+                <div class="bundle-options-list" id="bundleOptionsList">
+                    ${sortedBundles.map((b, i) => `
+                        <div class="bundle-option ${i === 0 ? 'selected' : ''}" data-id="${b.id}"
+                             onclick="selectBundle(${b.id})">
+                            <div class="bundle-radio">
+                                <div class="bundle-radio-dot"></div>
+                            </div>
+                            <div class="bundle-info">
+                                <div class="bundle-name">${b.name}</div>
+                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} قطعة</div>` : ''}
+                            </div>
+                            <div class="bundle-price">${formatPrice(b.price_usd)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="new-info-box primary" style="margin-top:14px;">
+                <div class="new-info-label">الإجمالي</div>
+                <div class="new-info-value" id="newTotalDisplay">${formatPrice(firstBundle.price_usd)}</div>
+            </div>
+        `;
+    }
+    // ============ 2) الرصيد السوري ============
+    else if (isTopup) {
+        const defaultAmount = baseQty;
+        const defaultTotal = baseQty / sypRate;
 
         infoRowHTML = `
             <div class="new-info-row">
@@ -1268,7 +1309,9 @@ function openPurchaseModal(productId) {
                 سعر الصرف: <strong>${sypRate.toLocaleString('ar')} ل.س</strong> = <strong>1.00$</strong>
             </div>
         `;
-    } else {
+    }
+    // ============ 3) الكمية العادية ============
+    else {
         infoRowHTML = `
             <div class="new-info-row">
                 <div class="new-info-box">
@@ -1314,6 +1357,31 @@ function openPurchaseModal(productId) {
     openModal('', modalContent);
 }
 
+// ============================================================
+// 🎁 اختيار باقة
+// ============================================================
+function selectBundle(bundleId) {
+    const product = window.__currentProduct;
+    if (!product || !product.bundles) return;
+
+    const bundle = product.bundles.find(b => b.id === bundleId);
+    if (!bundle) return;
+
+    selectedBundleId = bundleId;
+
+    // تحديث الاختيار البصري
+    document.querySelectorAll('.bundle-option').forEach(el => {
+        el.classList.toggle('selected', parseInt(el.getAttribute('data-id')) === bundleId);
+    });
+
+    // تحديث الإجمالي
+    const display = document.getElementById('newTotalDisplay');
+    if (display) display.textContent = formatPrice(bundle.price_usd);
+}
+
+// ============================================================
+// 🔢 تحديث الإجمالي
+// ============================================================
 function updatePurchaseTotal() {
     const input = document.getElementById('newQtyInput');
     if (!input) return;
@@ -1352,8 +1420,23 @@ function confirmPurchaseDialog(productId, btn) {
     if (!product) return;
 
     const isTopup = product.product_type === 'topup';
+    const isBundle = product.product_type === 'bundle';
 
-    // ============ الرصيد السوري: لا confirm ============
+    // ============ 1) الباقات ============
+    if (isBundle) {
+        if (!selectedBundleId) {
+            showNotification('تنبيه', 'يرجى اختيار باقة', 'warning');
+            return;
+        }
+
+        // فحص حقول ID
+        if (!validateCustomInput(product)) return;
+
+        executeConfirmPurchase(productId, btn);
+        return;
+    }
+
+    // ============ 2) الرصيد السوري ============
     if (isTopup) {
         const amountInput = document.getElementById('newSypAmount');
         const sypAmount = parseInt(amountInput?.value);
@@ -1368,32 +1451,14 @@ function confirmPurchaseDialog(productId, btn) {
             return;
         }
 
-        if (product.input_type === 'id') {
-            const val = document.getElementById('purchasePlayerId')?.value;
-            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
-                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
-                return;
-            }
-        } else if (product.input_type === 'account_id') {
-            const val = document.getElementById('purchaseAccountId')?.value;
-            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
-                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
-                return;
-            }
-        } else if (product.input_type === 'phone') {
-            const val = document.getElementById('purchasePhone')?.value;
-            if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
-                showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
-                return;
-            }
-        }
+        if (!validateCustomInput(product)) return;
 
-        // ⚡ بدون confirm — إرسال مباشر
+        // ⚡ بدون confirm
         executeConfirmPurchase(productId, btn);
         return;
     }
 
-    // ============ منتجات عادية: confirm ============
+    // ============ 3) الكمية العادية ============
     const qtyInput = document.getElementById('newQtyInput');
     const qty = parseInt(qtyInput?.value);
     if (!qty || qty < 1) {
@@ -1407,27 +1472,32 @@ function confirmPurchaseDialog(productId, btn) {
         return;
     }
 
+    if (!validateCustomInput(product)) return;
+
+    executeConfirmPurchase(productId, btn);
+}
+
+function validateCustomInput(product) {
     if (product.input_type === 'id') {
         const val = document.getElementById('purchasePlayerId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
-            return;
+            return false;
         }
     } else if (product.input_type === 'account_id') {
         const val = document.getElementById('purchaseAccountId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
-            return;
+            return false;
         }
     } else if (product.input_type === 'phone') {
         const val = document.getElementById('purchasePhone')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
-            return;
+            return false;
         }
     }
-
-    executeConfirmPurchase(productId, btn);
+    return true;
 }
 
 async function executeConfirmPurchase(productId, btn) {
@@ -1435,22 +1505,24 @@ async function executeConfirmPurchase(productId, btn) {
     if (!product || !userData) return;
 
     const isTopup = product.product_type === 'topup';
-
-    let quantity;
-    if (isTopup) {
-        quantity = parseInt(document.getElementById('newSypAmount')?.value);
-    } else {
-        quantity = parseInt(document.getElementById('newQtyInput')?.value);
-    }
+    const isBundle = product.product_type === 'bundle';
 
     const idempotencyKey = `ord-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const orderData = {
         product_id: productId,
-        quantity: quantity,
         idempotency_key: idempotencyKey,
     };
 
+    if (isBundle) {
+        orderData.bundle_id = selectedBundleId;
+    } else if (isTopup) {
+        orderData.quantity = parseInt(document.getElementById('newSypAmount')?.value);
+    } else {
+        orderData.quantity = parseInt(document.getElementById('newQtyInput')?.value);
+    }
+
+    // إضافة الحقول المخصصة
     if (product.input_type === 'id') {
         orderData.player_id = document.getElementById('purchasePlayerId')?.value;
     } else if (product.input_type === 'account_id') {
@@ -1464,19 +1536,10 @@ async function executeConfirmPurchase(productId, btn) {
     try {
         const result = await createOrder(orderData);
         if (result && result.error) {
-            // 🆕 معالجة خاصة لأخطاء الرصيد السالب
             if (result.code === 'NEGATIVE_LIMIT_EXCEEDED' || (result.error && result.error.includes('الحد الأقصى للرصيد السالب'))) {
-                showNotification(
-                    'الرصيد السالب ممتلئ',
-                    `${result.error}\n\n💡 قم بالإيداع لسداد دينك.`,
-                    'warning'
-                );
+                showNotification('الرصيد السالب ممتلئ', `${result.error}\n\n💡 قم بالإيداع لسداد دينك.`, 'warning');
             } else if (result.code === 'NEGATIVE_NOT_ALLOWED' || (result.error && result.error.includes('رصيد غير كاف'))) {
-                showNotification(
-                    'رصيد غير كافٍ',
-                    `${result.error}\n\n💡 قم بالإيداع أولاً.`,
-                    'warning'
-                );
+                showNotification('رصيد غير كافٍ', `${result.error}\n\n💡 قم بالإيداع أولاً.`, 'warning');
             } else {
                 showNotification('فشل إرسال الطلب', result.error, 'error');
             }
@@ -1484,6 +1547,9 @@ async function executeConfirmPurchase(productId, btn) {
             let msg = `طلبك ${result.order_number} قيد المعالجة`;
             if (isTopup && result.syp_amount) {
                 msg = `${result.syp_amount.toLocaleString('ar')} ل.س — طلبك ${result.order_number} قيد المعالجة`;
+            } else if (isBundle) {
+                const b = product.bundles.find(x => x.id === selectedBundleId);
+                if (b) msg = `${b.name} — طلبك ${result.order_number} قيد المعالجة`;
             }
             showNotification('تم الطلب بنجاح', msg, 'success');
             closeModal();
@@ -1502,18 +1568,14 @@ async function executeConfirmPurchase(productId, btn) {
 }
 
 // ============================================================
-// 💰 Deposit Flow — مع فحص KYC
+// 💰 Deposit Flow
 // ============================================================
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
 
     if (!isUserVerified()) {
-        showNotification(
-            'التوثيق مطلوب',
-            'يجب توثيق حسابك أولاً قبل الإيداع. اذهب إلى "حسابي" → "توثيق الحساب"',
-            'warning'
-        );
+        showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع. اذهب إلى "حسابي" → "توثيق الحساب"', 'warning');
         return;
     }
 
@@ -1759,6 +1821,7 @@ const faqData = [
     { q: 'كيف ألغي طلباً؟', a: 'يمكنك إلغاء الطلب خلال 120 ثانية من إنشائه، عبر زر "إلغاء الطلب" في قسم طلباتي.' },
     { q: 'ماذا يحدث إذا فشل الطلب؟', a: 'في حال فشل الطلب، يتم استرداد المبلغ تلقائياً إلى رصيدك.' },
     { q: 'ما هو الرصيد السوري؟', a: 'رصيد للاتصالات (MTN، Syriatel) يُشترى بالليرة السورية. أدخل المبلغ بالليرة وسيتم تحويله تلقائياً للدولار.' },
+    { q: 'ما هي الباقات؟', a: 'بعض المنتجات مثل PUBG UC توفر باقات متعددة (60 UC، 325 UC، 660 UC...). اختر الباقة المناسبة داخل المنتج.' },
     { q: 'كيف أتواصل مع الدعم؟', a: 'استخدم زر الدعم العائم أسفل الشاشة للتواصل معنا مباشرة.' }
 ];
 
