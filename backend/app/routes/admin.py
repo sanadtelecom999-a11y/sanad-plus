@@ -500,7 +500,7 @@ def admin_restore_category(cat_id):
 
 
 # ============================================================
-# ============ Products (with Bundles) ============
+# ============ Products (with Bundles + Unit Name) ============
 # ============================================================
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
@@ -518,7 +518,7 @@ def admin_products():
                 "id": p.id, "category_id": p.category_id, "name": p.name,
                 "description": p.description, "image": p.image,
                 "product_type": p.product_type, "base_quantity": p.base_quantity,
-                "base_price": p.base_price, "unit_name": p.unit_name,
+                "base_price": p.base_price, "unit_name": p.unit_name or "قطعة",
                 "input_type": p.input_type, "custom_input_label": p.custom_input_label,
                 "stock": p.stock, "max_quantity": p.max_quantity,
                 "is_bundle": p.is_bundle, "is_active": p.is_active,
@@ -533,7 +533,7 @@ def admin_products():
         product_type=data.get("product_type", "quantity"),
         base_quantity=data.get("base_quantity", 0),
         base_price=data.get("base_price", 0.0),
-        unit_name=data.get("unit_name", "قطعة"),
+        unit_name=(data.get("unit_name") or "قطعة").strip() or "قطعة",
         input_type=data.get("input_type", "id"),
         custom_input_label=data.get("custom_input_label", ""),
         stock=data.get("stock", 0), max_quantity=data.get("max_quantity", 0),
@@ -541,9 +541,8 @@ def admin_products():
         is_active=data.get("is_active", True),
     )
     db.session.add(product)
-    db.session.flush()  # للحصول على ID
+    db.session.flush()
 
-    # حفظ الباقات إذا كان النوع "bundle"
     if product.product_type == "bundle":
         bundles_data = data.get("bundles", [])
         for b in bundles_data:
@@ -586,7 +585,7 @@ def admin_product_actions(product_id):
             "id": product.id, "category_id": product.category_id, "name": product.name,
             "description": product.description, "image": product.image,
             "product_type": product.product_type, "base_quantity": product.base_quantity,
-            "base_price": product.base_price, "unit_name": product.unit_name,
+            "base_price": product.base_price, "unit_name": product.unit_name or "قطعة",
             "input_type": product.input_type, "custom_input_label": product.custom_input_label,
             "stock": product.stock, "max_quantity": product.max_quantity,
             "is_bundle": product.is_bundle, "is_active": product.is_active,
@@ -603,14 +602,13 @@ def admin_product_actions(product_id):
         }
         for key, value in data.items():
             if key in ALLOWED_FIELDS and hasattr(product, key):
+                if key == "unit_name":
+                    value = (value or "قطعة").strip() or "قطعة"
                 setattr(product, key, value)
 
-        # تحديث الباقات إذا كان النوع "bundle"
         if "bundles" in data:
-            # احذف كل الباقات القديمة
             ProductBundle.query.filter_by(product_id=product.id).delete()
 
-            # أنشئ الجديدة
             for b in data.get("bundles", []):
                 name = (b.get("name") or "").strip()
                 try:
@@ -629,7 +627,6 @@ def admin_product_actions(product_id):
                 )
                 db.session.add(bundle)
 
-            # مزامنة is_bundle مع النوع
             if product.product_type == "bundle":
                 product.is_bundle = True
             else:
@@ -640,7 +637,6 @@ def admin_product_actions(product_id):
         notify_admins(f"✏️ تم تعديل المنتج: {product.name}")
         return jsonify({"success": True, "message": "تم تعديل المنتج"})
 
-    # DELETE → أرشفة
     product_name = product.name
     product.is_active = False
     log_admin_activity(f"أرشفة المنتج: {product_name}")
@@ -669,7 +665,7 @@ def admin_restore_product(product_id):
 
 
 # ============================================================
-# ============ Bundles (Individual endpoints) ============
+# ============ Bundles ============
 # ============================================================
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
 @jwt_required()
@@ -686,7 +682,6 @@ def admin_bundles(product_id):
         bundles = ProductBundle.query.filter_by(product_id=product_id).order_by(ProductBundle.price_usd).all()
         return jsonify([serialize_bundle(b) for b in bundles])
 
-    # POST
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
     try:
@@ -750,7 +745,6 @@ def admin_bundle_actions(product_id, bundle_id):
         db.session.commit()
         return jsonify(serialize_bundle(bundle))
 
-    # DELETE
     bundle_name = bundle.name
     db.session.delete(bundle)
     log_admin_activity(f"حذف باقة: {bundle_name}")
@@ -782,7 +776,7 @@ def admin_archive():
             "image": p.image, "category_id": p.category_id,
             "category_name": (Category.query.get(p.category_id).name if Category.query.get(p.category_id) else "قسم محذوف"),
             "base_price": p.base_price, "base_quantity": p.base_quantity,
-            "product_type": p.product_type,
+            "product_type": p.product_type, "unit_name": p.unit_name or "قطعة",
         } for p in archived_prods],
     })
 
@@ -856,6 +850,7 @@ def admin_orders():
             "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
             "product_id": o.product_id, "product_name": product_name,
             "product_type": product.product_type if product else None,
+            "product_unit_name": product.unit_name if product else "قطعة",
             "quantity": o.quantity, "unit_price": o.unit_price,
             "total_price": o.total_price, "discount_amount": o.discount_amount or 0,
             "coupon_code": o.coupon_code, "status": o.status,
@@ -879,6 +874,7 @@ def admin_order_detail(order_id):
         "id": order.id, "order_number": order.order_number,
         "user_id": order.user_id, "product_id": order.product_id,
         "product_name": product.name if product else "منتج محذوف",
+        "product_unit_name": product.unit_name if product else "قطعة",
         "quantity": order.quantity, "unit_price": order.unit_price,
         "total_price": order.total_price, "discount_amount": order.discount_amount or 0,
         "coupon_code": order.coupon_code,

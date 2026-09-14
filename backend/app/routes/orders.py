@@ -66,10 +66,6 @@ def apply_coupon_to_order(user, coupon_code, order_amount):
 
 
 def complete_referral_if_first_order(user):
-    """
-    منح مكافأة الإحالة عند أول طلب للمستخدم.
-    ⚠️ رسالة الإحالة للمُحيل تبقى — لأنها تخبره بأنه ربح مبلغ.
-    """
     if not user.referred_by:
         return
     order_count = Order.query.filter_by(user_id=user.id).count()
@@ -123,16 +119,12 @@ def complete_referral_if_first_order(user):
     )
     db.session.add(notif)
 
-    # ✅ رسالة الإحالة تبقى (تخص مال)
     send_telegram_notification(
         referrer.telegram_id,
         f"🎁 حصلت على مكافأة إحالة بقيمة {REFERRAL_REWARD:.2f}$"
     )
 
 
-# ============================================================
-# ============ /api/orders/ — إنشاء طلب ============
-# ============================================================
 @main.route("/api/orders/", methods=["POST"])
 @jwt_required()
 def create_order():
@@ -240,7 +232,6 @@ def create_order():
         if coupon_obj:
             total_price = round(total_price - discount_amount, 4)
 
-    # فحص الرصيد مع دعم السالب
     balance_before = user.balance
     new_balance = round(balance_before - total_price, 2)
 
@@ -337,7 +328,6 @@ def create_order():
 
     complete_referral_if_first_order(user)
 
-    # ❌ لا رسالة للمستخدم — فقط للأدمن
     if syp_amount:
         notify_admins(
             f"🆕 طلب جديد (رصيد سوري)!\n"
@@ -372,9 +362,6 @@ def create_order():
     return jsonify(response), 201
 
 
-# ============================================================
-# ============ /api/orders/<id>/cancel ============
-# ============================================================
 @main.route("/api/orders/<int:order_id>/cancel", methods=["POST"])
 @jwt_required()
 def cancel_order(order_id):
@@ -438,15 +425,11 @@ def cancel_order(order_id):
     db.session.add(notif)
     db.session.commit()
 
-    # ❌ لا رسالة للمستخدم — فقط للأدمن
     notify_admins(f"❌ طلب {order.order_number} أُلغي من قبل المستخدم")
 
     return jsonify({"message": "تم إلغاء الطلب واسترداد المبلغ"}), 200
 
 
-# ============================================================
-# ============ /api/orders/my ============
-# ============================================================
 @main.route("/api/orders/my", methods=["GET"])
 @jwt_required()
 def get_my_orders():
@@ -465,6 +448,7 @@ def get_my_orders():
             "product_name": product.name if product else "منتج محذوف",
             "product_image": product.image if product else None,
             "product_type": product.product_type if product else None,
+            "product_unit_name": product.unit_name if product else "قطعة",
             "quantity": o.quantity,
             "unit_price": o.unit_price,
             "total_price": o.total_price,

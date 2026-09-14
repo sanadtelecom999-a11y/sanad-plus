@@ -881,13 +881,16 @@ function renderOrders(orders) {
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         const isTopup = order.product_type === 'topup';
-        const isBundle = order.product_type === 'bundle';
 
         let qtyDisplay = Number(order.quantity).toLocaleString('ar');
         let priceDisplay = formatPrice(order.total_price);
 
         if (isTopup) {
             qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ل.س`;
+        } else if (order.product_unit_name && order.product_unit_name !== 'قطعة') {
+            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ${order.product_unit_name}`;
+        } else {
+            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} قطعة`;
         }
 
         return `
@@ -1195,7 +1198,7 @@ function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
 // ============================================================
-// 🛒 Purchase Modal — مع دعم الباقات والرصيد السوري
+// 🛒 Purchase Modal — مع دعم الباقات + وحدة القياس
 // ============================================================
 let selectedBundleId = null;
 
@@ -1208,6 +1211,7 @@ function openPurchaseModal(productId) {
     const isTopup = product.product_type === 'topup';
     const isBundle = product.product_type === 'bundle' && product.bundles && product.bundles.length > 0;
     const sypRate = getSypRate();
+    const unitName = product.unit_name || 'قطعة';
 
     const baseQty = product.base_quantity || 1;
     const basePrice = product.base_price || 0;
@@ -1219,7 +1223,6 @@ function openPurchaseModal(productId) {
     window.__currentIsBundle = isBundle;
     window.__currentProduct = product;
 
-    // اختيار أول باقة افتراضياً
     selectedBundleId = isBundle ? product.bundles[0].id : null;
 
     let customInputHTML = '';
@@ -1273,7 +1276,7 @@ function openPurchaseModal(productId) {
                             </div>
                             <div class="bundle-info">
                                 <div class="bundle-name">${b.name}</div>
-                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} قطعة</div>` : ''}
+                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} ${unitName}</div>` : ''}
                             </div>
                             <div class="bundle-price">${formatPrice(b.price_usd)}</div>
                         </div>
@@ -1315,7 +1318,7 @@ function openPurchaseModal(productId) {
         infoRowHTML = `
             <div class="new-info-row">
                 <div class="new-info-box">
-                    <div class="new-info-label">الكمية</div>
+                    <div class="new-info-label">الكمية (${unitName})</div>
                     <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
                            value="${baseQty}" class="new-qty-input"
                            oninput="updatePurchaseTotal()">
@@ -1369,12 +1372,10 @@ function selectBundle(bundleId) {
 
     selectedBundleId = bundleId;
 
-    // تحديث الاختيار البصري
     document.querySelectorAll('.bundle-option').forEach(el => {
         el.classList.toggle('selected', parseInt(el.getAttribute('data-id')) === bundleId);
     });
 
-    // تحديث الإجمالي
     const display = document.getElementById('newTotalDisplay');
     if (display) display.textContent = formatPrice(bundle.price_usd);
 }
@@ -1429,7 +1430,6 @@ function confirmPurchaseDialog(productId, btn) {
             return;
         }
 
-        // فحص حقول ID
         if (!validateCustomInput(product)) return;
 
         executeConfirmPurchase(productId, btn);
@@ -1453,7 +1453,6 @@ function confirmPurchaseDialog(productId, btn) {
 
         if (!validateCustomInput(product)) return;
 
-        // ⚡ بدون confirm
         executeConfirmPurchase(productId, btn);
         return;
     }
@@ -1522,7 +1521,6 @@ async function executeConfirmPurchase(productId, btn) {
         orderData.quantity = parseInt(document.getElementById('newQtyInput')?.value);
     }
 
-    // إضافة الحقول المخصصة
     if (product.input_type === 'id') {
         orderData.player_id = document.getElementById('purchasePlayerId')?.value;
     } else if (product.input_type === 'account_id') {
