@@ -109,7 +109,7 @@ class Order(db.Model):
     payment_method = db.Column(db.String(50))
     delivery_data = db.Column(db.Text)
     idempotency_key = db.Column(db.String(100), unique=True)
-    reviewed_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewed_by = db.Column(db.Integer, nullable=True)
     can_cancel_until = db.Column(db.DateTime, nullable=True)
     cancelled_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -138,7 +138,7 @@ class Deposit(db.Model):
     status = db.Column(db.String(20), default="pending")
     admin_note = db.Column(db.Text)
     idempotency_key = db.Column(db.String(100), unique=True)
-    reviewed_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewed_by = db.Column(db.Integer, nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -175,7 +175,7 @@ class KYCRequest(db.Model):
     selfie_image = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default="pending")
     admin_note = db.Column(db.Text)
-    reviewed_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    reviewed_by = db.Column(db.Integer, nullable=True)
     submitted_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     reviewed_at = db.Column(db.DateTime)
 
@@ -220,7 +220,7 @@ class Setting(db.Model):
 
 
 # ============================================================
-# ============ Admin OTP Sessions (جديد v2.1) ============
+# ============ Admin OTP Sessions ============
 # ============================================================
 class AdminOTPSession(db.Model):
     __tablename__ = "admin_otp_sessions"
@@ -234,7 +234,7 @@ class AdminOTPSession(db.Model):
 
 
 # ============================================================
-# ============ JWT Blacklist (جديد v2.1) ============
+# ============ JWT Blacklist ============
 # ============================================================
 class JWTBlacklist(db.Model):
     __tablename__ = "jwt_blacklist"
@@ -250,7 +250,7 @@ class JWTBlacklist(db.Model):
 class AdminActivity(db.Model):
     __tablename__ = "admin_activities"
     id = db.Column(db.Integer, primary_key=True)
-    admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    admin_id = db.Column(db.Integer, nullable=True)
     action = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -267,7 +267,7 @@ class ServiceRequest(db.Model):
     estimated_price = db.Column(db.Float)
     status = db.Column(db.String(20), default="pending")
     admin_response = db.Column(db.Text)
-    admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    admin_id = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
