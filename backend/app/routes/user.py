@@ -1,3 +1,6 @@
+# ============================================================
+# 👤 User Routes — v2.2 (with Cloudinary)
+# ============================================================
 import uuid
 import base64
 import binascii
@@ -9,6 +12,7 @@ from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRe
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
+from ..services.cloudinary_service import upload_base64_image
 
 
 # ============================================================
@@ -126,12 +130,19 @@ def submit_kyc():
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
+    # 🆕 رفع الصورة إلى Cloudinary
+    selfie_url = upload_base64_image(selfie_image, folder="sanad/kyc")
+    if not selfie_url:
+        # فشل الرفع → احتفظ بالـ base64 (fail-safe)
+        selfie_url = selfie_image
+        print("⚠️ Cloudinary failed for KYC — using base64 fallback")
+
     kyc = KYCRequest(
         user_id=user.id,
         full_name=full_name,
         phone=phone,
         address=address,
-        selfie_image=selfie_image,
+        selfie_image=selfie_url,
         status="pending",
         submitted_at=datetime.now(timezone.utc),
     )

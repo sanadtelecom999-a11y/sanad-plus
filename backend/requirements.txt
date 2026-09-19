@@ -10,3 +10,4 @@ psycopg2-binary
 gunicorn==21.2.0
 sentry-sdk[flask]==2.20.0
 redis==5.0.1
+cloudinary==1.40.0
