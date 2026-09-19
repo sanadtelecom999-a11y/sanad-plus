@@ -1,10 +1,11 @@
 # ============================================================
-# 🛡️ Sentry — يجب أن يكون أول شيء قبل أي استيراد آخر
+# 🛡️ Sentry
 # ============================================================
 import os
 import sys
+import atexit
 import logging
-import threading
+import subprocess
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
@@ -19,7 +20,7 @@ sentry_sdk.init(
 )
 
 # ============================================================
-# ⬇️ باقي الاستيرادات
+# ⬇️ Imports
 # ============================================================
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -30,14 +31,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app import create_app
 from app.extensions import db
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger("sanad.run")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 app = create_app()
 
 
 # ============================================================
-# ✅ إنشاء الجداول الناقصة (idempotent)
+# ✅ create_all (idempotent)
 # ============================================================
 with app.app_context():
     try:
@@ -47,14 +51,15 @@ with app.app_context():
         print(f"⚠️ create_all: {e}")
 
 
+# ============================================================
+# 🗄️ Migration
+# ============================================================
 def upgrade_database():
     """ترقية قاعدة البيانات — v2.1"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
-
         print("بدء Migration v2.1...")
 
-        # 1) FK removals قديمة
         fk_removals = [
             "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
             "ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_referrer_id_fkey",
@@ -67,7 +72,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 2) Image columns → TEXT
         image_columns = {
             'categories': ['image'],
             'products': ['image'],
@@ -87,7 +91,6 @@ def upgrade_database():
                     except Exception:
                         db.session.rollback()
 
-        # 3) Soft Delete
         soft_delete_tables = ['categories', 'products', 'coupons', 'payment_methods']
         for table in soft_delete_tables:
             if inspector.has_table(table):
@@ -98,7 +101,6 @@ def upgrade_database():
                     db.session.rollback()
         print("Soft Delete columns")
 
-        # 4) Users
         if inspector.has_table('users'):
             users_cols = [
                 'updated_at TIMESTAMP DEFAULT NOW()',
@@ -171,7 +173,6 @@ def upgrade_database():
                 if 'already exists' not in str(e).lower():
                     print(f"CHECK: {e}")
 
-        # 5) Categories: order → display_order
         if inspector.has_table('categories'):
             existing_cols = [col['name'] for col in inspector.get_columns('categories')]
             if 'order' in existing_cols and 'display_order' not in existing_cols:
@@ -189,7 +190,6 @@ def upgrade_database():
                 except Exception:
                     db.session.rollback()
 
-        # 6) Products
         if inspector.has_table('products'):
             products_cols = [
                 'max_quantity INTEGER DEFAULT 0',
@@ -217,7 +217,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"stock migration: {e}")
 
-        # 7) Orders
         if inspector.has_table('orders'):
             orders_cols = [
                 'discount_amount FLOAT DEFAULT 0',
@@ -235,7 +234,6 @@ def upgrade_database():
                 except Exception:
                     db.session.rollback()
 
-        # 8) Deposits
         if inspector.has_table('deposits'):
             deposits_cols = [
                 'admin_note TEXT',
@@ -288,7 +286,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"uq txid: {e}")
 
-        # 9) KYC
         if inspector.has_table('kyc_requests'):
             try:
                 db.session.execute(text('ALTER TABLE kyc_requests ADD COLUMN IF NOT EXISTS reviewed_by INTEGER'))
@@ -296,7 +293,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 10) Coupon Usages
         if inspector.has_table('coupon_usages'):
             try:
                 db.session.execute(text('ALTER TABLE coupon_usages ADD COLUMN IF NOT EXISTS discount_applied FLOAT DEFAULT 0'))
@@ -304,7 +300,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 11) Service Requests
         if inspector.has_table('service_requests'):
             try:
                 db.session.execute(text('ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS admin_id INTEGER'))
@@ -314,7 +309,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 12) Drop admins table
         if inspector.has_table('admins'):
             try:
                 db.session.execute(text('DROP TABLE admins CASCADE'))
@@ -324,7 +318,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"drop admins: {e}")
 
-        # 13) Create new tables
         try:
             db.create_all()
             db.session.commit()
@@ -333,7 +326,6 @@ def upgrade_database():
             db.session.rollback()
             print(f"create_all: {e}")
 
-        # 14) Indexes
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id)",
             "CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)",
@@ -363,7 +355,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 15) Coupon UNIQUE constraint
         if inspector.has_table('coupon_usages'):
             try:
                 db.session.execute(text('''
@@ -392,38 +383,76 @@ def upgrade_database():
 
 
 # ============================================================
-# 🤖 Bot startup — يُنفّذ داخل worker بعد fork
+# 🤖 Bot — كـ Subprocess (يحتاج main thread حقيقي)
 # ============================================================
-def start_bot_in_worker(server, worker):
-    """
-    تُستدعى بعد fork للـ worker.
-    تشغّل Bot polling في thread منفصل (daemon).
-    
-    مع workers=1 → تُنفذ مرة واحدة فقط.
-    """
-    def _run_bot():
-        try:
-            logger.info("🤖 Starting Telegram Bot in worker...")
-            from bot.bot import run_polling
-            run_polling()
-        except Exception as e:
-            logger.error(f"❌ Bot failed to start: {e}")
-            import traceback
-            traceback.print_exc()
+_bot_process = None
 
-    bot_thread = threading.Thread(target=_run_bot, daemon=True, name="telegram-bot")
-    bot_thread.start()
-    logger.info("✅ Bot thread started in worker")
+
+def _start_bot_subprocess():
+    """
+    تشغيل البوت في عملية Python مستقلة.
+    
+    السبب: python-telegram-bot يحتاج main thread + main interpreter
+           لـ asyncio signal handling.
+           هذا غير متاح داخل Gunicorn worker thread.
+    """
+    global _bot_process
+
+    bot_script = os.path.join(os.path.dirname(__file__), "bot_main.py")
+
+    if not os.path.exists(bot_script):
+        logger.error(f"❌ bot_main.py not found: {bot_script}")
+        return
+
+    try:
+        _bot_process = subprocess.Popen(
+            [sys.executable, "-u", bot_script],
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+            env=os.environ.copy(),
+        )
+        logger.info(f"🤖 Bot subprocess started (PID: {_bot_process.pid})")
+    except Exception as e:
+        logger.error(f"❌ Failed to start bot subprocess: {e}")
+
+
+def _stop_bot_subprocess():
+    """إيقاف البوت بشكل نظيف"""
+    global _bot_process
+
+    if _bot_process is None:
+        return
+    if _bot_process.poll() is not None:
+        return
+
+    logger.info("🛑 Terminating bot subprocess...")
+    try:
+        _bot_process.terminate()
+        try:
+            _bot_process.wait(timeout=10)
+            logger.info("✅ Bot subprocess terminated gracefully")
+        except subprocess.TimeoutExpired:
+            logger.warning("⚠️ Bot didn't stop in 10s, killing...")
+            _bot_process.kill()
+            try:
+                _bot_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+    except Exception as e:
+        logger.error(f"❌ Error stopping bot: {e}")
+
+
+def post_fork(server, worker):
+    """Gunicorn hook — يُنفذ بعد fork worker"""
+    logger.info("🔧 post_fork hook running...")
+    _start_bot_subprocess()
+    atexit.register(_stop_bot_subprocess)
 
 
 # ============================================================
 # 🌐 Gunicorn Standalone Application
 # ============================================================
 class StandaloneApplication(BaseApplication):
-    """
-    يسمح بتشغيل Gunicorn برمجياً مع Flask app.
-    بديل نظيف لـ gunicorn CLI.
-    """
     def __init__(self, app, options=None):
         self.options = options or {}
         self.application = app
@@ -444,27 +473,25 @@ class StandaloneApplication(BaseApplication):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
 
-    # 1. Migration أولاً (master process — مرة واحدة)
     upgrade_database()
 
-    # 2. Gunicorn options
     options = {
         "bind": f"0.0.0.0:{port}",
-        "workers": 1,              # ⚠️ إجباري لتفادي Conflict مع Bot
-        "threads": 4,               # توازي كافٍ
-        "worker_class": "gthread",  # threaded workers
-        "timeout": 120,             # 2 دقيقة للطلبات الثقيلة
-        "graceful_timeout": 30,     # 30 ثانية للإغلاق النظيف
+        "workers": 1,
+        "threads": 4,
+        "worker_class": "gthread",
+        "timeout": 120,
+        "graceful_timeout": 30,
         "keepalive": 5,
-        "accesslog": "-",           # stdout
-        "errorlog": "-",            # stdout
+        "accesslog": "-",
+        "errorlog": "-",
         "loglevel": "info",
-        "preload_app": False,       # كل worker يستورد run.py بنفسه
-        "post_fork": start_bot_in_worker,  # 🎯 تشغيل البوت بعد fork
+        "preload_app": False,
+        "post_fork": post_fork,
     }
 
     logger.info(f"🚀 Starting Gunicorn on port {port}")
     logger.info(f"   workers=1, threads=4, worker_class=gthread")
-    logger.info(f"   Bot will start in post_fork hook")
+    logger.info(f"   Bot will start as subprocess via post_fork")
 
     StandaloneApplication(app, options).run()
