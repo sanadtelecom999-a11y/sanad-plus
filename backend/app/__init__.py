@@ -57,7 +57,7 @@ else:
 
 limiter = Limiter(
     key_func=get_real_ip,          # 🎯 IP الحقيقي
-    default_limits=["500 per hour", "100 per minute"],
+    default_limits=["100000 per hour", "10000 per minute"],
     storage_uri=_RATE_LIMIT_STORAGE,
     storage_options={
         "socket_timeout": 5,
