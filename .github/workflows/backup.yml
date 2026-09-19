@@ -14,10 +14,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL Client
+      - name: Install PostgreSQL 18 Client
         run: |
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-18
+
+      - name: Verify pg_dump Version
+        run: |
+          /usr/lib/postgresql/18/bin/pg_dump --version
 
       - name: Run pg_dump
         env:
@@ -25,7 +31,7 @@ jobs:
         run: |
           TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           mkdir -p backups
-          pg_dump "$DATABASE_URL" --no-owner --no-privileges > "backups/sanad_$TIMESTAMP.sql"
+          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --no-owner --no-privileges > "backups/sanad_$TIMESTAMP.sql"
           echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
 
       - name: Compress
