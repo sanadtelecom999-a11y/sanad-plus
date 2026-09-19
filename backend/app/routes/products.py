@@ -1,18 +1,36 @@
+# ============================================================
+# 📦 Products Routes — v2.2 (with Redis Cache)
+# ============================================================
 from flask import jsonify, request
-from ..models.base import Product, ProductBundle, Category
+from ..models.base import Product, ProductBundle
 from . import main
+from ..services.cache_service import (
+    cache_get, cache_set,
+    key_products, TTL_PRODUCTS,
+)
 
 
 @main.route("/api/products/", methods=["GET"])
 def get_products():
     category_id = request.args.get("category_id", type=int)
+
+    # 🚀 حاول من Cache أولاً
+    cache_key = key_products(category_id)
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return jsonify(cached)
+
+    # 💾 قراءة من DB
     query = Product.query.filter_by(is_active=True)
     if category_id:
         query = query.filter_by(category_id=category_id)
     products = query.all()
+
     result = []
     for p in products:
-        bundles = ProductBundle.query.filter_by(product_id=p.id, is_active=True).order_by(ProductBundle.price_usd).all()
+        bundles = ProductBundle.query.filter_by(
+            product_id=p.id, is_active=True
+        ).order_by(ProductBundle.price_usd).all()
         result.append({
             "id": p.id,
             "category_id": p.category_id,
@@ -35,4 +53,7 @@ def get_products():
                 "price_usd": b.price_usd,
             } for b in bundles],
         })
+
+    # 💾 احفظ في Cache
+    cache_set(cache_key, result, ttl=TTL_PRODUCTS)
     return jsonify(result)
