@@ -3,38 +3,41 @@
 # ============================================================
 import os
 import sys
+import logging
+import threading
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN", ""),
     integrations=[FlaskIntegration()],
-    traces_sample_rate=0.2,       # 20% من الطلبات (لتوفير الحصة)
-    profiles_sample_rate=0.0,     # معطّل
-    send_default_pii=False,       # لا نرسل بيانات شخصية
+    traces_sample_rate=0.2,
+    profiles_sample_rate=0.0,
+    send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
-    release=os.getenv("RELEASE_VERSION", "v2.1"),
+    release=os.getenv("RELEASE_VERSION", "v2.2"),
 )
 
 # ============================================================
 # ⬇️ باقي الاستيرادات
 # ============================================================
-import threading
 import sqlalchemy as sa
 from sqlalchemy import text
+from gunicorn.app.base import BaseApplication
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import create_app
 from app.extensions import db
 
+logger = logging.getLogger("sanad.run")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
 app = create_app()
 
 
 # ============================================================
 # ✅ إنشاء الجداول الناقصة (idempotent)
-#    تم نقلها من app/__init__.py في v2.2
-#    السبب: تجنّب تنفيذ DDL متكرر مع Gunicorn multi-worker
 # ============================================================
 with app.app_context():
     try:
@@ -321,7 +324,7 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"drop admins: {e}")
 
-        # 13) Create new tables (idempotent)
+        # 13) Create new tables
         try:
             db.create_all()
             db.session.commit()
@@ -388,14 +391,80 @@ def upgrade_database():
         print("اكتملت ترقية قاعدة البيانات (v2.1)")
 
 
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+# ============================================================
+# 🤖 Bot startup — يُنفّذ داخل worker بعد fork
+# ============================================================
+def start_bot_in_worker(server, worker):
+    """
+    تُستدعى بعد fork للـ worker.
+    تشغّل Bot polling في thread منفصل (daemon).
+    
+    مع workers=1 → تُنفذ مرة واحدة فقط.
+    """
+    def _run_bot():
+        try:
+            logger.info("🤖 Starting Telegram Bot in worker...")
+            from bot.bot import run_polling
+            run_polling()
+        except Exception as e:
+            logger.error(f"❌ Bot failed to start: {e}")
+            import traceback
+            traceback.print_exc()
+
+    bot_thread = threading.Thread(target=_run_bot, daemon=True, name="telegram-bot")
+    bot_thread.start()
+    logger.info("✅ Bot thread started in worker")
 
 
+# ============================================================
+# 🌐 Gunicorn Standalone Application
+# ============================================================
+class StandaloneApplication(BaseApplication):
+    """
+    يسمح بتشغيل Gunicorn برمجياً مع Flask app.
+    بديل نظيف لـ gunicorn CLI.
+    """
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        for key, value in self.options.items():
+            if key in self.cfg.settings and value is not None:
+                self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+
+# ============================================================
+# 🚀 Main Entry Point
+# ============================================================
 if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+
+    # 1. Migration أولاً (master process — مرة واحدة)
     upgrade_database()
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    from bot.bot import run_polling
-    run_polling()
+
+    # 2. Gunicorn options
+    options = {
+        "bind": f"0.0.0.0:{port}",
+        "workers": 1,              # ⚠️ إجباري لتفادي Conflict مع Bot
+        "threads": 4,               # توازي كافٍ
+        "worker_class": "gthread",  # threaded workers
+        "timeout": 120,             # 2 دقيقة للطلبات الثقيلة
+        "graceful_timeout": 30,     # 30 ثانية للإغلاق النظيف
+        "keepalive": 5,
+        "accesslog": "-",           # stdout
+        "errorlog": "-",            # stdout
+        "loglevel": "info",
+        "preload_app": False,       # كل worker يستورد run.py بنفسه
+        "post_fork": start_bot_in_worker,  # 🎯 تشغيل البوت بعد fork
+    }
+
+    logger.info(f"🚀 Starting Gunicorn on port {port}")
+    logger.info(f"   workers=1, threads=4, worker_class=gthread")
+    logger.info(f"   Bot will start in post_fork hook")
+
+    StandaloneApplication(app, options).run()
