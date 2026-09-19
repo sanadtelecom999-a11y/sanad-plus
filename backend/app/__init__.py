@@ -1,5 +1,5 @@
 # ============================================================
-# 🚀 SANAD PLUS⁺ — App Initialization (v2.2.1)
+# 🚀 SANAD PLUS⁺ — App Initialization (v2.2.2)
 # ============================================================
 import os
 from flask import Flask, jsonify, request
@@ -21,26 +21,13 @@ from .models.base import (
 # 🌐 استخراج IP الحقيقي (Cloudflare + Render)
 # ============================================================
 def get_real_ip():
-    """
-    Cloudflare يضع IP الحقيقي في CF-Connecting-IP.
-    هذا الحقل يُضاف تلقائياً ولا يمكن تزويره من المستخدم.
-
-    الترتيب:
-      1. CF-Connecting-IP  (الأكثر أماناً — Cloudflare فقط)
-      2. X-Forwarded-For   (fallback — أول IP في القائمة)
-      3. remote_addr       (آخر حل)
-    """
-    # 1. Cloudflare (الأولوية الأولى)
+    """استخراج IP الحقيقي خلف Cloudflare"""
     cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
     if cf_ip:
         return cf_ip
-
-    # 2. X-Forwarded-For
     forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
         return forwarded.split(",")[0].strip()
-
-    # 3. fallback
     return request.remote_addr or "unknown"
 
 
@@ -56,8 +43,8 @@ else:
     print("⚠️ Rate Limiter: memory:// (لا يوجد REDIS_URL)")
 
 limiter = Limiter(
-    key_func=get_real_ip,          # 🎯 IP الحقيقي
-    default_limits=["100000 per hour", "10000 per minute"],
+    key_func=get_real_ip,
+    default_limits=["500 per hour", "100 per minute"],
     storage_uri=_RATE_LIMIT_STORAGE,
     storage_options={
         "socket_timeout": 5,
@@ -153,26 +140,14 @@ def create_app():
     app.register_blueprint(main)
 
     # ============================================================
+    # 🔥 Cache Auto-Invalidation
+    # ============================================================
+    from .services.cache_service import setup_cache_invalidation
+    setup_cache_invalidation(app)
+
+    # ============================================================
     # ⚠️ ملاحظة (v2.2):
     #    db.create_all() في run.py (وليس هنا)
-    #    السبب: تفادي DDL متكرر مع Gunicorn multi-worker
     # ============================================================
-# ============================================================
-# 🛣️ Blueprint
-# ============================================================
-from .routes import main
-app.register_blueprint(main)
 
-# ============================================================
-# 🔥 Cache Auto-Invalidation
-# ============================================================
-from .services.cache_service import setup_cache_invalidation
-setup_cache_invalidation(app)
-
-# ============================================================
-# ⚠️ ملاحظة (v2.2):
-#    db.create_all() في run.py (وليس هنا)
-# ============================================================
-
-return app
     return app
