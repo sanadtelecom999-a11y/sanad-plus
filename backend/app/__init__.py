@@ -1,6 +1,7 @@
 # ============================================================
 # 🚀 SANAD PLUS⁺ — App Initialization (v2.2)
 # ============================================================
+import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -15,10 +16,29 @@ from .models.base import (
     AdminOTPSession, JWTBlacklist
 )
 
+# ============================================================
+# 🔴 Redis Rate Limiting (مع fallback آمن)
+# ============================================================
+_REDIS_URL = os.getenv("REDIS_URL", "").strip()
+_RATE_LIMIT_STORAGE = _REDIS_URL if _REDIS_URL else "memory://"
+
+# تنبيه في السجلات
+if _REDIS_URL:
+    print(f"✅ Rate Limiter: Redis ({_REDIS_URL.split('@')[-1] if '@' in _REDIS_URL else 'configured'})")
+else:
+    print("⚠️ Rate Limiter: memory:// (لا يوجد REDIS_URL)")
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["500 per hour", "100 per minute"],
-    storage_uri="memory://",
+    storage_uri=_RATE_LIMIT_STORAGE,
+    storage_options={
+        "socket_timeout": 5,
+        "socket_connect_timeout": 5,
+    } if _REDIS_URL else {},
+    strategy="fixed-window",       # أو "moving-window" لـ دقة أعلى
+    headers_enabled=True,          # يعرض X-RateLimit-* في الرد
+    swallow_errors=True,           # لا يُعطّل التطبيق لو Redis سقط
 )
 
 
@@ -106,14 +126,8 @@ def create_app():
     app.register_blueprint(main)
 
     # ============================================================
-    # ⚠️ ملاحظة مهمة (v2.2):
-    #    db.create_all() تم نقلها إلى run.py
-    #
-    #    السبب: مع Gunicorn (متعدد workers)، استدعاء create_all()
-    #           في create_app() يؤدي إلى تنفيذ DDL متكرر
-    #           (master + كل worker) → بطء + احتمال Conflict.
-    #
-    #    الآن: يُنفذ مرة واحدة فقط في run.py
+    # ⚠️ ملاحظة (v2.2):
+    #    db.create_all() في run.py (وليس هنا)
     # ============================================================
 
     return app
