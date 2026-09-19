@@ -1,5 +1,24 @@
+# ============================================================
+# 🛡️ Sentry — يجب أن يكون أول شيء قبل أي استيراد آخر
+# ============================================================
 import os
 import sys
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN", ""),
+    integrations=[FlaskIntegration()],
+    traces_sample_rate=0.2,       # 20% من الطلبات (لتوفير الحصة)
+    profiles_sample_rate=0.0,     # معطّل
+    send_default_pii=False,       # لا نرسل بيانات شخصية
+    environment=os.getenv("SENTRY_ENV", "production"),
+    release=os.getenv("RELEASE_VERSION", "v2.1"),
+)
+
+# ============================================================
+# ⬇️ باقي الاستيرادات
+# ============================================================
 import threading
 import sqlalchemy as sa
 from sqlalchemy import text
