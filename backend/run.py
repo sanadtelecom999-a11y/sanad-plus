@@ -31,6 +31,19 @@ from app.extensions import db
 app = create_app()
 
 
+# ============================================================
+# ✅ إنشاء الجداول الناقصة (idempotent)
+#    تم نقلها من app/__init__.py في v2.2
+#    السبب: تجنّب تنفيذ DDL متكرر مع Gunicorn multi-worker
+# ============================================================
+with app.app_context():
+    try:
+        db.create_all()
+        print("✅ الجداول جاهزة")
+    except Exception as e:
+        print(f"⚠️ create_all: {e}")
+
+
 def upgrade_database():
     """ترقية قاعدة البيانات — v2.1"""
     with app.app_context():
@@ -308,7 +321,7 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"drop admins: {e}")
 
-        # 13) Create new tables
+        # 13) Create new tables (idempotent)
         try:
             db.create_all()
             db.session.commit()

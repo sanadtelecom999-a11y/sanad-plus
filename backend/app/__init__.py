@@ -1,3 +1,6 @@
+# ============================================================
+# 🚀 SANAD PLUS⁺ — App Initialization (v2.2)
+# ============================================================
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -23,6 +26,9 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # ============================================================
+    # 🌐 CORS
+    # ============================================================
     CORS(
         app,
         resources={
@@ -32,10 +38,16 @@ def create_app():
         supports_credentials=False,
     )
 
+    # ============================================================
+    # 🔌 Extensions
+    # ============================================================
     db.init_app(app)
     jwt.init_app(app)
     limiter.init_app(app)
 
+    # ============================================================
+    # 🔐 JWT Callbacks
+    # ============================================================
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
         jti = jwt_payload.get("jti")
@@ -76,6 +88,9 @@ def create_app():
             "code": "TOKEN_MISSING"
         }), 401
 
+    # ============================================================
+    # 🚨 Error Handlers
+    # ============================================================
     @app.errorhandler(429)
     def ratelimit_handler(e):
         return jsonify({
@@ -84,10 +99,21 @@ def create_app():
             "retry_after": str(e.description)
         }), 429
 
+    # ============================================================
+    # 🛣️ Blueprint
+    # ============================================================
     from .routes import main
     app.register_blueprint(main)
 
-    with app.app_context():
-        db.create_all()
+    # ============================================================
+    # ⚠️ ملاحظة مهمة (v2.2):
+    #    db.create_all() تم نقلها إلى run.py
+    #
+    #    السبب: مع Gunicorn (متعدد workers)، استدعاء create_all()
+    #           في create_app() يؤدي إلى تنفيذ DDL متكرر
+    #           (master + كل worker) → بطء + احتمال Conflict.
+    #
+    #    الآن: يُنفذ مرة واحدة فقط في run.py
+    # ============================================================
 
     return app
