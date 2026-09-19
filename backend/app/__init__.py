@@ -1,8 +1,8 @@
 # ============================================================
-# 🚀 SANAD PLUS⁺ — App Initialization (v2.2)
+# 🚀 SANAD PLUS⁺ — App Initialization (v2.2.1)
 # ============================================================
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -16,29 +16,56 @@ from .models.base import (
     AdminOTPSession, JWTBlacklist
 )
 
+
 # ============================================================
-# 🔴 Redis Rate Limiting (مع fallback آمن)
+# 🌐 استخراج IP الحقيقي (Cloudflare + Render)
+# ============================================================
+def get_real_ip():
+    """
+    Cloudflare يضع IP الحقيقي في CF-Connecting-IP.
+    هذا الحقل يُضاف تلقائياً ولا يمكن تزويره من المستخدم.
+
+    الترتيب:
+      1. CF-Connecting-IP  (الأكثر أماناً — Cloudflare فقط)
+      2. X-Forwarded-For   (fallback — أول IP في القائمة)
+      3. remote_addr       (آخر حل)
+    """
+    # 1. Cloudflare (الأولوية الأولى)
+    cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
+    if cf_ip:
+        return cf_ip
+
+    # 2. X-Forwarded-For
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+
+    # 3. fallback
+    return request.remote_addr or "unknown"
+
+
+# ============================================================
+# 🔴 Redis Rate Limiting
 # ============================================================
 _REDIS_URL = os.getenv("REDIS_URL", "").strip()
 _RATE_LIMIT_STORAGE = _REDIS_URL if _REDIS_URL else "memory://"
 
-# تنبيه في السجلات
 if _REDIS_URL:
     print(f"✅ Rate Limiter: Redis ({_REDIS_URL.split('@')[-1] if '@' in _REDIS_URL else 'configured'})")
 else:
     print("⚠️ Rate Limiter: memory:// (لا يوجد REDIS_URL)")
 
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=get_real_ip,          # 🎯 IP الحقيقي
     default_limits=["500 per hour", "100 per minute"],
     storage_uri=_RATE_LIMIT_STORAGE,
     storage_options={
         "socket_timeout": 5,
         "socket_connect_timeout": 5,
     } if _REDIS_URL else {},
-    strategy="fixed-window",       # أو "moving-window" لـ دقة أعلى
-    headers_enabled=True,          # يعرض X-RateLimit-* في الرد
-    swallow_errors=True,           # لا يُعطّل التطبيق لو Redis سقط
+    strategy="fixed-window",
+    headers_enabled=True,
+    swallow_errors=True,
 )
 
 
@@ -128,6 +155,7 @@ def create_app():
     # ============================================================
     # ⚠️ ملاحظة (v2.2):
     #    db.create_all() في run.py (وليس هنا)
+    #    السبب: تفادي DDL متكرر مع Gunicorn multi-worker
     # ============================================================
 
     return app
