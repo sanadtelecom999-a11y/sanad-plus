@@ -1,5 +1,5 @@
 # ============================================================
-# 💰 Deposits Routes — v2.2 (with Cloudinary)
+# 💰 Deposits Routes — v2.2.1 (Signed URLs)
 # ============================================================
 import uuid
 from datetime import datetime, timezone
@@ -9,7 +9,7 @@ from ..models.base import User, Deposit, Transaction, Notification, log_financia
 from ..extensions import db
 from . import main
 from ..services.telegram_service import notify_admins
-from ..services.cloudinary_service import upload_base64_image
+from ..services.cloudinary_service import upload_signed_image, get_signed_url
 
 
 def get_current_user():
@@ -20,28 +20,6 @@ def get_current_user():
         return User.query.get(int(identity))
     except (ValueError, TypeError):
         return None
-
-
-# ============================================================
-# 🆕 Cloudinary helper — يرفع base64 أو يُرجع URL كما هو
-# ============================================================
-def _normalize_image(image_data, folder="sanad/deposits"):
-    if not image_data or not isinstance(image_data, str):
-        return image_data
-
-    # إذا URL جاهز — أرجعه
-    if image_data.startswith("http://") or image_data.startswith("https://"):
-        return image_data
-
-    # إذا base64 → ارفعه
-    if image_data.startswith("data:image/"):
-        url = upload_base64_image(image_data, folder=folder)
-        if url:
-            return url
-        print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
-        return image_data
-
-    return image_data
 
 
 @main.route("/api/deposits/", methods=["POST"])
@@ -103,8 +81,11 @@ def create_deposit():
         if pm.requires_kyc and not user.is_verified:
             return jsonify({"error": "هذه الطريقة تتطلب توثيق الحساب", "code": "KYC_REQUIRED"}), 403
 
-    # 🆕 رفع صورة الإثبات إلى Cloudinary
-    proof_url = _normalize_image(proof_image, folder="sanad/deposits")
+    # 🔒 رفع آمن
+    proof_stored = upload_signed_image(proof_image, folder="sanad/deposits")
+    if not proof_stored:
+        proof_stored = proof_image
+        print("⚠️ Deposit signed upload failed — using base64 fallback")
 
     deposit = Deposit(
         user_id=user.id,
@@ -112,7 +93,7 @@ def create_deposit():
         currency="USD",
         method=method or (str(method_id_int) if method_id_int else ""),
         method_id=method_id_int,
-        proof_image=proof_url,
+        proof_image=proof_stored,
         account_number=account_number,
         sender_name=sender_name,
         txid=txid or None,
