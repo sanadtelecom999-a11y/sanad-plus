@@ -62,6 +62,10 @@ async function fetchAdminUsers() {
     return await apiRequest('/admin/api/users');
 }
 
+async function fetchAdminUserDetail(userId) {
+    return await apiRequest(`/admin/api/users/${userId}`);
+}
+
 async function adjustUserBalance(userId, amount, note) {
     return await apiRequest(`/admin/api/users/${userId}/balance`, {
         method: 'POST',
@@ -150,7 +154,7 @@ async function restoreProduct(productId) {
 }
 
 // ============================================================
-// ============ Bundles (الباقات) ============
+// ============ Bundles ============
 // ============================================================
 async function fetchProductBundles(productId) {
     return await apiRequest(`/admin/api/products/${productId}/bundles`);
@@ -212,10 +216,21 @@ async function fetchAdminOrderDetail(orderId) {
     return await apiRequest(`/admin/api/orders/${orderId}`);
 }
 
+async function fetchAdminOrderFull(orderId) {
+    return await apiRequest(`/admin/api/orders/${orderId}/full`);
+}
+
 async function updateOrderStatus(orderId, status) {
     return await apiRequest(`/admin/api/orders/${orderId}/status`, {
         method: 'POST',
         body: JSON.stringify({ status }),
+    });
+}
+
+async function bulkUpdateOrderStatus(orderIds, status) {
+    return await apiRequest('/admin/api/orders/bulk-status', {
+        method: 'POST',
+        body: JSON.stringify({ order_ids: orderIds, status }),
     });
 }
 
@@ -224,6 +239,10 @@ async function updateOrderStatus(orderId, status) {
 // ============================================================
 async function fetchAdminDeposits() {
     return await apiRequest('/admin/api/deposits');
+}
+
+async function fetchAdminDepositDetail(depositId) {
+    return await apiRequest(`/admin/api/deposits/${depositId}`);
 }
 
 async function approveDeposit(depositId) {

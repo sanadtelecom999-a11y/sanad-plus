@@ -1,4 +1,5 @@
 import os
+import json
 import uuid
 import traceback
 import random
@@ -23,7 +24,7 @@ from ..services.telegram_service import (
     send_kyc_approved, send_kyc_rejected,
     send_order_refund_failed, send_order_refund_cancelled
 )
-from ..services.cloudinary_service import upload_base64_image
+from ..services.cloudinary_service import upload_base64_image, get_signed_url
 from .. import limiter
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
@@ -123,34 +124,17 @@ def serialize_bundle(b):
     }
 
 
-# ============================================================
-# 🆕 Cloudinary Helper — تحويل base64 إلى URL
-# ============================================================
 def _normalize_image(image_data, folder="sanad/uncategorized"):
-    """
-    يأخذ:
-      - base64 data URL → يرفعه لـ Cloudinary → يرجع URL
-      - http(s) URL → يرجعها كما هي
-      - فاضي/None → يرجع كما هو
-    
-    النتيجة: دائماً URL أو نص فارغ
-    """
     if not image_data or not isinstance(image_data, str):
         return image_data
-
-    # إذا URL عادي — أرجعه
     if image_data.startswith("http://") or image_data.startswith("https://"):
         return image_data
-
-    # إذا base64 → ارفعه
     if image_data.startswith("data:image/"):
         url = upload_base64_image(image_data, folder=folder)
         if url:
             return url
-        # فشل الرفع → أرجع النص الأصلي (fail-safe)
         print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
         return image_data
-
     return image_data
 
 
@@ -302,8 +286,8 @@ def admin_set_negative_balance(user_id):
 
     if max_neg < 0:
         return jsonify({"error": "الحد الأقصى لا يمكن أن يكون سالباً"}), 400
-    if max_neg > 10000:
-        return jsonify({"error": "الحد الأقصى هو $10,000"}), 400
+    if max_neg > 1_000_000:
+        return jsonify({"error": "الحد الأقصى هو $1,000,000"}), 400
 
     user = User.query.get(user_id)
     if not user:
@@ -355,8 +339,9 @@ def admin_adjust_balance(user_id):
     amount = float(data.get("amount", 0))
     note = data.get("note", "")
 
-    if abs(amount) > 10000:
-        return jsonify({"error": "الحد الأقصى 10000$"}), 400
+    # ✅ إزالة حد 10000 — الأدمن له صلاحية مطلقة
+    if abs(amount) > 1_000_000:
+        return jsonify({"error": "المبلغ كبير جداً (الحد الأقصى 1,000,000$)"}), 400
     if amount == 0:
         return jsonify({"error": "المبلغ لا يمكن أن يكون صفراً"}), 400
 
@@ -385,7 +370,7 @@ def admin_adjust_balance(user_id):
         type="info",
     )
     db.session.add(notif)
-    log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id}")
+    log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id}: {amount:.2f}$")
     db.session.commit()
 
     from ..services.telegram_service import send_admin_balance_adjustment
@@ -430,6 +415,44 @@ def admin_set_vip(user_id):
     return jsonify({"vip_level": user.vip_level})
 
 
+@main.route("/admin/api/users/<int:user_id>", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_user_detail(user_id):
+    """تفاصيل مستخدم كامل — للمودال"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    orders_count = Order.query.filter_by(user_id=user.id).count()
+    deposits_count = Deposit.query.filter_by(user_id=user.id).count()
+
+    return jsonify({
+        "id": user.id,
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "balance": user.balance,
+        "kyc_status": user.kyc_status,
+        "is_verified": user.is_verified,
+        "role": user.role,
+        "is_banned": user.is_banned,
+        "vip_level": user.vip_level,
+        "referral_code": user.referral_code,
+        "referral_count": user.referral_count or 0,
+        "referral_earnings": user.referral_earnings or 0,
+        "allow_negative_balance": user.allow_negative_balance,
+        "max_negative_balance": user.max_negative_balance or 0,
+        "orders_count": orders_count,
+        "deposits_count": deposits_count,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    })
+
+
 # ============================================================
 # Categories
 # ============================================================
@@ -447,7 +470,6 @@ def admin_categories():
         } for c in categories])
 
     data = request.get_json() or {}
-    # 🆕 رفع الصورة إلى Cloudinary
     image_url = _normalize_image(data.get("image", ""), folder="sanad/categories")
 
     cat = Category(
@@ -538,7 +560,6 @@ def admin_products():
         except (ValueError, TypeError):
             stock = None
 
-    # 🆕 رفع الصورة إلى Cloudinary
     image_url = _normalize_image(data.get("image", ""), folder="sanad/products")
 
     product = Product(
@@ -615,7 +636,6 @@ def admin_product_actions(product_id):
                 if key == "unit_name":
                     value = (value or "قطعة").strip() or "قطعة"
                 if key == "image":
-                    # 🆕 رفع الصورة الجديدة إذا كانت base64
                     value = _normalize_image(value, folder="sanad/products")
                 setattr(product, key, value)
 
@@ -779,7 +799,6 @@ def admin_payment_methods():
         } for m in methods])
 
     data = request.get_json() or {}
-    # 🆕 رفع الأيقونة و QR إلى Cloudinary
     icon_url = _normalize_image(data.get("icon", ""), folder="sanad/payment-methods")
     qr_url = _normalize_image(data.get("qr_image", ""), folder="sanad/qr-codes")
 
@@ -824,10 +843,14 @@ def admin_orders():
     result = []
     for o in orders:
         product = Product.query.get(o.product_id)
+        user = User.query.get(o.user_id)
         result.append({
             "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": (user.first_name or user.username) if user else None,
             "product_id": o.product_id,
             "product_name": product.name if product else "منتج محذوف",
+            "product_image": product.image if product else None,
             "product_type": product.product_type if product else None,
             "product_unit_name": product.unit_name if product else "قطعة",
             "quantity": o.quantity, "unit_price": o.unit_price,
@@ -860,6 +883,64 @@ def admin_order_detail(order_id):
         "status": order.status, "status_arabic": get_arabic_status(order.status),
         "delivery_data": order.delivery_data,
         "created_at": order.created_at.isoformat() if order.created_at else None,
+    })
+
+
+@main.route("/admin/api/orders/<int:order_id>/full", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_order_full_detail(order_id):
+    """تفاصيل طلب كامل — للمودال الجديد"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"error": "طلب غير موجود"}), 404
+
+    product = Product.query.get(order.product_id)
+    user = User.query.get(order.user_id)
+
+    delivery = {}
+    if order.delivery_data:
+        try:
+            delivery = json.loads(order.delivery_data)
+        except Exception:
+            delivery = {"raw": order.delivery_data}
+
+    return jsonify({
+        "id": order.id,
+        "order_number": order.order_number,
+        "user": {
+            "id": user.id if user else None,
+            "telegram_id": user.telegram_id if user else None,
+            "first_name": user.first_name if user else None,
+            "last_name": user.last_name if user else None,
+            "username": user.username if user else None,
+            "balance": user.balance if user else None,
+            "kyc_status": user.kyc_status if user else None,
+        } if user else None,
+        "product": {
+            "id": product.id if product else None,
+            "name": product.name if product else "منتج محذوف",
+            "image": product.image if product else None,
+            "product_type": product.product_type if product else None,
+            "unit_name": product.unit_name if product else "قطعة",
+        } if product else None,
+        "quantity": order.quantity,
+        "unit_price": order.unit_price,
+        "total_price": order.total_price,
+        "discount_amount": order.discount_amount or 0,
+        "coupon_code": order.coupon_code,
+        "status": order.status,
+        "status_arabic": get_arabic_status(order.status),
+        "delivery_data": delivery,
+        "can_cancel_until": order.can_cancel_until.isoformat() if order.can_cancel_until else None,
+        "cancelled_at": order.cancelled_at.isoformat() if order.cancelled_at else None,
+        "completed_at": order.completed_at.isoformat() if order.completed_at else None,
+        "failed_at": order.failed_at.isoformat() if order.failed_at else None,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "updated_at": order.updated_at.isoformat() if order.updated_at else None,
     })
 
 
@@ -944,6 +1025,90 @@ def admin_update_order_status(order_id):
     return jsonify({"status": order.status})
 
 
+@main.route("/admin/api/orders/bulk-status", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_bulk_order_status():
+    """تحديث حالة عدة طلبات دفعة واحدة"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    data = request.get_json() or {}
+    order_ids = data.get("order_ids", [])
+    new_status = data.get("status")
+
+    if not order_ids or not new_status:
+        return jsonify({"error": "بيانات ناقصة"}), 400
+
+    if len(order_ids) > 100:
+        return jsonify({"error": "الحد الأقصى 100 طلب"}), 400
+
+    valid_transitions = {
+        "pending": ["review", "failed", "cancelled"],
+        "review": ["processing", "failed"],
+        "processing": ["completed", "failed"],
+    }
+
+    success = []
+    failed = []
+
+    for oid in order_ids:
+        order = Order.query.get(oid)
+        if not order:
+            failed.append({"id": oid, "reason": "غير موجود"})
+            continue
+
+        if order.status in ["completed", "failed", "cancelled"]:
+            failed.append({"id": oid, "reason": f"الحالة {order.status}"})
+            continue
+
+        allowed = valid_transitions.get(order.status, [])
+        if new_status not in allowed:
+            failed.append({"id": oid, "reason": f"لا يمكن {order.status} → {new_status}"})
+            continue
+
+        old_status = order.status
+        order.status = new_status
+        order.updated_at = datetime.now(timezone.utc)
+
+        if new_status == "cancelled":
+            order.cancelled_at = datetime.now(timezone.utc)
+        elif new_status == "completed":
+            order.completed_at = datetime.now(timezone.utc)
+        elif new_status == "failed":
+            order.failed_at = datetime.now(timezone.utc)
+
+        user = User.query.get(order.user_id)
+        if new_status in ["failed", "cancelled"] and user and old_status not in ["failed", "cancelled"]:
+            balance_before = user.balance
+            user.balance = round(user.balance + order.total_price, 2)
+            db.session.add(Transaction(
+                user_id=user.id, type="refund", amount=order.total_price,
+                balance_after=user.balance, reference_type=f"order_{new_status}",
+                reference_id=order.id,
+            ))
+            log_financial(
+                user=user, action=f"order_{new_status}", amount=order.total_price,
+                balance_before=balance_before, balance_after=user.balance,
+                ref_type="order", ref_id=order.id, note=f"Bulk: {new_status}",
+            )
+            product = Product.query.get(order.product_id)
+            if product and product.stock is not None:
+                product.stock += order.quantity
+
+        success.append(oid)
+
+    log_admin_activity(f"تحديث جماعي: {len(success)} طلب → {get_arabic_status(new_status)}")
+    db.session.commit()
+
+    return jsonify({
+        "success_count": len(success),
+        "failed_count": len(failed),
+        "success_ids": success,
+        "failed": failed,
+    })
+
+
 # ============================================================
 # Deposits
 # ============================================================
@@ -954,14 +1119,65 @@ def admin_deposits():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     deposits = Deposit.query.order_by(Deposit.created_at.desc()).all()
-    return jsonify([{
-        "id": d.id, "user_id": d.user_id, "amount": d.amount,
-        "method": d.method, "method_id": d.method_id,
-        "proof_image": d.proof_image,
-        "status": d.status, "transaction_id": d.transaction_id,
-        "admin_note": d.admin_note,
-        "created_at": d.created_at.isoformat() if d.created_at else None,
-    } for d in deposits])
+    result = []
+    for d in deposits:
+        user = User.query.get(d.user_id)
+        result.append({
+            "id": d.id, "user_id": d.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": (user.first_name or user.username) if user else None,
+            "amount": d.amount, "method": d.method, "method_id": d.method_id,
+            "proof_image": get_signed_url(d.proof_image, expires_in=1800) if d.proof_image else None,
+            "status": d.status, "transaction_id": d.transaction_id,
+            "admin_note": d.admin_note,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+    return jsonify(result)
+
+
+@main.route("/admin/api/deposits/<int:deposit_id>", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_deposit_detail(deposit_id):
+    """تفاصيل إيداع كامل — للمودال الجديد"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    deposit = Deposit.query.get(deposit_id)
+    if not deposit:
+        return jsonify({"error": "إيداع غير موجود"}), 404
+
+    user = User.query.get(deposit.user_id)
+    method_obj = PaymentMethod.query.get(deposit.method_id) if deposit.method_id else None
+
+    return jsonify({
+        "id": deposit.id,
+        "transaction_id": deposit.transaction_id,
+        "user": {
+            "id": user.id if user else None,
+            "telegram_id": user.telegram_id if user else None,
+            "first_name": user.first_name if user else None,
+            "last_name": user.last_name if user else None,
+            "username": user.username if user else None,
+            "balance": user.balance if user else None,
+            "kyc_status": user.kyc_status if user else None,
+        } if user else None,
+        "amount": deposit.amount,
+        "currency": deposit.currency,
+        "method": deposit.method,
+        "method_name": method_obj.name if method_obj else deposit.method,
+        "method_account": method_obj.account if method_obj else None,
+        "method_account_name": method_obj.account_name if method_obj else None,
+        "sender_name": deposit.sender_name,
+        "account_number": deposit.account_number,
+        "txid": deposit.txid,
+        "proof_image": get_signed_url(deposit.proof_image, expires_in=1800) if deposit.proof_image else None,
+        "status": deposit.status,
+        "admin_note": deposit.admin_note,
+        "reviewed_by": deposit.reviewed_by,
+        "reviewed_at": deposit.reviewed_at.isoformat() if deposit.reviewed_at else None,
+        "created_at": deposit.created_at.isoformat() if deposit.created_at else None,
+    })
 
 
 @main.route("/admin/api/deposits/<int:deposit_id>/approve", methods=["POST"])
@@ -1076,7 +1292,8 @@ def admin_kyc():
     return jsonify([{
         "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
         "phone": k.phone, "address": k.address,
-        "selfie_image": k.selfie_image, "status": k.status,
+        "selfie_image": get_signed_url(k.selfie_image, expires_in=1800) if k.selfie_image else None,
+        "status": k.status,
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
     } for k in kycs])
 

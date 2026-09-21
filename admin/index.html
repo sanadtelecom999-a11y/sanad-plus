@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/admin.css?v=11">
+    <link rel="stylesheet" href="css/admin.css?v=13">
 </head>
 <body>
 
@@ -203,7 +203,7 @@
             <div class="cards-grid" id="categoriesList"></div>
         </section>
 
-        <!-- Products with Search -->
+        <!-- Products -->
         <section id="section-products" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">المنتجات</h1>
@@ -212,7 +212,6 @@
                 </button>
             </div>
 
-            <!-- 🆕 شريط البحث والفلترة -->
             <div class="toolbar product-toolbar">
                 <div class="search-box">
                     <span class="material-icons">search</span>
@@ -262,7 +261,7 @@
             <div class="cards-grid" id="paymentMethodsList"></div>
         </section>
 
-        <!-- Orders -->
+        <!-- Orders (NEW DESIGN v2.3) -->
         <section id="section-orders" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الطلبات</h1>
@@ -271,60 +270,33 @@
                 </button>
             </div>
 
-            <div class="advanced-filters">
-                <div class="filter-group">
-                    <label>بحث</label>
-                    <input type="text" id="orderSearchQuery" placeholder="رقم الطلب أو معرف المستخدم" oninput="applyOrderFilters()">
+            <div class="toolbar">
+                <div class="search-box">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب، User ID، أو اسم المنتج..." oninput="applyOrderFilters()">
                 </div>
-                <div class="filter-group">
-                    <label>الحالة</label>
-                    <select id="orderStatusFilter" onchange="applyOrderFilters()">
-                        <option value="all">الكل</option>
-                        <option value="pending">قيد المعالجة</option>
-                        <option value="review">قيد المراجعة</option>
-                        <option value="processing">قيد التنفيذ</option>
-                        <option value="completed">مكتمل</option>
-                        <option value="failed">فشل</option>
-                        <option value="cancelled">ملغي</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label>من تاريخ</label>
-                    <input type="date" id="orderFromDate" onchange="applyOrderFilters()">
-                </div>
-                <div class="filter-group">
-                    <label>إلى تاريخ</label>
-                    <input type="date" id="orderToDate" onchange="applyOrderFilters()">
-                </div>
-                <div class="filter-group">
-                    <label>ترتيب</label>
-                    <select id="orderSortFilter" onchange="applyOrderFilters()">
-                        <option value="newest">الأحدث أولاً</option>
-                        <option value="oldest">الأقدم أولاً</option>
-                        <option value="price_high">الأعلى سعراً</option>
-                        <option value="price_low">الأقل سعراً</option>
-                    </select>
-                </div>
+                <select id="orderStatusFilter" class="filter-select" onchange="applyOrderFilters()">
+                    <option value="all">جميع الحالات</option>
+                    <option value="pending">قيد المعالجة</option>
+                    <option value="review">قيد المراجعة</option>
+                    <option value="processing">قيد التنفيذ</option>
+                    <option value="completed">مكتمل</option>
+                    <option value="failed">فشل</option>
+                    <option value="cancelled">ملغي</option>
+                </select>
+                <select id="orderSortFilter" class="filter-select" onchange="applyOrderFilters()">
+                    <option value="newest">الأحدث أولاً</option>
+                    <option value="oldest">الأقدم أولاً</option>
+                    <option value="price_high">الأعلى سعراً</option>
+                    <option value="price_low">الأقل سعراً</option>
+                </select>
                 <button class="btn-outline" onclick="resetOrderFilters()">
                     <span class="material-icons">refresh</span> إعادة تعيين
                 </button>
             </div>
 
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>رقم الطلب</th>
-                            <th>المنتج</th>
-                            <th>الكمية</th>
-                            <th>السعر</th>
-                            <th>الحالة</th>
-                            <th>إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTableBody"></tbody>
-                </table>
-            </div>
+            <!-- 🆕 Orders Container (Cards + Tabs) -->
+            <div id="ordersList"></div>
         </section>
 
         <!-- Deposits -->
@@ -607,7 +579,6 @@
                 </div>
             </div>
 
-            <!-- 🆕 سعر الصرف السوري -->
             <div class="card" style="margin-top:16px;">
                 <div class="card-header">
                     <h3>سعر صرف الليرة السورية</h3>
@@ -647,6 +618,11 @@
             <span>الطلبات</span>
             <span class="bottom-nav-badge" id="badge-mobile-orders" style="display:none;">0</span>
         </button>
+        <button class="bottom-nav-item" data-section="deposits" onclick="switchSection('deposits')">
+            <span class="material-icons">account_balance_wallet</span>
+            <span>الإيداعات</span>
+            <span class="bottom-nav-badge" id="badge-mobile-deposits" style="display:none;">0</span>
+        </button>
         <button class="bottom-nav-item" data-section="products" onclick="switchSection('products')">
             <span class="material-icons">inventory_2</span>
             <span>المنتجات</span>
@@ -660,6 +636,27 @@
             <span>المزيد</span>
         </button>
     </nav>
+
+    <!-- ============ 🆕 Bulk Orders Bar ============ -->
+    <div class="bulk-orders-bar" id="bulkOrdersBar">
+        <span class="material-icons" style="font-size:20px;">check_circle</span>
+        <span class="bulk-count">0</span>
+        <span style="font-size:0.85rem;font-weight:700;">محدد</span>
+        <div class="bulk-actions-inline">
+            <button class="bulk-btn btn-complete" onclick="bulkChangeStatus('completed')">
+                <span class="material-icons" style="font-size:14px;vertical-align:middle;">check</span> إكمال
+            </button>
+            <button class="bulk-btn btn-fail" onclick="bulkChangeStatus('failed')">
+                <span class="material-icons" style="font-size:14px;vertical-align:middle;">close</span> فشل
+            </button>
+            <button class="bulk-btn btn-cancel" onclick="bulkChangeStatus('cancelled')">
+                إلغاء
+            </button>
+        </div>
+        <button class="bulk-close-btn" onclick="clearSelectedOrders()">
+            <span class="material-icons" style="font-size:20px;">close</span>
+        </button>
+    </div>
 
     <!-- ============ Modal ============ -->
     <div id="modal" class="modal">
@@ -709,8 +706,8 @@
     <!-- ============ Toast Container ============ -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="js/api.js?v=11"></script>
-<script src="js/admin.js?v=11"></script>
-    
+    <script src="js/api.js?v=13"></script>
+    <script src="js/admin.js?v=13"></script>
+
 </body>
 </html>
