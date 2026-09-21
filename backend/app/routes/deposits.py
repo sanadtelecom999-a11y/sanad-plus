@@ -1,5 +1,5 @@
 # ============================================================
-# 💰 Deposits Routes — v2.2.2 (with size validation)
+# 💰 Deposits Routes — v2.2.3 (bug fix + size validation)
 # ============================================================
 import uuid
 from datetime import datetime, timezone
@@ -10,9 +10,8 @@ from ..extensions import db
 from . import main
 from ..services.telegram_service import notify_admins
 
-# 🎯 الحد الأقصى لصورة الإثبات (2 MB base64)
-MAX_PROOF_SIZE_BYTES = 2 * 1024 * 1024           # 2 MB
-MAX_PROOF_BASE64_LENGTH = int(MAX_PROOF_SIZE_BYTES * 1.4)  # ~2.8 MB
+MAX_PROOF_SIZE_BYTES = 2 * 1024 * 1024
+MAX_PROOF_BASE64_LENGTH = int(MAX_PROOF_SIZE_BYTES * 1.4)
 
 
 def get_current_user():
@@ -62,7 +61,7 @@ def create_deposit():
     if amount <= 0:
         return jsonify({"error": "مبلغ غير صالح"}), 400
 
-    # 🔒 Validate image size BEFORE processing
+    # Validate image size
     if proof_image and isinstance(proof_image, str):
         if len(proof_image) > MAX_PROOF_BASE64_LENGTH:
             size_mb = round(len(proof_image) / 1024 / 1024, 2)
@@ -79,10 +78,17 @@ def create_deposit():
                 "code": "DEPOSIT_DUPLICATE",
             }), 400
 
+    # ============================================================
+    # 🎯 استخراج method_id_int — الإصلاح
+    # ============================================================
+    # الآن يتعامل مع: int، str، None
+    method_id_int = None
     try:
-        method_id_int = int(method_id) if method_id else None
-        if not method_id_int and method and method.isdigit():
-            method_id_int = int(method)
+        if method_id is not None:
+            method_id_int = int(method_id)
+        elif method is not None and str(method).strip().isdigit():
+            # ⚠️ الإصلاح: str(method) قبل .isdigit()
+            method_id_int = int(str(method).strip())
     except (ValueError, TypeError):
         method_id_int = None
 
@@ -93,12 +99,11 @@ def create_deposit():
         if pm.requires_kyc and not user.is_verified:
             return jsonify({"error": "هذه الطريقة تتطلب توثيق الحساب", "code": "KYC_REQUIRED"}), 403
 
-    # 📦 Store base64 as-is (no Cloudinary for deposits — privacy)
     deposit = Deposit(
         user_id=user.id,
         amount=amount,
         currency="USD",
-        method=method or (str(method_id_int) if method_id_int else ""),
+        method=str(method) if method else "",
         method_id=method_id_int,
         proof_image=proof_image,
         account_number=account_number,
