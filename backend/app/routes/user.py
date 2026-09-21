@@ -1,5 +1,5 @@
 # ============================================================
-# 👤 User Routes — v2.2 (with Cloudinary)
+# 👤 User Routes — v2.2.1 (Signed URLs for KYC)
 # ============================================================
 import uuid
 import base64
@@ -12,7 +12,7 @@ from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRe
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
-from ..services.cloudinary_service import upload_base64_image
+from ..services.cloudinary_service import upload_signed_image, get_signed_url
 
 
 # ============================================================
@@ -61,7 +61,6 @@ def validate_kyc_image(data_url, field_name="selfie_image"):
 # Helpers
 # ============================================================
 def get_current_user():
-    """استخراج المستخدم من JWT"""
     identity = get_jwt_identity()
     if not identity:
         return None
@@ -90,7 +89,7 @@ def user_to_dict(user):
 
 
 # ============================================================
-# Endpoints — كلها محمية بـ JWT
+# Endpoints
 # ============================================================
 @main.route("/api/user/me", methods=["GET"])
 @jwt_required()
@@ -130,19 +129,19 @@ def submit_kyc():
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # 🆕 رفع الصورة إلى Cloudinary
-    selfie_url = upload_base64_image(selfie_image, folder="sanad/kyc")
-    if not selfie_url:
-        # فشل الرفع → احتفظ بالـ base64 (fail-safe)
-        selfie_url = selfie_image
-        print("⚠️ Cloudinary failed for KYC — using base64 fallback")
+    # 🔒 رفع آمن (authenticated)
+    selfie_stored = upload_signed_image(selfie_image, folder="sanad/kyc")
+    if not selfie_stored:
+        # Fallback: احتفظ بـ base64 (fail-safe)
+        selfie_stored = selfie_image
+        print("⚠️ KYC signed upload failed — using base64 fallback")
 
     kyc = KYCRequest(
         user_id=user.id,
         full_name=full_name,
         phone=phone,
         address=address,
-        selfie_image=selfie_url,
+        selfie_image=selfie_stored,  # public_id أو base64
         status="pending",
         submitted_at=datetime.now(timezone.utc),
     )

@@ -1,13 +1,15 @@
 # ============================================================
-# ☁️ Cloudinary Service — v1.0
+# ☁️ Cloudinary Service — v2.0 (with Signed URLs)
 # ============================================================
 """
-خدمة إدارة الصور عبر Cloudinary
-- رفع صور (base64 → URL)
-- تحسين تلقائي (WebP، resize، جودة)
+خدمة إدارة الصور عبر Cloudinary مع دعم:
+- رفع صور عامة (public)
+- رفع صور محمية (authenticated) + Signed URLs
+- تحسين تلقائي للصور العامة
 - حذف الصور
 """
 import os
+import time
 import base64
 import logging
 import cloudinary
@@ -39,32 +41,20 @@ else:
 
 
 # ============================================================
-# 🎨 Default Transformations
+# 🎨 Transformations
 # ============================================================
-# تُطبق تلقائياً على URL
 DEFAULT_TRANSFORM = "w_400,h_400,c_fill,q_auto,f_auto"
-
-# صور أكبر للمعاينة
 LARGE_TRANSFORM = "w_800,q_auto,f_auto"
-
-# صور مصغرة للـ thumbnails
 THUMB_TRANSFORM = "w_200,q_auto,f_auto"
 
 
 # ============================================================
-# 🚀 Upload
+# 🌐 PUBLIC Upload (للصور العامة)
 # ============================================================
 def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=None):
     """
-    رفع صورة base64 إلى Cloudinary.
-    
-    Args:
-        base64_data: "data:image/jpeg;base64,..." أو "base64_string_only"
-        folder: المجلد في Cloudinary (مثل sanad/products)
-        public_id: اسم مخصص (اختياري)
-    
-    Returns:
-        URL الكامل للصورة، أو None عند الفشل
+    رفع صورة عامة (public).
+    تُستخدم لـ: categories, products, payment-methods
     """
     if not _ENABLED:
         logger.warning("Cloudinary not configured — skipping upload")
@@ -73,13 +63,12 @@ def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=Non
     if not base64_data or not isinstance(base64_data, str):
         return None
 
-    # إذا كانت URL بالفعل — أرجعها كما هي
+    # إذا URL جاهز — أرجعه
     if base64_data.startswith("http://") or base64_data.startswith("https://"):
         return base64_data
 
-    # تأكد من صيغة data URL
     if not base64_data.startswith("data:image/"):
-        logger.warning(f"Invalid base64 format (no data:image/ prefix)")
+        logger.warning("Invalid base64 format (no data:image/ prefix)")
         return None
 
     try:
@@ -90,18 +79,133 @@ def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=Non
             resource_type="image",
             overwrite=True,
             invalidate=True,
-            # تحسين تلقائي
             transformation=[
                 {"quality": "auto", "fetch_format": "auto"},
             ],
         )
         url = result.get("secure_url")
-        logger.info(f"✅ Uploaded to Cloudinary: {url}")
+        logger.info(f"✅ Public upload: {url[:80]}...")
         return url
 
     except Exception as e:
         logger.error(f"❌ Cloudinary upload failed: {e}")
         return None
+
+
+# ============================================================
+# 🔒 SIGNED Upload (للصور الحساسة)
+# ============================================================
+def upload_signed_image(base64_data, folder="sanad/private", public_id=None):
+    """
+    رفع صورة محمية (authenticated).
+    تحتاج Signed URL للوصول.
+    
+    تُستخدم لـ: KYC, Deposits
+    
+    Returns:
+        public_id (str) — وليس URL
+        None عند الفشل
+    """
+    if not _ENABLED:
+        logger.warning("Cloudinary not configured — skipping upload")
+        return None
+
+    if not base64_data or not isinstance(base64_data, str):
+        return None
+
+    # إذا URL — لا يمكن تحويله لـ authenticated
+    if base64_data.startswith("http://") or base64_data.startswith("https://"):
+        return base64_data
+
+    if not base64_data.startswith("data:image/"):
+        logger.warning("Invalid base64 format (no data:image/ prefix)")
+        return None
+
+    try:
+        result = cloudinary.uploader.upload(
+            base64_data,
+            folder=folder,
+            public_id=public_id,
+            type="authenticated",       # 🔒 مهم
+            resource_type="image",
+            overwrite=True,
+            invalidate=True,
+        )
+        pid = result.get("public_id")
+        logger.info(f"✅ Signed upload: {pid}")
+        return pid
+
+    except Exception as e:
+        logger.error(f"❌ Cloudinary signed upload failed: {e}")
+        return None
+
+
+# ============================================================
+# 🔐 Signed URL Generation
+# ============================================================
+def get_signed_url(public_id, expires_in=1800):
+    """
+    إنشاء رابط موقّع لصورة محمية.
+    
+    Args:
+        public_id: معرّف الصورة (من upload_signed_image)
+        expires_in: صلاحية الرابط بالثواني (افتراضي 30 دقيقة)
+    
+    Returns:
+        URL موقّع، أو القيمة الأصلية إذا كانت base64/URL
+    """
+    if not public_id:
+        return None
+
+    # إذا كانت base64 (صور قديمة) → أرجعها كما هي
+    if public_id.startswith("data:"):
+        return public_id
+
+    # إذا كانت URL عادي → أرجعها كما هي
+    if public_id.startswith("http://") or public_id.startswith("https://"):
+        return public_id
+
+    if not _ENABLED:
+        return None
+
+    try:
+        url, _ = cloudinary.utils.cloudinary_url(
+            public_id,
+            type="authenticated",
+            sign_url=True,
+            secure=True,
+            resource_type="image",
+            expires_at=int(time.time()) + expires_in,
+        )
+        return url
+
+    except Exception as e:
+        logger.error(f"❌ Signed URL generation failed for {public_id}: {e}")
+        return None
+
+
+# ============================================================
+# 🎨 Optimized URL (للصور العامة)
+# ============================================================
+def get_optimized_url(url, transform="default"):
+    """بناء URL محسّن للصور العامة"""
+    if not url or not isinstance(url, str):
+        return url
+
+    if "res.cloudinary.com" not in url:
+        return url
+
+    if "/upload/" not in url:
+        return url
+
+    transform_str = {
+        "default": DEFAULT_TRANSFORM,
+        "large": LARGE_TRANSFORM,
+        "thumb": THUMB_TRANSFORM,
+    }.get(transform, DEFAULT_TRANSFORM)
+
+    parts = url.split("/upload/", 1)
+    return f"{parts[0]}/upload/{transform_str}/{parts[1]}"
 
 
 # ============================================================
@@ -119,66 +223,8 @@ def delete_image(public_id):
         return False
 
 
-def extract_public_id(url):
-    """استخراج public_id من Cloudinary URL"""
-    if not url or not isinstance(url, str):
-        return None
-    if "res.cloudinary.com" not in url:
-        return None
-    try:
-        # https://res.cloudinary.com/cloud/image/upload/v123/folder/name.ext
-        parts = url.split("/upload/")
-        if len(parts) != 2:
-            return None
-        path = parts[1]
-        # إزالة version prefix (v123...)
-        if path.startswith("v") and "/" in path:
-            path = path.split("/", 1)[1]
-        # إزالة extension
-        if "." in path:
-            path = path.rsplit(".", 1)[0]
-        return path
-    except Exception:
-        return None
-
-
-# ============================================================
-# 🎨 Build Optimized URL
-# ============================================================
-def get_optimized_url(url, transform="default"):
-    """
-    بناء URL محسّن مع transformations.
-    
-    Args:
-        url: Cloudinary URL الأصلي
-        transform: "default" | "large" | "thumb"
-    
-    Returns:
-        URL محسّن، أو URL الأصلي إذا لم يكن Cloudinary
-    """
-    if not url or not isinstance(url, str):
-        return url
-
-    if "res.cloudinary.com" not in url:
-        return url  # ليس Cloudinary، أرجع كما هو
-
-    if "/upload/" not in url:
-        return url
-
-    transform_str = {
-        "default": DEFAULT_TRANSFORM,
-        "large": LARGE_TRANSFORM,
-        "thumb": THUMB_TRANSFORM,
-    }.get(transform, DEFAULT_TRANSFORM)
-
-    # إدراج الـ transform بعد /upload/
-    parts = url.split("/upload/", 1)
-    return f"{parts[0]}/upload/{transform_str}/{parts[1]}"
-
-
 # ============================================================
 # 💚 Health Check
 # ============================================================
 def is_enabled():
-    """هل Cloudinary معدّ؟"""
     return _ENABLED
