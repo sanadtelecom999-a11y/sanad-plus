@@ -23,7 +23,7 @@ from ..services.telegram_service import (
     send_kyc_approved, send_kyc_rejected,
     send_order_refund_failed, send_order_refund_cancelled
 )
-from ..services.cloudinary_service import upload_base64_image, get_signed_url
+from ..services.cloudinary_service import upload_base64_image
 from .. import limiter
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
@@ -124,24 +124,30 @@ def serialize_bundle(b):
 
 
 # ============================================================
-# 🆕 Cloudinary Helper — Public images
+# 🆕 Cloudinary Helper — تحويل base64 إلى URL
 # ============================================================
 def _normalize_image(image_data, folder="sanad/uncategorized"):
     """
-    للصور العامة فقط (categories, products, payment-methods).
-    - base64 → يرفعه → URL
-    - URL → يرجعها كما هي
+    يأخذ:
+      - base64 data URL → يرفعه لـ Cloudinary → يرجع URL
+      - http(s) URL → يرجعها كما هي
+      - فاضي/None → يرجع كما هو
+    
+    النتيجة: دائماً URL أو نص فارغ
     """
     if not image_data or not isinstance(image_data, str):
         return image_data
 
+    # إذا URL عادي — أرجعه
     if image_data.startswith("http://") or image_data.startswith("https://"):
         return image_data
 
+    # إذا base64 → ارفعه
     if image_data.startswith("data:image/"):
         url = upload_base64_image(image_data, folder=folder)
         if url:
             return url
+        # فشل الرفع → أرجع النص الأصلي (fail-safe)
         print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
         return image_data
 
@@ -441,6 +447,7 @@ def admin_categories():
         } for c in categories])
 
     data = request.get_json() or {}
+    # 🆕 رفع الصورة إلى Cloudinary
     image_url = _normalize_image(data.get("image", ""), folder="sanad/categories")
 
     cat = Category(
@@ -531,6 +538,7 @@ def admin_products():
         except (ValueError, TypeError):
             stock = None
 
+    # 🆕 رفع الصورة إلى Cloudinary
     image_url = _normalize_image(data.get("image", ""), folder="sanad/products")
 
     product = Product(
@@ -607,6 +615,7 @@ def admin_product_actions(product_id):
                 if key == "unit_name":
                     value = (value or "قطعة").strip() or "قطعة"
                 if key == "image":
+                    # 🆕 رفع الصورة الجديدة إذا كانت base64
                     value = _normalize_image(value, folder="sanad/products")
                 setattr(product, key, value)
 
@@ -770,6 +779,7 @@ def admin_payment_methods():
         } for m in methods])
 
     data = request.get_json() or {}
+    # 🆕 رفع الأيقونة و QR إلى Cloudinary
     icon_url = _normalize_image(data.get("icon", ""), folder="sanad/payment-methods")
     qr_url = _normalize_image(data.get("qr_image", ""), folder="sanad/qr-codes")
 
@@ -947,7 +957,7 @@ def admin_deposits():
     return jsonify([{
         "id": d.id, "user_id": d.user_id, "amount": d.amount,
         "method": d.method, "method_id": d.method_id,
-        "proof_image": get_signed_url(d.proof_image, expires_in=1800),
+        "proof_image": d.proof_image,
         "status": d.status, "transaction_id": d.transaction_id,
         "admin_note": d.admin_note,
         "created_at": d.created_at.isoformat() if d.created_at else None,
@@ -1066,8 +1076,7 @@ def admin_kyc():
     return jsonify([{
         "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
         "phone": k.phone, "address": k.address,
-        "selfie_image": get_signed_url(k.selfie_image, expires_in=1800),
-        "status": k.status,
+        "selfie_image": k.selfie_image, "status": k.status,
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
     } for k in kycs])
 
