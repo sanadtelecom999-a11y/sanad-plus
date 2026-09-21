@@ -1,5 +1,5 @@
 # ============================================================
-# 💰 Deposits Routes — v2.2 (with Cloudinary)
+# 💰 Deposits Routes — v2.2.2 (with size validation)
 # ============================================================
 import uuid
 from datetime import datetime, timezone
@@ -9,7 +9,10 @@ from ..models.base import User, Deposit, Transaction, Notification, log_financia
 from ..extensions import db
 from . import main
 from ..services.telegram_service import notify_admins
-from ..services.cloudinary_service import upload_base64_image
+
+# 🎯 الحد الأقصى لصورة الإثبات (2 MB base64)
+MAX_PROOF_SIZE_BYTES = 2 * 1024 * 1024           # 2 MB
+MAX_PROOF_BASE64_LENGTH = int(MAX_PROOF_SIZE_BYTES * 1.4)  # ~2.8 MB
 
 
 def get_current_user():
@@ -20,28 +23,6 @@ def get_current_user():
         return User.query.get(int(identity))
     except (ValueError, TypeError):
         return None
-
-
-# ============================================================
-# 🆕 Cloudinary helper — يرفع base64 أو يُرجع URL كما هو
-# ============================================================
-def _normalize_image(image_data, folder="sanad/deposits"):
-    if not image_data or not isinstance(image_data, str):
-        return image_data
-
-    # إذا URL جاهز — أرجعه
-    if image_data.startswith("http://") or image_data.startswith("https://"):
-        return image_data
-
-    # إذا base64 → ارفعه
-    if image_data.startswith("data:image/"):
-        url = upload_base64_image(image_data, folder=folder)
-        if url:
-            return url
-        print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
-        return image_data
-
-    return image_data
 
 
 @main.route("/api/deposits/", methods=["POST"])
@@ -81,6 +62,15 @@ def create_deposit():
     if amount <= 0:
         return jsonify({"error": "مبلغ غير صالح"}), 400
 
+    # 🔒 Validate image size BEFORE processing
+    if proof_image and isinstance(proof_image, str):
+        if len(proof_image) > MAX_PROOF_BASE64_LENGTH:
+            size_mb = round(len(proof_image) / 1024 / 1024, 2)
+            return jsonify({
+                "error": f"صورة الإثبات كبيرة جداً ({size_mb} MB) — الحد الأقصى 2 MB",
+                "code": "IMAGE_TOO_LARGE",
+            }), 413
+
     if txid:
         existing = Deposit.query.filter_by(user_id=user.id, txid=txid).first()
         if existing:
@@ -103,16 +93,14 @@ def create_deposit():
         if pm.requires_kyc and not user.is_verified:
             return jsonify({"error": "هذه الطريقة تتطلب توثيق الحساب", "code": "KYC_REQUIRED"}), 403
 
-    # 🆕 رفع صورة الإثبات إلى Cloudinary
-    proof_url = _normalize_image(proof_image, folder="sanad/deposits")
-
+    # 📦 Store base64 as-is (no Cloudinary for deposits — privacy)
     deposit = Deposit(
         user_id=user.id,
         amount=amount,
         currency="USD",
         method=method or (str(method_id_int) if method_id_int else ""),
         method_id=method_id_int,
-        proof_image=proof_url,
+        proof_image=proof_image,
         account_number=account_number,
         sender_name=sender_name,
         txid=txid or None,

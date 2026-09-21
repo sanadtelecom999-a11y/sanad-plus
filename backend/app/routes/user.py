@@ -1,5 +1,5 @@
 # ============================================================
-# 👤 User Routes — v2.2 (with Cloudinary)
+# 👤 User Routes — v2.2.2 (with KYC size validation)
 # ============================================================
 import uuid
 import base64
@@ -12,7 +12,6 @@ from ..models.base import User, KYCRequest, Notification, Transaction, ServiceRe
 from ..extensions import db
 from . import main
 from ..services.telegram_service import send_telegram_notification, notify_admins
-from ..services.cloudinary_service import upload_base64_image
 
 
 # ============================================================
@@ -61,7 +60,6 @@ def validate_kyc_image(data_url, field_name="selfie_image"):
 # Helpers
 # ============================================================
 def get_current_user():
-    """استخراج المستخدم من JWT"""
     identity = get_jwt_identity()
     if not identity:
         return None
@@ -90,7 +88,7 @@ def user_to_dict(user):
 
 
 # ============================================================
-# Endpoints — كلها محمية بـ JWT
+# Endpoints
 # ============================================================
 @main.route("/api/user/me", methods=["GET"])
 @jwt_required()
@@ -130,19 +128,13 @@ def submit_kyc():
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # 🆕 رفع الصورة إلى Cloudinary
-    selfie_url = upload_base64_image(selfie_image, folder="sanad/kyc")
-    if not selfie_url:
-        # فشل الرفع → احتفظ بالـ base64 (fail-safe)
-        selfie_url = selfie_image
-        print("⚠️ Cloudinary failed for KYC — using base64 fallback")
-
+    # 📦 Store base64 as-is (privacy-first)
     kyc = KYCRequest(
         user_id=user.id,
         full_name=full_name,
         phone=phone,
         address=address,
-        selfie_image=selfie_url,
+        selfie_image=selfie_image,
         status="pending",
         submitted_at=datetime.now(timezone.utc),
     )
@@ -170,7 +162,6 @@ def get_my_kyc():
     user = get_current_user()
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
-
     kyc = KYCRequest.query.filter_by(user_id=user.id).order_by(KYCRequest.submitted_at.desc()).first()
     if not kyc:
         return jsonify({"status": "none"})
@@ -189,7 +180,6 @@ def get_notifications():
     user = get_current_user()
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
-
     notifications = Notification.query.filter_by(user_id=user.id).order_by(Notification.created_at.desc()).limit(50).all()
     return jsonify([{
         "id": n.id,
@@ -207,7 +197,6 @@ def mark_notification_read():
     user = get_current_user()
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
-
     data = request.get_json() or {}
     notif_id = data.get("id")
     if notif_id:
@@ -224,15 +213,12 @@ def request_service():
     user = get_current_user()
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
-
     data = request.get_json() or {}
     service_name = data.get("service_name")
     description = data.get("description", "")
     estimated_price = data.get("estimated_price")
-
     if not service_name:
         return jsonify({"error": "اسم الخدمة مطلوب"}), 400
-
     req = ServiceRequest(
         user_id=user.id,
         service_name=service_name,
@@ -243,7 +229,5 @@ def request_service():
     )
     db.session.add(req)
     db.session.commit()
-
     notify_admins(f"🛠️ طلب خدمة مخصصة جديد!\nالمستخدم: {user.telegram_id}\nالخدمة: {service_name}")
-
     return jsonify({"message": "تم إرسال طلب الخدمة المخصصة"}), 200
