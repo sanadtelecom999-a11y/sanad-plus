@@ -45,12 +45,10 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
         ...options,
     };
 
-    // إضافة التوكن إن وُجد
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // Timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), RETRY_CONFIG.timeout);
     config.signal = controller.signal;
@@ -59,7 +57,6 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
         const response = await fetch(url, config);
         clearTimeout(timeoutId);
 
-        // 401 → التوكن منتهي أو غير صالح
         if (response.status === 401) {
             clearAuthToken();
             const initData = window.Telegram?.WebApp?.initData || '';
@@ -84,7 +81,6 @@ async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
             }
         }
 
-        // Retry على 5xx
         if (RETRY_CONFIG.retryOnStatus.includes(response.status) && retries > 0) {
             const delay = calculateDelay(retries);
             console.warn(`⚠️ Status ${response.status} — Retry in ${delay}ms`);
@@ -239,7 +235,7 @@ async function authenticateUser(initData) {
 }
 
 // ============================================================
-// 🆕 Public Settings (بدون مصادقة)
+// 🆕 Public Settings
 // ============================================================
 async function fetchPublicSettings() {
     try {
@@ -253,7 +249,7 @@ async function fetchPublicSettings() {
 }
 
 // ============================================================
-// 🔌 API Wrappers — كلها محمية بـ JWT
+// 🔌 API Wrappers
 // ============================================================
 async function fetchCategories() {
     return await apiFetch(`${API_BASE_URL}/api/categories/`);
@@ -271,7 +267,6 @@ async function fetchPaymentMethods() {
 }
 
 async function fetchUserOrders() {
-    // ✅ بدون telegram_id — JWT يعرف من أنت
     return await apiFetch(`${API_BASE_URL}/api/orders/my`);
 }
 
@@ -280,7 +275,6 @@ async function fetchUserDeposits() {
 }
 
 async function createOrder(orderData) {
-    // احذف telegram_id — غير مطلوب
     const { telegram_id, ...cleanData } = orderData;
     return await apiFetch(`${API_BASE_URL}/api/orders/`, {
         method: 'POST',
@@ -325,6 +319,20 @@ async function requestCustomService(serviceData) {
         method: 'POST',
         body: JSON.stringify(cleanData),
     });
+}
+
+// ============================================================
+// 🆕 Referral — Apply Code
+// ============================================================
+async function applyReferralCode(referralCode) {
+    return await apiFetch(`${API_BASE_URL}/api/user/apply-referral`, {
+        method: 'POST',
+        body: JSON.stringify({ referral_code: referralCode }),
+    });
+}
+
+async function fetchUserReferrals() {
+    return await apiFetch(`${API_BASE_URL}/api/user/referrals`);
 }
 
 // Ping عند التحميل

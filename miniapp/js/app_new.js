@@ -1,4 +1,4 @@
-// miniapp/js/app_new.js
+// miniapp/js/app_new.js — v14
 
 let currentPage = 'page-home';
 let userData = null;
@@ -28,7 +28,7 @@ const VIP_LEVELS = {
     7: { name: 'مستوى السند الأسطوري', icon: 'auto_awesome', color: '#DC2626' },
 };
 
-// ============ Image Compression Helper (NEW) ============
+// ============ Image Compression Helper ============
 function compressImageFile(file, maxWidth = 800, quality = 0.6) {
     return new Promise((resolve, reject) => {
         if (!file) {
@@ -952,7 +952,6 @@ function getStatusText(status) {
         default: return status || 'غير معروف';
     }
 }
-
 function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
@@ -1369,7 +1368,7 @@ function showDepositStep1(methodId) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع. اذهب إلى "حسابي" → "توثيق الحساب"', 'warning');
         return;
     }
-selectedMethodForDeposit = method;
+    selectedMethodForDeposit = method;
     const qrCode = method.qr_image && method.qr_image.length > 100
         ? `<img src="${method.qr_image}" style="width:220px;height:220px;border-radius:16px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
         : '<div style="color:var(--text-secondary); padding:20px;">لا يوجد رمز QR بعد</div>';
@@ -1464,9 +1463,6 @@ function fallbackCopy(text) {
     document.body.removeChild(textarea);
 }
 
-// ============================================================
-// ✅ submitDeposit — WITH IMAGE COMPRESSION (FIXED)
-// ============================================================
 async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
     if (!isUserVerified()) {
@@ -1481,7 +1477,6 @@ async function submitDeposit(btn) {
     if (!senderName || !senderName.trim()) { showNotification('تنبيه', 'أدخل اسم المرسل', 'warning'); return; }
     if (!proofFile) { showNotification('تنبيه', 'ارفع صورة الإثبات', 'warning'); return; }
 
-    // Check file size BEFORE compression (warn if too big)
     if (proofFile.size > 20 * 1024 * 1024) {
         showNotification('تنبيه', 'الصورة كبيرة جداً (الحد 20 MB قبل الضغط)', 'warning');
         return;
@@ -1489,7 +1484,6 @@ async function submitDeposit(btn) {
 
     setButtonLoading(btn, true);
     try {
-        // 🎯 COMPRESS with helper (max 800px, 60% quality)
         const proofBase64 = await compressImageFile(proofFile, 800, 0.6);
         console.log(`📤 Sending deposit proof: ~${Math.round(proofBase64.length / 1024)} KB`);
 
@@ -1550,10 +1544,44 @@ async function submitServiceRequest(btn) {
     }
 }
 
+// ============================================================
+// 🎁 Referral Modal — v14 (with Apply Code)
+// ============================================================
 function openReferralModal() {
     if (!userData) return;
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
     const referralLink = `https://t.me/${BOT_USERNAME}?start=${referralCode}`;
+
+    // 🆕 هل يمكنه تطبيق كود؟
+    const hasOrders = ordersData && ordersData.length > 0;
+    const alreadyReferred = userData.referred_by || userData.referred_by_id;
+
+    const applySectionHTML = (!hasOrders && !alreadyReferred) ? `
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-top:16px;">
+            <div style="font-weight:700; margin-bottom:8px; color:var(--primary); display:flex; align-items:center; gap:6px; justify-content:center;">
+                <span class="material-icons" style="font-size:18px;">redeem</span>
+                لديك كود من صديق؟
+            </div>
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="applyReferralInput"
+                       placeholder="ABCD1234"
+                       maxlength="20"
+                       style="flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-family:inherit; text-transform:uppercase; text-align:center; letter-spacing:2px; font-weight:700; font-size:0.95rem; background:var(--background); color:var(--text);"
+                       oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')">
+                <button class="btn-primary" onclick="submitReferralCode(this)" style="padding:10px 16px; white-space:nowrap;">
+                    تطبيق
+                </button>
+            </div>
+            <small style="color:var(--text-secondary); font-size:0.7rem; display:block; margin-top:8px; line-height:1.5; text-align:center;">
+                💡 يمكن تطبيقه فقط <strong>قبل أول عملية شراء</strong>
+            </small>
+        </div>
+    ` : (alreadyReferred ? `
+        <div style="background:var(--success-bg); border:1px solid var(--success); border-radius:12px; padding:12px; margin-top:16px; font-size:0.85rem; text-align:center; color:var(--success); font-weight:700;">
+            ✅ تم تطبيق كود إحالة مسبقاً
+        </div>
+    ` : '');
+
     openModal('الإحالات', `
         <div style="text-align:center;">
             <div class="kyc-icon" style="background:var(--primary);">
@@ -1573,8 +1601,41 @@ function openReferralModal() {
             <button class="btn-outline" style="margin-top:8px;width:100%;" onclick="shareReferral('${referralLink}')">
                 <span class="material-icons">share</span> مشاركة الرابط
             </button>
+            ${applySectionHTML}
         </div>
     `);
+}
+
+// 🆕 تطبيق كود الإحالة
+async function submitReferralCode(btn) {
+    const input = document.getElementById('applyReferralInput');
+    const code = (input?.value || '').trim().toUpperCase();
+
+    if (!code || code.length < 4) {
+        showNotification('تنبيه', 'أدخل كوداً صحيحاً (4 أحرف على الأقل)', 'warning');
+        return;
+    }
+
+    setButtonLoading(btn, true);
+    try {
+        const result = await applyReferralCode(code);
+
+        if (result && result.error) {
+            showNotification('فشل التطبيق', result.error, 'error');
+        } else {
+            showNotification('تم بنجاح 🎉', result.message || 'تم تطبيق كود الإحالة، ستحصل مكافأة صديقك عند أول شراء', 'success');
+
+            // تحديث بيانات المستخدم
+            userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
+            updateUserUI();
+            closeModal();
+        }
+    } catch (error) {
+        console.error('Referral apply error:', error);
+        showNotification('خطأ', `فشل التطبيق: ${error.message}`, 'error');
+    } finally {
+        setButtonLoading(btn, false);
+    }
 }
 
 function shareReferral(link) {
