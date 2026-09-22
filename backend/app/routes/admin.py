@@ -19,6 +19,7 @@ from ..models.base import (
 from ..extensions import db
 from . import main
 from .auth import cleanup_expired_blacklist
+from .. import get_real_ip
 from ..services.telegram_service import (
     send_telegram_notification, notify_admins,
     send_deposit_approved, send_deposit_rejected,
@@ -72,6 +73,10 @@ LOGIN_RATE_MAX = 5
 def check_login_rate_limit(ip: str) -> bool:
     now = time.time()
     _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < LOGIN_RATE_WINDOW]
+    # ✅ تنظيف المفاتيح الفارغة
+    if not _login_attempts[ip]:
+        _login_attempts.pop(ip, None)
+        _login_attempts[ip] = []
     if len(_login_attempts[ip]) >= LOGIN_RATE_MAX:
         return False
     _login_attempts[ip].append(now)
@@ -146,8 +151,7 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 @limiter.limit("5 per 5 minutes")
 @handle_errors
 def admin_login():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown")
-    ip = ip.split(",")[0].strip()
+    ip = get_real_ip()  # ✅ موحّد مع CF-Connecting-IP
     if not check_login_rate_limit(ip):
         return jsonify({"error": "محاولات كثيرة، حاول بعد 5 دقائق"}), 429
 
@@ -158,7 +162,6 @@ def admin_login():
     if username != ADMIN_USERNAME or not verify_admin_password(password):
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
-    # 🆕 Cleanup expired JWT blacklist + OTP sessions
     cleanup_expired_otp_sessions()
     cleanup_expired_blacklist()
 
@@ -379,7 +382,7 @@ def admin_adjust_balance(user_id):
     amount = float(data.get("amount", 0))
     note = data.get("note", "")
 
-    # ✅ إزالة حد 10000 — الأدمن له صلاحية مطلقة
+    # ✅ حد 1,000,000$
     if abs(amount) > 1_000_000:
         return jsonify({"error": "المبلغ كبير جداً (الحد الأقصى 1,000,000$)"}), 400
     if amount == 0:

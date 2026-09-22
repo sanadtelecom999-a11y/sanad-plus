@@ -17,7 +17,7 @@ sentry_sdk.init(
     profiles_sample_rate=0.0,
     send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
-    release=os.getenv("RELEASE_VERSION", "v2.3"),
+    release=os.getenv("RELEASE_VERSION", "v2.4"),  # ✅ v2.4
 )
 
 # ============================================================
