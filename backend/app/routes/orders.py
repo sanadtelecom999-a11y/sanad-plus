@@ -1,5 +1,5 @@
 # ============================================================
-# 📦 Orders Routes — v2.2 (Anti Race Condition)
+# 📦 Orders Routes — v2.4 (Anti Race Condition + Fixed Referral)
 # ============================================================
 import uuid
 import json
@@ -24,12 +24,7 @@ REFERRAL_REWARD = 1.0
 # 🛡️ Helpers
 # ============================================================
 def fail(msg, code=None, status=400, **extra):
-    """
-    يرد بخطأ ويُحرر الأقفال (rollback).
-    
-    ⚠️ استخدم هذه الدالة بدل jsonify عند أي خطأ
-       بعد استخدام get_current_user(lock=True)
-    """
+    """يرد بخطأ ويُحرر الأقفال (rollback)."""
     db.session.rollback()
     payload = {"error": msg}
     if code:
@@ -41,11 +36,7 @@ def fail(msg, code=None, status=400, **extra):
 def get_current_user(lock=False):
     """
     استخراج المستخدم من JWT.
-    
-    Args:
-        lock: إذا True → يستخدم SELECT FOR UPDATE
-              يقفل الصف حتى commit/rollback
-              لمنع Race Conditions في العمليات المالية
+    lock=True → SELECT FOR UPDATE (لمنع Race Conditions)
     """
     identity = get_jwt_identity()
     if not identity:
@@ -54,9 +45,8 @@ def get_current_user(lock=False):
         user_id = int(identity)
     except (ValueError, TypeError):
         return None
-    
+
     if lock:
-        # 🔒 SELECT ... FOR UPDATE
         return User.query.filter_by(id=user_id).with_for_update().first()
     return User.query.get(user_id)
 
@@ -100,22 +90,33 @@ def apply_coupon_to_order(user, coupon_code, order_amount):
     return round(discount, 4), coupon
 
 
-def complete_referral_if_first_order(user):
+# ============================================================
+# 🎁 Referral — INLINE (داخل نفس transaction الطلب)
+# ============================================================
+def complete_referral_inline(user):
+    """
+    ✅ تُنفَّذ داخل نفس transaction الطلب — لا commit هنا.
+    Returns: dict للإشعار بعد commit، أو None.
+    """
     if not user.referred_by_id:
-        return
+        return None
+
+    # count يرى الطلب الجديد لأنه flushed
     order_count = Order.query.filter_by(user_id=user.id).count()
     if order_count != 1:
-        return
+        return None
+
     referrer = User.query.get(user.referred_by_id)
     if not referrer:
-        return
+        return None
+
     referral = Referral.query.filter_by(
         referrer_id=referrer.id,
         referred_user_id=user.id,
         status="pending"
     ).first()
     if not referral:
-        return
+        return None
 
     balance_before = referrer.balance
     referrer.balance = round(referrer.balance + REFERRAL_REWARD, 2)
@@ -124,7 +125,8 @@ def complete_referral_if_first_order(user):
 
     db.session.add(Transaction(
         user_id=referrer.id, type="referral_reward", amount=REFERRAL_REWARD,
-        balance_after=referrer.balance, reference_type="referral", reference_id=referral.id,
+        balance_after=referrer.balance,
+        reference_type="referral", reference_id=referral.id,
     ))
     log_financial(
         user=referrer, action="referral_reward", amount=REFERRAL_REWARD,
@@ -138,37 +140,39 @@ def complete_referral_if_first_order(user):
 
     db.session.add(Notification(
         user_id=referrer.id, title="مكافأة إحالة",
-        message=f"حصلت على مكافأة {REFERRAL_REWARD:.2f}$", type="success",
+        message=f"حصلت على مكافأة {REFERRAL_REWARD:.2f}$",
+        type="success",
     ))
 
-    send_referral_reward(referrer, REFERRAL_REWARD)
+    return {"referrer": referrer, "amount": REFERRAL_REWARD}
 
 
 # ============================================================
-# 📦 Create Order — مع قفل المستخدم
+# 📦 Create Order — أقفال كاملة (User + Product)
 # ============================================================
 @main.route("/api/orders/", methods=["POST"])
 @jwt_required()
 def create_order():
-    # 🔒 قفل صف المستخدم — يمنع الطلبات المتزامنة
+    # 🔒 قفل صف المستخدم
     user = get_current_user(lock=True)
     if not user:
         return fail("غير مصرح", status=401)
-    
+
     if user.is_banned:
         return fail("أنت محظور", code="USER_BANNED", status=403)
 
     data = request.get_json() or {}
-    product = Product.query.get(data.get("product_id"))
+
+    # 🔒 قفل صف المنتج (يمنع Race Condition على المخزون)
+    product = Product.query.filter_by(id=data.get("product_id")).with_for_update().first()
     if not product or not product.is_active:
         return fail("منتج غير موجود", code="PRODUCT_INACTIVE", status=404)
 
-    # Idempotency — إذا الطلب موجود مسبقاً
+    # Idempotency
     key = data.get("idempotency_key")
     if key:
         existing = Order.query.filter_by(idempotency_key=key).first()
         if existing:
-            # rollback لتحرير القفل ثم الرد ببيانات الطلب الموجود
             db.session.rollback()
             return jsonify({
                 "order_id": existing.id,
@@ -199,24 +203,23 @@ def create_order():
         delivery = {"phone": v}
 
     # ============================================================
-    # 💰 حساب السعر حسب نوع المنتج
+    # 💰 حساب السعر
     # ============================================================
     syp_amount = None
 
     if product.product_type == "topup":
-        # رصيد سوري
         try:
             syp_amount = int(data.get("quantity", 0))
         except (ValueError, TypeError):
             return fail("مبلغ غير صالح")
-        
+
         if syp_amount <= 0:
             return fail("مبلغ غير صالح")
-        
+
         max_q = product.max_quantity or 0
         if max_q > 0 and syp_amount > max_q:
             return fail(f"الحد الأقصى {max_q:,} ل.س")
-        
+
         rate = get_syp_rate()
         total_price = round(syp_amount / rate, 4)
         quantity = syp_amount
@@ -224,26 +227,24 @@ def create_order():
         delivery.update({"syp_amount": syp_amount, "syp_rate": rate, "usd_amount": total_price})
 
     elif product.product_type == "bundle":
-        # باقة
         bundle = ProductBundle.query.get(data.get("bundle_id"))
         if not bundle or bundle.product_id != product.id:
             return fail("باقة غير صالحة")
-        
+
         quantity = bundle.quantity
         unit_price = bundle.price_usd
         total_price = unit_price
         delivery.update({"bundle_id": bundle.id, "bundle_name": bundle.name})
 
     else:
-        # كمية عادية
         try:
             quantity = int(data.get("quantity", 0))
         except (ValueError, TypeError):
             return fail("كمية غير صالحة")
-        
+
         if quantity <= 0:
             return fail("كمية غير صالحة")
-        
+
         max_q = product.max_quantity or 0
         if max_q > 0 and quantity > max_q:
             return fail(f"الحد الأقصى {max_q:,}")
@@ -258,7 +259,7 @@ def create_order():
         total_price = round(unit_price * quantity, 4)
 
     # ============================================================
-    # 🎟️ تطبيق الكوبون
+    # 🎟️ كوبون
     # ============================================================
     coupon_code = (data.get("coupon_code") or "").strip()
     discount = 0
@@ -269,7 +270,7 @@ def create_order():
             total_price = round(total_price - discount, 4)
 
     # ============================================================
-    # 💳 فحص الرصيد (بعد القفل → آمن)
+    # 💳 فحص الرصيد
     # ============================================================
     balance_before = user.balance
     new_balance = round(balance_before - total_price, 2)
@@ -296,7 +297,7 @@ def create_order():
         product.stock = max(0, product.stock - (syp_amount if syp_amount else quantity))
 
     # ============================================================
-    # 📦 إنشاء الطلب + Transactions
+    # 📦 إنشاء الطلب
     # ============================================================
     order = Order(
         order_number="ORD-" + uuid.uuid4().hex[:8].upper(),
@@ -340,7 +341,7 @@ def create_order():
         type="info",
     ))
 
-    # ⚠️ flush يدوي — لتوليد order.id قبل استخدامه في CouponUsage
+    # flush يدوي — order.id
     try:
         db.session.flush()
     except Exception as e:
@@ -348,7 +349,7 @@ def create_order():
         return jsonify({"error": f"فشل الإنشاء: {e}"}), 500
 
     # ============================================================
-    # 🎟️ تسجيل استخدام الكوبون — نفس transaction
+    # 🎟️ استخدام الكوبون
     # ============================================================
     if coupon_obj:
         coupon_obj.used_count = (coupon_obj.used_count or 0) + 1
@@ -361,7 +362,12 @@ def create_order():
         ))
 
     # ============================================================
-    # ✅ Commit واحد فقط (atomic)
+    # 🎁 Referral — داخل نفس transaction
+    # ============================================================
+    referral_snapshot = complete_referral_inline(user)
+
+    # ============================================================
+    # ✅ Commit واحد (atomic)
     # ============================================================
     try:
         db.session.commit()
@@ -370,17 +376,17 @@ def create_order():
         return jsonify({"error": f"فشل الحفظ: {e}"}), 500
 
     # ============================================================
-    # 🎁 Referral — بعد commit الطلب (له transactions مستقلة)
+    # 📤 إشعارات (خارج transaction)
     # ============================================================
-    try:
-        complete_referral_if_first_order(user)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        # لا نُفشل الطلب لو فشلت الإحالة
-        print(f"referral error: {e}")
+    if referral_snapshot:
+        try:
+            send_referral_reward(
+                referral_snapshot["referrer"],
+                referral_snapshot["amount"]
+            )
+        except Exception as e:
+            print(f"referral notify error: {e}")
 
-    # إشعار الأدمن
     notify_admins(f"طلب {order.order_number} - {product.name} - {total_price:.2f}$")
 
     # ============================================================
@@ -401,20 +407,19 @@ def create_order():
 
 
 # ============================================================
-# ❌ Cancel Order — مع قفل المستخدم
+# ❌ Cancel Order
 # ============================================================
 @main.route("/api/orders/<int:order_id>/cancel", methods=["POST"])
 @jwt_required()
 def cancel_order(order_id):
-    # 🔒 قفل المستخدم
     user = get_current_user(lock=True)
     if not user:
         return fail("غير مصرح", status=401)
-    
+
     order = Order.query.get(order_id)
     if not order or order.user_id != user.id:
         return fail("غير مصرح", status=403)
-    
+
     if order.status != "pending":
         return fail("لا يمكن الإلغاء", code="ORDER_NOT_CANCELLABLE")
 
@@ -424,12 +429,11 @@ def cancel_order(order_id):
     if (datetime.now(timezone.utc) - created).total_seconds() > 120:
         return fail("انتهت مهلة الإلغاء", code="ORDER_TIME_EXPIRED")
 
-    # ✅ استرجاع المخزون
-    product = Product.query.get(order.product_id)
+    # 🔒 قفل المنتج
+    product = Product.query.filter_by(id=order.product_id).with_for_update().first()
     if product and product.stock is not None:
         product.stock += order.quantity
 
-    # ✅ استرجاع الرصيد
     balance_before = user.balance
     user.balance = round(user.balance + order.total_price, 2)
 
@@ -462,7 +466,6 @@ def cancel_order(order_id):
         type="warning",
     ))
 
-    # ✅ commit واحد
     try:
         db.session.commit()
     except Exception as e:
@@ -484,7 +487,7 @@ def get_my_orders():
     user = get_current_user()
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
-    
+
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
     result = []
     for o in orders:

@@ -23,7 +23,8 @@ class User(db.Model):
     referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     referral_earnings = db.Column(db.Float, default=0.0)
     referral_count = db.Column(db.Integer, default=0)
-    allow_negative_balance = db.Column(db.Boolean, default=True)
+    # ✅ الإصلاح: DEFAULT = FALSE
+    allow_negative_balance = db.Column(db.Boolean, default=False, nullable=False)
     max_negative_balance = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

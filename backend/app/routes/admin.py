@@ -18,6 +18,7 @@ from ..models.base import (
 )
 from ..extensions import db
 from . import main
+from .auth import cleanup_expired_blacklist
 from ..services.telegram_service import (
     send_telegram_notification, notify_admins,
     send_deposit_approved, send_deposit_rejected,
@@ -157,7 +158,9 @@ def admin_login():
     if username != ADMIN_USERNAME or not verify_admin_password(password):
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
+    # 🆕 Cleanup expired JWT blacklist + OTP sessions
     cleanup_expired_otp_sessions()
+    cleanup_expired_blacklist()
 
     otp_code = generate_otp_code()
     otp_hash = generate_password_hash(otp_code)
@@ -268,10 +271,47 @@ def admin_get_users():
         "referral_code": u.referral_code,
         "referral_count": u.referral_count or 0,
         "referral_earnings": round(u.referral_earnings or 0, 2),
-        "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else True,
+        "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else False,
         "max_negative_balance": u.max_negative_balance or 0,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     } for u in users])
+
+
+@main.route("/admin/api/users/<int:user_id>", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_user_detail(user_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    orders_count = Order.query.filter_by(user_id=user.id).count()
+    deposits_count = Deposit.query.filter_by(user_id=user.id).count()
+
+    return jsonify({
+        "id": user.id,
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "balance": user.balance,
+        "kyc_status": user.kyc_status,
+        "is_verified": user.is_verified,
+        "role": user.role,
+        "is_banned": user.is_banned,
+        "vip_level": user.vip_level,
+        "referral_code": user.referral_code,
+        "referral_count": user.referral_count or 0,
+        "referral_earnings": user.referral_earnings or 0,
+        "allow_negative_balance": user.allow_negative_balance,
+        "max_negative_balance": user.max_negative_balance or 0,
+        "orders_count": orders_count,
+        "deposits_count": deposits_count,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    })
 
 
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
@@ -413,44 +453,6 @@ def admin_set_vip(user_id):
     log_admin_activity(f"VIP{vip_level} للمستخدم {user.telegram_id}")
     db.session.commit()
     return jsonify({"vip_level": user.vip_level})
-
-
-@main.route("/admin/api/users/<int:user_id>", methods=["GET"])
-@jwt_required()
-@handle_errors
-def admin_user_detail(user_id):
-    """تفاصيل مستخدم كامل — للمودال"""
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
-
-    orders_count = Order.query.filter_by(user_id=user.id).count()
-    deposits_count = Deposit.query.filter_by(user_id=user.id).count()
-
-    return jsonify({
-        "id": user.id,
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "balance": user.balance,
-        "kyc_status": user.kyc_status,
-        "is_verified": user.is_verified,
-        "role": user.role,
-        "is_banned": user.is_banned,
-        "vip_level": user.vip_level,
-        "referral_code": user.referral_code,
-        "referral_count": user.referral_count or 0,
-        "referral_earnings": user.referral_earnings or 0,
-        "allow_negative_balance": user.allow_negative_balance,
-        "max_negative_balance": user.max_negative_balance or 0,
-        "orders_count": orders_count,
-        "deposits_count": deposits_count,
-        "created_at": user.created_at.isoformat() if user.created_at else None,
-        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
-    })
 
 
 # ============================================================
@@ -890,7 +892,6 @@ def admin_order_detail(order_id):
 @jwt_required()
 @handle_errors
 def admin_order_full_detail(order_id):
-    """تفاصيل طلب كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1029,7 +1030,6 @@ def admin_update_order_status(order_id):
 @jwt_required()
 @handle_errors
 def admin_bulk_order_status():
-    """تحديث حالة عدة طلبات دفعة واحدة"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1139,7 +1139,6 @@ def admin_deposits():
 @jwt_required()
 @handle_errors
 def admin_deposit_detail(deposit_id):
-    """تفاصيل إيداع كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 

@@ -59,7 +59,7 @@ def apply_referral():
     if user.orders:
         return jsonify({"error": "لا يمكن تطبيق كود الإحالة بعد أول طلب"}), 400
 
-    if user.referred_by:
+    if user.referred_by or user.referred_by_id:
         return jsonify({"error": "تم تطبيق كود إحالة مسبقاً"}), 400
 
     referrer = User.query.filter_by(referral_code=referral_code).first()
@@ -69,7 +69,9 @@ def apply_referral():
     if referrer.id == user.id:
         return jsonify({"error": "لا يمكنك استخدام كودك الخاص"}), 400
 
-    user.referred_by = referrer.telegram_id
+    # ✅ إصلاح حرج: نكتب في الحقلين
+    user.referred_by = referrer.telegram_id       # للتوافق مع الكود القديم
+    user.referred_by_id = referrer.id             # 🎯 الحقل الفعلي
 
     referral = Referral(
         referrer_id=referrer.id,
