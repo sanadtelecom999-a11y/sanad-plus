@@ -173,4 +173,6 @@ bot/uploads/
 *.p12
 *.pfx
 secrets/
-.secrets/
+.secrets/backup_*/
+*.pyc
+__pycache__/
