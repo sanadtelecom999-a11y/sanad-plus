@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="css/admin.css?v=13">
+    <link rel="stylesheet" href="css/admin.css?v=14">
 </head>
 <body>
 
@@ -119,30 +119,52 @@
     <!-- ============ Main Content ============ -->
     <main class="admin-content" id="adminContent">
 
-        <!-- Dashboard -->
+        <!-- ============================================================
+             Dashboard — SMART
+             ============================================================ -->
         <section id="section-dashboard" class="admin-section active">
-            <h1 class="section-title">لوحة التحكم</h1>
+            <div class="dashboard-header">
+                <h1 class="section-title">لوحة التحكم</h1>
+                <div class="time-filters">
+                    <button class="time-chip active" onclick="setDashTimeFilter('today', this)">اليوم</button>
+                    <button class="time-chip" onclick="setDashTimeFilter('week', this)">7 أيام</button>
+                    <button class="time-chip" onclick="setDashTimeFilter('month', this)">30 يوم</button>
+                    <button class="time-chip" onclick="setDashTimeFilter('all', this)">الكل</button>
+                </div>
+            </div>
 
+            <!-- 🔴 يحتاج انتباهك -->
+            <div class="attention-card" id="attentionCard">
+                <div class="attention-header">
+                    <span class="material-icons">notifications_active</span>
+                    <span>يحتاج انتباهك</span>
+                </div>
+                <div class="attention-list" id="attentionList">
+                    <div class="attention-loading">جارٍ التحميل...</div>
+                </div>
+            </div>
+
+            <!-- 📊 إحصائيات -->
             <div class="stats-cards">
                 <div class="stat-card">
                     <div class="stat-icon stat-icon-primary"><span class="material-icons">payments</span></div>
                     <div class="stat-number" id="dashRevenue">0.00$</div>
-                    <div class="stat-label">إجمالي الأرباح</div>
+                    <div class="stat-label" id="dashRevenueLabel">إيرادات اليوم</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon stat-icon-info"><span class="material-icons">shopping_cart</span></div>
                     <div class="stat-number" id="dashOrders">0</div>
-                    <div class="stat-label">الطلبات</div>
+                    <div class="stat-label" id="dashOrdersLabel">طلبات اليوم</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon stat-icon-success"><span class="material-icons">people</span></div>
+                    <div class="stat-icon stat-icon-success"><span class="material-icons">person_add</span></div>
                     <div class="stat-number" id="dashUsers">0</div>
-                    <div class="stat-label">المستخدمون</div>
+                    <div class="stat-label" id="dashUsersLabel">مستخدمون جدد</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon stat-icon-warning"><span class="material-icons">inventory_2</span></div>
-                    <div class="stat-number" id="dashProducts">0</div>
-                    <div class="stat-label">المنتجات</div>
+                    <div class="stat-icon stat-icon-warning"><span class="material-icons">account_balance_wallet</span></div>
+                    <div class="stat-number" id="dashDeposits">0.00$</div>
+                    <div class="stat-label" id="dashDepositsLabel">إيداعات اليوم</div>
                 </div>
             </div>
 
@@ -163,7 +185,9 @@
             </div>
         </section>
 
-        <!-- Users -->
+        <!-- ============================================================
+             Users
+             ============================================================ -->
         <section id="section-users" class="admin-section">
             <h1 class="section-title">المستخدمون</h1>
             <div class="toolbar">
@@ -192,7 +216,9 @@
             </div>
         </section>
 
-        <!-- Categories -->
+        <!-- ============================================================
+             Categories
+             ============================================================ -->
         <section id="section-categories" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الأقسام</h1>
@@ -203,7 +229,9 @@
             <div class="cards-grid" id="categoriesList"></div>
         </section>
 
-        <!-- Products -->
+        <!-- ============================================================
+             Products
+             ============================================================ -->
         <section id="section-products" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">المنتجات</h1>
@@ -250,7 +278,9 @@
             </div>
         </section>
 
-        <!-- Payment Methods -->
+        <!-- ============================================================
+             Payment Methods
+             ============================================================ -->
         <section id="section-payment-methods" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">طرق الدفع</h1>
@@ -261,7 +291,9 @@
             <div class="cards-grid" id="paymentMethodsList"></div>
         </section>
 
-        <!-- Orders (NEW DESIGN v2.3) -->
+        <!-- ============================================================
+             Orders — with filter tabs
+             ============================================================ -->
         <section id="section-orders" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الطلبات</h1>
@@ -270,10 +302,26 @@
                 </button>
             </div>
 
+            <!-- 🆕 Tabs -->
+            <div class="filter-tabs" id="ordersTabs">
+                <button class="filter-tab active" onclick="setOrdersTab('all', this)">
+                    الكل <span class="tab-badge" id="ordersTabAll">0</span>
+                </button>
+                <button class="filter-tab" onclick="setOrdersTab('pending', this)">
+                    قيد المعالجة <span class="tab-badge tab-badge-warning" id="ordersTabPending">0</span>
+                </button>
+                <button class="filter-tab" onclick="setOrdersTab('processing', this)">
+                    قيد التنفيذ <span class="tab-badge tab-badge-info" id="ordersTabProcessing">0</span>
+                </button>
+                <button class="filter-tab" onclick="setOrdersTab('completed', this)">
+                    مكتملة <span class="tab-badge tab-badge-success" id="ordersTabCompleted">0</span>
+                </button>
+            </div>
+
             <div class="toolbar">
                 <div class="search-box">
                     <span class="material-icons">search</span>
-                    <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب، User ID، أو اسم المنتج..." oninput="applyOrderFilters()">
+                    <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب أو User ID أو اسم المنتج..." oninput="applyOrderFilters()">
                 </div>
                 <select id="orderStatusFilter" class="filter-select" onchange="applyOrderFilters()">
                     <option value="all">جميع الحالات</option>
@@ -295,11 +343,12 @@
                 </button>
             </div>
 
-            <!-- 🆕 Orders Container (Cards + Tabs) -->
             <div id="ordersList"></div>
         </section>
 
-        <!-- Deposits -->
+        <!-- ============================================================
+             Deposits — with filter tabs
+             ============================================================ -->
         <section id="section-deposits" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الإيداعات</h1>
@@ -307,6 +356,23 @@
                     <span class="material-icons">file_download</span> تصدير Excel
                 </button>
             </div>
+
+            <!-- 🆕 Tabs -->
+            <div class="filter-tabs" id="depositsTabs">
+                <button class="filter-tab active" onclick="setDepositsTab('all', this)">
+                    الكل <span class="tab-badge" id="depositsTabAll">0</span>
+                </button>
+                <button class="filter-tab" onclick="setDepositsTab('pending', this)">
+                    معلقة <span class="tab-badge tab-badge-warning" id="depositsTabPending">0</span>
+                </button>
+                <button class="filter-tab" onclick="setDepositsTab('approved', this)">
+                    مقبولة <span class="tab-badge tab-badge-success" id="depositsTabApproved">0</span>
+                </button>
+                <button class="filter-tab" onclick="setDepositsTab('rejected', this)">
+                    مرفوضة <span class="tab-badge tab-badge-danger" id="depositsTabRejected">0</span>
+                </button>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -324,9 +390,28 @@
             </div>
         </section>
 
-        <!-- KYC -->
+        <!-- ============================================================
+             KYC — with filter tabs
+             ============================================================ -->
         <section id="section-kyc" class="admin-section">
             <h1 class="section-title">طلبات التوثيق</h1>
+
+            <!-- 🆕 Tabs -->
+            <div class="filter-tabs" id="kycTabs">
+                <button class="filter-tab active" onclick="setKYCTab('all', this)">
+                    الكل <span class="tab-badge" id="kycTabAll">0</span>
+                </button>
+                <button class="filter-tab" onclick="setKYCTab('pending', this)">
+                    معلقة <span class="tab-badge tab-badge-warning" id="kycTabPending">0</span>
+                </button>
+                <button class="filter-tab" onclick="setKYCTab('approved', this)">
+                    مقبولة <span class="tab-badge tab-badge-success" id="kycTabApproved">0</span>
+                </button>
+                <button class="filter-tab" onclick="setKYCTab('rejected', this)">
+                    مرفوضة <span class="tab-badge tab-badge-danger" id="kycTabRejected">0</span>
+                </button>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead>
@@ -345,7 +430,9 @@
             </div>
         </section>
 
-        <!-- Service Requests -->
+        <!-- ============================================================
+             Service Requests
+             ============================================================ -->
         <section id="section-service-requests" class="admin-section">
             <h1 class="section-title">طلبات الخدمة المخصصة</h1>
             <div class="table-container">
@@ -365,7 +452,9 @@
             </div>
         </section>
 
-        <!-- Coupons -->
+        <!-- ============================================================
+             Coupons
+             ============================================================ -->
         <section id="section-coupons" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">كودات الخصم</h1>
@@ -392,7 +481,9 @@
             </div>
         </section>
 
-        <!-- Referrals -->
+        <!-- ============================================================
+             Referrals
+             ============================================================ -->
         <section id="section-referrals" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الإحالات</h1>
@@ -419,7 +510,9 @@
             </div>
         </section>
 
-        <!-- Archive -->
+        <!-- ============================================================
+             Archive
+             ============================================================ -->
         <section id="section-archive" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">الأرشيف</h1>
@@ -462,7 +555,9 @@
             </div>
         </section>
 
-        <!-- Activities -->
+        <!-- ============================================================
+             Activities
+             ============================================================ -->
         <section id="section-activities" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">سجل نشاطات الأدمن</h1>
@@ -482,7 +577,9 @@
             </div>
         </section>
 
-        <!-- Audit Log -->
+        <!-- ============================================================
+             Audit Log
+             ============================================================ -->
         <section id="section-audit-log" class="admin-section">
             <div class="section-header">
                 <h1 class="section-title">سجل التدقيق المالي</h1>
@@ -528,7 +625,9 @@
             </div>
         </section>
 
-        <!-- Notifications -->
+        <!-- ============================================================
+             Notifications
+             ============================================================ -->
         <section id="section-notifications" class="admin-section">
             <h1 class="section-title">إرسال إشعار</h1>
             <div class="card">
@@ -561,7 +660,9 @@
             </div>
         </section>
 
-        <!-- Settings -->
+        <!-- ============================================================
+             Settings
+             ============================================================ -->
         <section id="section-settings" class="admin-section">
             <h1 class="section-title">الإعدادات</h1>
 
@@ -607,7 +708,9 @@
 
     </main>
 
-    <!-- ============ Bottom Nav ============ -->
+    <!-- ============================================================
+         🆕 Bottom Nav — 5 items only
+         ============================================================ -->
     <nav class="admin-bottom-nav" id="adminBottomNav">
         <button class="bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
             <span class="material-icons">dashboard</span>
@@ -623,10 +726,6 @@
             <span>الإيداعات</span>
             <span class="bottom-nav-badge" id="badge-mobile-deposits" style="display:none;">0</span>
         </button>
-        <button class="bottom-nav-item" data-section="products" onclick="switchSection('products')">
-            <span class="material-icons">inventory_2</span>
-            <span>المنتجات</span>
-        </button>
         <button class="bottom-nav-item" data-section="users" onclick="switchSection('users')">
             <span class="material-icons">people</span>
             <span>المستخدمون</span>
@@ -637,24 +736,28 @@
         </button>
     </nav>
 
-    <!-- ============ 🆕 Bulk Orders Bar ============ -->
+    <!-- ============================================================
+         🆕 Bulk Orders Bar — repositioned
+         ============================================================ -->
     <div class="bulk-orders-bar" id="bulkOrdersBar">
-        <span class="material-icons" style="font-size:20px;">check_circle</span>
-        <span class="bulk-count">0</span>
-        <span style="font-size:0.85rem;font-weight:700;">محدد</span>
+        <div class="bulk-header">
+            <span class="material-icons">check_circle</span>
+            <span class="bulk-count">0</span>
+            <span>محدد</span>
+        </div>
         <div class="bulk-actions-inline">
             <button class="bulk-btn btn-complete" onclick="bulkChangeStatus('completed')">
-                <span class="material-icons" style="font-size:14px;vertical-align:middle;">check</span> إكمال
+                <span class="material-icons">check</span> إكمال
             </button>
             <button class="bulk-btn btn-fail" onclick="bulkChangeStatus('failed')">
-                <span class="material-icons" style="font-size:14px;vertical-align:middle;">close</span> فشل
+                <span class="material-icons">close</span> فشل
             </button>
             <button class="bulk-btn btn-cancel" onclick="bulkChangeStatus('cancelled')">
-                إلغاء
+                <span class="material-icons">block</span> إلغاء
             </button>
         </div>
         <button class="bulk-close-btn" onclick="clearSelectedOrders()">
-            <span class="material-icons" style="font-size:20px;">close</span>
+            <span class="material-icons">close</span>
         </button>
     </div>
 
@@ -668,8 +771,8 @@
         </div>
     </div>
 
-    <!-- ============ Confirm Modal ============ -->
-    <div id="confirmModal" class="modal">
+    <!-- ============ Confirm Modal — z-index مُصلح ============ -->
+    <div id="confirmModal" class="modal confirm-modal-overlay">
         <div class="modal-content confirm-content">
             <div class="confirm-icon" id="confirmIcon">
                 <span class="material-icons">help_outline</span>
@@ -706,8 +809,8 @@
     <!-- ============ Toast Container ============ -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="js/api.js?v=13"></script>
-    <script src="js/admin.js?v=13"></script>
+    <script src="js/api.js?v=14"></script>
+    <script src="js/admin.js?v=14"></script>
 
 </body>
 </html>

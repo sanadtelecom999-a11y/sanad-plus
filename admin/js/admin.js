@@ -1,4 +1,6 @@
-// admin/js/admin.js — v2.3
+// ============================================================
+// admin/js/admin.js — v14 (Part 1/3)
+// ============================================================
 
 // ============================================================
 // ============ Global State ============
@@ -12,7 +14,9 @@ let paymentMethodsData = [];
 let ordersData = [];
 let filteredOrders = [];
 let depositsData = [];
+let filteredDeposits = [];
 let kycData = [];
+let filteredKYC = [];
 let serviceRequestsData = [];
 let activitiesData = [];
 let couponsData = [];
@@ -24,6 +28,14 @@ let currentArchiveTab = 'cats';
 let currentSettings = {};
 let _otpSessionId = null;
 let selectedOrders = new Set();
+
+// 🆕 Dashboard time filter
+let dashTimeFilter = 'today';
+
+// 🆕 Filter tabs
+let ordersTabFilter = 'all';
+let depositsTabFilter = 'all';
+let kycTabFilter = 'all';
 
 // Bundle management
 let editingBundles = [];
@@ -239,6 +251,9 @@ const AdminPTR = (() => {
     return { init };
 })();
 
+// ============================================================
+// 🚀 Event Listeners Init
+// ============================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadAdminTheme();
     AdminPTR.init();
@@ -258,6 +273,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const gsModal = document.getElementById('globalSearchModal');
             if (gsModal && gsModal.classList.contains('active')) {
                 closeGlobalSearch();
+            }
+            const kycModal = document.getElementById('modal');
+            if (kycModal && kycModal.classList.contains('active')) {
+                closeModal();
             }
         }
     });
@@ -293,7 +312,7 @@ function removeToast(toast) {
 }
 
 // ============================================================
-// ============ Confirm System (with Double Confirm) ============
+// ============ Confirm System ============
 // ============================================================
 let _confirmResolver = null;
 
@@ -334,9 +353,7 @@ function closeConfirm(result) {
     }
 }
 
-// ============================================================
 // 🆕 Double Confirm (للمبالغ الكبيرة)
-// ============================================================
 async function showDoubleConfirm(options) {
     const first = await showConfirm(options);
     if (!first) return false;
@@ -395,6 +412,7 @@ function updateNavBadges() {
 
     const pendingDeposits = depositsData.filter(d => d.status === 'pending').length;
     setBadge('badge-deposits', pendingDeposits);
+    setBadge('badge-mobile-deposits', pendingDeposits);
 
     const pendingKYC = kycData.filter(k => k.status === 'pending').length;
     setBadge('badge-kyc', pendingKYC);
@@ -404,6 +422,9 @@ function updateNavBadges() {
 
     const archiveCount = (archiveData.categories?.length || 0) + (archiveData.products?.length || 0);
     setBadge('badge-archive', archiveCount);
+
+    // 🆕 تحديث Tab Badges
+    updateTabBadges();
 }
 
 function setBadge(id, count) {
@@ -415,6 +436,39 @@ function setBadge(id, count) {
     } else {
         el.style.display = 'none';
     }
+}
+
+// 🆕 تحديث Tab Counts
+function updateTabBadges() {
+    // Orders
+    const el1 = document.getElementById('ordersTabAll');
+    if (el1) el1.textContent = ordersData.length;
+    const el2 = document.getElementById('ordersTabPending');
+    if (el2) el2.textContent = ordersData.filter(o => o.status === 'pending').length;
+    const el3 = document.getElementById('ordersTabProcessing');
+    if (el3) el3.textContent = ordersData.filter(o => o.status === 'processing' || o.status === 'review').length;
+    const el4 = document.getElementById('ordersTabCompleted');
+    if (el4) el4.textContent = ordersData.filter(o => o.status === 'completed').length;
+
+    // Deposits
+    const d1 = document.getElementById('depositsTabAll');
+    if (d1) d1.textContent = depositsData.length;
+    const d2 = document.getElementById('depositsTabPending');
+    if (d2) d2.textContent = depositsData.filter(d => d.status === 'pending').length;
+    const d3 = document.getElementById('depositsTabApproved');
+    if (d3) d3.textContent = depositsData.filter(d => d.status === 'approved').length;
+    const d4 = document.getElementById('depositsTabRejected');
+    if (d4) d4.textContent = depositsData.filter(d => d.status === 'rejected').length;
+
+    // KYC
+    const k1 = document.getElementById('kycTabAll');
+    if (k1) k1.textContent = kycData.length;
+    const k2 = document.getElementById('kycTabPending');
+    if (k2) k2.textContent = kycData.filter(k => k.status === 'pending').length;
+    const k3 = document.getElementById('kycTabApproved');
+    if (k3) k3.textContent = kycData.filter(k => k.status === 'approved').length;
+    const k4 = document.getElementById('kycTabRejected');
+    if (k4) k4.textContent = kycData.filter(k => k.status === 'rejected').length;
 }
 
 // ============================================================
@@ -753,6 +807,9 @@ async function loadAllData() {
         currentSettings = results[10].status === 'fulfilled' ? results[10].value : {};
 
         filteredProducts = [...productsData];
+        filteredOrders = [...ordersData];
+        filteredDeposits = [...depositsData];
+        filteredKYC = [...kycData];
 
         const catFilter = document.getElementById('productCategoryFilter');
         if (catFilter) {
@@ -813,15 +870,76 @@ function switchSection(sectionId) {
 }
 
 // ============================================================
-// ============ Dashboard + Charts ============
+// ============ 🆕 Dashboard Smart ============
 // ============================================================
-function renderDashboard() {
-    const totalRevenue = ordersData.reduce((sum, o) => sum + (o.total_price || 0), 0);
-    document.getElementById('dashRevenue').textContent = `${totalRevenue.toFixed(2)}$`;
-    document.getElementById('dashOrders').textContent = ordersData.length;
-    document.getElementById('dashUsers').textContent = usersData.length;
-    document.getElementById('dashProducts').textContent = productsData.length;
+function setDashTimeFilter(filter, btn) {
+    dashTimeFilter = filter;
+    document.querySelectorAll('.time-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderDashboard();
+}
 
+function getTimeFilterRange() {
+    const now = new Date();
+    let startDate = null;
+    let label = 'اليوم';
+
+    if (dashTimeFilter === 'today') {
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        label = 'اليوم';
+    } else if (dashTimeFilter === 'week') {
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        label = '7 أيام';
+    } else if (dashTimeFilter === 'month') {
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        label = '30 يوم';
+    } else {
+        label = 'الكل';
+    }
+
+    return { startDate, label };
+}
+
+function isInRange(dateStr, startDate) {
+    if (!dateStr) return false;
+    if (!startDate) return true; // "الكل"
+    const d = new Date(dateStr);
+    return d >= startDate;
+}
+
+function renderDashboard() {
+    const { startDate, label } = getTimeFilterRange();
+
+    // فلترة حسب الفترة
+    const filteredOrders = ordersData.filter(o => isInRange(o.created_at, startDate));
+    const filteredDeposits = depositsData.filter(d => 
+        d.status === 'approved' && isInRange(d.created_at, startDate)
+    );
+    const filteredUsers = usersData.filter(u => isInRange(u.created_at, startDate));
+
+    // حساب الإيرادات من الطلبات
+    const revenue = filteredOrders
+        .filter(o => o.status !== 'failed' && o.status !== 'cancelled')
+        .reduce((sum, o) => sum + (o.total_price || 0), 0);
+
+    const depositsTotal = filteredDeposits.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+    document.getElementById('dashRevenue').textContent = `${revenue.toFixed(2)}$`;
+    document.getElementById('dashOrders').textContent = filteredOrders.length;
+    document.getElementById('dashUsers').textContent = filteredUsers.length;
+    document.getElementById('dashDeposits').textContent = `${depositsTotal.toFixed(2)}$`;
+
+    document.getElementById('dashRevenueLabel').textContent = `إيرادات ${label}`;
+    document.getElementById('dashOrdersLabel').textContent = `طلبات ${label}`;
+    document.getElementById('dashUsersLabel').textContent = `مستخدمون جدد ${label}`;
+    document.getElementById('dashDepositsLabel').textContent = `إيداعات ${label}`;
+
+    // آخر العمليات
     const recent = document.getElementById('recentActivities');
     if (!ordersData.length) {
         recent.innerHTML = '<div class="empty-state"><span class="material-icons">history</span>لا توجد عمليات حديثة</div>';
@@ -834,10 +952,96 @@ function renderDashboard() {
         `).join('');
     }
 
+    renderAttentionCard();
     renderOrdersChart();
     renderDepositsChart();
 }
 
+// 🆕 Attention Card
+function renderAttentionCard() {
+    const container = document.getElementById('attentionCard');
+    const list = document.getElementById('attentionList');
+    if (!container || !list) return;
+
+    const pendingOrders = ordersData.filter(o => o.status === 'pending').length;
+    const pendingDeposits = depositsData.filter(d => d.status === 'pending').length;
+    const pendingKYC = kycData.filter(k => k.status === 'pending').length;
+    const pendingServices = serviceRequestsData.filter(s => s.status === 'pending').length;
+
+    const total = pendingOrders + pendingDeposits + pendingKYC + pendingServices;
+
+    if (total === 0) {
+        container.classList.add('empty');
+        list.innerHTML = `
+            <div class="attention-empty">
+                <span class="material-icons">check_circle</span>
+                كل شيء تحت السيطرة
+            </div>
+        `;
+        return;
+    }
+
+    container.classList.remove('empty');
+    let html = '';
+
+    if (pendingOrders > 0) {
+        html += `
+            <button class="attention-item" onclick="switchSection('orders')">
+                <div class="attention-item-icon"><span class="material-icons">receipt_long</span></div>
+                <div class="attention-item-content">
+                    <div class="attention-item-title">${pendingOrders} طلب بحاجة لمعالجة</div>
+                    <div class="attention-item-subtitle">اضغط للمراجعة</div>
+                </div>
+                <span class="material-icons attention-item-arrow">chevron_left</span>
+            </button>
+        `;
+    }
+
+    if (pendingDeposits > 0) {
+        html += `
+            <button class="attention-item" onclick="switchSection('deposits')">
+                <div class="attention-item-icon"><span class="material-icons">account_balance_wallet</span></div>
+                <div class="attention-item-content">
+                    <div class="attention-item-title">${pendingDeposits} إيداع بانتظار المراجعة</div>
+                    <div class="attention-item-subtitle">اضغط للمراجعة</div>
+                </div>
+                <span class="material-icons attention-item-arrow">chevron_left</span>
+            </button>
+        `;
+    }
+
+    if (pendingKYC > 0) {
+        html += `
+            <button class="attention-item" onclick="switchSection('kyc')">
+                <div class="attention-item-icon"><span class="material-icons">verified_user</span></div>
+                <div class="attention-item-content">
+                    <div class="attention-item-title">${pendingKYC} طلب توثيق معلق</div>
+                    <div class="attention-item-subtitle">اضغط للمراجعة</div>
+                </div>
+                <span class="material-icons attention-item-arrow">chevron_left</span>
+            </button>
+        `;
+    }
+
+    if (pendingServices > 0) {
+        html += `
+            <button class="attention-item" onclick="switchSection('service-requests')">
+                <div class="attention-item-icon"><span class="material-icons">build</span></div>
+                <div class="attention-item-content">
+                    <div class="attention-item-title">${pendingServices} طلب خدمة معلق</div>
+                    <div class="attention-item-subtitle">اضغط للمراجعة</div>
+                </div>
+                <span class="material-icons attention-item-arrow">chevron_left</span>
+            </button>
+        `;
+    }
+
+    list.innerHTML = html;
+}
+
+// ============================================================
+// ============ Charts ============
+// ============================================================
 function getChartColors() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     return {
@@ -1037,6 +1241,10 @@ function getStatusArabic(status) {
     return map[status] || status;
 }
 // ============================================================
+// admin/js/admin.js — v14 (Part 2/3)
+// ============================================================
+
+// ============================================================
 // ============ Users ============
 // ============================================================
 function filterUsers(query) {
@@ -1073,7 +1281,11 @@ function renderUsers(users = usersData) {
 
         return `
         <tr>
-            <td data-label="Telegram ID"><span class="ltr">${user.telegram_id}</span></td>
+            <td data-label="Telegram ID">
+                <span class="ltr" style="cursor:pointer;" onclick="copyToClipboard('${user.telegram_id}')" title="اضغط للنسخ">
+                    ${user.telegram_id}
+                </span>
+            </td>
             <td data-label="الاسم">${user.username || user.first_name || 'مستخدم'}</td>
             <td data-label="الرصيد">
                 <span style="color:${balanceColor};font-weight:800;direction:ltr;">${balance.toFixed(2)}$</span>
@@ -1082,7 +1294,9 @@ function renderUsers(users = usersData) {
             <td data-label="الحالة"><span class="status-badge ${user.is_banned ? 'failed' : 'completed'}">${user.is_banned ? 'محظور' : 'نشط'}</span></td>
             <td data-label="VIP">${vipBadge}</td>
             <td data-label="إجراءات">
-                <button class="btn-outline btn-sm" onclick="openUserDetailModal(${user.id})" title="تفاصيل المستخدم">عرض</button>
+                <button class="btn-outline btn-sm" onclick="openUserDetailModal(${user.id})" title="تفاصيل المستخدم">
+                    <span class="material-icons" style="font-size:14px;vertical-align:middle;">visibility</span>
+                </button>
                 <button class="btn-outline btn-sm" onclick="adjustBalance(${user.id})">رصيد</button>
                 <button class="btn-outline btn-sm" onclick="openNegativeBalanceModal(${user.id})" title="الرصيد السالب">💳</button>
                 <button class="btn-outline btn-sm" onclick="openVIPModal(${user.id})" title="VIP">⭐</button>
@@ -1093,7 +1307,7 @@ function renderUsers(users = usersData) {
 }
 
 // ============================================================
-// 🆕 User Detail Modal
+// User Detail Modal
 // ============================================================
 async function openUserDetailModal(userId) {
     try {
@@ -1121,7 +1335,9 @@ async function openUserDetailModal(userId) {
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem;">
                         <div>
                             <span style="color:var(--text-secondary);">Telegram ID:</span>
-                            <div style="font-weight:700;" class="ltr">${user.telegram_id}</div>
+                            <div style="font-weight:700;cursor:pointer;" class="ltr" onclick="copyToClipboard('${user.telegram_id}')">
+                                ${user.telegram_id} <span class="material-icons" style="font-size:12px;vertical-align:middle;color:var(--primary);">content_copy</span>
+                            </div>
                         </div>
                         <div>
                             <span style="color:var(--text-secondary);">الدور:</span>
@@ -1160,7 +1376,9 @@ async function openUserDetailModal(userId) {
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
                         <span style="color:var(--text-secondary);font-size:0.85rem;">كود الإحالة:</span>
-                        <span style="font-weight:700;" class="ltr">${user.referral_code || '-'}</span>
+                        <span style="font-weight:700;cursor:pointer;" class="ltr" onclick="copyToClipboard('${user.referral_code || ''}')">
+                            ${user.referral_code || '-'}
+                        </span>
                     </div>
                     <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
                         <span style="color:var(--text-secondary);font-size:0.85rem;">عدد الإحالات:</span>
@@ -1421,12 +1639,12 @@ async function confirmAdjustBalance(userId) {
     const amount = type === 'add' ? rawAmount : -rawAmount;
     const actionText = type === 'add' ? 'إضافة' : 'خصم';
 
-    // 🆕 تأكيد مزدوج للمبالغ الكبيرة
+    // تأكيد مزدوج للمبالغ الكبيرة
     let confirmed;
     if (rawAmount >= 500) {
         confirmed = await showDoubleConfirm({
             title: '⚠️ مبلغ كبير',
-            message: `سيتم ${actionText} ${rawAmount}$ ${type === 'add' ? 'إلى' : 'من'} رصيد المستخدم.\n\nهل أنت متأكد؟`,
+            message: `سيتم ${actionText} ${rawAmount}$ ${type === 'add' ? 'إلى' : 'من'} رصيد المستخدم.`,
             confirmText: 'تأكيد',
             type: type === 'add' ? 'success' : 'danger'
         });
@@ -1638,7 +1856,7 @@ function renderProducts() {
 }
 
 // ============================================================
-// ============ Bundle Editor ============
+// Bundle Editor
 // ============================================================
 function renderBundleEditor(containerId) {
     const container = document.getElementById(containerId);
@@ -1706,7 +1924,7 @@ function removeBundle(idx) {
 }
 
 // ============================================================
-// ============ Add Product Modal ============
+// Add Product Modal
 // ============================================================
 function openProductModal() {
     editingBundles = [];
@@ -1862,7 +2080,7 @@ async function saveProduct(btn) {
 }
 
 // ============================================================
-// ============ Edit Product Modal ============
+// Edit Product Modal
 // ============================================================
 function openEditProductModal(productId) {
     const prod = productsData.find(p => p.id === productId);
@@ -2314,9 +2532,132 @@ async function deletePaymentMethodHandler(methodId) {
         showToast(`فشل حذف طريقة الدفع: ${error.message}`, 'error');
     }
 }
+
 // ============================================================
-// ============ Orders (NEW DESIGN - v2.3) ============
+// ============ KYC — 🆕 FIXED v14 ============
 // ============================================================
+function setKYCTab(filter, btn) {
+    kycTabFilter = filter;
+    document.querySelectorAll('#kycTabs .filter-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderKYC();
+}
+
+function renderKYC() {
+    const tbody = document.getElementById('kycTableBody');
+    if (!tbody) return;
+
+    // فلترة حسب Tab
+    let filtered = [...kycData];
+    if (kycTabFilter === 'pending') filtered = kycData.filter(k => k.status === 'pending');
+    else if (kycTabFilter === 'approved') filtered = kycData.filter(k => k.status === 'approved');
+    else if (kycTabFilter === 'rejected') filtered = kycData.filter(k => k.status === 'rejected');
+
+    filteredKYC = filtered;
+
+    if (!filtered.length) {
+        const emptyMsg = kycTabFilter === 'all' ? 'لا توجد طلبات توثيق' : 'لا توجد طلبات في هذه الحالة';
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><span class="material-icons">verified_user</span>${emptyMsg}</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(k => `
+        <tr>
+            <td data-label="معرف المستخدم">${k.user_id}</td>
+            <td data-label="الاسم">${k.full_name}</td>
+            <td data-label="الهاتف"><span class="ltr">${k.phone}</span></td>
+            <td data-label="العنوان">${k.address || '-'}</td>
+            <td data-label="الصورة">${k.selfie_image ? `<button class="btn-outline btn-sm" onclick="viewKYCImage(${k.id})">عرض</button>` : '-'}</td>
+            <td data-label="الحالة"><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status === 'approved' ? 'مقبول' : k.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></td>
+            <td data-label="إجراءات">
+                ${k.status === 'pending' ? `
+                    <button class="btn-success btn-sm" onclick="window.handleApproveKYC(${k.id})">قبول</button>
+                    <button class="btn-danger btn-sm" onclick="window.handleRejectKYC(${k.id})">رفض</button>
+                ` : '-'}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function viewKYCImage(kycId) {
+    const kyc = kycData.find(k => k.id === kycId);
+    if (!kyc) return;
+    const body = `
+        <div style="text-align:center;">
+            <h3 style="margin-bottom:16px;">تفاصيل طلب التوثيق</h3>
+            <div style="text-align:right;background:var(--primary-light);padding:14px;border-radius:12px;margin-bottom:16px;">
+                <div style="margin-bottom:8px;"><strong>الاسم:</strong> ${kyc.full_name}</div>
+                <div style="margin-bottom:8px;"><strong>الهاتف:</strong> <span class="ltr">${kyc.phone}</span></div>
+                <div style="margin-bottom:8px;"><strong>العنوان:</strong> ${kyc.address || '-'}</div>
+                <div><strong>الحالة:</strong> <span class="status-badge ${kyc.status === 'approved' ? 'completed' : kyc.status === 'rejected' ? 'failed' : 'pending'}">${kyc.status === 'approved' ? 'مقبول' : kyc.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></div>
+            </div>
+            <div style="margin-bottom:8px;text-align:right;font-weight:700;">صورة السيلفي:</div>
+            <div style="background:var(--background);border-radius:12px;padding:8px;max-height:60vh;overflow:auto;" onclick="openImageLightbox('${kyc.selfie_image}')">
+                <img src="${kyc.selfie_image}" style="width:100%;height:auto;border-radius:8px;display:block;cursor:zoom-in;" alt="KYC Selfie">
+            </div>
+            ${kyc.status === 'pending' ? `
+                <div style="display:flex;gap:8px;margin-top:16px;">
+                    <button class="btn-primary" style="flex:1;" onclick="closeModal(); window.handleApproveKYC(${kyc.id})">قبول التوثيق</button>
+                    <button class="btn-danger" style="flex:1;" onclick="closeModal(); window.handleRejectKYC(${kyc.id})">رفض</button>
+                </div>
+            ` : ''}
+            <button class="btn-outline" style="width:100%;margin-top:12px;" onclick="closeModal()">إغلاق</button>
+        </div>
+    `;
+    openModal('طلب التوثيق', body);
+}
+
+// 🆕 FIXED: handleApproveKYC (بدل approveKYCRequest)
+window.handleApproveKYC = async function(kycId) {
+    const confirmed = await showConfirm({
+        title: 'قبول التوثيق',
+        message: 'هل أنت متأكد من قبول طلب التوثيق؟',
+        confirmText: 'قبول',
+        type: 'success'
+    });
+    if (!confirmed) return;
+    try {
+        await approveKYCRequest(kycId);  // يستدعي api.js
+        await loadAllData();
+        renderKYC();
+        showToast('تم قبول التوثيق بنجاح', 'success');
+    } catch (error) {
+        showToast(`فشل القبول: ${error.message}`, 'error');
+    }
+};
+
+// 🆕 FIXED: handleRejectKYC (بدل rejectKYCRequest)
+window.handleRejectKYC = async function(kycId) {
+    const confirmed = await showConfirm({
+        title: 'رفض التوثيق',
+        message: 'هل أنت متأكد من رفض طلب التوثيق؟',
+        confirmText: 'رفض',
+        type: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+        await rejectKYCRequest(kycId);  // يستدعي api.js
+        await loadAllData();
+        renderKYC();
+        showToast('تم رفض التوثيق', 'warning');
+    } catch (error) {
+        showToast(`فشل الرفض: ${error.message}`, 'error');
+    }
+};
+// ============================================================
+// admin/js/admin.js — v14 (Part 3/3 — Final)
+// ============================================================
+
+// ============================================================
+// ============ Orders — 🆕 with Tabs ============
+// ============================================================
+function setOrdersTab(filter, btn) {
+    ordersTabFilter = filter;
+    document.querySelectorAll('#ordersTabs .filter-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyOrderFilters();
+}
+
 function applyOrderFilters() {
     const searchQuery = (document.getElementById('orderSearchQuery')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('orderStatusFilter')?.value || 'all';
@@ -2324,6 +2665,15 @@ function applyOrderFilters() {
 
     let filtered = [...ordersData];
 
+    // 🆕 Tab filter
+    if (ordersTabFilter === 'pending') filtered = filtered.filter(o => o.status === 'pending');
+    else if (ordersTabFilter === 'processing') filtered = filtered.filter(o => o.status === 'processing' || o.status === 'review');
+    else if (ordersTabFilter === 'completed') filtered = filtered.filter(o => o.status === 'completed');
+
+    // Status filter
+    if (statusFilter !== 'all') filtered = filtered.filter(o => o.status === statusFilter);
+
+    // Search
     if (searchQuery) {
         filtered = filtered.filter(o =>
             (o.order_number || '').toLowerCase().includes(searchQuery) ||
@@ -2332,8 +2682,8 @@ function applyOrderFilters() {
             (o.user_name || '').toLowerCase().includes(searchQuery)
         );
     }
-    if (statusFilter !== 'all') filtered = filtered.filter(o => o.status === statusFilter);
 
+    // Sort
     if (sortFilter === 'newest') filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
     else if (sortFilter === 'oldest') filtered.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
     else if (sortFilter === 'price_high') filtered.sort((a, b) => (b.total_price || 0) - (a.total_price || 0));
@@ -2353,6 +2703,13 @@ function resetOrderFilters() {
     const sortSelect = document.getElementById('orderSortFilter');
     if (statusSelect) statusSelect.value = 'all';
     if (sortSelect) sortSelect.value = 'newest';
+
+    // إعادة Tab للكل
+    ordersTabFilter = 'all';
+    document.querySelectorAll('#ordersTabs .filter-tab').forEach((b, i) => {
+        b.classList.toggle('active', i === 0);
+    });
+
     filteredOrders = [...ordersData];
     renderOrders(ordersData);
 }
@@ -2373,40 +2730,11 @@ function renderOrders(orders) {
     }
 
     container.innerHTML = `
-        <div class="orders-tabs">
-            <button class="order-tab ${!document.querySelector('.order-tab.active') ? 'active' : ''}" onclick="filterOrdersByTab('all', this)">
-                الكل <span class="tab-count">${ordersData.length}</span>
-            </button>
-            <button class="order-tab" onclick="filterOrdersByTab('pending', this)">
-                معلق <span class="tab-count badge-pending">${ordersData.filter(o => o.status === 'pending').length}</span>
-            </button>
-            <button class="order-tab" onclick="filterOrdersByTab('processing', this)">
-                قيد التنفيذ <span class="tab-count">${ordersData.filter(o => o.status === 'processing' || o.status === 'review').length}</span>
-            </button>
-            <button class="order-tab" onclick="filterOrdersByTab('completed', this)">
-                مكتمل <span class="tab-count badge-success">${ordersData.filter(o => o.status === 'completed').length}</span>
-            </button>
-        </div>
-
         <div class="orders-cards-grid">
             ${orders.map(order => renderOrderCard(order)).join('')}
         </div>
     `;
     updateSelectedOrdersBar();
-}
-
-function filterOrdersByTab(tab, btn) {
-    document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-
-    let filtered;
-    if (tab === 'all') filtered = [...ordersData];
-    else if (tab === 'pending') filtered = ordersData.filter(o => o.status === 'pending');
-    else if (tab === 'processing') filtered = ordersData.filter(o => o.status === 'processing' || o.status === 'review');
-    else if (tab === 'completed') filtered = ordersData.filter(o => o.status === 'completed');
-
-    filteredOrders = filtered;
-    renderOrders(filtered);
 }
 
 function renderOrderCard(order) {
@@ -2434,7 +2762,7 @@ function renderOrderCard(order) {
                            onchange="toggleOrderSelection(${order.id}, this.checked)">
                 </label>
                 <div class="order-header-info">
-                    <div class="order-number-tag ltr">${order.order_number}</div>
+                    <div class="order-number-tag ltr" onclick="copyToClipboard('${order.order_number}')">${order.order_number}</div>
                     <span class="status-badge ${statusColors[order.status]}">${getStatusArabic(order.status)}</span>
                 </div>
                 <div class="order-price-tag">
@@ -2446,7 +2774,7 @@ function renderOrderCard(order) {
                 <div class="order-body-row">
                     <span class="material-icons" style="font-size:16px;color:var(--primary);">person</span>
                     <span class="order-user-name">${order.user_name || 'مستخدم'}</span>
-                    <span class="ltr order-user-id">#${order.user_telegram || order.user_id}</span>
+                    <span class="ltr order-user-id" onclick="copyToClipboard('${order.user_telegram || order.user_id}')">#${order.user_telegram || order.user_id}</span>
                 </div>
                 <div class="order-body-row">
                     <span class="material-icons" style="font-size:16px;color:var(--primary);">inventory_2</span>
@@ -2506,7 +2834,7 @@ async function quickChangeOrderStatus(orderId, newStatus) {
 }
 
 // ============================================================
-// 🆕 Order Selection (Bulk Actions)
+// Order Selection (Bulk Actions)
 // ============================================================
 function toggleOrderSelection(orderId, isChecked) {
     if (isChecked) selectedOrders.add(orderId);
@@ -2562,7 +2890,7 @@ async function bulkChangeStatus(newStatus) {
 }
 
 // ============================================================
-// 🆕 Order Detail Modal
+// Order Detail Modal
 // ============================================================
 async function viewOrderDetails(orderId) {
     try {
@@ -2597,7 +2925,7 @@ async function viewOrderDetails(orderId) {
                                     <span class="material-icons" style="font-size:14px;color:var(--primary);">${item.icon}</span>
                                     ${item.label}
                                 </span>
-                                <span class="detail-value ltr">${item.value}</span>
+                                <span class="detail-value ltr" onclick="copyToClipboard('${item.value}')" style="cursor:pointer;">${item.value}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -2609,7 +2937,7 @@ async function viewOrderDetails(orderId) {
             <div class="order-detail-modal">
                 <div class="order-detail-header">
                     <div>
-                        <div class="order-detail-number ltr">${order.order_number}</div>
+                        <div class="order-detail-number ltr" onclick="copyToClipboard('${order.order_number}')" style="cursor:pointer;">${order.order_number}</div>
                         <div class="order-detail-date">${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <span class="status-badge ${statusColors[order.status]}">${order.status_arabic}</span>
@@ -2632,7 +2960,7 @@ async function viewOrderDetails(orderId) {
                     ` : ''}
                     <div class="detail-row">
                         <span class="detail-label">Telegram ID</span>
-                        <span class="detail-value ltr">${order.user?.telegram_id || '-'}</span>
+                        <span class="detail-value ltr" onclick="copyToClipboard('${order.user?.telegram_id}')" style="cursor:pointer;">${order.user?.telegram_id || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">رصيد العميل</span>
@@ -2696,16 +3024,16 @@ async function viewOrderDetails(orderId) {
                             <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">تغيير الحالة</label>
                         </div>
                         ${order.status === 'pending' ? `
-                            <button class="btn-primary" onclick="quickChangeOrderStatus(${order.id}, 'review')">قيد المراجعة</button>
-                            <button class="btn-outline" onclick="quickChangeOrderStatus(${order.id}, 'cancelled')">إلغاء</button>
+                            <button class="btn-primary" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'review')">قيد المراجعة</button>
+                            <button class="btn-outline" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'cancelled')">إلغاء</button>
                         ` : ''}
                         ${order.status === 'review' ? `
-                            <button class="btn-primary" onclick="quickChangeOrderStatus(${order.id}, 'processing')">بدء التنفيذ</button>
-                            <button class="btn-danger" onclick="quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
+                            <button class="btn-primary" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'processing')">بدء التنفيذ</button>
+                            <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
                         ` : ''}
                         ${order.status === 'processing' ? `
-                            <button class="btn-success" onclick="quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
-                            <button class="btn-danger" onclick="quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
+                            <button class="btn-success" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
+                            <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
                         ` : ''}
                     ` : `
                         <div style="grid-column:1/-1;text-align:center;padding:12px;background:var(--background);border-radius:10px;font-size:0.85rem;color:var(--text-secondary);">
@@ -2722,28 +3050,52 @@ async function viewOrderDetails(orderId) {
 }
 
 // ============================================================
-// ============ Deposits (NEW - with detail modal) ============
+// ============ Deposits — 🆕 with Tabs ============
 // ============================================================
+function setDepositsTab(filter, btn) {
+    depositsTabFilter = filter;
+    document.querySelectorAll('#depositsTabs .filter-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderDeposits(depositsData);
+}
+
 function renderDeposits(deposits) {
     const tbody = document.getElementById('depositsTableBody');
     if (!tbody) return;
-    if (!deposits.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><span class="material-icons">account_balance_wallet</span>لا توجد إيداعات</td></tr>';
+
+    // 🆕 فلترة حسب Tab
+    let filtered = [...deposits];
+    if (depositsTabFilter === 'pending') filtered = deposits.filter(d => d.status === 'pending');
+    else if (depositsTabFilter === 'approved') filtered = deposits.filter(d => d.status === 'approved');
+    else if (depositsTabFilter === 'rejected') filtered = deposits.filter(d => d.status === 'rejected');
+
+    filteredDeposits = filtered;
+
+    if (!filtered.length) {
+        const emptyMsg = depositsTabFilter === 'all' ? 'لا توجد إيداعات' : 'لا توجد إيداعات في هذه الحالة';
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><span class="material-icons">account_balance_wallet</span>${emptyMsg}</td></tr>`;
         return;
     }
-    tbody.innerHTML = deposits.map(d => `
+
+    tbody.innerHTML = filtered.map(d => `
         <tr>
-            <td data-label="رقم العملية"><span class="ltr">${d.transaction_id}</span></td>
+            <td data-label="رقم العملية">
+                <span class="ltr" onclick="copyToClipboard('${d.transaction_id}')" style="cursor:pointer;">
+                    ${d.transaction_id}
+                </span>
+            </td>
             <td data-label="المستخدم">
                 ${d.user_name || 'مستخدم'}
-                <div style="font-size:0.7rem;color:var(--text-secondary);" class="ltr">#${d.user_telegram || d.user_id}</div>
+                <div style="font-size:0.7rem;color:var(--text-secondary);cursor:pointer;" class="ltr" onclick="copyToClipboard('${d.user_telegram || d.user_id}')">
+                    #${d.user_telegram || d.user_id}
+                </div>
             </td>
             <td data-label="المبلغ"><strong class="ltr">${d.amount.toFixed(2)}$</strong></td>
             <td data-label="الطريقة">${d.method || '-'}</td>
             <td data-label="الحالة"><span class="status-badge ${d.status === 'approved' ? 'completed' : d.status === 'rejected' ? 'failed' : 'pending'}">${d.status === 'approved' ? 'مقبول' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></td>
             <td data-label="إجراءات">
                 <button class="btn-outline btn-sm" onclick="viewDepositDetails(${d.id})">
-                    <span class="material-icons" style="font-size:14px;">visibility</span> عرض التفاصيل
+                    <span class="material-icons" style="font-size:14px;">visibility</span> تفاصيل
                 </button>
                 ${d.status === 'pending' ? `
                     <button class="btn-success btn-sm" onclick="approveDepositHandler(${d.id})">قبول</button>
@@ -2770,7 +3122,7 @@ async function viewDepositDetails(depositId) {
             <div class="order-detail-modal">
                 <div class="order-detail-header">
                     <div>
-                        <div class="order-detail-number ltr">${d.transaction_id}</div>
+                        <div class="order-detail-number ltr" onclick="copyToClipboard('${d.transaction_id}')" style="cursor:pointer;">${d.transaction_id}</div>
                         <div class="order-detail-date">${d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <span class="status-badge ${st.class}">${st.text}</span>
@@ -2794,7 +3146,7 @@ async function viewDepositDetails(depositId) {
                         ` : ''}
                         <div class="detail-row">
                             <span class="detail-label">Telegram ID</span>
-                            <span class="detail-value ltr">${d.user.telegram_id}</span>
+                            <span class="detail-value ltr" onclick="copyToClipboard('${d.user.telegram_id}')" style="cursor:pointer;">${d.user.telegram_id}</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">رصيد العميل</span>
@@ -2841,14 +3193,13 @@ async function viewDepositDetails(depositId) {
                     ${d.account_number ? `
                     <div class="detail-row">
                         <span class="detail-label">رقم الحساب</span>
-                        <span class="detail-value ltr">${d.account_number}</span>
+                        <span class="detail-value ltr" onclick="copyToClipboard('${d.account_number}')" style="cursor:pointer;">${d.account_number}</span>
                     </div>
                     ` : ''}
                     ${d.txid ? `
                     <div class="detail-row">
                         <span class="detail-label">رقم العملية</span>
-                        <span class="detail-value ltr" style="font-weight:700;">${d.txid}</span>
-                        <button class="btn-outline btn-sm" onclick="copyToClipboard('${d.txid}')" style="padding:2px 8px;font-size:0.7rem;">نسخ</button>
+                        <span class="detail-value ltr" style="font-weight:700;cursor:pointer;" onclick="copyToClipboard('${d.txid}')">${d.txid} 📋</span>
                     </div>
                     ` : ''}
                     ${d.admin_note ? `
@@ -2950,98 +3301,6 @@ async function rejectDepositHandler(depositId) {
 }
 
 // ============================================================
-// ============ KYC ============
-// ============================================================
-function renderKYC() {
-    const tbody = document.getElementById('kycTableBody');
-    if (!tbody) return;
-    if (!kycData.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><span class="material-icons">verified_user</span>لا توجد طلبات توثيق</td></tr>';
-        return;
-    }
-    tbody.innerHTML = kycData.map(k => `
-        <tr>
-            <td data-label="المستخدم">${k.user_id}</td>
-            <td data-label="الاسم">${k.full_name}</td>
-            <td data-label="الهاتف"><span class="ltr">${k.phone}</span></td>
-            <td data-label="العنوان">${k.address || '-'}</td>
-            <td data-label="الصورة">${k.selfie_image ? `<button class="btn-outline btn-sm" onclick="viewKYCImage(${k.id})">عرض</button>` : '-'}</td>
-            <td data-label="الحالة"><span class="status-badge ${k.status === 'approved' ? 'completed' : k.status === 'rejected' ? 'failed' : 'pending'}">${k.status === 'approved' ? 'مقبول' : k.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></td>
-            <td data-label="إجراءات">
-                ${k.status === 'pending' ? `
-                    <button class="btn-success btn-sm" onclick="window.approveKYCRequest(${k.id})">قبول</button>
-                    <button class="btn-danger btn-sm" onclick="window.rejectKYCRequest(${k.id})">رفض</button>
-                ` : '-'}
-            </td>
-        </tr>
-    `).join('');
-}
-
-function viewKYCImage(kycId) {
-    const kyc = kycData.find(k => k.id === kycId);
-    if (!kyc) return;
-    const body = `
-        <div style="text-align:center;">
-            <h3 style="margin-bottom:16px;">تفاصيل طلب التوثيق</h3>
-            <div style="text-align:right;background:var(--primary-light);padding:14px;border-radius:12px;margin-bottom:16px;">
-                <div style="margin-bottom:8px;"><strong>الاسم:</strong> ${kyc.full_name}</div>
-                <div style="margin-bottom:8px;"><strong>الهاتف:</strong> <span class="ltr">${kyc.phone}</span></div>
-                <div style="margin-bottom:8px;"><strong>العنوان:</strong> ${kyc.address || '-'}</div>
-                <div><strong>الحالة:</strong> <span class="status-badge ${kyc.status === 'approved' ? 'completed' : kyc.status === 'rejected' ? 'failed' : 'pending'}">${kyc.status === 'approved' ? 'مقبول' : kyc.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></div>
-            </div>
-            <div style="margin-bottom:8px;text-align:right;font-weight:700;">صورة السيلفي:</div>
-            <div style="background:var(--background);border-radius:12px;padding:8px;max-height:60vh;overflow:auto;">
-                <img src="${kyc.selfie_image}" style="width:100%;height:auto;border-radius:8px;display:block;" alt="KYC Selfie">
-            </div>
-            ${kyc.status === 'pending' ? `
-                <div style="display:flex;gap:8px;margin-top:16px;">
-                    <button class="btn-primary" style="flex:1;" onclick="closeModal(); window.approveKYCRequest(${kyc.id})">قبول التوثيق</button>
-                    <button class="btn-danger" style="flex:1;" onclick="closeModal(); window.rejectKYCRequest(${kyc.id})">رفض</button>
-                </div>
-            ` : ''}
-            <button class="btn-outline" style="width:100%;margin-top:12px;" onclick="closeModal()">إغلاق</button>
-        </div>
-    `;
-    openModal('طلب التوثيق', body);
-}
-
-window.approveKYCRequest = async function(kycId) {
-    const confirmed = await showConfirm({
-        title: 'قبول التوثيق',
-        message: 'هل أنت متأكد من قبول طلب التوثيق؟',
-        confirmText: 'قبول',
-        type: 'success'
-    });
-    if (!confirmed) return;
-    try {
-        await approveKYCRequest(kycId);
-        await loadAllData();
-        renderKYC();
-        showToast('تم قبول التوثيق بنجاح', 'success');
-    } catch (error) {
-        showToast(`فشل القبول: ${error.message}`, 'error');
-    }
-};
-
-window.rejectKYCRequest = async function(kycId) {
-    const confirmed = await showConfirm({
-        title: 'رفض التوثيق',
-        message: 'هل أنت متأكد من رفض طلب التوثيق؟',
-        confirmText: 'رفض',
-        type: 'danger'
-    });
-    if (!confirmed) return;
-    try {
-        await rejectKYCRequest(kycId);
-        await loadAllData();
-        renderKYC();
-        showToast('تم رفض التوثيق', 'warning');
-    } catch (error) {
-        showToast(`فشل الرفض: ${error.message}`, 'error');
-    }
-};
-
-// ============================================================
 // ============ Service Requests ============
 // ============================================================
 function renderServiceRequests() {
@@ -3094,7 +3353,7 @@ function renderCoupons() {
         const expiry = c.expires_at ? new Date(c.expires_at).toLocaleDateString('ar') : 'بلا نهاية';
         return `
             <tr>
-                <td data-label="الكود"><strong class="ltr">${c.code}</strong></td>
+                <td data-label="الكود"><strong class="ltr" onclick="copyToClipboard('${c.code}')" style="cursor:pointer;">${c.code}</strong></td>
                 <td data-label="النوع">${c.discount_type === 'percentage' ? 'نسبة' : 'مبلغ'}</td>
                 <td data-label="القيمة">${typeLabel}</td>
                 <td data-label="الحد الأدنى">${c.min_amount || 0}$</td>
@@ -3417,7 +3676,6 @@ function closeModal() {
 function openImageLightbox(imageUrl) {
     const lightbox = document.getElementById('imageLightbox');
     if (!lightbox) {
-        // إنشاء lightbox ديناميكياً
         const lb = document.createElement('div');
         lb.id = 'imageLightbox';
         lb.className = 'image-lightbox';
@@ -3447,7 +3705,8 @@ function closeImageLightbox() {
 }
 
 // ============================================================
-// ============ Helpers ============================================================
+// ============ Helpers ============
+// ============================================================
 function previewImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -3514,27 +3773,29 @@ function fileToSquareBase64(file, size = 512) {
     });
 }
 
+// 🆕 Copy to clipboard
 function copyToClipboard(text) {
+    if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text)
-            .then(() => showToast('تم النسخ', 'success'))
+            .then(() => showToast('تم النسخ ✓', 'success', 1500))
             .catch(() => {
                 const ta = document.createElement('textarea');
                 ta.value = text;
                 document.body.appendChild(ta);
                 ta.select();
-                document.execCommand('copy');
+                try { document.execCommand('copy'); showToast('تم النسخ ✓', 'success', 1500); }
+                catch (e) { showToast('تعذر النسخ', 'error'); }
                 document.body.removeChild(ta);
-                showToast('تم النسخ', 'success');
             });
     } else {
         const ta = document.createElement('textarea');
         ta.value = text;
         document.body.appendChild(ta);
         ta.select();
-        document.execCommand('copy');
+        try { document.execCommand('copy'); showToast('تم النسخ ✓', 'success', 1500); }
+        catch (e) { showToast('تعذر النسخ', 'error'); }
         document.body.removeChild(ta);
-        showToast('تم النسخ', 'success');
     }
 }
 
@@ -3618,5 +3879,5 @@ function exportReferralsExcel() {
 }
 
 // ============================================================
-// ============ End of admin.js v2.3 ============
+// ============ End of admin.js v14 ============
 // ============================================================
