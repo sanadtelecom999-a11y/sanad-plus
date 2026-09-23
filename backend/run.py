@@ -1,12 +1,11 @@
 # ============================================================
-# 🛡️ Sentry — يجب أن يكون أول شيء
+# 🛡️ Sentry
 # ============================================================
 import os
 import sys
-import logging
-import threading
-import subprocess
 import atexit
+import logging
+import subprocess
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
@@ -17,11 +16,12 @@ sentry_sdk.init(
     profiles_sample_rate=0.0,
     send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
-    release=os.getenv("RELEASE_VERSION", "v2.4"),  # ✅ v2.4
+    # 🆕 v2.4: تحديث الإصدار
+    release=os.getenv("RELEASE_VERSION", "v2.4"),
 )
 
 # ============================================================
-# ⬇️ باقي الاستيرادات
+# ⬇️ Imports
 # ============================================================
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -53,10 +53,10 @@ with app.app_context():
 
 
 # ============================================================
-# 🆕 Fix negative balance defaults
+# 🆕 v2.4: تصفير allow_negative_balance للمستخدمين الحاليين
 # ============================================================
 def _fix_negative_balance_defaults():
-    """تصفير allow_negative_balance للمستخدمين بدون حد سلبي فعلي."""
+    """تصفير allow_negative_balance للمستخدمين بدون حد سلبي فعلي"""
     try:
         result = db.session.execute(text("""
             UPDATE users 
@@ -65,15 +65,15 @@ def _fix_negative_balance_defaults():
               AND allow_negative_balance = TRUE
         """))
         db.session.commit()
-        if result.rowcount > 0:
-            print(f"✅ Fixed negative balance defaults: {result.rowcount} users")
+        if result.rowcount:
+            logger.info(f"✅ Fixed negative balance defaults: {result.rowcount} users")
     except Exception as e:
         db.session.rollback()
-        print(f"⚠️ Negative balance fix: {e}")
+        logger.error(f"Negative balance fix failed: {e}")
 
 
 # ============================================================
-# 🗄️ Migration v2.1
+# 🗄️ Migration
 # ============================================================
 def upgrade_database():
     """ترقية قاعدة البيانات — v2.1"""
@@ -81,7 +81,6 @@ def upgrade_database():
         inspector = sa.inspect(db.engine)
         print("بدء Migration v2.1...")
 
-        # 1) FK removals قديمة
         fk_removals = [
             "ALTER TABLE admin_activities DROP CONSTRAINT IF EXISTS admin_activities_admin_id_fkey",
             "ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_referrer_id_fkey",
@@ -94,7 +93,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 2) Image columns → TEXT
         image_columns = {
             'categories': ['image'],
             'products': ['image'],
@@ -114,7 +112,6 @@ def upgrade_database():
                     except Exception:
                         db.session.rollback()
 
-        # 3) Soft Delete
         soft_delete_tables = ['categories', 'products', 'coupons', 'payment_methods']
         for table in soft_delete_tables:
             if inspector.has_table(table):
@@ -125,7 +122,6 @@ def upgrade_database():
                     db.session.rollback()
         print("Soft Delete columns")
 
-        # 4) Users
         if inspector.has_table('users'):
             users_cols = [
                 'updated_at TIMESTAMP DEFAULT NOW()',
@@ -198,7 +194,6 @@ def upgrade_database():
                 if 'already exists' not in str(e).lower():
                     print(f"CHECK: {e}")
 
-        # 5) Categories: order → display_order
         if inspector.has_table('categories'):
             existing_cols = [col['name'] for col in inspector.get_columns('categories')]
             if 'order' in existing_cols and 'display_order' not in existing_cols:
@@ -216,7 +211,6 @@ def upgrade_database():
                 except Exception:
                     db.session.rollback()
 
-        # 6) Products
         if inspector.has_table('products'):
             products_cols = [
                 'max_quantity INTEGER DEFAULT 0',
@@ -244,7 +238,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"stock migration: {e}")
 
-        # 7) Orders
         if inspector.has_table('orders'):
             orders_cols = [
                 'discount_amount FLOAT DEFAULT 0',
@@ -262,7 +255,6 @@ def upgrade_database():
                 except Exception:
                     db.session.rollback()
 
-        # 8) Deposits
         if inspector.has_table('deposits'):
             deposits_cols = [
                 'admin_note TEXT',
@@ -315,7 +307,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"uq txid: {e}")
 
-        # 9) KYC
         if inspector.has_table('kyc_requests'):
             try:
                 db.session.execute(text('ALTER TABLE kyc_requests ADD COLUMN IF NOT EXISTS reviewed_by INTEGER'))
@@ -323,7 +314,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 10) Coupon Usages
         if inspector.has_table('coupon_usages'):
             try:
                 db.session.execute(text('ALTER TABLE coupon_usages ADD COLUMN IF NOT EXISTS discount_applied FLOAT DEFAULT 0'))
@@ -331,7 +321,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 11) Service Requests
         if inspector.has_table('service_requests'):
             try:
                 db.session.execute(text('ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS admin_id INTEGER'))
@@ -341,7 +330,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 12) Drop admins table
         if inspector.has_table('admins'):
             try:
                 db.session.execute(text('DROP TABLE admins CASCADE'))
@@ -351,7 +339,6 @@ def upgrade_database():
                 db.session.rollback()
                 print(f"drop admins: {e}")
 
-        # 13) Create new tables
         try:
             db.create_all()
             db.session.commit()
@@ -360,7 +347,6 @@ def upgrade_database():
             db.session.rollback()
             print(f"create_all: {e}")
 
-        # 14) Indexes
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id)",
             "CREATE INDEX IF NOT EXISTS idx_users_referral_code ON users(referral_code)",
@@ -390,7 +376,6 @@ def upgrade_database():
             except Exception:
                 db.session.rollback()
 
-        # 15) Coupon UNIQUE constraint
         if inspector.has_table('coupon_usages'):
             try:
                 db.session.execute(text('''
@@ -415,21 +400,21 @@ def upgrade_database():
                 if 'already exists' not in str(e).lower():
                     pass
 
-        # 16) Fix negative balance defaults
+        # 🆕 v2.4: تصفير الرصيد السالب
         _fix_negative_balance_defaults()
 
         print("اكتملت ترقية قاعدة البيانات (v2.1)")
 
 
 # ============================================================
-# 🤖 Bot subprocess management
+# 🤖 Bot — كـ Subprocess
 # ============================================================
 _bot_process = None
 
 
 def _start_bot_subprocess():
-    """تشغيل البوت في عملية Python مستقلة."""
     global _bot_process
+
     bot_script = os.path.join(os.path.dirname(__file__), "bot_main.py")
 
     if not os.path.exists(bot_script):
@@ -449,8 +434,8 @@ def _start_bot_subprocess():
 
 
 def _stop_bot_subprocess():
-    """إيقاف البوت بشكل نظيف."""
     global _bot_process
+
     if _bot_process is None:
         return
     if _bot_process.poll() is not None:
@@ -474,7 +459,6 @@ def _stop_bot_subprocess():
 
 
 def post_fork(server, worker):
-    """Gunicorn hook — يُنفذ بعد fork worker."""
     logger.info("🔧 post_fork hook running...")
     _start_bot_subprocess()
     atexit.register(_stop_bot_subprocess)
@@ -499,7 +483,7 @@ class StandaloneApplication(BaseApplication):
 
 
 # ============================================================
-# 🚀 Main
+# 🚀 Main Entry Point
 # ============================================================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

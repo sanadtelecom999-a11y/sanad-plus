@@ -1,3 +1,8 @@
+# ============================================================
+# 🎛️ Admin Routes — v2.4
+# الجزء 1 من 2: Imports + Helpers + Auth + Users + Categories
+#                + Products + Bundles + Archive + Payment Methods
+# ============================================================
 import os
 import json
 import uuid
@@ -18,8 +23,6 @@ from ..models.base import (
 )
 from ..extensions import db
 from . import main
-from .auth import cleanup_expired_blacklist
-from .. import get_real_ip
 from ..services.telegram_service import (
     send_telegram_notification, notify_admins,
     send_deposit_approved, send_deposit_rejected,
@@ -28,6 +31,8 @@ from ..services.telegram_service import (
 )
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
 from .. import limiter
+from .. import get_real_ip
+from .auth import cleanup_expired_blacklist
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
@@ -72,11 +77,16 @@ LOGIN_RATE_MAX = 5
 
 def check_login_rate_limit(ip: str) -> bool:
     now = time.time()
-    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < LOGIN_RATE_WINDOW]
-    # ✅ تنظيف المفاتيح الفارغة
+    _login_attempts[ip] = [
+        t for t in _login_attempts[ip]
+        if now - t < LOGIN_RATE_WINDOW
+    ]
+
+    # 🆕 v2.4: احذف المفاتيح الفارغة
     if not _login_attempts[ip]:
         _login_attempts.pop(ip, None)
         _login_attempts[ip] = []
+
     if len(_login_attempts[ip]) >= LOGIN_RATE_MAX:
         return False
     _login_attempts[ip].append(now)
@@ -151,7 +161,9 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 @limiter.limit("5 per 5 minutes")
 @handle_errors
 def admin_login():
-    ip = get_real_ip()  # ✅ موحّد مع CF-Connecting-IP
+    # 🆕 v2.4: استخدام get_real_ip الموحّد
+    ip = get_real_ip()
+
     if not check_login_rate_limit(ip):
         return jsonify({"error": "محاولات كثيرة، حاول بعد 5 دقائق"}), 429
 
@@ -163,6 +175,7 @@ def admin_login():
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
     cleanup_expired_otp_sessions()
+    # 🆕 v2.4: تنظيف الـ blacklist تلقائياً
     cleanup_expired_blacklist()
 
     otp_code = generate_otp_code()
@@ -280,43 +293,6 @@ def admin_get_users():
     } for u in users])
 
 
-@main.route("/admin/api/users/<int:user_id>", methods=["GET"])
-@jwt_required()
-@handle_errors
-def admin_user_detail(user_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
-
-    orders_count = Order.query.filter_by(user_id=user.id).count()
-    deposits_count = Deposit.query.filter_by(user_id=user.id).count()
-
-    return jsonify({
-        "id": user.id,
-        "telegram_id": user.telegram_id,
-        "username": user.username,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "balance": user.balance,
-        "kyc_status": user.kyc_status,
-        "is_verified": user.is_verified,
-        "role": user.role,
-        "is_banned": user.is_banned,
-        "vip_level": user.vip_level,
-        "referral_code": user.referral_code,
-        "referral_count": user.referral_count or 0,
-        "referral_earnings": user.referral_earnings or 0,
-        "allow_negative_balance": user.allow_negative_balance,
-        "max_negative_balance": user.max_negative_balance or 0,
-        "orders_count": orders_count,
-        "deposits_count": deposits_count,
-        "created_at": user.created_at.isoformat() if user.created_at else None,
-        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
-    })
-
-
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -382,7 +358,6 @@ def admin_adjust_balance(user_id):
     amount = float(data.get("amount", 0))
     note = data.get("note", "")
 
-    # ✅ حد 1,000,000$
     if abs(amount) > 1_000_000:
         return jsonify({"error": "المبلغ كبير جداً (الحد الأقصى 1,000,000$)"}), 400
     if amount == 0:
@@ -456,6 +431,44 @@ def admin_set_vip(user_id):
     log_admin_activity(f"VIP{vip_level} للمستخدم {user.telegram_id}")
     db.session.commit()
     return jsonify({"vip_level": user.vip_level})
+
+
+@main.route("/admin/api/users/<int:user_id>", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_user_detail(user_id):
+    """تفاصيل مستخدم كامل — للمودال"""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    orders_count = Order.query.filter_by(user_id=user.id).count()
+    deposits_count = Deposit.query.filter_by(user_id=user.id).count()
+
+    return jsonify({
+        "id": user.id,
+        "telegram_id": user.telegram_id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "balance": user.balance,
+        "kyc_status": user.kyc_status,
+        "is_verified": user.is_verified,
+        "role": user.role,
+        "is_banned": user.is_banned,
+        "vip_level": user.vip_level,
+        "referral_code": user.referral_code,
+        "referral_count": user.referral_count or 0,
+        "referral_earnings": user.referral_earnings or 0,
+        "allow_negative_balance": user.allow_negative_balance,
+        "max_negative_balance": user.max_negative_balance or 0,
+        "orders_count": orders_count,
+        "deposits_count": deposits_count,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    })
 
 
 # ============================================================
@@ -833,8 +846,6 @@ def admin_delete_payment_method(method_id):
     method.deleted_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"success": True})
-
-
 # ============================================================
 # Orders
 # ============================================================
@@ -895,6 +906,7 @@ def admin_order_detail(order_id):
 @jwt_required()
 @handle_errors
 def admin_order_full_detail(order_id):
+    """تفاصيل طلب كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1033,6 +1045,7 @@ def admin_update_order_status(order_id):
 @jwt_required()
 @handle_errors
 def admin_bulk_order_status():
+    """تحديث حالة عدة طلبات دفعة واحدة"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1142,6 +1155,7 @@ def admin_deposits():
 @jwt_required()
 @handle_errors
 def admin_deposit_detail(deposit_id):
+    """تفاصيل إيداع كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 

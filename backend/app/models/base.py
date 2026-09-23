@@ -23,7 +23,10 @@ class User(db.Model):
     referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     referral_earnings = db.Column(db.Float, default=0.0)
     referral_count = db.Column(db.Integer, default=0)
+
+    # 🆕 v2.4: DEFAULT = FALSE (كان True)
     allow_negative_balance = db.Column(db.Boolean, default=False, nullable=False)
+
     max_negative_balance = db.Column(db.Float, default=0.0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -342,21 +345,27 @@ class FinancialAuditLog(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+# ============================================================
+# 🆕 v2.4: log_financial — يستخدم CF-Connecting-IP أولاً
+# ============================================================
 def log_financial(user, action, amount, balance_before, balance_after,
                   ref_type=None, ref_id=None, admin_id=None, note=None):
-    """تسجيل عملية مالية في Audit Log — مع CF-Connecting-IP"""
     from flask import request, has_request_context
 
     ip = None
     ua = None
     if has_request_context():
-        # ✅ قراءة IP الحقيقي خلف Cloudflare (نفس منطق get_real_ip)
+        # 🆕 v2.4: CF-Connecting-IP أولاً (خلف Cloudflare)
         cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
         if cf_ip:
             ip = cf_ip
         else:
-            fwd = request.headers.get("X-Forwarded-For", "")
-            ip = fwd.split(",")[0].strip() if fwd else request.remote_addr
+            forwarded = request.headers.get("X-Forwarded-For", "")
+            if forwarded:
+                ip = forwarded.split(",")[0].strip()
+            else:
+                ip = request.remote_addr
+
         ua = request.headers.get("User-Agent", "")[:500]
 
     log = FinancialAuditLog(
