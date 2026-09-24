@@ -11,7 +11,7 @@ from flask_jwt_extended import (
     create_access_token, jwt_required,
     get_jwt, get_jwt_identity
 )
-from ..models.base import User, JWTBlacklist
+from ..models.base import User, JWTBlacklist, Setting
 from ..extensions import db
 from . import main
 
@@ -111,7 +111,7 @@ def user_to_dict(user):
         "vip_level": user.vip_level,
         "referral_code": user.referral_code,
         "referral_count": user.referral_count or 0,
-        "general_discount": user.general_discount or 0.0,   # 🆕 v17.3
+        "general_discount": user.general_discount or 0.0,
     }
 
 
@@ -245,3 +245,50 @@ def cleanup_expired_blacklist():
         db.session.commit()
     except Exception:
         db.session.rollback()
+
+
+# ============================================================
+# 🆕 v17.1: Logout-All Admin Sessions
+# ============================================================
+def revoke_all_admin_sessions():
+    """
+    إبطال كل جلسات الأدمن.
+    يستخدمه admin.py في /admin/api/logout-all.
+    يكتب timestamp في settings، ثم أي توكن صادر قبله يُرفض.
+    """
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        setting = Setting.query.filter_by(key="admin_sessions_revoked_at").first()
+        if setting:
+            setting.value = now_iso
+        else:
+            db.session.add(Setting(key="admin_sessions_revoked_at", value=now_iso))
+        db.session.commit()
+        print(f"✅ All admin sessions revoked at {now_iso}")
+        return True
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ revoke_all_admin_sessions failed: {e}")
+        return False
+
+
+def is_admin_token_revoked(jwt_payload):
+    """
+    فحص إذا كان التوكن صادراً قبل آخر logout-all.
+    يُستدعى من JWT callback في app/__init__.py (إن مُفعّل).
+    """
+    try:
+        setting = Setting.query.filter_by(key="admin_sessions_revoked_at").first()
+        if not setting or not setting.value:
+            return False
+
+        revoked_at = datetime.fromisoformat(setting.value.replace("Z", "+00:00"))
+        token_iat = jwt_payload.get("iat")
+        if not token_iat:
+            return False
+
+        token_iat_dt = datetime.fromtimestamp(token_iat, tz=timezone.utc)
+        return token_iat_dt < revoked_at
+    except Exception as e:
+        print(f"is_admin_token_revoked error: {e}")
+        return False
