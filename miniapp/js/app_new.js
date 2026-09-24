@@ -1,4 +1,4 @@
-// miniapp/js/app_new.js — v14
+// miniapp/js/app_new.js — v15 (VIP Badges)
 
 let currentPage = 'page-home';
 let userData = null;
@@ -18,14 +18,15 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
+// 🆕 v15: VIP Levels — 7 مستويات بأيقونات فريدة
 const VIP_LEVELS = {
-    1: { name: 'مستخدم جديد لسند بلس', icon: 'person', color: '#CD7F32' },
-    2: { name: 'مبتدئ سند بلس', icon: 'school', color: '#C0C0C0' },
-    3: { name: 'محترف سند بلس', icon: 'workspace_premium', color: '#FFD700' },
-    4: { name: 'أسطورة سند بلس', icon: 'military_tech', color: '#E5E4E2' },
-    5: { name: 'نجم سند بلس', icon: 'star', color: '#B9F2FF' },
-    6: { name: 'شريك سند بلس', icon: 'handshake', color: '#9333EA' },
-    7: { name: 'مستوى السند الأسطوري', icon: 'auto_awesome', color: '#DC2626' },
+    1: { name: 'برونزي',   icon: 'military_tech' },
+    2: { name: 'فضي',      icon: 'star' },
+    3: { name: 'ذهبي',     icon: 'emoji_events' },
+    4: { name: 'بلاتيني',  icon: 'diamond' },
+    5: { name: 'ماسي',     icon: 'auto_awesome' },
+    6: { name: 'أسطوري',   icon: 'local_fire_department' },
+    7: { name: 'الأسطورة', icon: 'workspace_premium' },
 };
 
 // ============ Image Compression Helper ============
@@ -577,8 +578,7 @@ function updateUserUI() {
     document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
     document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
     renderHomeVIPBadge();
-    const avb = document.getElementById('accountVipBadge');
-    if (avb) avb.style.display = 'none';
+    renderAccountVIPBadge();
     const hour = new Date().getHours();
     let greeting = 'مرحباً';
     if (hour < 12) greeting = 'صباح الخير';
@@ -611,6 +611,7 @@ function updateUserUI() {
     updateCurrencyUI();
 }
 
+// 🆕 v15: Home VIP Badge — يستخدم .vip-badge الجديدة
 function renderHomeVIPBadge() {
     let container = document.getElementById('homeVipBadge');
     if (!container) {
@@ -618,21 +619,48 @@ function renderHomeVIPBadge() {
         if (!gs) return;
         container = document.createElement('div');
         container.id = 'homeVipBadge';
-        container.className = 'home-vip-badge-container';
+        container.style.marginTop = '10px';
         gs.parentNode.insertBefore(container, gs.nextSibling);
     }
-    const vipLevel = userData.vip_level || 0;
+    const vipLevel = parseInt(userData?.vip_level) || 0;
     if (vipLevel === 0 || !VIP_LEVELS[vipLevel]) {
         container.style.display = 'none';
+        container.innerHTML = '';
         return;
     }
     const config = VIP_LEVELS[vipLevel];
-    container.style.display = 'flex';
-    container.style.background = `linear-gradient(135deg, ${config.color}25 0%, ${config.color}10 100%)`;
-    container.style.borderColor = config.color;
+    container.style.display = 'block';
     container.innerHTML = `
-        <span class="material-icons vip-icon-pulse" style="color:${config.color};">${config.icon}</span>
-        <span class="vip-text" style="color:${config.color};">${config.name}</span>
+        <span class="vip-badge vip-${vipLevel}">
+            <span class="material-icons">${config.icon}</span>
+            <span>${config.name}</span>
+        </span>
+    `;
+}
+
+// 🆕 v15: Account VIP Badge — في صفحة "حسابي"
+function renderAccountVIPBadge() {
+    const container = document.getElementById('accountVipBadge');
+    if (!container) return;
+    const vipLevel = parseInt(userData?.vip_level) || 0;
+    if (vipLevel === 0 || !VIP_LEVELS[vipLevel]) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+    const config = VIP_LEVELS[vipLevel];
+    // تعطيل styles القديمة (background من #accountVipBadge)
+    container.style.background = 'none';
+    container.style.border = 'none';
+    container.style.boxShadow = 'none';
+    container.style.padding = '0';
+    container.style.marginTop = '8px';
+    container.style.display = 'inline-flex';
+    container.innerHTML = `
+        <span class="vip-badge vip-${vipLevel}">
+            <span class="material-icons">${config.icon}</span>
+            <span>${config.name}</span>
+        </span>
     `;
 }
 
@@ -1545,14 +1573,13 @@ async function submitServiceRequest(btn) {
 }
 
 // ============================================================
-// 🎁 Referral Modal — v14 (with Apply Code)
+// 🎁 Referral Modal — v15 (with Apply Code)
 // ============================================================
 function openReferralModal() {
     if (!userData) return;
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
     const referralLink = `https://t.me/${BOT_USERNAME}?start=${referralCode}`;
 
-    // 🆕 هل يمكنه تطبيق كود؟
     const hasOrders = ordersData && ordersData.length > 0;
     const alreadyReferred = userData.referred_by || userData.referred_by_id;
 
@@ -1606,7 +1633,6 @@ function openReferralModal() {
     `);
 }
 
-// 🆕 تطبيق كود الإحالة
 async function submitReferralCode(btn) {
     const input = document.getElementById('applyReferralInput');
     const code = (input?.value || '').trim().toUpperCase();
@@ -1625,7 +1651,6 @@ async function submitReferralCode(btn) {
         } else {
             showNotification('تم بنجاح 🎉', result.message || 'تم تطبيق كود الإحالة، ستحصل مكافأة صديقك عند أول شراء', 'success');
 
-            // تحديث بيانات المستخدم
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
             closeModal();
@@ -1893,6 +1918,7 @@ async function initApp() {
         renderRecentlyViewed();
         renderLatestOrders();
         renderHomeVIPBadge();
+        renderAccountVIPBadge();
         setupNavigation();
         setupFilters();
         setupSearch();
