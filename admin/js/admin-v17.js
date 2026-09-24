@@ -1,13 +1,41 @@
 /* ============================================================
-   admin-v17.js — URL Input Support for Products
+   admin-v17.js — v17.2 (XSS Hardened + URL Input for Products)
    ============================================================
    - Override openProductModal → إضافة خيار "رابط URL"
    - Override openEditProductModal → دعم تعديل منتجات URL
    - Override renderProducts → إظهار نوع URL بشارة
    - يُحمّل بعد admin-v16.js
+   - يستخدم escapeHtml/escapeAttr من admin-v16.js
    ============================================================ */
 (function () {
     'use strict';
+
+    /* ============================================================
+       0. تأكيد توفر دوال الحماية (fallback إن لم تكن موجودة)
+       ============================================================ */
+    const _esc = (typeof window.escapeHtml === 'function')
+        ? window.escapeHtml
+        : function (s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        };
+
+    const _escAttr = (typeof window.escapeAttr === 'function')
+        ? window.escapeAttr
+        : function (s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
 
     /* ============================================================
        1. Helper — قائمة أنواع الحقول (مع URL)
@@ -22,7 +50,7 @@
         ];
         const sel = selectedValue || 'id';
         return options.map(o =>
-            `<option value="${o.value}" ${o.value === sel ? 'selected' : ''}>${o.label}</option>`
+            `<option value="${_escAttr(o.value)}" ${o.value === sel ? 'selected' : ''}>${_esc(o.label)}</option>`
         ).join('');
     }
 
@@ -42,7 +70,7 @@
         }
 
         const categoriesOptions = categoriesData.map(c =>
-            `<option value="${c.id}">${c.name}</option>`
+            `<option value="${c.id}">${_esc(c.name)}</option>`
         ).join('');
 
         const body = `
@@ -161,23 +189,23 @@
         const currentInput = prod.input_type || 'id';
 
         const categoriesOptions = categoriesData.map(c =>
-            `<option value="${c.id}" ${c.id === prod.category_id ? 'selected' : ''}>${c.name}</option>`
+            `<option value="${c.id}" ${c.id === prod.category_id ? 'selected' : ''}>${_esc(c.name)}</option>`
         ).join('');
 
         const body = `
             <h3 style="margin-bottom:14px;">تعديل المنتج</h3>
 
             <div style="background:var(--primary-soft);padding:10px 14px;border-radius:12px;margin-bottom:14px;text-align:center;">
-                <div style="font-weight:700;font-size:15px;">${prod.name}</div>
+                <div style="font-weight:700;font-size:15px;">${_esc(prod.name)}</div>
                 <div style="color:var(--text-2);font-size:12px;">ID: ${prod.id}</div>
             </div>
 
             <div class="form-group"><label>اسم المنتج</label>
-                <input type="text" id="editProductName" value="${(prod.name || '').replace(/"/g, '&quot;')}">
+                <input type="text" id="editProductName" value="${_escAttr(prod.name || '')}">
             </div>
 
             <div class="form-group"><label>الوصف</label>
-                <textarea id="editProductDescription" rows="2">${prod.description || ''}</textarea>
+                <textarea id="editProductDescription" rows="2">${_esc(prod.description || '')}</textarea>
             </div>
 
             <div class="form-group"><label>القسم</label>
@@ -195,7 +223,7 @@
 
             <div class="form-group" id="editUnitNameField" style="${isTopup ? 'display:none;' : 'display:block;'}">
                 <label>وحدة القياس</label>
-                <input type="text" id="editProductUnitName" value="${(prod.unit_name || 'قطعة').replace(/"/g, '&quot;')}">
+                <input type="text" id="editProductUnitName" value="${_escAttr(prod.unit_name || 'قطعة')}">
             </div>
 
             <div id="editBundlesField" class="form-group" style="${isBundle ? 'display:block;' : 'display:none;'}">
@@ -257,7 +285,7 @@
             <div class="form-group">
                 <label>تغيير الصورة (اختياري)</label>
                 <div class="image-preview" id="editProductImagePreview">
-                    ${prod.image ? `<img src="${prod.image}" alt="${prod.name}">` : 'لا صورة'}
+                    ${prod.image ? `<img src="${_escAttr(prod.image)}" alt="${_escAttr(prod.name)}">` : 'لا صورة'}
                 </div>
                 <input type="file" id="editProductImage" accept="image/*" onchange="previewImage(this,'editProductImagePreview')">
             </div>
@@ -277,7 +305,7 @@
     };
 
     /* ============================================================
-       4. Helpers — تغيير نوع الحقل (إظهار/إخفاء التلميح)
+       4. Helpers — تغيير نوع الحقل
        ============================================================ */
     window.handleInputTypeChange = function () {
         const sel = document.getElementById('productInputType');
@@ -298,12 +326,10 @@
        ============================================================ */
     const _origRenderProducts = window.renderProducts;
     window.renderProducts = function () {
-        // استدعاء الدالة الأصلية أولاً
         if (typeof _origRenderProducts === 'function') {
             try { _origRenderProducts(); } catch (e) { console.warn('renderProducts error:', e); }
         }
 
-        // ثم تعديل الـ badges للحقول المخصصة (URL / ID / phone)
         try {
             const tbody = document.getElementById('productsTableBody');
             if (!tbody) return;
@@ -324,7 +350,6 @@
                 const nameCell = row.querySelector('td[data-label="الاسم"]');
                 if (!nameCell) return;
 
-                // هل يحتوي على badge URL بالفعل؟
                 if (nameCell.querySelector('.url-badge')) return;
 
                 if (prod.input_type === 'url') {
@@ -343,6 +368,6 @@
     /* ============================================================
        6. Init Log
        ============================================================ */
-    console.log('✅ admin-v17.js loaded — URL input support enabled');
+    console.log('✅ admin-v17.js loaded — v17.2 URL input (XSS hardened)');
 
 })();

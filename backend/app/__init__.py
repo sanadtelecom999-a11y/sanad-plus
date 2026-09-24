@@ -1,5 +1,5 @@
 # ============================================================
-# 🚀 SANAD PLUS⁺ — App Initialization (v2.2.2)
+# 🚀 SANAD PLUS⁺ — App Initialization (v17.1)
 # ============================================================
 import os
 from flask import Flask, jsonify, request
@@ -13,7 +13,7 @@ from .models.base import (
     PaymentMethod, KYCRequest, Notification, Transaction,
     Setting, AdminActivity, ServiceRequest,
     Coupon, CouponUsage, Referral, FinancialAuditLog,
-    AdminOTPSession, JWTBlacklist
+    AdminOTPSession, JWTBlacklist, UserProductDiscount
 )
 
 
@@ -88,8 +88,19 @@ def create_app():
         if not jti:
             return False
         try:
+            # 1. فحص الـ blacklist الفردي
             blacklisted = JWTBlacklist.query.filter_by(jti=jti).first()
-            return blacklisted is not None
+            if blacklisted:
+                return True
+
+            # 2. 🆕 v17.1: فحص revoke-all للأدمن
+            identity = jwt_payload.get("sub")
+            if identity == "admin":
+                from .routes.auth import is_admin_token_revoked
+                if is_admin_token_revoked(jwt_payload):
+                    return True
+
+            return False
         except Exception as e:
             print(f"token check error: {e}")
             return False
@@ -134,6 +145,37 @@ def create_app():
         }), 429
 
     # ============================================================
+    # 🆕 v17.1: Security Headers (Backend)
+    # ============================================================
+    @app.after_request
+    def add_security_headers(response):
+        # منع MIME-sniffing
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+
+        # منع تضمين الموقع في iframe
+        response.headers['X-Frame-Options'] = 'DENY'
+
+        # Referrer
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # منع الوصول للـ APIs الحساسة
+        response.headers['Permissions-Policy'] = (
+            'geolocation=(), microphone=(), camera=(), payment=()'
+        )
+
+        # HSTS (فقط في Production)
+        if os.getenv("RENDER"):
+            response.headers['Strict-Transport-Security'] = (
+                'max-age=31536000; includeSubDomains'
+            )
+
+        # للـ API فقط: منع caching
+        if request.path.startswith('/api/') or request.path.startswith('/admin/'):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+
+        return response
+
+    # ============================================================
     # 🛣️ Blueprint
     # ============================================================
     from .routes import main
@@ -144,10 +186,5 @@ def create_app():
     # ============================================================
     from .services.cache_service import setup_cache_invalidation
     setup_cache_invalidation(app)
-
-    # ============================================================
-    # ⚠️ ملاحظة (v2.2):
-    #    db.create_all() في run.py (وليس هنا)
-    # ============================================================
 
     return app

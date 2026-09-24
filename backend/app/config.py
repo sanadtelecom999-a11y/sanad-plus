@@ -60,7 +60,8 @@ class Config:
     }
 
     # ============ 🔐 JWT ============
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
+    # 🆕 v17.1: تقليل من 8 ساعات إلى 2 ساعة (أمان أعلى)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_TOKEN_LOCATION = ["headers"]
     JWT_HEADER_NAME = "Authorization"
@@ -93,3 +94,7 @@ class Config:
         ).split(",")
         if o.strip()
     ]
+
+    # ============ 🆕 v17.1: Security ============
+    # IP strict matching في OTP verification
+    ADMIN_OTP_STRICT_IP = os.getenv("ADMIN_OTP_STRICT_IP", "false").lower() == "true"

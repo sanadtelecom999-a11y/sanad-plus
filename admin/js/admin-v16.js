@@ -1,5 +1,5 @@
 /* ============================================================
-   admin-v16.js — v17 (Discounts + VIP v2 + Skip Steps + Dark Order Card)
+   admin-v16.js — v17.2 (XSS Hardened + Discounts + VIP v2)
    ============================================================
    يُحمّل بعد admin.js — يستبدل دوال العرض والتفاعل
    ============================================================ */
@@ -9,7 +9,33 @@
     const OWNER_NAME = 'أبو سند';
 
     /* ============================================================
-       VIP Levels — v2 (7 مستويات بأيقونات جديدة)
+       🛡️ v17.2: XSS Protection
+       ============================================================ */
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    window.escapeHtml = escapeHtml;
+    window.escapeAttr = escapeAttr;
+
+    /* ============================================================
+       VIP Levels — v2
        ============================================================ */
     const VIP_LEVELS = {
         1: { name: 'برونزي',   icon: 'military_tech' },
@@ -22,10 +48,23 @@
     };
 
     /* ============================================================
-       0. OVERRIDE: Render Functions — تكتب في عناصر v16/v17
+       getAdminVIPBadgeHTML
        ============================================================ */
+    window.getAdminVIPBadgeHTML = function (level) {
+        const lvl = parseInt(level, 10);
+        if (!lvl || lvl < 1 || lvl > 7) {
+            return '<span style="color:var(--text-3);">—</span>';
+        }
+        const c = VIP_LEVELS[lvl];
+        return `<span class="vip-badge vip-${lvl}" title="VIP ${lvl} — ${c.name}">
+            <span class="material-icons">${c.icon}</span>
+            <span>${c.name}</span>
+        </span>`;
+    };
 
-    /* ----- renderUsers → #usersTableBody (v17: زر الخصم + VIP جديد) ----- */
+    /* ============================================================
+       renderUsers — XSS protected
+       ============================================================ */
     window.renderUsers = function (users) {
         const tbody = document.getElementById('usersTableBody');
         if (!tbody) return;
@@ -45,8 +84,7 @@
             const negBadge = (balance < 0 && user.allow_negative_balance) ?
                 '<span style="font-size:0.7rem;background:var(--error-bg);color:var(--error);padding:2px 6px;border-radius:4px;margin-right:4px;">سالب</span>' : '';
 
-            const vipLevel = user.vip_level || 0;
-            const vipBadge = window.getAdminVIPBadgeHTML(vipLevel);
+            const vipBadge = window.getAdminVIPBadgeHTML(user.vip_level || 0);
 
             const discountPercent = parseFloat(user.general_discount) || 0;
             const discountBadge = discountPercent > 0
@@ -56,11 +94,11 @@
             return `
             <tr>
                 <td data-label="Telegram ID">
-                    <span class="ltr" style="cursor:pointer;" onclick="copyToClipboard('${user.telegram_id}')" title="اضغط للنسخ">
-                        ${user.telegram_id}
+                    <span class="ltr" style="cursor:pointer;" onclick="copyToClipboard('${escapeAttr(user.telegram_id)}')" title="اضغط للنسخ">
+                        ${escapeHtml(user.telegram_id)}
                     </span>
                 </td>
-                <td data-label="الاسم">${user.username || user.first_name || 'مستخدم'}</td>
+                <td data-label="الاسم">${escapeHtml(user.username || user.first_name || 'مستخدم')}</td>
                 <td data-label="الرصيد">
                     <span style="color:${balanceColor};font-weight:800;direction:ltr;">${balance.toFixed(2)}$</span>
                     ${negBadge}
@@ -92,20 +130,9 @@
         }).join('');
     };
 
-    /* ----- Helper: Admin VIP Badge HTML ----- */
-    window.getAdminVIPBadgeHTML = function (level) {
-        const lvl = parseInt(level, 10);
-        if (!lvl || lvl < 1 || lvl > 7) {
-            return '<span style="color:var(--text-3);">—</span>';
-        }
-        const c = VIP_LEVELS[lvl];
-        return `<span class="vip-badge vip-${lvl}" title="VIP ${lvl} — ${c.name}">
-            <span class="material-icons">${c.icon}</span>
-            <span>${c.name}</span>
-        </span>`;
-    };
-
-    /* ----- renderKYC → #kycList ----- */
+    /* ============================================================
+       renderKYC — XSS protected
+       ============================================================ */
     window.renderKYC = function () {
         const container = document.getElementById('kycList');
         if (!container) return;
@@ -135,24 +162,24 @@
                              : k.status === 'rejected' ? 'مرفوض'
                              : 'معلق';
             return `
-                <div class="card-item" data-status="${k.status}">
+                <div class="card-item" data-status="${escapeAttr(k.status)}">
                     <div class="card-top">
-                        <div class="card-id" onclick="copyToClipboard('${k.user_id}')">#${k.user_id}</div>
-                        <span class="badge-status ${k.status}">${statusText}</span>
+                        <div class="card-id" onclick="copyToClipboard('${escapeAttr(k.user_id)}')">#${escapeHtml(k.user_id)}</div>
+                        <span class="badge-status ${escapeAttr(k.status)}">${statusText}</span>
                     </div>
                     <div class="card-body">
                         <div class="card-row">
                             <span class="material-icons">person</span>
-                            <strong>${k.full_name || 'غير محدد'}</strong>
+                            <strong>${escapeHtml(k.full_name || 'غير محدد')}</strong>
                         </div>
                         <div class="card-row">
                             <span class="material-icons">phone</span>
-                            <span class="ltr">${k.phone || '-'}</span>
+                            <span class="ltr">${escapeHtml(k.phone || '-')}</span>
                         </div>
                         ${k.address ? `
                         <div class="card-row">
                             <span class="material-icons">location_on</span>
-                            <span>${k.address}</span>
+                            <span>${escapeHtml(k.address)}</span>
                         </div>
                         ` : ''}
                         <div class="card-row">
@@ -182,7 +209,9 @@
         }).join('');
     };
 
-    /* ----- renderDeposits → #depositsList ----- */
+    /* ============================================================
+       renderDeposits — XSS protected
+       ============================================================ */
     window.renderDeposits = function (deposits) {
         const container = document.getElementById('depositsList');
         if (!container) return;
@@ -215,20 +244,20 @@
                              : d.status === 'rejected' ? 'مرفوض'
                              : 'معلق';
             return `
-                <div class="card-item" data-status="${d.status}">
+                <div class="card-item" data-status="${escapeAttr(d.status)}">
                     <div class="card-top">
-                        <div class="card-id" onclick="copyToClipboard('${d.transaction_id || ''}')">${d.transaction_id || ''}</div>
-                        <span class="badge-status ${d.status}">${statusText}</span>
+                        <div class="card-id" onclick="copyToClipboard('${escapeAttr(d.transaction_id || '')}')">${escapeHtml(d.transaction_id || '')}</div>
+                        <span class="badge-status ${escapeAttr(d.status)}">${statusText}</span>
                     </div>
                     <div class="card-body">
                         <div class="card-row">
                             <span class="material-icons">person</span>
-                            <span>${d.user_name || 'مستخدم'}</span>
-                            <span class="card-user-id" onclick="copyToClipboard('${d.user_telegram || d.user_id}')">#${d.user_telegram || d.user_id}</span>
+                            <span>${escapeHtml(d.user_name || 'مستخدم')}</span>
+                            <span class="card-user-id" onclick="copyToClipboard('${escapeAttr(d.user_telegram || d.user_id)}')">#${escapeHtml(d.user_telegram || d.user_id)}</span>
                         </div>
                         <div class="card-row">
                             <span class="material-icons">credit_card</span>
-                            <span>${d.method || '-'}</span>
+                            <span>${escapeHtml(d.method || '-')}</span>
                         </div>
                         <div class="card-row">
                             <span class="material-icons">schedule</span>
@@ -256,7 +285,9 @@
         }).join('');
     };
 
-    /* ----- renderServiceRequests → #servicesList ----- */
+    /* ============================================================
+       renderServiceRequests — XSS protected
+       ============================================================ */
     window.renderServiceRequests = function () {
         const container = document.getElementById('servicesList');
         if (!container) return;
@@ -282,26 +313,26 @@
                              : r.status === 'cancelled' ? 'ملغي'
                              : 'معلق';
             return `
-                <div class="card-item" data-status="${r.status}">
+                <div class="card-item" data-status="${escapeAttr(r.status)}">
                     <div class="card-top">
-                        <div class="card-id" onclick="copyToClipboard('${r.user_id}')">#${r.user_id}</div>
-                        <span class="badge-status ${r.status}">${statusText}</span>
+                        <div class="card-id" onclick="copyToClipboard('${escapeAttr(r.user_id)}')">#${escapeHtml(r.user_id)}</div>
+                        <span class="badge-status ${escapeAttr(r.status)}">${statusText}</span>
                     </div>
                     <div class="card-body">
                         <div class="card-row">
                             <span class="material-icons">handyman</span>
-                            <strong>${r.service_name || '-'}</strong>
+                            <strong>${escapeHtml(r.service_name || '-')}</strong>
                         </div>
                         ${r.description ? `
                         <div class="card-row">
                             <span class="material-icons">description</span>
-                            <span>${r.description}</span>
+                            <span>${escapeHtml(r.description)}</span>
                         </div>
                         ` : ''}
                         ${r.estimated_price ? `
                         <div class="card-row">
                             <span class="material-icons">payments</span>
-                            <span>${r.estimated_price}$</span>
+                            <span>${escapeHtml(r.estimated_price)}$</span>
                         </div>
                         ` : ''}
                         <div class="card-row">
@@ -321,7 +352,9 @@
         }).join('');
     };
 
-    /* ----- renderOrders → #ordersList ----- */
+    /* ============================================================
+       renderOrders — XSS protected
+       ============================================================ */
     window.renderOrders = function (orders) {
         const container = document.getElementById('ordersList');
         if (!container) return;
@@ -361,7 +394,7 @@
             if (o.product_type === 'topup') {
                 qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} ل.س`;
             } else if (o.product_unit_name && o.product_unit_name !== 'قطعة') {
-                qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} ${o.product_unit_name}`;
+                qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} ${escapeHtml(o.product_unit_name)}`;
             } else {
                 qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} قطعة`;
             }
@@ -369,25 +402,25 @@
             const isFinal = ['completed', 'cancelled', 'failed'].includes(o.status);
 
             return `
-                <div class="card-item" data-status="${o.status}" data-swipeable="true" data-order-id="${o.id}">
+                <div class="card-item" data-status="${escapeAttr(o.status)}" data-swipeable="true" data-order-id="${o.id}">
                     <div class="card-top">
                         <label class="order-checkbox-wrap" onclick="event.stopPropagation();" style="display:flex;align-items:center;">
                             <input type="checkbox" class="order-checkbox" ${isChecked ? 'checked' : ''}
                                    onchange="toggleOrderSelection(${o.id}, this.checked)"
                                    style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
                         </label>
-                        <div class="card-id" onclick="copyToClipboard('${o.order_number}')" style="flex:1;margin:0 8px;">${o.order_number}</div>
-                        <span class="badge-status ${o.status}">${statusText}</span>
+                        <div class="card-id" onclick="copyToClipboard('${escapeAttr(o.order_number)}')" style="flex:1;margin:0 8px;">${escapeHtml(o.order_number)}</div>
+                        <span class="badge-status ${escapeAttr(o.status)}">${statusText}</span>
                     </div>
                     <div class="card-body">
                         <div class="card-row">
                             <span class="material-icons">person</span>
-                            <span>${o.user_name || 'مستخدم'}</span>
-                            <span class="card-user-id" onclick="copyToClipboard('${o.user_telegram || o.user_id}')">#${o.user_telegram || o.user_id}</span>
+                            <span>${escapeHtml(o.user_name || 'مستخدم')}</span>
+                            <span class="card-user-id" onclick="copyToClipboard('${escapeAttr(o.user_telegram || o.user_id)}')">#${escapeHtml(o.user_telegram || o.user_id)}</span>
                         </div>
                         <div class="card-row">
                             <span class="material-icons">inventory_2</span>
-                            <span>${o.product_name || '-'}</span>
+                            <span>${escapeHtml(o.product_name || '-')}</span>
                             <span class="card-user-id">${qtyDisplay}</span>
                         </div>
                         <div class="card-row">
@@ -418,7 +451,9 @@
         attachSwipeHandlers();
     };
 
-    /* ----- renderDashboard ----- */
+    /* ============================================================
+       renderDashboard
+       ============================================================ */
     const _origRenderDashboard = window.renderDashboard;
     window.renderDashboard = function () {
         if (typeof _origRenderDashboard === 'function') {
@@ -512,19 +547,19 @@
         container.innerHTML = `
             <div class="cards-list">
                 ${recent.map(o => `
-                    <div class="card-item" data-status="${o.status}" onclick="viewOrderDetails(${o.id})" style="cursor:pointer;">
+                    <div class="card-item" data-status="${escapeAttr(o.status)}" onclick="viewOrderDetails(${o.id})" style="cursor:pointer;">
                         <div class="card-top">
-                            <div class="card-id">${o.order_number}</div>
-                            <span class="badge-status ${o.status}">${getStatusArabic(o.status)}</span>
+                            <div class="card-id">${escapeHtml(o.order_number)}</div>
+                            <span class="badge-status ${escapeAttr(o.status)}">${getStatusArabic(o.status)}</span>
                         </div>
                         <div class="card-body">
                             <div class="card-row">
                                 <span class="material-icons">person</span>
-                                <span>${o.user_name || 'مستخدم'}</span>
+                                <span>${escapeHtml(o.user_name || 'مستخدم')}</span>
                             </div>
                             <div class="card-row">
                                 <span class="material-icons">inventory_2</span>
-                                <span>${o.product_name || '-'}</span>
+                                <span>${escapeHtml(o.product_name || '-')}</span>
                             </div>
                         </div>
                         <div class="card-footer">
@@ -537,7 +572,7 @@
     }
 
     /* ============================================================
-       1. Greeting + Sidebar + Toast
+       Greeting + Sidebar + Toast
        ============================================================ */
     function getGreeting() {
         const h = new Date().getHours();
@@ -585,7 +620,7 @@
         toast.className = `toast ${type}`;
         toast.innerHTML = `
             <span class="material-icons">${icons[type] || 'info'}</span>
-            <span>${message}</span>
+            <span>${escapeHtml(message)}</span>
         `;
 
         container.appendChild(toast);
@@ -597,7 +632,7 @@
     };
 
     /* ============================================================
-       2. Bottom Sheet + Confirm
+       Bottom Sheet + Confirm
        ============================================================ */
     window.openBottomSheet = function (title, bodyHTML) {
         const sheet = document.getElementById('bottomSheet');
@@ -635,9 +670,9 @@
             const btnClass = type === 'danger' ? 'btn-danger' : 'btn-primary';
 
             window.openBottomSheet(title, `
-                <p style="text-align:center;margin-bottom:20px;color:var(--text-2);font-size:15px;line-height:1.7;white-space:pre-line;">${message}</p>
+                <p style="text-align:center;margin-bottom:20px;color:var(--text-2);font-size:15px;line-height:1.7;white-space:pre-line;">${escapeHtml(message)}</p>
                 <div style="display:flex;gap:8px;">
-                    <button class="btn ${btnClass} btn-block" id="__confirmYes">${confirmText}</button>
+                    <button class="btn ${btnClass} btn-block" id="__confirmYes">${escapeHtml(confirmText)}</button>
                     <button class="btn btn-outline btn-block" id="__confirmNo">إلغاء</button>
                 </div>
             `);
@@ -661,7 +696,7 @@
     };
 
     /* ============================================================
-       3. Image Lightbox
+       Image Lightbox
        ============================================================ */
     window.openImageLightbox = function (url) {
         const lb = document.getElementById('imageLightbox');
@@ -690,7 +725,6 @@
             return;
         }
 
-        // اجلب الخصومات الحالية من API
         let discountsData = { general_discount: 0, product_discounts: [] };
         try {
             discountsData = await window.fetchUserDiscounts(userId);
@@ -701,23 +735,22 @@
         const generalPercent = parseFloat(discountsData.general_discount) || 0;
         const productDiscounts = discountsData.product_discounts || [];
 
-        // قائمة المنتجات للاختيار
         const productsList = (typeof productsData !== 'undefined' && Array.isArray(productsData))
             ? productsData
             : [];
 
         const productsOptions = productsList.map(p =>
-            `<option value="${p.id}">${p.name}</option>`
+            `<option value="${p.id}">${escapeHtml(p.name)}</option>`
         ).join('');
 
         const currentDiscountsHTML = productDiscounts.length
             ? productDiscounts.map(d => `
                 <div class="discount-row">
                     <div class="discount-row-info">
-                        ${d.product_image ? `<img src="${d.product_image}" class="discount-row-img" alt="">` : '<span class="material-icons">inventory_2</span>'}
+                        ${d.product_image ? `<img src="${escapeAttr(d.product_image)}" class="discount-row-img" alt="">` : '<span class="material-icons">inventory_2</span>'}
                         <div>
-                            <div class="discount-row-name">${d.product_name}</div>
-                            <div class="discount-row-percent">${d.discount_percent}%</div>
+                            <div class="discount-row-name">${escapeHtml(d.product_name)}</div>
+                            <div class="discount-row-percent">${parseFloat(d.discount_percent).toFixed(2)}%</div>
                         </div>
                     </div>
                     <button class="icon-action danger" onclick="deleteDiscountHandler(${userId}, ${d.id})" title="حذف">
@@ -729,9 +762,8 @@
 
         const bodyHTML = `
             <div style="text-align:right;">
-                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${user.username || user.first_name || 'مستخدم'} • #${user.telegram_id}</div>
+                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${escapeHtml(user.username || user.first_name || 'مستخدم')} • #${escapeHtml(user.telegram_id)}</div>
 
-                <!-- خصم عام -->
                 <div class="discount-section">
                     <div class="discount-section-title">
                         <span class="material-icons">public</span>
@@ -751,7 +783,6 @@
                     </small>
                 </div>
 
-                <!-- خصم على منتج معين -->
                 <div class="discount-section">
                     <div class="discount-section-title">
                         <span class="material-icons">inventory_2</span>
@@ -775,7 +806,6 @@
                     </small>
                 </div>
 
-                <!-- الخصومات الحالية -->
                 <div class="discount-section">
                     <div class="discount-section-title">
                         <span class="material-icons">list</span>
@@ -864,7 +894,7 @@
     };
 
     /* ============================================================
-       VIP Modal — v2 (شارات جديدة)
+       VIP Modal — v2
        ============================================================ */
     window.openVIPModal = function (userId) {
         const user = (typeof usersData !== 'undefined' && Array.isArray(usersData))
@@ -885,7 +915,6 @@
         `;
 
         for (let lvl = 1; lvl <= 7; lvl++) {
-            const c = VIP_LEVELS[lvl];
             const isSel = lvl === currentLevel;
             optionsHTML += `
                 <label class="vip-option ${isSel ? 'selected' : ''}" onclick="selectVIPOption(this, ${lvl})">
@@ -897,7 +926,7 @@
 
         window.openBottomSheet('⭐ اختيار مستوى VIP', `
             <div style="text-align:right;">
-                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${user.username || user.first_name || 'مستخدم'} • #${user.telegram_id}</div>
+                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${escapeHtml(user.username || user.first_name || 'مستخدم')} • #${escapeHtml(user.telegram_id)}</div>
                 <p style="color:var(--text-3);font-size:12px;margin-bottom:14px;">
                     ⚠️ VIP مظهر فقط (شارة على الاسم) — لا يُغيّر الأسعار أو الخصومات.
                 </p>
@@ -937,15 +966,13 @@
     };
 
     /* ============================================================
-       🆕 v17: ORDER DETAILS — Dark Card + Skip Steps + Copy
+       ORDER DETAILS — Dark Card + Skip Steps + XSS
        ============================================================ */
     window.viewOrderDetails = async function (orderId) {
         try {
             const order = await window.fetchAdminOrderFull(orderId);
             const delivery = order.delivery_data || {};
-            const inputType = order.product && order.product.input_type;
 
-            // الحقول القابلة للنسخ
             let deliveryRows = '';
             if (delivery.player_id) {
                 deliveryRows += renderCopyableRow('🎮', 'ID اللاعب', delivery.player_id);
@@ -960,18 +987,17 @@
                 deliveryRows += renderCopyableRow('🔗', 'الرابط', delivery.url);
             }
             if (delivery.bundle_name) {
-                deliveryRows += `<div class="delivery-row-info"><span class="dl">📦 الباقة</span><strong>${delivery.bundle_name}</strong></div>`;
+                deliveryRows += `<div class="delivery-row-info"><span class="dl">📦 الباقة</span><strong>${escapeHtml(delivery.bundle_name)}</strong></div>`;
             }
             if (delivery.syp_amount) {
                 deliveryRows += `<div class="delivery-row-info"><span class="dl">💵 المبلغ</span><strong>${delivery.syp_amount.toLocaleString('ar')} ل.س</strong></div>`;
             }
             if (delivery.syp_rate) {
-                deliveryRows += `<div class="delivery-row-info"><span class="dl">📊 سعر الصرف</span><strong>${delivery.syp_rate} ل.س/$</strong></div>`;
+                deliveryRows += `<div class="delivery-row-info"><span class="dl">📊 سعر الصرف</span><strong>${escapeHtml(delivery.syp_rate)} ل.س/$</strong></div>`;
             }
 
             const isFinal = ['completed', 'cancelled', 'failed'].includes(order.status);
 
-            // أزرار الإجراءات — v17: إكمال مباشر من أي حالة
             const actionsHtml = !isFinal ? `
                 <div class="order-detail-actions-v17">
                     <button class="btn btn-success btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'completed')">
@@ -992,25 +1018,23 @@
 
             window.openBottomSheet('📋 تفاصيل الطلب', `
                 <div class="order-detail-v17">
-                    <!-- Header -->
                     <div class="order-dark-header">
-                        <div class="order-dark-number" onclick="copyToClipboard('${order.order_number}')">
-                            ${order.order_number}
+                        <div class="order-dark-number" onclick="copyToClipboard('${escapeAttr(order.order_number)}')">
+                            ${escapeHtml(order.order_number)}
                             <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-inline-start:6px;opacity:.6;">content_copy</span>
                         </div>
-                        <span class="badge-status ${order.status}">${order.status_arabic}</span>
+                        <span class="badge-status ${escapeAttr(order.status)}">${escapeHtml(order.status_arabic)}</span>
                     </div>
 
-                    <!-- User -->
                     <div class="order-dark-section">
                         <div class="section-mini-title">
                             <span class="material-icons">person</span>
                             العميل
                         </div>
                         <div class="order-user-line">
-                            <strong>${(order.user && (order.user.first_name || order.user.username)) || 'مستخدم'}</strong>
-                            <span class="copy-id-inline" onclick="copyToClipboard('${order.user ? order.user.telegram_id : ''}')">
-                                #${order.user ? order.user.telegram_id : ''}
+                            <strong>${escapeHtml((order.user && (order.user.first_name || order.user.username)) || 'مستخدم')}</strong>
+                            <span class="copy-id-inline" onclick="copyToClipboard('${escapeAttr(order.user ? order.user.telegram_id : '')}')">
+                                #${escapeHtml(order.user ? order.user.telegram_id : '')}
                                 <span class="material-icons" style="font-size:12px;">content_copy</span>
                             </span>
                         </div>
@@ -1021,20 +1045,18 @@
                         </div>
                     </div>
 
-                    <!-- Product -->
                     <div class="order-dark-section">
                         <div class="section-mini-title">
                             <span class="material-icons">inventory_2</span>
                             المنتج
                         </div>
-                        ${order.product && order.product.image ? `<img src="${order.product.image}" class="product-thumb-dark" alt="">` : ''}
-                        <div class="order-product-line"><strong>${order.product ? order.product.name : '-'}</strong></div>
+                        ${order.product && order.product.image ? `<img src="${escapeAttr(order.product.image)}" class="product-thumb-dark" alt="">` : ''}
+                        <div class="order-product-line"><strong>${escapeHtml(order.product ? order.product.name : '-')}</strong></div>
                         <div class="order-qty-line">
-                            الكمية: <strong>${order.quantity.toLocaleString('ar')} ${(order.product && order.product.unit_name) || 'قطعة'}</strong>
+                            الكمية: <strong>${order.quantity.toLocaleString('ar')} ${escapeHtml((order.product && order.product.unit_name) || 'قطعة')}</strong>
                         </div>
                     </div>
 
-                    <!-- Delivery (Dark & Copyable) -->
                     ${deliveryRows ? `
                     <div class="order-dark-section highlight-dark">
                         <div class="section-mini-title">
@@ -1045,7 +1067,6 @@
                     </div>
                     ` : ''}
 
-                    <!-- Totals -->
                     <div class="order-dark-section">
                         <div class="section-mini-title">
                             <span class="material-icons">receipt</span>
@@ -1060,7 +1081,7 @@
                         ${order.coupon_code ? `
                             <div class="order-total-line">
                                 <span>الكوبون:</span>
-                                <strong>${order.coupon_code}</strong>
+                                <strong>${escapeHtml(order.coupon_code)}</strong>
                             </div>
                         ` : ''}
                         <div class="order-total-line main">
@@ -1069,7 +1090,6 @@
                         </div>
                     </div>
 
-                    <!-- Actions -->
                     ${actionsHtml}
                 </div>
             `);
@@ -1079,12 +1099,15 @@
     };
 
     function renderCopyableRow(emoji, label, value) {
+        const valueStr = String(value);
+        const escapedValue = escapeHtml(valueStr);
+        const escapedForAttr = escapeAttr(valueStr);
         return `
             <div class="delivery-field">
                 <div class="delivery-field-label">${emoji} ${label}</div>
                 <div class="delivery-field-value-wrap">
-                    <div class="delivery-field-value" title="${value}">${value}</div>
-                    <button class="delivery-copy-btn" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}')" title="نسخ">
+                    <div class="delivery-field-value" title="${escapedForAttr}">${escapedValue}</div>
+                    <button class="delivery-copy-btn" onclick="copyToClipboard('${escapedForAttr}')" title="نسخ">
                         <span class="material-icons">content_copy</span>
                     </button>
                 </div>
@@ -1093,7 +1116,7 @@
     }
 
     /* ============================================================
-       Quick Approve Order — v17 (skip steps)
+       Quick Approve Order
        ============================================================ */
     window.quickApproveOrder = async function (orderId, newStatus) {
         const labels = {
@@ -1141,7 +1164,7 @@
     };
 
     /* ============================================================
-       4. Swipe
+       Swipe
        ============================================================ */
     function attachSwipeHandlers() {
         const cards = document.querySelectorAll('.card-item[data-swipeable="true"]');
@@ -1224,7 +1247,7 @@
     }
 
     /* ============================================================
-       5. Archive System
+       Archive System
        ============================================================ */
     let archiveTab = 'orders';
     let archiveData = { orders: [], deposits: [], kyc: [], services: [] };
@@ -1267,7 +1290,7 @@
 
             upd('archiveTabOrdersCount', archiveCounts.orders);
             upd('archiveTabDepositsCount', archiveCounts.deposits);
-upd('archiveTabKycCount', archiveCounts.kyc);
+            upd('archiveTabKycCount', archiveCounts.kyc);
             upd('archiveTabServicesCount', archiveCounts.services);
 
             renderArchiveList();
@@ -1277,7 +1300,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
                     <div class="empty">
                         <div class="empty-icon"><span class="material-icons">error</span></div>
                         <h3>فشل التحميل</h3>
-                        <p>${err.message}</p>
+                        <p>${escapeHtml(err.message)}</p>
                     </div>
                 `;
             }
@@ -1326,8 +1349,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
         container.innerHTML = filtered.map(item => renderArchiveCard(item)).join('');
         attachSwipeHandlers();
     }
-
-    function getStatusArabic(status) {
+function getStatusArabic(status) {
         const map = {
             pending: 'قيد المعالجة',
             review: 'قيد المراجعة',
@@ -1344,14 +1366,14 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     function renderArchiveCard(item) {
         if (archiveTab === 'orders') {
             return `
-                <div class="card-item" data-status="${item.status}">
+                <div class="card-item" data-status="${escapeAttr(item.status)}">
                     <div class="card-top">
-                        <div class="card-id">${item.order_number}</div>
-                        <span class="badge-status ${item.status}">${getStatusArabic(item.status)}</span>
+                        <div class="card-id">${escapeHtml(item.order_number)}</div>
+                        <span class="badge-status ${escapeAttr(item.status)}">${getStatusArabic(item.status)}</span>
                     </div>
                     <div class="card-body">
-                        <div class="card-row"><span class="material-icons">person</span>${item.user_name || 'مستخدم'} <span class="card-user-id">#${item.user_telegram || item.user_id}</span></div>
-                        <div class="card-row"><span class="material-icons">inventory_2</span>${item.product_name}</div>
+                        <div class="card-row"><span class="material-icons">person</span>${escapeHtml(item.user_name || 'مستخدم')} <span class="card-user-id">#${escapeHtml(item.user_telegram || item.user_id)}</span></div>
+                        <div class="card-row"><span class="material-icons">inventory_2</span>${escapeHtml(item.product_name)}</div>
                         <div class="card-row"><span class="material-icons">schedule</span>${item.created_at ? new Date(item.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
@@ -1368,14 +1390,14 @@ upd('archiveTabKycCount', archiveCounts.kyc);
 
         if (archiveTab === 'deposits') {
             return `
-                <div class="card-item" data-status="${item.status}">
+                <div class="card-item" data-status="${escapeAttr(item.status)}">
                     <div class="card-top">
-                        <div class="card-id">${item.transaction_id}</div>
-                        <span class="badge-status ${item.status}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span>
+                        <div class="card-id">${escapeHtml(item.transaction_id)}</div>
+                        <span class="badge-status ${escapeAttr(item.status)}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span>
                     </div>
                     <div class="card-body">
-                        <div class="card-row"><span class="material-icons">person</span>${item.user_name || 'مستخدم'} <span class="card-user-id">#${item.user_telegram || item.user_id}</span></div>
-                        <div class="card-row"><span class="material-icons">credit_card</span>${item.method || '-'}</div>
+                        <div class="card-row"><span class="material-icons">person</span>${escapeHtml(item.user_name || 'مستخدم')} <span class="card-user-id">#${escapeHtml(item.user_telegram || item.user_id)}</span></div>
+                        <div class="card-row"><span class="material-icons">credit_card</span>${escapeHtml(item.method || '-')}</div>
                         <div class="card-row"><span class="material-icons">schedule</span>${item.created_at ? new Date(item.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
@@ -1392,14 +1414,14 @@ upd('archiveTabKycCount', archiveCounts.kyc);
 
         if (archiveTab === 'kyc') {
             return `
-                <div class="card-item" data-status="${item.status}">
+                <div class="card-item" data-status="${escapeAttr(item.status)}">
                     <div class="card-top">
-                        <div class="card-id">#${item.user_id}</div>
-                        <span class="badge-status ${item.status}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span>
+                        <div class="card-id">#${escapeHtml(item.user_id)}</div>
+                        <span class="badge-status ${escapeAttr(item.status)}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span>
                     </div>
                     <div class="card-body">
-                        <div class="card-row"><span class="material-icons">person</span><strong>${item.full_name}</strong></div>
-                        <div class="card-row"><span class="material-icons">phone</span>${item.phone}</div>
+                        <div class="card-row"><span class="material-icons">person</span><strong>${escapeHtml(item.full_name)}</strong></div>
+                        <div class="card-row"><span class="material-icons">phone</span>${escapeHtml(item.phone)}</div>
                         <div class="card-row"><span class="material-icons">schedule</span>${item.submitted_at ? new Date(item.submitted_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
@@ -1417,14 +1439,14 @@ upd('archiveTabKycCount', archiveCounts.kyc);
             const statusText = item.status === 'completed' ? 'مكتمل' :
                               item.status === 'rejected' ? 'مرفوض' : 'ملغي';
             return `
-                <div class="card-item" data-status="${item.status}">
+                <div class="card-item" data-status="${escapeAttr(item.status)}">
                     <div class="card-top">
-                        <div class="card-id">#${item.id}</div>
-                        <span class="badge-status ${item.status}">${statusText}</span>
+                        <div class="card-id">#${escapeHtml(item.id)}</div>
+                        <span class="badge-status ${escapeAttr(item.status)}">${statusText}</span>
                     </div>
                     <div class="card-body">
-                        <div class="card-row"><span class="material-icons">handyman</span><strong>${item.service_name}</strong></div>
-                        <div class="card-row"><span class="material-icons">description</span>${item.description || '-'}</div>
+                        <div class="card-row"><span class="material-icons">handyman</span><strong>${escapeHtml(item.service_name)}</strong></div>
+                        <div class="card-row"><span class="material-icons">description</span>${escapeHtml(item.description || '-')}</div>
                         <div class="card-row"><span class="material-icons">schedule</span>${item.created_at ? new Date(item.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
@@ -1442,7 +1464,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     }
 
     /* ============================================================
-       6. Restore Actions
+       Restore Actions
        ============================================================ */
     window.restoreArchivedOrder = async function (id) {
         const ok = await window.showConfirm({
@@ -1517,7 +1539,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     };
 
     /* ============================================================
-       7. Archive Badge
+       Archive Badge
        ============================================================ */
     window.updateArchiveBadges = async function () {
         try {
@@ -1536,7 +1558,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     };
 
     /* ============================================================
-       8. Quick Actions FAB
+       Quick Actions FAB
        ============================================================ */
     window.openQuickActions = function () {
         window.openBottomSheet('إجراء سريع', `
@@ -1564,7 +1586,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     };
 
     /* ============================================================
-       9. Wrap loadAllData
+       Wrap loadAllData
        ============================================================ */
     const origLoadAllData = window.loadAllData;
     if (typeof origLoadAllData === 'function') {
@@ -1597,7 +1619,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     }
 
     /* ============================================================
-       10. Wrap switchSection
+       Wrap switchSection
        ============================================================ */
     const origSwitchSection = window.switchSection;
     if (typeof origSwitchSection === 'function') {
@@ -1639,7 +1661,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     }
 
     /* ============================================================
-       11. Legacy Modal Overrides
+       Legacy Modal Overrides
        ============================================================ */
     window.openModal = function(title, bodyHTML) {
         window.openBottomSheet(title || 'تفاصيل', bodyHTML || '');
@@ -1663,17 +1685,19 @@ upd('archiveTabKycCount', archiveCounts.kyc);
                          : kyc.status === 'rejected' ? 'مرفوض'
                          : 'معلق';
 
+        const selfieSrc = kyc.selfie_image ? escapeAttr(kyc.selfie_image) : '';
+
         const bodyHtml = `
             <div style="text-align:right;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-                    <div class="card-id">#${kyc.user_id}</div>
-                    <span class="badge-status ${kyc.status}">${statusText}</span>
+                    <div class="card-id">#${escapeHtml(kyc.user_id)}</div>
+                    <span class="badge-status ${escapeAttr(kyc.status)}">${statusText}</span>
                 </div>
 
                 <div style="background:var(--surface-2);padding:14px;border-radius:12px;margin-bottom:16px;">
-                    <div class="card-row"><span class="material-icons">person</span><strong>${kyc.full_name || '-'}</strong></div>
-                    <div class="card-row"><span class="material-icons">phone</span><span class="ltr">${kyc.phone || '-'}</span></div>
-                    ${kyc.address ? `<div class="card-row"><span class="material-icons">location_on</span><span>${kyc.address}</span></div>` : ''}
+                    <div class="card-row"><span class="material-icons">person</span><strong>${escapeHtml(kyc.full_name || '-')}</strong></div>
+                    <div class="card-row"><span class="material-icons">phone</span><span class="ltr">${escapeHtml(kyc.phone || '-')}</span></div>
+                    ${kyc.address ? `<div class="card-row"><span class="material-icons">location_on</span><span>${escapeHtml(kyc.address)}</span></div>` : ''}
                     <div class="card-row"><span class="material-icons">schedule</span><span>${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleString('ar') : ''}</span></div>
                 </div>
 
@@ -1681,8 +1705,8 @@ upd('archiveTabKycCount', archiveCounts.kyc);
                     <div style="margin-bottom:12px;">
                         <div style="font-weight:700;margin-bottom:8px;color:var(--text-2);font-size:13px;">صورة السيلفي:</div>
                         <div style="border-radius:12px;overflow:hidden;border:2px solid var(--border);max-height:400px;background:var(--surface-2);">
-                            <img src="${kyc.selfie_image}"
-                                 onclick="openImageLightbox('${kyc.selfie_image}')"
+                            <img src="${selfieSrc}"
+                                 onclick="openImageLightbox('${selfieSrc}')"
                                  style="width:100%;height:auto;max-height:400px;object-fit:contain;cursor:zoom-in;display:block;"
                                  alt="KYC Selfie">
                         </div>
@@ -1723,14 +1747,14 @@ upd('archiveTabKycCount', archiveCounts.kyc);
         const bodyHtml = `
             <div style="text-align:right;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-                    <div class="card-id">#${r.user_id}</div>
-                    <span class="badge-status ${r.status}">${statusText}</span>
+                    <div class="card-id">#${escapeHtml(r.user_id)}</div>
+                    <span class="badge-status ${escapeAttr(r.status)}">${statusText}</span>
                 </div>
 
                 <div style="background:var(--surface-2);padding:14px;border-radius:12px;margin-bottom:16px;">
-                    <div class="card-row"><span class="material-icons">handyman</span><strong>${r.service_name || '-'}</strong></div>
-                    ${r.description ? `<div class="card-row"><span class="material-icons">description</span><span>${r.description}</span></div>` : ''}
-                    ${r.estimated_price ? `<div class="card-row"><span class="material-icons">payments</span><span class="ltr">${r.estimated_price}$</span></div>` : ''}
+                    <div class="card-row"><span class="material-icons">handyman</span><strong>${escapeHtml(r.service_name || '-')}</strong></div>
+                    ${r.description ? `<div class="card-row"><span class="material-icons">description</span><span>${escapeHtml(r.description)}</span></div>` : ''}
+                    ${r.estimated_price ? `<div class="card-row"><span class="material-icons">payments</span><span class="ltr">${escapeHtml(r.estimated_price)}$</span></div>` : ''}
                     <div class="card-row"><span class="material-icons">schedule</span><span>${r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''}</span></div>
                 </div>
 
@@ -1811,7 +1835,7 @@ upd('archiveTabKycCount', archiveCounts.kyc);
     };
 
     /* ============================================================
-       12. Init
+       Init
        ============================================================ */
     function initV17() {
         updateGreeting();
@@ -1842,6 +1866,6 @@ upd('archiveTabKycCount', archiveCounts.kyc);
         setTimeout(initV17, 100);
     }
 
-    console.log('✅ admin-v16.js loaded — v17 with Discounts + VIP v2 + Skip Steps + Dark Order Card');
+    console.log('✅ admin-v16.js loaded — v17.2 XSS Hardened');
 
 })();

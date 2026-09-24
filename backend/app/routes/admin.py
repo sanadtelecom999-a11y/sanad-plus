@@ -1,5 +1,5 @@
 # ============================================================
-# 🎛️ Admin Routes — v17
+# 🎛️ Admin Routes — v17.1 (Security Hardened)
 # ============================================================
 import os
 import json
@@ -7,7 +7,7 @@ import uuid
 import traceback
 import random
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -30,7 +30,7 @@ from ..services.telegram_service import (
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
 from .. import limiter
 from .. import get_real_ip
-from .auth import cleanup_expired_blacklist
+from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
@@ -43,6 +43,9 @@ if not ADMIN_PASSWORD_HASH:
 # ============================================================
 OTP_TTL_SECONDS = 300
 OTP_MAX_ATTEMPTS = 3
+
+# 🆕 v17.1: OTP IP strict check (optional via env)
+OTP_STRICT_IP = os.getenv("ADMIN_OTP_STRICT_IP", "false").lower() == "true"
 
 
 def get_admin_ids():
@@ -66,6 +69,17 @@ def cleanup_expired_otp_sessions():
     except Exception as e:
         db.session.rollback()
         print(f"cleanup expired sessions: {e}")
+
+
+# 🆕 v17.1: دعم IPv4 + IPv6 في القارنة
+def _normalize_ip(ip: str) -> str:
+    if not ip:
+        return ""
+    ip = str(ip).strip()
+    # إزالة prefix IPv6 المحلي
+    if ip.startswith("::ffff:"):
+        ip = ip[7:]
+    return ip
 
 
 _login_attempts = defaultdict(list)
@@ -149,6 +163,41 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
         print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
         return image_data
     return image_data
+
+
+# ============================================================
+# 🆕 v17.1: Rate-limited Admin Notifications
+# ============================================================
+_notification_tracker = deque(maxlen=200)
+NOTIFICATION_DEDUP_WINDOW = 30  # seconds
+
+
+def safe_notify_admins(message, important=False):
+    """
+    إرسال إشعار للأدمن مع:
+    - Deduplication: نفس الرسالة خلال 30 ثانية → تجاهل
+    - Rate limit عام: لا يزيد عن X إشعار في الدقيقة
+    """
+    try:
+        now = time.time()
+        key = message[:80]
+
+        # Dedup: آخر 30 ثانية
+        for (ts, existing_key) in _notification_tracker:
+            if existing_key == key and (now - ts) < NOTIFICATION_DEDUP_WINDOW:
+                return
+
+        # Rate limit: 30 إشعار في الدقيقة (لا يفرق بين الأدمن)
+        recent = [ts for (ts, _) in _notification_tracker if (now - ts) < 60]
+        if not important and len(recent) >= 30:
+            print(f"⚠️ Notification rate limit hit, skipping: {message[:50]}")
+            return
+
+        _notification_tracker.append((now, key))
+
+        notify_admins(message)
+    except Exception as e:
+        print(f"safe_notify_admins failed: {e}")
 
 
 # ============================================================
@@ -244,6 +293,22 @@ def admin_verify_otp():
         db.session.commit()
         return jsonify({"error": "تجاوزت عدد المحاولات"}), 400
 
+    # 🆕 v17.1: OTP IP strict check (optional)
+    if OTP_STRICT_IP:
+        current_ip = get_real_ip()
+        session_ip = _normalize_ip(session.ip_address)
+        current_ip_norm = _normalize_ip(current_ip)
+
+        if session_ip and current_ip_norm and session_ip != current_ip_norm:
+            # احذف الجلسة فوراً
+            db.session.delete(session)
+            db.session.commit()
+            print(f"🚨 OTP IP mismatch: session={session_ip}, current={current_ip_norm}")
+            return jsonify({
+                "error": "محاولة دخول من عنوان مختلف. الرجاء إعادة تسجيل الدخول.",
+                "code": "IP_MISMATCH"
+            }), 401
+
     if not check_password_hash(session.code_hash, otp_code):
         session.attempts += 1
         db.session.commit()
@@ -261,6 +326,33 @@ def admin_verify_otp():
         db.session.rollback()
 
     return jsonify({"token": token}), 200
+
+
+# ============================================================
+# 🆕 v17.1: Logout All Admin Sessions
+# ============================================================
+@main.route("/admin/api/logout-all", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_logout_all():
+    """يُبطل كل JWT للأدمن (من جميع الأجهزة)."""
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    success = revoke_all_admin_sessions()
+    if not success:
+        return jsonify({"error": "فشل إبطال الجلسات"}), 500
+
+    log_admin_activity("إبطال كل جلسات الأدمن")
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    return jsonify({
+        "success": True,
+        "message": "تم إبطال كل الجلسات. ستُطلب إعادة تسجيل الدخول."
+    }), 200
 
 
 # ============================================================
@@ -284,7 +376,7 @@ def admin_get_users():
         "referral_earnings": round(u.referral_earnings or 0, 2),
         "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else False,
         "max_negative_balance": u.max_negative_balance or 0,
-        "general_discount": u.general_discount or 0.0,   # 🆕 v17
+        "general_discount": u.general_discount or 0.0,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     } for u in users])
 
@@ -389,7 +481,7 @@ def admin_adjust_balance(user_id):
 
     from ..services.telegram_service import send_admin_balance_adjustment
     send_admin_balance_adjustment(user, amount, note)
-    notify_admins(f"تعديل رصيد {user.telegram_id}: {amount:.2f}$")
+    safe_notify_admins(f"تعديل رصيد {user.telegram_id}: {amount:.2f}$")
 
     return jsonify({"balance": user.balance})
 
@@ -406,7 +498,7 @@ def admin_ban_user(user_id):
     user.is_banned = not user.is_banned
     log_admin_activity(f"تغيير حظر المستخدم {user.telegram_id}")
     db.session.commit()
-    notify_admins(f"حظر {user.telegram_id}: {user.is_banned}")
+    safe_notify_admins(f"حظر {user.telegram_id}: {user.is_banned}")
     return jsonify({"is_banned": user.is_banned})
 
 
@@ -459,7 +551,7 @@ def admin_user_detail(user_id):
         "referral_earnings": user.referral_earnings or 0,
         "allow_negative_balance": user.allow_negative_balance,
         "max_negative_balance": user.max_negative_balance or 0,
-        "general_discount": user.general_discount or 0.0,   # 🆕 v17
+        "general_discount": user.general_discount or 0.0,
         "orders_count": orders_count,
         "deposits_count": deposits_count,
         "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -697,7 +789,6 @@ def admin_products():
 
     image_url = _normalize_image(data.get("image", ""), folder="sanad/products")
 
-    # v17: input_type يُقبل: id / account_id / phone / url / none
     input_type = data.get("input_type", "id")
     if input_type not in ("id", "account_id", "phone", "url", "none"):
         input_type = "id"
@@ -971,8 +1062,10 @@ def admin_delete_payment_method(method_id):
     method.deleted_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"success": True})
+
+
 # ============================================================
-# Orders — v17: تخطي خطوات الطلب
+# Orders
 # ============================================================
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
@@ -1068,7 +1161,7 @@ def admin_order_full_detail(order_id):
             "image": product.image if product else None,
             "product_type": product.product_type if product else None,
             "unit_name": product.unit_name if product else "قطعة",
-            "input_type": product.input_type if product else None,     # 🆕 v17
+            "input_type": product.input_type if product else None,
         } if product else None,
         "quantity": order.quantity,
         "unit_price": order.unit_price,
@@ -1099,12 +1192,10 @@ def admin_update_order_status(order_id):
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
 
-    # 🆕 v17: يمكن الانتقال مباشرة إلى أي خطوة (تخطي مراحل)
     valid = {
         "pending":    ["review", "processing", "completed", "failed", "cancelled"],
         "review":     ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
-        # completed/failed/cancelled → نهائية، لا يمكن التغيير
     }
     if order.status in ["completed", "failed", "cancelled"]:
         return jsonify({"error": "لا يمكن تغيير طلب بحالة نهائية"}), 400
@@ -1163,7 +1254,6 @@ def admin_update_order_status(order_id):
             product.stock += order.quantity
         send_order_refund_cancelled(user, order.total_price, order.order_number)
 
-    # v17: عند الإكمال المباشر — إشعار للمستخدم فقط (لا استرداد)
     if new_status == "completed" and user:
         try:
             db.session.add(Notification(
@@ -1177,7 +1267,7 @@ def admin_update_order_status(order_id):
     log_admin_activity(f"تغيير حالة الطلب {order.order_number} إلى {get_arabic_status(new_status)}")
     db.session.commit()
 
-    notify_admins(f"طلب {order.order_number} → {get_arabic_status(new_status)}")
+    safe_notify_admins(f"طلب {order.order_number} → {get_arabic_status(new_status)}")
     return jsonify({"status": order.status})
 
 
@@ -1198,7 +1288,6 @@ def admin_bulk_order_status():
     if len(order_ids) > 100:
         return jsonify({"error": "الحد الأقصى 100 طلب"}), 400
 
-    # 🆕 v17: نفس منطق التخطي
     valid_transitions = {
         "pending":    ["review", "processing", "completed", "failed", "cancelled"],
         "review":     ["processing", "completed", "failed"],
@@ -1252,7 +1341,6 @@ def admin_bulk_order_status():
             if product and product.stock is not None:
                 product.stock += order.quantity
 
-        # v17: إشعار عند الإكمال المباشر
         if new_status == "completed" and user:
             try:
                 db.session.add(Notification(
@@ -1387,8 +1475,7 @@ def admin_approve_deposit(deposit_id):
             added_amount = dep_amount
 
         user.balance = round(user.balance, 2)
-
-        db.session.add(Transaction(
+db.session.add(Transaction(
             user_id=user.id, type="deposit", amount=dep_amount,
             balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
         ))
@@ -1405,7 +1492,7 @@ def admin_approve_deposit(deposit_id):
 
     log_admin_activity(f"قبول إيداع {deposit.id}")
     db.session.commit()
-    notify_admins(f"إيداع {deposit.id}: {deposit.amount:.2f}$")
+    safe_notify_admins(f"إيداع {deposit.id}: {deposit.amount:.2f}$")
     return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
 
 
@@ -1443,7 +1530,7 @@ def admin_reject_deposit(deposit_id):
     if user:
         send_deposit_rejected(user, deposit.amount, reason)
 
-    notify_admins(f"رفض إيداع {deposit.id}: {deposit.amount:.2f}$")
+    safe_notify_admins(f"رفض إيداع {deposit.id}: {deposit.amount:.2f}$")
     return jsonify({"status": deposit.status})
 
 
@@ -1495,7 +1582,7 @@ def admin_approve_kyc(kyc_id):
     if user:
         send_kyc_approved(user)
 
-    notify_admins(f"KYC {kyc.user_id}")
+    safe_notify_admins(f"KYC {kyc.user_id}")
     return jsonify({"status": "approved"})
 
 
@@ -1533,7 +1620,7 @@ def admin_reject_kyc(kyc_id):
     if user:
         send_kyc_rejected(user, reason)
 
-    notify_admins(f"رفض KYC {kyc.user_id}")
+    safe_notify_admins(f"رفض KYC {kyc.user_id}")
     return jsonify({"status": "rejected"})
 
 
@@ -1762,9 +1849,8 @@ def admin_audit_log():
 
 
 # ============================================================
-# 🆕 v16: ARCHIVE — استرجاع العناصر المؤرشفة
+# ARCHIVE
 # ============================================================
-
 @main.route("/admin/api/archive/orders", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1879,9 +1965,8 @@ def admin_archive_counts():
 
 
 # ============================================================
-# 🆕 v16: RESTORE
+# RESTORE
 # ============================================================
-
 @main.route("/admin/api/orders/<int:order_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors

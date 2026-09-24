@@ -1,5 +1,4 @@
-// miniapp/js/app_new.js — v17 (URL input + VIP badges)
-// ============================================================
+// miniapp/js/app_new.js — v17.2 (XSS Hardened + URL + VIP v2)
 
 let currentPage = 'page-home';
 let userData = null;
@@ -19,7 +18,33 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
-// v17: VIP Levels (نفس شارات Admin)
+// ============================================================
+// 🛡️ v17.2: XSS Protection
+// ============================================================
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function escapeAttr(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+window.escapeHtml = escapeHtml;
+window.escapeAttr = escapeAttr;
+
+// v17: VIP Levels
 const VIP_LEVELS = {
     1: { name: 'برونزي',   icon: 'military_tech' },
     2: { name: 'فضي',      icon: 'star' },
@@ -101,10 +126,10 @@ function renderRecentlyViewed() {
     container.style.display = 'block';
     list.innerHTML = products.map(prod => `
         <div class="recently-viewed-item" onclick="openPurchaseModal(${prod.id})">
-            <div class="recently-viewed-image" style="background-image:url('${prod.image || ''}');">
+            <div class="recently-viewed-image" style="background-image:url('${escapeAttr(prod.image || '')}');">
                 ${prod.image ? '' : '📦'}
             </div>
-            <div class="recently-viewed-name">${prod.name}</div>
+            <div class="recently-viewed-name">${escapeHtml(prod.name)}</div>
         </div>
     `).join('');
 }
@@ -583,7 +608,7 @@ function updateUserUI() {
     if (gs) gs.textContent = `رصيدك: ${formatPrice(userData.balance)}`;
     if (window.currentUser?.photo_url) {
         const ha = document.getElementById('headerAvatar');
-        ha.style.backgroundImage = `url(${window.currentUser.photo_url})`;
+        ha.style.backgroundImage = `url(${escapeAttr(window.currentUser.photo_url)})`;
         ha.textContent = '';
     } else {
         const ha = document.getElementById('headerAvatar');
@@ -625,7 +650,7 @@ function renderHomeVIPBadge() {
     container.innerHTML = `
         <span class="vip-badge vip-${vipLevel}">
             <span class="material-icons">${config.icon}</span>
-            <span>${config.name}</span>
+            <span>${escapeHtml(config.name)}</span>
         </span>
     `;
 }
@@ -649,7 +674,7 @@ function renderAccountVIPBadge() {
     container.innerHTML = `
         <span class="vip-badge vip-${vipLevel}">
             <span class="material-icons">${config.icon}</span>
-            <span>${config.name}</span>
+            <span>${escapeHtml(config.name)}</span>
         </span>
     `;
 }
@@ -681,20 +706,19 @@ function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
     const isBundle = prod.product_type === 'bundle' && prod.bundles && prod.bundles.length > 0;
-    const isUrl = prod.input_type === 'url';
     return `
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${prod.image || ''}');">
+            <div class="product-image" style="background-image:url('${escapeAttr(prod.image || '')}');">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isNew ? '<span class="badge-new">جديد</span>' : ''}
                     ${isBundle ? `<span class="badge-bundle">${prod.bundles.length} باقات</span>` : ''}
                 </div>
             </div>
-            <div class="product-name">${prod.name}</div>
+            <div class="product-name">${escapeHtml(prod.name)}</div>
         </div>
     `;
 }
@@ -710,9 +734,9 @@ function renderCategories() {
     grid.innerHTML = categoriesData.map(cat => `
         <div class="category-item" data-id="${cat.id}" onclick="showCategoryProducts(${cat.id})">
             <div class="category-icon">
-                ${cat.image ? `<img src="${cat.image}" alt="${cat.name}" />` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:var(--primary-light);">📁</div>'}
+                ${cat.image ? `<img src="${escapeAttr(cat.image)}" alt="${escapeAttr(cat.name)}" />` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:var(--primary-light);">📁</div>'}
             </div>
-            <div class="category-name">${cat.name}</div>
+            <div class="category-name">${escapeHtml(cat.name)}</div>
         </div>
     `).join('');
     if (countEl) countEl.textContent = categoriesData.length;
@@ -750,10 +774,10 @@ function renderPaymentMethods() {
         return `
         <div class="payment-method ${locked ? 'locked' : ''}" data-id="${m.id}" onclick="${locked ? `showLockedPaymentMessage()` : `showDepositStep1(${m.id})`}">
             <div class="payment-method-info">
-                ${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${m.name}">` : '<span class="payment-method-icon">💳</span>'}
+                ${m.icon && m.icon.length > 100 ? `<img src="${escapeAttr(m.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${escapeAttr(m.name)}">` : '<span class="payment-method-icon">💳</span>'}
                 <div>
-                    <div class="payment-method-name">${m.name}</div>
-                    <div class="payment-method-desc">${m.description || ''}</div>
+                    <div class="payment-method-name">${escapeHtml(m.name)}</div>
+                    <div class="payment-method-desc">${escapeHtml(m.description || '')}</div>
                     ${locked ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق الحساب</div>' : ''}
                 </div>
             </div>
@@ -810,7 +834,7 @@ function buildOrderTimelineHTML(order) {
                         <span class="material-icons">${step.icon}</span>
                     </div>
                     <div class="timeline-content">
-                        <div class="timeline-title">${step.label}</div>
+                        <div class="timeline-title">${escapeHtml(step.label)}</div>
                         ${i === 0 ? `<div class="timeline-time">${dateStr}</div>` : ''}
                     </div>
                 </div>
@@ -834,12 +858,15 @@ function buildDeliveryDetailsHTML(order) {
     if (!items.length) return '';
     return items.map(item => {
         if (item.isUrl) {
+            const urlStr = String(item.value);
+            const escapedUrl = escapeHtml(urlStr);
+            const forAttr = escapeAttr(urlStr);
             return `
                 <div class="order-detail-line url-line">
                     <span class="material-icons order-detail-icon">${item.icon}</span>
-                    <span class="order-detail-label">${item.label}:</span>
-                    <span class="order-detail-value url-value" onclick="copyText('${String(item.value).replace(/'/g, "\\'")}')" title="اضغط للنسخ" style="cursor:pointer;">
-                        ${item.value}
+                    <span class="order-detail-label">${escapeHtml(item.label)}:</span>
+                    <span class="order-detail-value url-value" data-url="${forAttr}" onclick="copyUrlFromElement(this)" title="اضغط للنسخ" style="cursor:pointer;">
+                        ${escapedUrl}
                         <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-inline-start:4px;opacity:.6;">content_copy</span>
                     </span>
                 </div>
@@ -848,8 +875,8 @@ function buildDeliveryDetailsHTML(order) {
         return `
             <div class="order-detail-line">
                 <span class="material-icons order-detail-icon">${item.icon}</span>
-                <span class="order-detail-label">${item.label}:</span>
-                <span class="order-detail-value">${item.value}</span>
+                <span class="order-detail-label">${escapeHtml(item.label)}:</span>
+                <span class="order-detail-value">${escapeHtml(item.value)}</span>
             </div>
         `;
     }).join('');
@@ -870,18 +897,18 @@ function renderOrders(orders) {
         if (isTopup) {
             qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ل.س`;
         } else if (order.product_unit_name && order.product_unit_name !== 'قطعة') {
-            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ${order.product_unit_name}`;
+            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ${escapeHtml(order.product_unit_name)}`;
         } else {
             qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} قطعة`;
         }
         return `
-        <div class="order-card" data-status="${order.status}" data-id="${order.id}">
+        <div class="order-card" data-status="${escapeAttr(order.status)}" data-id="${order.id}">
             <div class="order-header">
-                <span class="order-number">${order.order_number}</span>
-                <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
+                <span class="order-number">${escapeHtml(order.order_number)}</span>
+                <span class="status-badge ${escapeAttr(order.status)}">${escapeHtml(getStatusText(order.status))}</span>
             </div>
             <div class="order-details">
-                <div>المنتج: ${order.product_name || order.product_id}</div>
+                <div>المنتج: ${escapeHtml(order.product_name || order.product_id)}</div>
                 <div>الكمية: ${qtyDisplay}</div>
                 <div>السعر: ${priceDisplay}</div>
             </div>
@@ -918,11 +945,11 @@ function renderLatestOrders() {
     list.innerHTML = ordersData.slice(0, 3).map(order => `
         <div class="order-card">
             <div class="order-header">
-                <span class="order-number">${order.order_number}</span>
-                <span class="status-badge ${order.status}">${getStatusText(order.status)}</span>
+                <span class="order-number">${escapeHtml(order.order_number)}</span>
+                <span class="status-badge ${escapeAttr(order.status)}">${escapeHtml(getStatusText(order.status))}</span>
             </div>
             <div class="order-details">
-                <div>المنتج: ${order.product_name || order.product_id}</div>
+                <div>المنتج: ${escapeHtml(order.product_name || order.product_id)}</div>
                 <div>الكمية: ${Number(order.quantity).toLocaleString('ar')}</div>
                 <div>السعر: ${formatPrice(order.total_price)}</div>
             </div>
@@ -997,13 +1024,13 @@ function renderDeposits(deposits) {
     list.innerHTML = deposits.map(d => `
         <div class="order-card">
             <div class="order-header">
-                <span class="ltr">${d.transaction_id}</span>
-                <span class="status-badge ${d.status === 'approved' ? 'completed' : d.status}">${d.status === 'approved' ? 'مكتمل' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span>
+                <span class="ltr">${escapeHtml(d.transaction_id)}</span>
+                <span class="status-badge ${escapeAttr(d.status === 'approved' ? 'completed' : d.status)}">${d.status === 'approved' ? 'مكتمل' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span>
             </div>
             <div class="order-details">
                 <div>المبلغ: ${formatPrice(d.amount)}</div>
-                <div>الطريقة: ${d.method}</div>
-                ${d.admin_note ? `<div>ملاحظة: ${d.admin_note}</div>` : ''}
+                <div>الطريقة: ${escapeHtml(d.method)}</div>
+                ${d.admin_note ? `<div>ملاحظة: ${escapeHtml(d.admin_note)}</div>` : ''}
                 <div>التاريخ: ${d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''}</div>
             </div>
         </div>
@@ -1175,7 +1202,6 @@ function openPurchaseModal(productId) {
                        oninput="this.value = this.value.replace(/[^0-9]/g, '')">
             </div>`;
     } else if (product.input_type === 'url') {
-        // 🆕 v17: رابط URL
         customInputHTML = `
             <div class="new-input-group url-input-group">
                 <span class="material-icons new-input-icon">link</span>
@@ -1193,7 +1219,8 @@ function openPurchaseModal(productId) {
                 أدخل رابطاً كاملاً يبدأ بـ <strong>http://</strong> أو <strong>https://</strong>
             </div>`;
     }
-const fav = isFavorite(product.id);
+
+    const fav = isFavorite(product.id);
     let infoRowHTML = '';
     if (isBundle) {
         const sortedBundles = [...product.bundles].sort((a, b) => a.price_usd - b.price_usd);
@@ -1212,8 +1239,8 @@ const fav = isFavorite(product.id);
                                 <div class="bundle-radio-dot"></div>
                             </div>
                             <div class="bundle-info">
-                                <div class="bundle-name">${b.name}</div>
-                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} ${unitName}</div>` : ''}
+                                <div class="bundle-name">${escapeHtml(b.name)}</div>
+                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} ${escapeHtml(unitName)}</div>` : ''}
                             </div>
                             <div class="bundle-price">${formatPrice(b.price_usd)}</div>
                         </div>
@@ -1250,7 +1277,7 @@ const fav = isFavorite(product.id);
         infoRowHTML = `
             <div class="new-info-row">
                 <div class="new-info-box">
-                    <div class="new-info-label">الكمية (${unitName})</div>
+                    <div class="new-info-label">الكمية (${escapeHtml(unitName)})</div>
                     <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
                            value="${baseQty}" class="new-qty-input"
                            oninput="updatePurchaseTotal()">
@@ -1271,9 +1298,9 @@ const fav = isFavorite(product.id);
                 </button>
                 <div class="new-purchase-title-wrap">
                     ${product.image
-                        ? `<img src="${product.image}" class="new-purchase-logo" alt="${product.name}">`
+                        ? `<img src="${escapeAttr(product.image)}" class="new-purchase-logo" alt="${escapeAttr(product.name)}">`
                         : `<div class="new-purchase-logo placeholder">📦</div>`}
-                    <h3 class="new-purchase-title">${product.name}</h3>
+                    <h3 class="new-purchase-title">${escapeHtml(product.name)}</h3>
                 </div>
             </div>
             ${infoRowHTML}
@@ -1286,7 +1313,6 @@ const fav = isFavorite(product.id);
     `;
     openModal('', modalContent);
 }
-
 function selectBundle(bundleId) {
     const product = window.__currentProduct;
     if (!product || !product.bundles) return;
@@ -1374,7 +1400,6 @@ function validateCustomInput(product) {
             return false;
         }
     } else if (product.input_type === 'url') {
-        // 🆕 v17
         const val = document.getElementById('purchaseUrl')?.value?.trim();
         if (!val) {
             showNotification('تنبيه', 'يرجى إدخال الرابط', 'warning');
@@ -1451,27 +1476,27 @@ function showDepositStep1(methodId) {
     }
     selectedMethodForDeposit = method;
     const qrCode = method.qr_image && method.qr_image.length > 100
-        ? `<img src="${method.qr_image}" style="width:220px;height:220px;border-radius:16px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
+        ? `<img src="${escapeAttr(method.qr_image)}" style="width:220px;height:220px;border-radius:16px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
         : '<div style="color:var(--text-secondary); padding:20px;">لا يوجد رمز QR بعد</div>';
     const logo = method.icon && method.icon.length > 100
-        ? `<img src="${method.icon}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
+        ? `<img src="${escapeAttr(method.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
         : '💳';
     const body = `
         <div style="text-align:center;">
-            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${method.name}</h3></div>
-            <p style="color:var(--text-secondary); margin-bottom:16px;">${method.description || ''}</p>
+            <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${escapeHtml(method.name)}</h3></div>
+            <p style="color:var(--text-secondary); margin-bottom:16px;">${escapeHtml(method.description || '')}</p>
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; text-align:right;">
                 <div style="margin-bottom:12px;">
                     <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span id="copyAccountName">${method.account_name || '-'}</span>
+                        <span id="copyAccountName">${escapeHtml(method.account_name || '-')}</span>
                         <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
                     </div>
                 </div>
                 <div>
                     <div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                        <span id="copyAccountNumber">${method.account || '-'}</span>
+                        <span id="copyAccountNumber">${escapeHtml(method.account || '-')}</span>
                         <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
                     </div>
                 </div>
@@ -1529,6 +1554,20 @@ function copyText(elementId) {
         fallbackCopy(text);
     }
 }
+
+// 🆕 v17.2: نسخ الرابط من data-url (بدون inline string)
+function copyUrlFromElement(el) {
+    const url = el.getAttribute('data-url') || '';
+    if (!url) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+            .then(() => showNotification('تم النسخ', 'تم نسخ الرابط', 'success'))
+            .catch(() => fallbackCopy(url));
+    } else {
+        fallbackCopy(url);
+    }
+}
+window.copyUrlFromElement = copyUrlFromElement;
 
 function fallbackCopy(text) {
     const textarea = document.createElement('textarea');
@@ -1626,7 +1665,7 @@ async function submitServiceRequest(btn) {
 }
 
 // ============================================================
-// 🎁 Referral Modal — v17
+// 🎁 Referral Modal
 // ============================================================
 function openReferralModal() {
     if (!userData) return;
@@ -1673,12 +1712,12 @@ function openReferralModal() {
             </p>
             <div style="background:var(--primary-light); border-radius:12px; padding:12px; margin-bottom:16px;">
                 <div style="font-weight:bold; margin-bottom:6px;">كود الإحالة الخاص بك</div>
-                <div style="font-size:1.2rem; font-weight:800; color:var(--primary); letter-spacing:1px;" id="referralCode">${referralCode}</div>
+                <div style="font-size:1.2rem; font-weight:800; color:var(--primary); letter-spacing:1px;" id="referralCode">${escapeHtml(referralCode)}</div>
             </div>
             <button class="btn-primary" onclick="copyText('referralCode')">
                 <span class="material-icons">content_copy</span> نسخ الكود
             </button>
-            <button class="btn-outline" style="margin-top:8px;width:100%;" onclick="shareReferral('${referralLink}')">
+            <button class="btn-outline" style="margin-top:8px;width:100%;" data-referral-link="${escapeAttr(referralLink)}" onclick="shareReferral(this.getAttribute('data-referral-link'))">
                 <span class="material-icons">share</span> مشاركة الرابط
             </button>
             ${applySectionHTML}
@@ -1742,10 +1781,10 @@ function setupFAQ() {
     list.innerHTML = faqData.map((item, i) => `
         <div class="faq-item" onclick="toggleFAQ(${i})">
             <div class="faq-question">
-                <span>${item.q}</span>
+                <span>${escapeHtml(item.q)}</span>
                 <span class="material-icons">expand_more</span>
             </div>
-            <div class="faq-answer">${item.a}</div>
+            <div class="faq-answer">${escapeHtml(item.a)}</div>
         </div>
     `).join('');
 }
@@ -1770,8 +1809,8 @@ async function openNotificationsPage() {
             <h3>الإشعارات</h3>
             ${notificationsData.length ? notificationsData.map(n => `
                 <div style="text-align:right;background:var(--surface);border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid var(--border);${!n.is_read ? 'border-right:3px solid var(--primary);' : ''}">
-                    <div style="font-weight:bold;">${n.title}</div>
-                    <div style="color:var(--text-secondary);font-size:0.8rem;">${n.message}</div>
+                    <div style="font-weight:bold;">${escapeHtml(n.title)}</div>
+                    <div style="color:var(--text-secondary);font-size:0.8rem;">${escapeHtml(n.message)}</div>
                     <div style="color:var(--text-secondary);font-size:0.7rem;">${n.created_at ? new Date(n.created_at).toLocaleString('ar') : ''}</div>
                 </div>
             `).join('') : '<p>لا توجد إشعارات</p>'}
@@ -1876,7 +1915,7 @@ function previewImage(input, previewId) {
         const reader = new FileReader();
         reader.onload = e => {
             const el = document.getElementById(previewId);
-            if (el) el.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+            if (el) el.innerHTML = `<img src="${escapeAttr(e.target.result)}" style="width:100%;height:100%;object-fit:cover;">`;
         };
         reader.readAsDataURL(input.files[0]);
     }
@@ -1940,7 +1979,7 @@ async function loadInitialData() {
 }
 
 async function initApp() {
-    console.log('🚀 بدء تشغيل SANAD+ v17 ...');
+    console.log('🚀 بدء تشغيل SANAD+ v17.2 ...');
     try {
         const ok = await initTelegram();
         if (!ok) {
@@ -1981,7 +2020,7 @@ async function initApp() {
         } catch (e) {
             console.warn('PTR/Swipe غير متاح:', e);
         }
-        console.log('✅ التطبيق جاهز (v17)');
+        console.log('✅ التطبيق جاهز (v17.2)');
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
         const gm = document.getElementById('greetingMessage');
