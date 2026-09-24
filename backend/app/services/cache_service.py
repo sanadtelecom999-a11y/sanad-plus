@@ -1,18 +1,10 @@
 # ============================================================
-# 🔥 Cache Service — Redis (v1.0)
+# 🔥 Cache Service — Redis (v17.3 with Health Alerts)
 # ============================================================
-"""
-نظام Cache بسيط مبني على Redis (Upstash).
-- JSON serialization
-- TTL لكل نوع
-- Auto-invalidation من admin
-- Fail-safe: لو Redis سقط، الموقع يعمل عادي
-"""
 import os
 import json
 import logging
 import redis
-from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +13,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 _REDIS_URL = os.getenv("REDIS_URL", "").strip()
 _redis_client = None
+_redis_down = False  # 🆕 v17.3
 
 if _REDIS_URL:
     try:
@@ -41,12 +34,40 @@ else:
 
 
 # ============================================================
-# ⏱️ TTLs (بالثواني)
+# 🆕 v17.3: Redis Health Alerts
 # ============================================================
-TTL_CATEGORIES = 300        # 5 دقائق (نادراً ما تتغير)
-TTL_PRODUCTS = 120          # 2 دقائق
-TTL_PAYMENT_METHODS = 300   # 5 دقائق
-TTL_DEFAULT = 60            # 1 دقيقة
+def _mark_redis_down(error):
+    global _redis_down
+    if not _redis_down:
+        _redis_down = True
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_message(
+                f"🔴 Redis DOWN: {str(error)[:200]}",
+                level="error"
+            )
+        except Exception:
+            logger.error(f"Redis DOWN: {error}")
+
+
+def _mark_redis_up():
+    global _redis_down
+    if _redis_down:
+        _redis_down = False
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_message("🟢 Redis RECOVERED", level="info")
+        except Exception:
+            logger.info("Redis RECOVERED")
+
+
+# ============================================================
+# ⏱️ TTLs
+# ============================================================
+TTL_CATEGORIES = 300
+TTL_PRODUCTS = 120
+TTL_PAYMENT_METHODS = 300
+TTL_DEFAULT = 60
 
 
 # ============================================================
@@ -67,16 +88,21 @@ def key_payment_methods():
 
 
 # ============================================================
-# 💾 Core Operations
+# 💾 Core Operations (with Health Alerts)
 # ============================================================
 def cache_get(key):
-    """اقرأ من Cache — يُرجع None لو مفقود"""
+    global _redis_down
     if not _redis_client:
         return None
     try:
         raw = _redis_client.get(key)
+        if _redis_down:
+            _mark_redis_up()
         if raw:
             return json.loads(raw)
+        return None
+    except redis.RedisError as e:
+        _mark_redis_down(e)
         return None
     except Exception as e:
         logger.warning(f"cache_get [{key}] failed: {e}")
@@ -84,36 +110,45 @@ def cache_get(key):
 
 
 def cache_set(key, value, ttl=TTL_DEFAULT):
-    """احفظ في Cache"""
+    global _redis_down
     if not _redis_client:
         return False
     try:
         _redis_client.setex(key, ttl, json.dumps(value, ensure_ascii=False))
+        if _redis_down:
+            _mark_redis_up()
         return True
+    except redis.RedisError as e:
+        _mark_redis_down(e)
+        return False
     except Exception as e:
         logger.warning(f"cache_set [{key}] failed: {e}")
         return False
 
 
 def cache_delete(*keys):
-    """احذف واحد أو أكثر"""
     if not _redis_client or not keys:
         return 0
     try:
         return _redis_client.delete(*keys)
+    except redis.RedisError as e:
+        _mark_redis_down(e)
+        return 0
     except Exception as e:
         logger.warning(f"cache_delete failed: {e}")
         return 0
 
 
 def cache_delete_pattern(pattern):
-    """احذف كل المفاتيح المطابقة (scan_iter آمن للإنتاج)"""
     if not _redis_client:
         return 0
     try:
         keys = list(_redis_client.scan_iter(match=pattern, count=100))
         if keys:
             return _redis_client.delete(*keys)
+        return 0
+    except redis.RedisError as e:
+        _mark_redis_down(e)
         return 0
     except Exception as e:
         logger.warning(f"cache_delete_pattern [{pattern}] failed: {e}")
@@ -139,23 +174,12 @@ def invalidate_payment_methods():
 # 🎯 Auto-Invalidation Middleware
 # ============================================================
 def setup_cache_invalidation(app):
-    """
-    يربط invalidation تلقائي على Flask app.
-
-    عند أي POST/PUT/DELETE على /admin/api/...
-    → يمسح الـ cache المناسب.
-    
-    شفاف للمطور — لا يحتاج تعديل admin.py.
-    """
     from flask import request
 
     @app.after_request
     def _auto_invalidate(response):
-        # نفّذ فقط على عمليات التعديل
         if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
             return response
-
-        # نفّذ فقط لو الرد ناجح (2xx)
         if not (200 <= response.status_code < 300):
             return response
 
@@ -183,3 +207,14 @@ def setup_cache_invalidation(app):
 # ============================================================
 def is_enabled():
     return _redis_client is not None
+
+
+def is_healthy():
+    """🆕 v17.3: فحص صحة Redis"""
+    if not _redis_client:
+        return False
+    try:
+        _redis_client.ping()
+        return True
+    except Exception:
+        return False
