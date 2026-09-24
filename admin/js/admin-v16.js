@@ -1,9 +1,7 @@
 /* ============================================================
-   admin-v16.js — Mobile-First + Archive Enhancement Layer
+   admin-v16.js — Mobile-First + Archive + Render Overrides
    ============================================================
-   - يعمل فوق admin.js (لا يستبدله)
-   - يضيف: Bottom Sheet + Swipe + Archive + Greeting + Toast
-   - يُحمّل بعد admin.js و api.js
+   يُحمّل بعد admin.js (يستبدل الدوال التي تكتب في عناصر v14)
    ============================================================ */
 (function () {
     'use strict';
@@ -11,7 +9,465 @@
     const OWNER_NAME = 'أبو سند';
 
     /* ============================================================
-       1. Greeting — صباح / مساء + أبو سند
+       0. OVERRIDE: Render Functions — تكتب في عناصر v16
+       ============================================================ */
+
+    /* ------------------------------------------------------------
+       0.1 renderKYC → #kycList
+       ------------------------------------------------------------ */
+    window.renderKYC = function () {
+        const container = document.getElementById('kycList');
+        if (!container) return;
+
+        const data = (typeof kycData !== 'undefined' && Array.isArray(kycData)) ? kycData : [];
+
+        // فلترة حسب tab (إن وُجد)
+        let filtered = [...data];
+        try {
+            const tabFilter = (typeof kycTabFilter !== 'undefined') ? kycTabFilter : 'all';
+            if (tabFilter === 'pending') filtered = data.filter(k => k.status === 'pending');
+            else if (tabFilter === 'approved') filtered = data.filter(k => k.status === 'approved');
+            else if (tabFilter === 'rejected') filtered = data.filter(k => k.status === 'rejected');
+        } catch (e) { /* ignore */ }
+
+        if (!filtered.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">verified_user</span></div>
+                    <h3>لا توجد طلبات توثيق</h3>
+                    <p>عندما يُرسل المستخدمون طلبات KYC، ستظهر هنا.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(k => {
+            const statusText = k.status === 'approved' ? 'مقبول'
+                             : k.status === 'rejected' ? 'مرفوض'
+                             : 'معلق';
+            return `
+                <div class="card-item" data-status="${k.status}">
+                    <div class="card-top">
+                        <div class="card-id" onclick="copyToClipboard('${k.user_id}')">#${k.user_id}</div>
+                        <span class="badge-status ${k.status}">${statusText}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-row">
+                            <span class="material-icons">person</span>
+                            <strong>${k.full_name || 'غير محدد'}</strong>
+                        </div>
+                        <div class="card-row">
+                            <span class="material-icons">phone</span>
+                            <span class="ltr">${k.phone || '-'}</span>
+                        </div>
+                        ${k.address ? `
+                        <div class="card-row">
+                            <span class="material-icons">location_on</span>
+                            <span>${k.address}</span>
+                        </div>
+                        ` : ''}
+                        <div class="card-row">
+                            <span class="material-icons">schedule</span>
+                            <span>${k.submitted_at ? new Date(k.submitted_at).toLocaleString('ar') : ''}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-actions">
+                            ${k.selfie_image ? `
+                                <button class="card-action view" onclick="viewKYCImage(${k.id})">
+                                    <span class="material-icons">image</span> عرض الصورة
+                                </button>
+                            ` : ''}
+                            ${k.status === 'pending' ? `
+                                <button class="card-action approve" onclick="window.handleApproveKYC(${k.id})">
+                                    <span class="material-icons">check</span> قبول
+                                </button>
+                                <button class="card-action reject" onclick="window.handleRejectKYC(${k.id})">
+                                    <span class="material-icons">close</span> رفض
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    /* ------------------------------------------------------------
+       0.2 renderDeposits → #depositsList
+       ------------------------------------------------------------ */
+    window.renderDeposits = function (deposits) {
+        const container = document.getElementById('depositsList');
+        if (!container) return;
+
+        const data = Array.isArray(deposits)
+            ? deposits
+            : (typeof depositsData !== 'undefined' ? depositsData : []);
+
+        // فلترة حسب tab
+        let filtered = [...data];
+        try {
+            const tabFilter = (typeof depositsTabFilter !== 'undefined') ? depositsTabFilter : 'all';
+            if (tabFilter === 'pending') filtered = data.filter(d => d.status === 'pending');
+            else if (tabFilter === 'approved') filtered = data.filter(d => d.status === 'approved');
+            else if (tabFilter === 'rejected') filtered = data.filter(d => d.status === 'rejected');
+        } catch (e) { /* ignore */ }
+
+        if (!filtered.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">account_balance_wallet</span></div>
+                    <h3>لا توجد إيداعات</h3>
+                    <p>عندما يُرسل المستخدمون إيداعات، ستظهر هنا للمراجعة.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(d => {
+            const statusText = d.status === 'approved' ? 'مقبول'
+                             : d.status === 'rejected' ? 'مرفوض'
+                             : 'معلق';
+            return `
+                <div class="card-item" data-status="${d.status}">
+                    <div class="card-top">
+                        <div class="card-id" onclick="copyToClipboard('${d.transaction_id || ''}')">${d.transaction_id || ''}</div>
+                        <span class="badge-status ${d.status}">${statusText}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-row">
+                            <span class="material-icons">person</span>
+                            <span>${d.user_name || 'مستخدم'}</span>
+                            <span class="card-user-id" onclick="copyToClipboard('${d.user_telegram || d.user_id}')">#${d.user_telegram || d.user_id}</span>
+                        </div>
+                        <div class="card-row">
+                            <span class="material-icons">credit_card</span>
+                            <span>${d.method || '-'}</span>
+                        </div>
+                        <div class="card-row">
+                            <span class="material-icons">schedule</span>
+                            <span>${d.created_at ? new Date(d.created_at).toLocaleString('ar') : ''}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price ltr" style="color:var(--success);font-weight:900;">$${(d.amount || 0).toFixed(2)}</div>
+                        <div class="card-actions">
+                            <button class="card-action view" onclick="viewDepositDetails(${d.id})">
+                                <span class="material-icons">visibility</span> تفاصيل
+                            </button>
+                            ${d.status === 'pending' ? `
+                                <button class="card-action approve" onclick="approveDepositHandler(${d.id})">
+                                    <span class="material-icons">check</span> قبول
+                                </button>
+                                <button class="card-action reject" onclick="rejectDepositHandler(${d.id})">
+                                    <span class="material-icons">close</span> رفض
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    /* ------------------------------------------------------------
+       0.3 renderServiceRequests → #servicesList
+       ------------------------------------------------------------ */
+    window.renderServiceRequests = function () {
+        const container = document.getElementById('servicesList');
+        if (!container) return;
+
+        const data = (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData))
+            ? serviceRequestsData
+            : [];
+
+        if (!data.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">handyman</span></div>
+                    <h3>لا توجد طلبات خدمة</h3>
+                    <p>عندما يطلب المستخدمون خدمات مخصصة، ستظهر هنا.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = data.map(r => {
+            const statusText = r.status === 'completed' ? 'مكتمل'
+                             : r.status === 'rejected' ? 'مرفوض'
+                             : r.status === 'cancelled' ? 'ملغي'
+                             : 'معلق';
+            return `
+                <div class="card-item" data-status="${r.status}">
+                    <div class="card-top">
+                        <div class="card-id" onclick="copyToClipboard('${r.user_id}')">#${r.user_id}</div>
+                        <span class="badge-status ${r.status}">${statusText}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-row">
+                            <span class="material-icons">handyman</span>
+                            <strong>${r.service_name || '-'}</strong>
+                        </div>
+                        ${r.description ? `
+                        <div class="card-row">
+                            <span class="material-icons">description</span>
+                            <span>${r.description}</span>
+                        </div>
+                        ` : ''}
+                        ${r.estimated_price ? `
+                        <div class="card-row">
+                            <span class="material-icons">payments</span>
+                            <span>${r.estimated_price}$</span>
+                        </div>
+                        ` : ''}
+                        <div class="card-row">
+                            <span class="material-icons">schedule</span>
+                            <span>${r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-actions" style="margin-inline-start:auto;">
+                            <button class="card-action view" onclick="viewServiceRequest(${r.id})">
+                                <span class="material-icons">visibility</span> عرض
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    /* ------------------------------------------------------------
+       0.4 renderOrders → #ordersList (بطاقات v16)
+       ------------------------------------------------------------ */
+    window.renderOrders = function (orders) {
+        const container = document.getElementById('ordersList');
+        if (!container) return;
+
+        const data = Array.isArray(orders)
+            ? orders
+            : (typeof ordersData !== 'undefined' ? ordersData : []);
+
+        // فلترة حسب tab
+        let filtered = [...data];
+        try {
+            const tabFilter = (typeof ordersTabFilter !== 'undefined') ? ordersTabFilter : 'all';
+            if (tabFilter === 'pending') filtered = data.filter(o => o.status === 'pending');
+            else if (tabFilter === 'processing') filtered = data.filter(o => o.status === 'processing' || o.status === 'review');
+            else if (tabFilter === 'completed') filtered = data.filter(o => o.status === 'completed');
+        } catch (e) { /* ignore */ }
+
+        if (!filtered.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">receipt_long</span></div>
+                    <h3>لا توجد طلبات</h3>
+                    <p>الطلبات الجديدة ستظهر هنا فور إنشائها.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const selectedIds = (typeof selectedOrders !== 'undefined' && selectedOrders instanceof Set)
+            ? selectedOrders
+            : new Set();
+
+        container.innerHTML = filtered.map(o => {
+            const statusText = getStatusArabic(o.status);
+            const isChecked = selectedIds.has(o.id);
+
+            let qtyDisplay;
+            if (o.product_type === 'topup') {
+                qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} ل.س`;
+            } else if (o.product_unit_name && o.product_unit_name !== 'قطعة') {
+                qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} ${o.product_unit_name}`;
+            } else {
+                qtyDisplay = `${(o.quantity || 0).toLocaleString('ar')} قطعة`;
+            }
+
+            const isFinal = ['completed', 'cancelled', 'failed'].includes(o.status);
+
+            return `
+                <div class="card-item" data-status="${o.status}" data-swipeable="true" data-order-id="${o.id}">
+                    <div class="card-top">
+                        <label class="order-checkbox-wrap" onclick="event.stopPropagation();" style="display:flex;align-items:center;">
+                            <input type="checkbox" class="order-checkbox" ${isChecked ? 'checked' : ''}
+                                   onchange="toggleOrderSelection(${o.id}, this.checked)"
+                                   style="width:20px;height:20px;accent-color:var(--primary);cursor:pointer;">
+                        </label>
+                        <div class="card-id" onclick="copyToClipboard('${o.order_number}')" style="flex:1;margin:0 8px;">${o.order_number}</div>
+                        <span class="badge-status ${o.status}">${statusText}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-row">
+                            <span class="material-icons">person</span>
+                            <span>${o.user_name || 'مستخدم'}</span>
+                            <span class="card-user-id" onclick="copyToClipboard('${o.user_telegram || o.user_id}')">#${o.user_telegram || o.user_id}</span>
+                        </div>
+                        <div class="card-row">
+                            <span class="material-icons">inventory_2</span>
+                            <span>${o.product_name || '-'}</span>
+                            <span class="card-user-id">${qtyDisplay}</span>
+                        </div>
+                        <div class="card-row">
+                            <span class="material-icons">schedule</span>
+                            <span>${o.created_at ? new Date(o.created_at).toLocaleString('ar', { dateStyle: 'short', timeStyle: 'short' }) : '-'}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-price ltr">${(o.total_price || 0).toFixed(2)}$</div>
+                        <div class="card-actions">
+                            <button class="card-action view" onclick="viewOrderDetails(${o.id})">
+                                <span class="material-icons">visibility</span> تفاصيل
+                            </button>
+                            ${!isFinal && o.status === 'pending' ? `
+                                <button class="card-action approve" onclick="quickApproveOrder(${o.id}, 'review')">
+                                    <span class="material-icons">play_arrow</span> مراجعة
+                                </button>
+                            ` : ''}
+                            ${!isFinal && o.status === 'processing' ? `
+                                <button class="card-action approve" onclick="quickApproveOrder(${o.id}, 'completed')">
+                                    <span class="material-icons">check</span> إكمال
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (typeof updateSelectedOrdersBar === 'function') {
+            try { updateSelectedOrdersBar(); } catch (e) {}
+        }
+        attachSwipeHandlers();
+    };
+
+    /* ------------------------------------------------------------
+       0.5 renderDashboard — override (يضمن أن يعمل على v16)
+       ------------------------------------------------------------ */
+    const _origRenderDashboard = window.renderDashboard;
+    window.renderDashboard = function () {
+        if (typeof _origRenderDashboard === 'function') {
+            try { _origRenderDashboard(); } catch (e) { console.warn('renderDashboard error:', e); }
+        }
+
+        // Greeting
+        const h = new Date().getHours();
+        const greeting = h < 12 ? 'صباح الخير' : 'مساء الخير';
+        const el = document.getElementById('dashGreeting');
+        if (el) el.textContent = `${greeting}، ${OWNER_NAME} 👋`;
+
+        // Attention Card
+        renderAttentionCard();
+
+        // Recent activities
+        renderRecentActivities();
+    };
+
+    function renderAttentionCard() {
+        const container = document.getElementById('attentionList');
+        if (!container) return;
+
+        const ordersDataArr = (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) ? ordersData : [];
+        const depositsDataArr = (typeof depositsData !== 'undefined' && Array.isArray(depositsData)) ? depositsData : [];
+        const kycDataArr = (typeof kycData !== 'undefined' && Array.isArray(kycData)) ? kycData : [];
+        const servicesDataArr = (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData)) ? serviceRequestsData : [];
+
+        const pendingOrders = ordersDataArr.filter(o => o.status === 'pending').length;
+        const pendingDeposits = depositsDataArr.filter(d => d.status === 'pending').length;
+        const pendingKYC = kycDataArr.filter(k => k.status === 'pending').length;
+        const pendingServices = servicesDataArr.filter(s => s.status === 'pending').length;
+
+        const total = pendingOrders + pendingDeposits + pendingKYC + pendingServices;
+
+        if (total === 0) {
+            const card = document.getElementById('attentionCard');
+            if (card) card.classList.add('empty');
+            container.innerHTML = `
+                <div class="attention-empty">
+                    <span class="material-icons">check_circle</span>
+                    كل شيء تحت السيطرة
+                </div>
+            `;
+            return;
+        }
+
+        const card = document.getElementById('attentionCard');
+        if (card) card.classList.remove('empty');
+
+        let html = '';
+        const items = [
+            { count: pendingOrders, label: 'طلب بانتظار المراجعة', icon: 'receipt_long', section: 'orders' },
+            { count: pendingDeposits, label: 'إيداع بانتظار المراجعة', icon: 'account_balance_wallet', section: 'deposits' },
+            { count: pendingKYC, label: 'طلب توثيق معلق', icon: 'verified_user', section: 'kyc' },
+            { count: pendingServices, label: 'طلب خدمة معلق', icon: 'handyman', section: 'service-requests' },
+        ];
+
+        items.forEach(item => {
+            if (item.count > 0) {
+                html += `
+                    <button class="attention-item" onclick="switchSection('${item.section}')">
+                        <div class="attention-item-icon"><span class="material-icons">${item.icon}</span></div>
+                        <div class="attention-item-content">
+                            <div class="attention-item-title">${item.count} ${item.label}</div>
+                            <div class="attention-item-subtitle">اضغط للمراجعة</div>
+                        </div>
+                        <span class="attention-item-count">${item.count}</span>
+                    </button>
+                `;
+            }
+        });
+
+        container.innerHTML = html;
+    }
+
+    function renderRecentActivities() {
+        const container = document.getElementById('recentActivities');
+        if (!container) return;
+
+        const ordersDataArr = (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) ? ordersData : [];
+
+        if (!ordersDataArr.length) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">history</span></div>
+                    <h3>لا توجد عمليات حديثة</h3>
+                    <p>عندما يبدأ المستخدمون بالتفاعل، ستظهر هنا آخر الطلبات والإيداعات.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const recent = ordersDataArr.slice(0, 5);
+        container.innerHTML = `
+            <div class="cards-list">
+                ${recent.map(o => `
+                    <div class="card-item" data-status="${o.status}" onclick="viewOrderDetails(${o.id})" style="cursor:pointer;">
+                        <div class="card-top">
+                            <div class="card-id">${o.order_number}</div>
+                            <span class="badge-status ${o.status}">${getStatusArabic(o.status)}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-row">
+                                <span class="material-icons">person</span>
+                                <span>${o.user_name || 'مستخدم'}</span>
+                            </div>
+                            <div class="card-row">
+                                <span class="material-icons">inventory_2</span>
+                                <span>${o.product_name || '-'}</span>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <div class="card-price ltr">${(o.total_price || 0).toFixed(2)}$</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    /* ============================================================
+       1. Greeting
        ============================================================ */
     function getGreeting() {
         const h = new Date().getHours();
@@ -30,7 +486,7 @@
     }
 
     /* ============================================================
-       2. Sidebar Toggle
+       2. Sidebar
        ============================================================ */
     window.toggleSidebar = function () {
         const sidebar = document.getElementById('sidebar');
@@ -48,7 +504,7 @@
     };
 
     /* ============================================================
-       3. Toast System
+       3. Toast
        ============================================================ */
     window.showToast = function (message, type = 'info', duration = 3000) {
         const container = document.getElementById('toastContainer');
@@ -77,7 +533,7 @@
     };
 
     /* ============================================================
-       4. Bottom Sheet System
+       4. Bottom Sheet
        ============================================================ */
     window.openBottomSheet = function (title, bodyHTML) {
         const sheet = document.getElementById('bottomSheet');
@@ -104,7 +560,7 @@
     };
 
     /* ============================================================
-       5. Confirm (يستخدم Bottom Sheet)
+       5. Confirm
        ============================================================ */
     window.showConfirm = function (options) {
         return new Promise((resolve) => {
@@ -144,7 +600,7 @@
     };
 
     /* ============================================================
-       6. Image Lightbox
+       6. Lightbox
        ============================================================ */
     window.openImageLightbox = function (url) {
         const lb = document.getElementById('imageLightbox');
@@ -162,12 +618,11 @@
     };
 
     /* ============================================================
-       7. Order Actions — View Details (Bottom Sheet)
+       7. Order Details — Bottom Sheet
        ============================================================ */
     window.viewOrderDetails = async function (orderId) {
         try {
             const order = await window.fetchAdminOrderFull(orderId);
-            const statusClass = order.status;
             const delivery = order.delivery_data || {};
 
             let deliveryRows = '';
@@ -210,7 +665,7 @@
                 <div style="text-align:right;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
                         <div class="card-id">${order.order_number}</div>
-                        <span class="badge-status ${statusClass}">${order.status_arabic}</span>
+                        <span class="badge-status ${order.status}">${order.status_arabic}</span>
                     </div>
                     <div class="card-body">
                         <div class="card-row"><span class="material-icons">person</span>${(order.user && (order.user.first_name || order.user.username)) || 'مستخدم'} <span class="card-user-id">#${order.user ? order.user.telegram_id : ''}</span></div>
@@ -230,7 +685,7 @@
     };
 
     /* ============================================================
-       8. Quick Approve Order
+       8. Quick Approve
        ============================================================ */
     window.quickApproveOrder = async function (orderId, newStatus) {
         const labels = {
@@ -260,7 +715,6 @@
                 'success'
             );
 
-            // إعادة تحميل
             if (typeof window.loadAllData === 'function') {
                 await window.loadAllData();
             }
@@ -279,7 +733,7 @@
     };
 
     /* ============================================================
-       9. Swipe Gestures on Cards
+       9. Swipe
        ============================================================ */
     function attachSwipeHandlers() {
         const cards = document.querySelectorAll('.card-item[data-swipeable="true"]');
@@ -352,7 +806,6 @@
         });
     }
 
-    // Observing DOM to attach handlers to newly rendered cards
     if (window.MutationObserver) {
         const observer = new MutationObserver(() => {
             attachSwipeHandlers();
@@ -581,7 +1034,7 @@
     }
 
     /* ============================================================
-       11. Restore Actions
+       11. Restore
        ============================================================ */
     window.restoreArchivedOrder = async function (id) {
         const ok = await window.showConfirm({
@@ -656,7 +1109,7 @@
     };
 
     /* ============================================================
-       12. Update Archive Badge (Sidebar total)
+       12. Archive Badge
        ============================================================ */
     window.updateArchiveBadges = async function () {
         try {
@@ -705,7 +1158,38 @@
     };
 
     /* ============================================================
-       14. Wrap switchSection — Auto-close sidebar + load archive
+       14. Wrap loadAllData — إعادة رسم بعد كل تحميل
+       ============================================================ */
+    const origLoadAllData = window.loadAllData;
+    if (typeof origLoadAllData === 'function') {
+        window.loadAllData = async function () {
+            const result = await origLoadAllData.apply(this, arguments);
+
+            // إعادة رسم الأقسام المخفية (في حال كانت مفتوحة)
+            try {
+                if (typeof kycData !== 'undefined' && Array.isArray(kycData)) {
+                    window.renderKYC();
+                }
+                if (typeof depositsData !== 'undefined' && Array.isArray(depositsData)) {
+                    window.renderDeposits(depositsData);
+                }
+                if (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData)) {
+                    window.renderServiceRequests();
+                }
+                if (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) {
+                    window.renderOrders(window.filteredOrders || ordersData);
+                }
+            } catch (e) {
+                console.warn('Re-render after load failed:', e);
+            }
+
+            window.updateArchiveBadges();
+            return result;
+        };
+    }
+
+    /* ============================================================
+       15. Wrap switchSection — إجبار إعادة الرسم عند التنقل
        ============================================================ */
     const origSwitchSection = window.switchSection;
     if (typeof origSwitchSection === 'function') {
@@ -714,8 +1198,28 @@
 
             window.closeSidebar();
 
-            if (section === 'archive') {
-                window.loadArchiveData();
+            // إعادة رسم فورية لكل قسم عند التنقل
+            try {
+                if (section === 'dashboard' && typeof window.renderDashboard === 'function') {
+                    window.renderDashboard();
+                }
+                if (section === 'orders' && typeof window.renderOrders === 'function') {
+                    window.renderOrders(window.filteredOrders || ordersData || []);
+                }
+                if (section === 'deposits' && typeof window.renderDeposits === 'function') {
+                    window.renderDeposits(depositsData || []);
+                }
+                if (section === 'kyc' && typeof window.renderKYC === 'function') {
+                    window.renderKYC();
+                }
+                if (section === 'service-requests' && typeof window.renderServiceRequests === 'function') {
+                    window.renderServiceRequests();
+                }
+                if (section === 'archive' && typeof window.loadArchiveData === 'function') {
+                    window.loadArchiveData();
+                }
+            } catch (e) {
+                console.warn('Section re-render failed:', e);
             }
 
             if (section === 'dashboard') {
@@ -725,12 +1229,27 @@
     }
 
     /* ============================================================
-       15. Init
+       16. Init
        ============================================================ */
     function initV16() {
         updateGreeting();
         window.updateArchiveBadges();
         attachSwipeHandlers();
+
+        // إعادة رسم KYC/Deposits/Services إذا كانت بيانات موجودة
+        setTimeout(() => {
+            try {
+                if (typeof kycData !== 'undefined' && Array.isArray(kycData)) {
+                    window.renderKYC();
+                }
+                if (typeof depositsData !== 'undefined' && Array.isArray(depositsData)) {
+                    window.renderDeposits(depositsData);
+                }
+                if (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData)) {
+                    window.renderServiceRequests();
+                }
+            } catch (e) {}
+        }, 500);
     }
 
     if (document.readyState === 'loading') {
@@ -739,6 +1258,6 @@
         setTimeout(initV16, 100);
     }
 
-    console.log('✅ admin-v16.js loaded — Mobile-First + Archive');
+    console.log('✅ admin-v16.js loaded — Full Overrides Active');
 
 })();
