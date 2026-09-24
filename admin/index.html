@@ -29,14 +29,14 @@
 <!-- ============================================================
      TOPBAR
      ============================================================ -->
-<header class="topbar">
+<header class="topbar admin-topbar">
     <button class="icon-btn" onclick="toggleSidebar()" aria-label="القائمة">
         <span class="material-icons">menu</span>
     </button>
     <div class="topbar-title">
-        <span class="logo">SANAD<span class="plus">+</span></span>
+        <span class="logo topbar-brand logo-text">SANAD<span class="plus highlight">+</span></span>
     </div>
-    <div class="topbar-actions">
+    <div class="topbar-actions admin-topbar-left">
         <button class="icon-btn" onclick="toggleAdminTheme()" aria-label="الوضع">
             <span class="material-icons" id="themeIcon">dark_mode</span>
         </button>
@@ -60,7 +60,7 @@
 
     <nav class="sidebar-nav">
         <!-- لوحة التحكم -->
-        <button class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+        <button class="nav-item sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
             <span class="material-icons">space_dashboard</span>
             <span>لوحة التحكم</span>
         </button>
@@ -68,22 +68,22 @@
         <!-- العمليات -->
         <div class="nav-group">
             <div class="nav-group-title">العمليات</div>
-            <button class="nav-item" data-section="orders" onclick="switchSection('orders')">
+            <button class="nav-item sidebar-item" data-section="orders" onclick="switchSection('orders')">
                 <span class="material-icons">receipt_long</span>
                 <span>الطلبات</span>
                 <span class="nav-badge" id="badge-orders" style="display:none;">0</span>
             </button>
-            <button class="nav-item" data-section="deposits" onclick="switchSection('deposits')">
+            <button class="nav-item sidebar-item" data-section="deposits" onclick="switchSection('deposits')">
                 <span class="material-icons">account_balance_wallet</span>
                 <span>الإيداعات</span>
                 <span class="nav-badge" id="badge-deposits" style="display:none;">0</span>
             </button>
-            <button class="nav-item" data-section="kyc" onclick="switchSection('kyc')">
+            <button class="nav-item sidebar-item" data-section="kyc" onclick="switchSection('kyc')">
                 <span class="material-icons">verified_user</span>
                 <span>طلبات التوثيق</span>
                 <span class="nav-badge" id="badge-kyc" style="display:none;">0</span>
             </button>
-            <button class="nav-item" data-section="service-requests" onclick="switchSection('service-requests')">
+            <button class="nav-item sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
                 <span class="material-icons">handyman</span>
                 <span>طلبات الخدمة</span>
                 <span class="nav-badge" id="badge-services" style="display:none;">0</span>
@@ -93,15 +93,15 @@
         <!-- المتجر -->
         <div class="nav-group">
             <div class="nav-group-title">المتجر</div>
-            <button class="nav-item" data-section="categories" onclick="switchSection('categories')">
+            <button class="nav-item sidebar-item" data-section="categories" onclick="switchSection('categories')">
                 <span class="material-icons">category</span>
                 <span>الأقسام</span>
             </button>
-            <button class="nav-item" data-section="products" onclick="switchSection('products')">
+            <button class="nav-item sidebar-item" data-section="products" onclick="switchSection('products')">
                 <span class="material-icons">shopping_bag</span>
                 <span>المنتجات</span>
             </button>
-            <button class="nav-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
+            <button class="nav-item sidebar-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
                 <span class="material-icons">payments</span>
                 <span>طرق الدفع</span>
             </button>
@@ -110,15 +110,15 @@
         <!-- التسويق -->
         <div class="nav-group">
             <div class="nav-group-title">التسويق</div>
-            <button class="nav-item" data-section="coupons" onclick="switchSection('coupons')">
+            <button class="nav-item sidebar-item" data-section="coupons" onclick="switchSection('coupons')">
                 <span class="material-icons">local_offer</span>
                 <span>كودات الخصم</span>
             </button>
-            <button class="nav-item" data-section="referrals" onclick="switchSection('referrals')">
+            <button class="nav-item sidebar-item" data-section="referrals" onclick="switchSection('referrals')">
                 <span class="material-icons">card_giftcard</span>
                 <span>الإحالات</span>
             </button>
-            <button class="nav-item" data-section="notifications" onclick="switchSection('notifications')">
+            <button class="nav-item sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
                 <span class="material-icons">send</span>
                 <span>إرسال إشعار</span>
             </button>
@@ -127,7 +127,7 @@
         <!-- المستخدمون -->
         <div class="nav-group">
             <div class="nav-group-title">المستخدمون</div>
-            <button class="nav-item" data-section="users" onclick="switchSection('users')">
+            <button class="nav-item sidebar-item" data-section="users" onclick="switchSection('users')">
                 <span class="material-icons">people</span>
                 <span>إدارة المستخدمين</span>
             </button>
@@ -136,7 +136,7 @@
         <!-- 🆕 الأرشيف -->
         <div class="nav-group">
             <div class="nav-group-title">الأرشيف</div>
-            <button class="nav-item" data-section="archive" onclick="switchSection('archive')">
+            <button class="nav-item sidebar-item" data-section="archive" onclick="switchSection('archive')">
                 <span class="material-icons">inventory_2</span>
                 <span>الأرشيف الكامل</span>
                 <span class="nav-badge archive-badge" id="badge-archive-total" style="display:none;">0</span>
@@ -146,15 +146,15 @@
         <!-- النظام -->
         <div class="nav-group">
             <div class="nav-group-title">النظام</div>
-            <button class="nav-item" data-section="activities" onclick="switchSection('activities')">
+            <button class="nav-item sidebar-item" data-section="activities" onclick="switchSection('activities')">
                 <span class="material-icons">history</span>
                 <span>سجل النشاطات</span>
             </button>
-            <button class="nav-item" data-section="audit-log" onclick="switchSection('audit-log')">
+            <button class="nav-item sidebar-item" data-section="audit-log" onclick="switchSection('audit-log')">
                 <span class="material-icons">fact_check</span>
                 <span>التدقيق المالي</span>
             </button>
-            <button class="nav-item" data-section="settings" onclick="switchSection('settings')">
+            <button class="nav-item sidebar-item" data-section="settings" onclick="switchSection('settings')">
                 <span class="material-icons">tune</span>
                 <span>الإعدادات</span>
             </button>
@@ -165,12 +165,10 @@
 <!-- ============================================================
      MAIN CONTENT
      ============================================================ -->
-<main class="main" id="adminContent">
+<main class="main admin-content" id="adminContent">
 
-    <!-- ══════════════════════════════════════════════════════
-         DASHBOARD
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-dashboard" class="section active">
+    <!-- DASHBOARD -->
+    <section id="section-dashboard" class="section admin-section active">
         <div class="page-header">
             <div>
                 <h1 id="dashGreeting">صباح الخير، أبو سند 👋</h1>
@@ -204,25 +202,25 @@
             </div>
         </div>
 
-        <div class="stats-grid">
-            <div class="stat">
+        <div class="stats-grid stats-cards">
+            <div class="stat stat-card">
                 <div class="stat-icon primary"><span class="material-icons">payments</span></div>
-                <div class="stat-value" id="dashRevenue">$0.00</div>
+                <div class="stat-value stat-number" id="dashRevenue">$0.00</div>
                 <div class="stat-label" id="dashRevenueLabel">إيرادات اليوم</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-card">
                 <div class="stat-icon info"><span class="material-icons">receipt_long</span></div>
-                <div class="stat-value" id="dashOrders">0</div>
+                <div class="stat-value stat-number" id="dashOrders">0</div>
                 <div class="stat-label" id="dashOrdersLabel">طلبات اليوم</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-card">
                 <div class="stat-icon success"><span class="material-icons">person_add</span></div>
-                <div class="stat-value" id="dashUsers">0</div>
+                <div class="stat-value stat-number" id="dashUsers">0</div>
                 <div class="stat-label" id="dashUsersLabel">مستخدمون جدد</div>
             </div>
-            <div class="stat">
+            <div class="stat stat-card">
                 <div class="stat-icon warning"><span class="material-icons">account_balance_wallet</span></div>
-                <div class="stat-value" id="dashDeposits">$0.00</div>
+                <div class="stat-value stat-number" id="dashDeposits">$0.00</div>
                 <div class="stat-label" id="dashDepositsLabel">إيداعات اليوم</div>
             </div>
         </div>
@@ -248,10 +246,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         USERS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-users" class="section">
+    <!-- USERS -->
+    <section id="section-users" class="section admin-section">
         <div class="page-header">
             <h1>المستخدمون</h1>
             <button class="btn btn-outline btn-sm" onclick="exportUsersExcel()">
@@ -279,10 +275,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         CATEGORIES
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-categories" class="section">
+    <!-- CATEGORIES -->
+    <section id="section-categories" class="section admin-section">
         <div class="page-header">
             <h1>الأقسام</h1>
             <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">
@@ -292,10 +286,8 @@
         <div class="cards-grid" id="categoriesList"></div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         PRODUCTS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-products" class="section">
+    <!-- PRODUCTS -->
+    <section id="section-products" class="section admin-section">
         <div class="page-header">
             <h1>المنتجات</h1>
             <button class="btn btn-primary btn-sm" onclick="openProductModal()">
@@ -335,10 +327,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         PAYMENT METHODS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-payment-methods" class="section">
+    <!-- PAYMENT METHODS -->
+    <section id="section-payment-methods" class="section admin-section">
         <div class="page-header">
             <h1>طرق الدفع</h1>
             <button class="btn btn-primary btn-sm" onclick="openPaymentMethodModal()">
@@ -348,10 +338,8 @@
         <div class="cards-grid" id="paymentMethodsList"></div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         ORDERS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-orders" class="section">
+    <!-- ORDERS -->
+    <section id="section-orders" class="section admin-section">
         <div class="page-header">
             <h1>الطلبات</h1>
             <button class="btn btn-outline btn-sm" onclick="exportOrdersExcel()">
@@ -390,10 +378,8 @@
         <div id="ordersList" class="cards-list"></div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         DEPOSITS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-deposits" class="section">
+    <!-- DEPOSITS -->
+    <section id="section-deposits" class="section admin-section">
         <div class="page-header">
             <h1>الإيداعات</h1>
             <button class="btn btn-outline btn-sm" onclick="exportDepositsExcel()">
@@ -401,32 +387,32 @@
             </button>
         </div>
         <div id="depositsList" class="cards-list"></div>
+        <!-- Hidden legacy table for admin.js compatibility -->
+        <table style="display:none;"><tbody id="depositsTableBody"></tbody></table>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         KYC
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-kyc" class="section">
+    <!-- KYC -->
+    <section id="section-kyc" class="section admin-section">
         <div class="page-header">
             <h1>طلبات التوثيق</h1>
         </div>
         <div id="kycList" class="cards-list"></div>
+        <!-- Hidden legacy table -->
+        <table style="display:none;"><tbody id="kycTableBody"></tbody></table>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         SERVICE REQUESTS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-service-requests" class="section">
+    <!-- SERVICE REQUESTS -->
+    <section id="section-service-requests" class="section admin-section">
         <div class="page-header">
             <h1>طلبات الخدمة</h1>
         </div>
         <div id="servicesList" class="cards-list"></div>
+        <!-- Hidden legacy table -->
+        <table style="display:none;"><tbody id="serviceRequestsTableBody"></tbody></table>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         COUPONS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-coupons" class="section">
+    <!-- COUPONS -->
+    <section id="section-coupons" class="section admin-section">
         <div class="page-header">
             <h1>كودات الخصم</h1>
             <button class="btn btn-primary btn-sm" onclick="openCouponModal()">
@@ -450,10 +436,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         REFERRALS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-referrals" class="section">
+    <!-- REFERRALS -->
+    <section id="section-referrals" class="section admin-section">
         <div class="page-header">
             <h1>الإحالات</h1>
             <button class="btn btn-outline btn-sm" onclick="exportReferralsExcel()">
@@ -477,10 +461,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         🆕 ARCHIVE
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-archive" class="section">
+    <!-- ARCHIVE -->
+    <section id="section-archive" class="section admin-section">
         <div class="page-header">
             <h1>الأرشيف</h1>
             <button class="btn btn-outline btn-sm" onclick="loadArchiveData()">
@@ -514,12 +496,20 @@
                 <h3>جارٍ التحميل...</h3>
             </div>
         </div>
+
+        <!-- Legacy archive containers (للتوافق مع admin.js) -->
+        <div id="archiveCatsContainer" style="display:none;">
+            <div id="archiveCatsList"></div>
+            <span id="archiveCatsCount" style="display:none;">0</span>
+        </div>
+        <div id="archiveProdsContainer" style="display:none;">
+            <div id="archiveProdsList"></div>
+            <span id="archiveProdsCount" style="display:none;">0</span>
+        </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         ACTIVITIES
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-activities" class="section">
+    <!-- ACTIVITIES -->
+    <section id="section-activities" class="section admin-section">
         <div class="page-header">
             <h1>سجل النشاطات</h1>
             <button class="btn btn-outline btn-sm" onclick="loadActivities()">
@@ -538,10 +528,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         AUDIT LOG
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-audit-log" class="section">
+    <!-- AUDIT LOG -->
+    <section id="section-audit-log" class="section admin-section">
         <div class="page-header">
             <h1>التدقيق المالي</h1>
             <button class="btn btn-outline btn-sm" onclick="loadAuditLog()">
@@ -582,10 +570,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         NOTIFICATIONS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-notifications" class="section">
+    <!-- NOTIFICATIONS -->
+    <section id="section-notifications" class="section admin-section">
         <div class="page-header">
             <h1>إرسال إشعار</h1>
         </div>
@@ -619,10 +605,8 @@
         </div>
     </section>
 
-    <!-- ══════════════════════════════════════════════════════
-         SETTINGS
-         ══════════════════════════════════════════════════════ -->
-    <section id="section-settings" class="section">
+    <!-- SETTINGS -->
+    <section id="section-settings" class="section admin-section">
         <div class="page-header">
             <h1>الإعدادات</h1>
         </div>
@@ -668,12 +652,12 @@
 <!-- ============================================================
      BOTTOM NAV + FAB
      ============================================================ -->
-<nav class="bottom-nav" id="bottomNav">
-    <button class="bottom-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+<nav class="bottom-nav admin-bottom-nav" id="bottomNav">
+    <button class="bottom-item bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
         <span class="material-icons">space_dashboard</span>
         <span>الرئيسية</span>
     </button>
-    <button class="bottom-item" data-section="orders" onclick="switchSection('orders')">
+    <button class="bottom-item bottom-nav-item" data-section="orders" onclick="switchSection('orders')">
         <span class="material-icons">receipt_long</span>
         <span>الطلبات</span>
         <span class="bottom-nav-badge" id="badge-mobile-orders" style="display:none;">0</span>
@@ -681,23 +665,23 @@
     <button class="bottom-item fab-slot" onclick="openQuickActions()">
         <span class="material-icons" style="font-size:28px;color:white;">add</span>
     </button>
-    <button class="bottom-item" data-section="deposits" onclick="switchSection('deposits')">
+    <button class="bottom-item bottom-nav-item" data-section="deposits" onclick="switchSection('deposits')">
         <span class="material-icons">account_balance_wallet</span>
         <span>الإيداعات</span>
         <span class="bottom-nav-badge" id="badge-mobile-deposits" style="display:none;">0</span>
     </button>
-    <button class="bottom-item" onclick="toggleSidebar()">
+    <button class="bottom-item bottom-nav-item" onclick="toggleSidebar()">
         <span class="material-icons">menu</span>
         <span>المزيد</span>
     </button>
 </nav>
 
 <!-- ============================================================
-     BULK BAR (يظهر عند التحديد فقط)
+     BULK BAR
      ============================================================ -->
-<div class="bulk-bar" id="bulkOrdersBar">
-    <div class="bulk-info">
-        <span class="bulk-num" id="bulkNum">0</span>
+<div class="bulk-bar bulk-orders-bar" id="bulkOrdersBar">
+    <div class="bulk-info bulk-count">
+        <span class="bulk-num bulk-count-num" id="bulkNum">0</span>
         <span>محدد</span>
     </div>
     <button class="bulk-action success" onclick="bulkChangeStatus('completed')">
@@ -709,7 +693,7 @@
     <button class="bulk-action" onclick="bulkChangeStatus('cancelled')">
         <span class="material-icons">block</span> إلغاء
     </button>
-    <button class="bulk-close" onclick="clearSelectedOrders()">
+    <button class="bulk-close bulk-close-btn" onclick="clearSelectedOrders()">
         <span class="material-icons">close</span>
     </button>
 </div>
@@ -743,42 +727,55 @@
 </div>
 
 <!-- ============================================================
-     LEGACY MODAL (يستخدمه admin.js للـ Confirm القديم)
+     LEGACY MODALS (توافق مع admin.js)
      ============================================================ -->
-<div id="modal" class="modal-legacy" style="display:none;">
-    <div class="modal-legacy-content">
+<div id="modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+        </div>
         <div id="modalBody"></div>
     </div>
 </div>
 
-<!-- ============================================================
-     LEGACY CONFIRM (fallback)
-     ============================================================ -->
-<div id="confirmModal" class="modal-legacy" style="display:none;">
-    <div class="modal-legacy-content">
-        <h3 id="confirmTitle">تأكيد</h3>
+<div id="confirmModal" class="modal confirm-modal-overlay" style="display:none;">
+    <div class="modal-content confirm-content">
+        <div class="confirm-icon" id="confirmIcon">
+            <span class="material-icons">help_outline</span>
+        </div>
+        <h3 id="confirmTitle">تأكيد العملية</h3>
         <p id="confirmMessage">هل أنت متأكد؟</p>
-        <div style="display:flex;gap:8px;margin-top:16px;">
+        <div class="confirm-actions">
             <button class="btn btn-primary" id="confirmBtn" onclick="closeConfirm(true)">تأكيد</button>
             <button class="btn btn-outline" onclick="closeConfirm(false)">إلغاء</button>
         </div>
     </div>
 </div>
 
-<!-- ============================================================
-     LEGACY GLOBAL SEARCH (fallback)
-     ============================================================ -->
-<div id="globalSearchModal" class="modal-legacy" style="display:none;">
-    <div class="modal-legacy-content">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+<div id="globalSearchModal" class="modal global-search-modal" style="display:none;">
+    <div class="modal-content global-search-content">
+        <div class="global-search-header">
             <span class="material-icons">search</span>
-            <input type="text" id="globalSearchInput" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
-            <button class="icon-btn" onclick="closeGlobalSearch()">
+            <input type="text" id="globalSearchInput" placeholder="ابحث في المستخدمين، الطلبات، المنتجات..." oninput="performGlobalSearch(this.value)" autocomplete="off">
+            <button class="close-modal-inline" onclick="closeGlobalSearch()">
                 <span class="material-icons">close</span>
             </button>
         </div>
-        <div id="globalSearchResults"></div>
+        <div class="global-search-results" id="globalSearchResults">
+            <div class="global-search-hint">
+                <span class="material-icons">search</span>
+                <p>ابدأ الكتابة للبحث...</p>
+            </div>
+        </div>
     </div>
+</div>
+
+<!-- ============================================================
+     LEGACY CONTAINERS (للتوافق مع admin.js)
+     ============================================================ -->
+<div id="adminPTr" class="admin-ptr" style="display:none;">
+    <div class="admin-ptr-icon"><span class="material-icons" id="adminPTrIcon">arrow_downward</span></div>
+    <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
 </div>
 
 <!-- ============================================================
@@ -788,7 +785,6 @@
 <script src="js/admin.js?v=16"></script>
 <script src="js/admin-v16.js?v=16"></script>
 
-<!-- Service Worker -->
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -799,43 +795,84 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- Legacy Modal helpers (في حال لم يكن admin.js يحتوي عليها) -->
+<!-- Override admin.js's switchSection AFTER it loads, wrap with v16 logic -->
 <script>
-window.openModal = window.openModal || function(title, bodyHTML) {
-    const modal = document.getElementById('modal');
-    const body = document.getElementById('modalBody');
-    if (modal && body) {
-        body.innerHTML = bodyHTML || '';
-        modal.style.display = 'flex';
-    }
-};
+(function() {
+    // حفظ الأصل
+    const origSwitch = window.switchSection;
 
-window.closeModal = window.closeModal || function() {
-    const modal = document.getElementById('modal');
-    if (modal) modal.style.display = 'none';
-};
+    // استبدال بنسخة تعمل مع classes v16
+    window.switchSection = function(sectionId) {
+        // 1. إخفاء كل الأقسام
+        document.querySelectorAll('.section, .admin-section').forEach(sec => {
+            sec.classList.remove('active');
+        });
 
-window.closeConfirm = window.closeConfirm || function(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) modal.style.display = 'none';
-    if (window._confirmResolver) {
-        window._confirmResolver(result);
-        window._confirmResolver = null;
-    }
-};
+        // 2. إظهار القسم المطلوب
+        const section = document.getElementById('section-' + sectionId);
+        if (section) section.classList.add('active');
 
-window.openGlobalSearch = window.openGlobalSearch || function() {
-    const modal = document.getElementById('globalSearchModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.getElementById('globalSearchInput')?.focus();
-    }
-};
+        // 3. تحديث الـ Sidebar
+        document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => {
+            item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
+        });
 
-window.closeGlobalSearch = window.closeGlobalSearch || function() {
-    const modal = document.getElementById('globalSearchModal');
-    if (modal) modal.style.display = 'none';
-};
+        // 4. تحديث Bottom Nav
+        document.querySelectorAll('.bottom-nav-item, .bottom-item').forEach(item => {
+            item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
+        });
+
+        // 5. تحديث currentSection
+        window.currentSection = sectionId;
+
+        // 6. إغلاق Sidebar على الجوال
+        if (typeof window.closeSidebar === 'function') window.closeSidebar();
+
+        // 7. تحميل بيانات القسم (استدعاء الدوال من admin.js)
+        try {
+            if (sectionId === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
+            if (sectionId === 'users' && typeof renderUsers === 'function') renderUsers();
+            if (sectionId === 'categories' && typeof renderCategories === 'function') renderCategories();
+            if (sectionId === 'products') {
+                if (typeof filteredProducts !== 'undefined' && Array.isArray(productsData)) {
+                    window.filteredProducts = [...productsData];
+                }
+                if (typeof renderProducts === 'function') renderProducts();
+            }
+            if (sectionId === 'payment-methods' && typeof renderPaymentMethods === 'function') renderPaymentMethods();
+            if (sectionId === 'orders') {
+                if (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) {
+                    window.filteredOrders = [...ordersData];
+                }
+                if (typeof renderOrders === 'function' && typeof ordersData !== 'undefined') {
+                    renderOrders(ordersData);
+                }
+            }
+            if (sectionId === 'deposits' && typeof renderDeposits === 'function') renderDeposits(depositsData);
+            if (sectionId === 'kyc' && typeof renderKYC === 'function') renderKYC();
+            if (sectionId === 'service-requests' && typeof renderServiceRequests === 'function') renderServiceRequests();
+            if (sectionId === 'coupons' && typeof renderCoupons === 'function') renderCoupons();
+            if (sectionId === 'referrals' && typeof loadReferrals === 'function') loadReferrals();
+            if (sectionId === 'archive' && typeof window.loadArchiveData === 'function') window.loadArchiveData();
+            if (sectionId === 'activities' && typeof loadActivities === 'function') loadActivities();
+            if (sectionId === 'audit-log' && typeof loadAuditLog === 'function') loadAuditLog();
+            if (sectionId === 'settings' && typeof loadSettings === 'function') loadSettings();
+        } catch (err) {
+            console.warn('Section load error:', err);
+        }
+
+        // 8. Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 9. تحديث Greeting على Dashboard
+        if (sectionId === 'dashboard' && typeof window.switchSection === 'function') {
+            const h = new Date().getHours();
+            const greeting = h < 12 ? 'صباح الخير' : 'مساء الخير';
+            const el = document.getElementById('dashGreeting');
+            if (el) el.textContent = `${greeting}، أبو سند 👋`;
+        }
+    };
+})();
 </script>
 
 </body>
