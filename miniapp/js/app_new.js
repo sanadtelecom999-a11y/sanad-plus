@@ -1,5 +1,17 @@
-// miniapp/js/app_new.js — v17.3 (XSS Hardened + URL + VIP v2 + Discount Hint)
+// ============================================================
+// SANAD+ MiniApp — app_new.js — v18.2.1
+// ============================================================
+// الإصلاحات في هذه النسخة:
+//   - openPurchaseModal محصَّن بـ try/catch
+//   - submitDeposit يستخدم /api/deposits/create (صريح)
+//   - و-ت1: requestCustomService → openCustomServiceModal + submitCustomService
+//   - و-ت2: البحث من الرئيسية يعمل
+//   - و-ت3: لا تغيير (CSS)
+//   - و-ت4: تعطيل الزر فور الضغط
+//   - السعر لا يظهر خارج مودال الشراء
+// ============================================================
 
+// ─── State ───
 let currentPage = 'page-home';
 let userData = null;
 let categoriesData = [];
@@ -10,7 +22,6 @@ let paymentMethodsData = [];
 let kycStatus = 'none';
 let notificationsData = [];
 let selectedMethodForDeposit = null;
-let notificationPollerId = null;
 let cancelTimers = {};
 let publicSettings = { syp_rate: 132, store_name: 'SANAD+', support_url: 'https://t.me/SANADST' };
 
@@ -18,9 +29,9 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
-// ============================================================
-// 🛡️ v17.2: XSS Protection
-// ============================================================
+// ════════════════════════════════════════════════════════════
+// 🛡️ XSS Protection
+// ════════════════════════════════════════════════════════════
 function escapeHtml(str) {
     if (str === null || str === undefined) return '';
     return String(str)
@@ -44,7 +55,9 @@ function escapeAttr(str) {
 window.escapeHtml = escapeHtml;
 window.escapeAttr = escapeAttr;
 
-// v17: VIP Levels
+// ════════════════════════════════════════════════════════════
+// VIP Levels
+// ════════════════════════════════════════════════════════════
 const VIP_LEVELS = {
     1: { name: 'برونزي',   icon: 'military_tech' },
     2: { name: 'فضي',      icon: 'star' },
@@ -55,7 +68,9 @@ const VIP_LEVELS = {
     7: { name: 'الأسطورة', icon: 'workspace_premium' },
 };
 
-// ============ Image Compression Helper ============
+// ════════════════════════════════════════════════════════════
+// Image Compression
+// ════════════════════════════════════════════════════════════
 function compressImageFile(file, maxWidth = 800, quality = 0.6) {
     return new Promise((resolve, reject) => {
         if (!file) { reject(new Error('لا يوجد ملف')); return; }
@@ -90,6 +105,9 @@ function compressImageFile(file, maxWidth = 800, quality = 0.6) {
     });
 }
 
+// ════════════════════════════════════════════════════════════
+// Splash Seen
+// ════════════════════════════════════════════════════════════
 const SPLASH_SEEN_KEY = 'splash_seen_v11';
 function hasSeenSplash() {
     try { return localStorage.getItem(SPLASH_SEEN_KEY) === '1'; } catch (e) { return false; }
@@ -98,6 +116,9 @@ function markSplashSeen() {
     try { localStorage.setItem(SPLASH_SEEN_KEY, '1'); } catch (e) {}
 }
 
+// ════════════════════════════════════════════════════════════
+// Recently Viewed
+// ════════════════════════════════════════════════════════════
 const RECENTLY_VIEWED_KEY = 'recently_viewed';
 const RECENTLY_VIEWED_MAX = 6;
 
@@ -134,12 +155,16 @@ function renderRecentlyViewed() {
     `).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// Price Formatting
+// ════════════════════════════════════════════════════════════
 function formatPrice(usdAmount) {
+    const n = parseFloat(usdAmount) || 0;
     if (currentCurrency === 'SYP') {
-        const syp = Math.round(usdAmount * getSypRate());
+        const syp = Math.round(n * getSypRate());
         return `${syp.toLocaleString('ar')} ل.س`;
     }
-    return `${usdAmount.toFixed(2)}$`;
+    return `${n.toFixed(2)}$`;
 }
 
 function getSypRate() {
@@ -166,6 +191,9 @@ function updateCurrencyUI() {
     if (label) label.textContent = currentCurrency;
 }
 
+// ════════════════════════════════════════════════════════════
+// Favorites
+// ════════════════════════════════════════════════════════════
 function getFavorites() {
     try { return JSON.parse(localStorage.getItem('favorites') || '[]'); } catch (e) { return []; }
 }
@@ -196,6 +224,9 @@ function renderFavorites() {
     list.innerHTML = favProducts.map(prod => renderProductCard(prod)).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// Pull to Refresh
+// ════════════════════════════════════════════════════════════
 const PullToRefresh = (() => {
     const THRESHOLD = 70;
     const MAX_PULL = 110;
@@ -344,6 +375,9 @@ const PullToRefresh = (() => {
     return { init };
 })();
 
+// ════════════════════════════════════════════════════════════
+// Swipe Navigation
+// ════════════════════════════════════════════════════════════
 const SwipeNav = (() => {
     const PAGES = ['page-home', 'page-orders', 'page-charge', 'page-deposits', 'page-account'];
     const SWIPE_THRESHOLD = 60;
@@ -404,6 +438,9 @@ const SwipeNav = (() => {
     return { init };
 })();
 
+// ════════════════════════════════════════════════════════════
+// Splash Screen
+// ════════════════════════════════════════════════════════════
 const SplashScreen = (() => {
     const T = {
         shieldIn: 0, lightSweep: 700, disintegrate: 1400,
@@ -576,6 +613,9 @@ if (document.readyState === 'loading') {
     SplashScreen.initSplashScreen();
 }
 
+// ════════════════════════════════════════════════════════════
+// Update User UI
+// ════════════════════════════════════════════════════════════
 function updateUserUI() {
     if (!userData) {
         const gm = document.getElementById('greetingMessage');
@@ -587,48 +627,64 @@ function updateUserUI() {
     const balanceEl = document.getElementById('headerBalance');
     if (balanceEl) {
         balanceEl.textContent = formatPrice(userData.balance);
-        if (userData.balance < 0) balanceEl.style.color = 'var(--danger)';
+        if (parseFloat(userData.balance) < 0) balanceEl.style.color = 'var(--danger)';
         else balanceEl.style.color = '';
     }
-    document.getElementById('chargeBalance').textContent = formatPrice(userData.balance);
-    document.getElementById('accountBalance').textContent = formatPrice(userData.balance);
-    document.getElementById('accountName').textContent = userData.first_name || userData.username || 'مستخدم';
-    document.getElementById('accountId').textContent = `ID: ${userData.telegram_id}`;
-    document.getElementById('accountEmail').textContent = userData.username ? `@${userData.username}` : '';
+    const chargeEl = document.getElementById('chargeBalance');
+    if (chargeEl) chargeEl.textContent = formatPrice(userData.balance);
+    const accBalEl = document.getElementById('accountBalance');
+    if (accBalEl) accBalEl.textContent = formatPrice(userData.balance);
+    const accNameEl = document.getElementById('accountName');
+    if (accNameEl) accNameEl.textContent = userData.first_name || userData.username || 'مستخدم';
+    const accIdEl = document.getElementById('accountId');
+    if (accIdEl) accIdEl.textContent = `ID: ${userData.telegram_id}`;
+    const accEmailEl = document.getElementById('accountEmail');
+    if (accEmailEl) accEmailEl.textContent = userData.username ? `@${userData.username}` : '';
+
     renderHomeVIPBadge();
     renderAccountVIPBadge();
+
     const hour = new Date().getHours();
     let greeting = 'مرحباً';
     if (hour < 12) greeting = 'صباح الخير';
     else if (hour < 18) greeting = 'مساء الخير';
     else greeting = 'مساء النور';
+
     const gm = document.getElementById('greetingMessage');
     if (gm) gm.textContent = `${greeting}، ${userData.first_name || userData.username || 'مستخدم'}`;
     const gs = document.getElementById('greetingSub');
     if (gs) gs.textContent = `رصيدك: ${formatPrice(userData.balance)}`;
+
     if (window.currentUser?.photo_url) {
         const ha = document.getElementById('headerAvatar');
-        ha.style.backgroundImage = `url(${escapeAttr(window.currentUser.photo_url)})`;
-        ha.textContent = '';
+        if (ha) {
+            ha.style.backgroundImage = `url(${escapeAttr(window.currentUser.photo_url)})`;
+            ha.textContent = '';
+        }
     } else {
         const ha = document.getElementById('headerAvatar');
         if (ha) ha.textContent = (userData.first_name || userData.username || 'م')[0];
     }
+
     const orderCountEl = document.getElementById('orderCount');
     if (orderCountEl) orderCountEl.textContent = ordersData.length;
     const depositCountEl = document.getElementById('depositCount');
     if (depositCountEl) depositCountEl.textContent = depositsData.length;
+
     const totalSpentEl = document.getElementById('totalSpent');
     if (totalSpentEl) {
         const totalSpent = ordersData
             .filter(o => o.status !== 'cancelled' && o.status !== 'failed')
-            .reduce((sum, o) => sum + (o.total_price || 0), 0);
+            .reduce((sum, o) => sum + (parseFloat(o.total_price) || 0), 0);
         totalSpentEl.textContent = formatPrice(totalSpent);
     }
     updateKYCBadge();
     updateCurrencyUI();
 }
 
+// ════════════════════════════════════════════════════════════
+// VIP Badges
+// ════════════════════════════════════════════════════════════
 function renderHomeVIPBadge() {
     let container = document.getElementById('homeVipBadge');
     if (!container) {
@@ -679,6 +735,9 @@ function renderAccountVIPBadge() {
     `;
 }
 
+// ════════════════════════════════════════════════════════════
+// KYC Badge
+// ════════════════════════════════════════════════════════════
 function updateKYCBadge() {
     const badge = document.getElementById('accountKycBadge');
     if (!badge || !userData) return;
@@ -702,19 +761,23 @@ function isUserVerified() {
     return userData.kyc_status === 'verified' || userData.is_verified === true;
 }
 
+// ════════════════════════════════════════════════════════════
+// Product Card (بدون سعر — السعر في المودال فقط)
+// ════════════════════════════════════════════════════════════
 function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
-    const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
-    const isBundle = prod.product_type === 'bundle' && prod.bundles && prod.bundles.length > 0;
+    const isBundle = prod.product_type === 'bundle' && Array.isArray(prod.bundles) && prod.bundles.length > 0;
+    const outOfStock = prod.stock === 0;
+
     return `
-        <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
+        <div class="product-card" data-id="${prod.id}" onclick="${outOfStock ? '' : `openPurchaseModal(${prod.id})`}">
+            ${outOfStock ? '<span class="product-badge-out">غير متوفر</span>' : ''}
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${escapeAttr(prod.image || '')}');">
+            <div class="product-image" style="background-image:url('${escapeAttr(prod.image || '')}');${outOfStock ? 'opacity:0.5;' : ''}">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
-                    ${isNew ? '<span class="badge-new">جديد</span>' : ''}
                     ${isBundle ? `<span class="badge-bundle">${prod.bundles.length} باقات</span>` : ''}
                 </div>
             </div>
@@ -723,6 +786,9 @@ function renderProductCard(prod) {
     `;
 }
 
+// ════════════════════════════════════════════════════════════
+// Categories
+// ════════════════════════════════════════════════════════════
 function renderCategories() {
     const grid = document.getElementById('categoriesGrid');
     const countEl = document.getElementById('categoriesCount');
@@ -745,7 +811,8 @@ function renderCategories() {
 function showCategoryProducts(categoryId) {
     const category = categoriesData.find(c => c.id === categoryId);
     if (!category) return;
-    document.getElementById('productsPageTitle').textContent = category.name;
+    const titleEl = document.getElementById('productsPageTitle');
+    if (titleEl) titleEl.textContent = category.name;
     const filtered = productsData.filter(p => p.category_id === categoryId);
     renderProductsList(filtered);
     navigateTo('page-products');
@@ -761,6 +828,9 @@ function renderProductsList(products) {
     list.innerHTML = products.map(prod => renderProductCard(prod)).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// Payment Methods
+// ════════════════════════════════════════════════════════════
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
     if (!container) return;
@@ -795,6 +865,9 @@ function showLockedPaymentMessage() {
     );
 }
 
+// ════════════════════════════════════════════════════════════
+// Order Timeline Helpers
+// ════════════════════════════════════════════════════════════
 function getTimelineSteps(status) {
     const allSteps = [
         { key: 'pending', label: 'قيد المعالجة', icon: 'schedule' },
@@ -846,7 +919,11 @@ function buildOrderTimelineHTML(order) {
 function buildDeliveryDetailsHTML(order) {
     if (!order.delivery_data) return '';
     let delivery = null;
-    try { delivery = JSON.parse(order.delivery_data); } catch (e) { return ''; }
+    try {
+        delivery = typeof order.delivery_data === 'string'
+            ? JSON.parse(order.delivery_data)
+            : order.delivery_data;
+    } catch (e) { return ''; }
     if (!delivery || typeof delivery !== 'object') return '';
     const items = [];
     if (delivery.player_id) items.push({ icon: 'person_pin', label: 'ID', value: delivery.player_id });
@@ -854,7 +931,7 @@ function buildDeliveryDetailsHTML(order) {
     if (delivery.phone) items.push({ icon: 'phone', label: 'الهاتف', value: delivery.phone });
     if (delivery.url) items.push({ icon: 'link', label: 'الرابط', value: delivery.url, isUrl: true });
     if (delivery.bundle_name) items.push({ icon: 'inventory_2', label: 'الباقة', value: delivery.bundle_name });
-    if (delivery.syp_amount) items.push({ icon: 'payments', label: 'المبلغ (ل.س)', value: delivery.syp_amount.toLocaleString('ar') });
+    if (delivery.syp_amount) items.push({ icon: 'payments', label: 'المبلغ (ل.س)', value: Number(delivery.syp_amount).toLocaleString('ar') });
     if (!items.length) return '';
     return items.map(item => {
         if (item.isUrl) {
@@ -881,7 +958,9 @@ function buildDeliveryDetailsHTML(order) {
         `;
     }).join('');
 }
-
+// ════════════════════════════════════════════════════════════
+// Orders Rendering
+// ════════════════════════════════════════════════════════════
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if (!list) return;
@@ -892,14 +971,14 @@ function renderOrders(orders) {
     list.innerHTML = orders.map(order => {
         const canCancel = order.status === 'pending' && isWithinCancelWindow(order.created_at);
         const isTopup = order.product_type === 'topup';
-        let qtyDisplay = Number(order.quantity).toLocaleString('ar');
-        let priceDisplay = formatPrice(order.total_price);
+        const qty = parseInt(order.quantity) || 0;
+        let qtyDisplay;
         if (isTopup) {
-            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ل.س`;
+            qtyDisplay = `${qty.toLocaleString('ar')} ل.س`;
         } else if (order.product_unit_name && order.product_unit_name !== 'قطعة') {
-            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} ${escapeHtml(order.product_unit_name)}`;
+            qtyDisplay = `${qty.toLocaleString('ar')} ${escapeHtml(order.product_unit_name)}`;
         } else {
-            qtyDisplay = `${Number(order.quantity).toLocaleString('ar')} قطعة`;
+            qtyDisplay = `${qty.toLocaleString('ar')} قطعة`;
         }
         return `
         <div class="order-card" data-status="${escapeAttr(order.status)}" data-id="${order.id}">
@@ -910,7 +989,7 @@ function renderOrders(orders) {
             <div class="order-details">
                 <div>المنتج: ${escapeHtml(order.product_name || order.product_id)}</div>
                 <div>الكمية: ${qtyDisplay}</div>
-                <div>السعر: ${priceDisplay}</div>
+                <div>السعر: ${formatPrice(order.total_price)}</div>
             </div>
             ${buildDeliveryDetailsHTML(order)}
             ${buildOrderTimelineHTML(order)}
@@ -920,7 +999,7 @@ function renderOrders(orders) {
                     <span class="timer-text">120</span> ثانية للإلغاء
                 </div>
                 <div style="margin-top:8px;">
-                    <button class="btn-outline" style="width:100%;" onclick="cancelOrder(${order.id})">إلغاء الطلب</button>
+                    <button class="btn-outline" style="width:100%;" id="cancel-btn-${order.id}" onclick="cancelOrder(${order.id}, this)">إلغاء الطلب</button>
                 </div>
             ` : ''}
         </div>
@@ -950,7 +1029,7 @@ function renderLatestOrders() {
             </div>
             <div class="order-details">
                 <div>المنتج: ${escapeHtml(order.product_name || order.product_id)}</div>
-                <div>الكمية: ${Number(order.quantity).toLocaleString('ar')}</div>
+                <div>الكمية: ${(parseInt(order.quantity) || 0).toLocaleString('ar')}</div>
                 <div>السعر: ${formatPrice(order.total_price)}</div>
             </div>
         </div>
@@ -979,8 +1058,18 @@ function startCancelCountdown(orderId, createdAt) {
     }, 1000);
 }
 
-async function cancelOrder(orderId) {
-    if (!confirm('هل تريد إلغاء الطلب؟ سيتم استرداد المبلغ.')) return;
+async function cancelOrder(orderId, btn) {
+    // و-ت4: تعطيل فوري
+    if (btn && btn.disabled) return;
+
+    const confirmed = confirm('هل تريد إلغاء الطلب؟ سيتم استرداد المبلغ.');
+    if (!confirmed) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الإلغاء...';
+    }
+
     try {
         const result = await apiFetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
             method: 'POST',
@@ -989,6 +1078,7 @@ async function cancelOrder(orderId) {
         });
         if (result && result.error) {
             showNotification('فشل الإلغاء', result.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'إلغاء الطلب'; }
         } else {
             showNotification('تم إلغاء الطلب', 'تم استرداد المبلغ إلى رصيدك', 'success');
             ordersData = await fetchUserOrders();
@@ -999,11 +1089,12 @@ async function cancelOrder(orderId) {
         }
     } catch (error) {
         showNotification('خطأ', `فشل إلغاء الطلب: ${error.message}`, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'إلغاء الطلب'; }
     }
 }
 
 function getStatusText(status) {
-    switch(status) {
+    switch (status) {
         case 'pending': return 'قيد المعالجة';
         case 'review': return 'قيد المراجعة';
         case 'processing': return 'قيد التنفيذ';
@@ -1014,6 +1105,9 @@ function getStatusText(status) {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Deposits
+// ════════════════════════════════════════════════════════════
 function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
@@ -1037,11 +1131,15 @@ function renderDeposits(deposits) {
     `).join('');
 }
 
+// ════════════════════════════════════════════════════════════
+// KYC UI
+// ════════════════════════════════════════════════════════════
 function updateKYCUI() {
     const container = document.getElementById('kycDynamicContent');
     if (!container) return;
     const isVerified = (userData && (userData.kyc_status === 'verified' || userData.is_verified)) || kycStatus === 'verified';
     const isPending = (userData && userData.kyc_status === 'pending') || kycStatus === 'pending';
+
     if (isVerified) {
         container.innerHTML = `
             <div class="kyc-container">
@@ -1082,6 +1180,7 @@ async function submitKYCRequest(btn) {
     const phone = document.getElementById('kycPhone')?.value;
     const address = document.getElementById('kycAddress')?.value;
     const selfieFile = document.getElementById('kycSelfieImage')?.files[0];
+
     if (!fullName || !phone || !address || !selfieFile) {
         showNotification('تنبيه', 'يرجى تعبئة جميع الحقول ورفع الصورة', 'warning');
         return;
@@ -1116,6 +1215,9 @@ async function submitKYCRequest(btn) {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Button Loading Helper
+// ════════════════════════════════════════════════════════════
 function setButtonLoading(btn, loading) {
     if (!btn) return;
     if (loading) {
@@ -1131,6 +1233,9 @@ function setButtonLoading(btn, loading) {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Notification Overlay
+// ════════════════════════════════════════════════════════════
 function showNotification(title, message, type = 'success') {
     const overlay = document.getElementById('successOverlay');
     if (!overlay) return;
@@ -1139,12 +1244,15 @@ function showNotification(title, message, type = 'success') {
     const iconContainer = overlay.querySelector('.success-icon');
     const iconEl = overlay.querySelector('.success-icon .material-icons');
     const icons = { success: 'check_circle', error: 'cancel', warning: 'warning', info: 'info' };
+
     if (titleEl) titleEl.textContent = title;
     if (msgEl) msgEl.textContent = message;
     if (iconEl) iconEl.textContent = icons[type] || 'check_circle';
     if (iconContainer) iconContainer.className = 'success-icon ' + type;
+
     overlay.setAttribute('data-type', type);
     overlay.classList.add('active');
+
     const duration = (type === 'error') ? 4000 : 2200;
     setTimeout(() => {
         overlay.classList.remove('active');
@@ -1156,174 +1264,213 @@ function showSuccessScreen(title, message) {
     showNotification(title, message, 'success');
 }
 
+// ════════════════════════════════════════════════════════════
+// 🎯 openPurchaseModal — v18.2.1 (محصَّن بالكامل)
+// ════════════════════════════════════════════════════════════
 let selectedBundleId = null;
 
 function openPurchaseModal(productId) {
-    const product = productsData.find(p => p.id === productId);
-    if (!product) return;
-    addToRecentlyViewed(productId);
-    const isTopup = product.product_type === 'topup';
-    const isBundle = product.product_type === 'bundle' && product.bundles && product.bundles.length > 0;
-    const sypRate = getSypRate();
-    const unitName = product.unit_name || 'قطعة';
-    const baseQty = product.base_quantity || 1;
-    const basePrice = product.base_price || 0;
-    const unitPrice = baseQty > 0 ? basePrice / baseQty : basePrice;
-    window.__currentPurchaseUnitPrice = unitPrice;
-    window.__currentSypRate = sypRate;
-    window.__currentIsTopup = isTopup;
-    window.__currentIsBundle = isBundle;
-    window.__currentProduct = product;
-    selectedBundleId = isBundle ? product.bundles[0].id : null;
+    try {
+        // ─── Validation ───
+        if (!productsData || !Array.isArray(productsData)) {
+            console.error('❌ productsData غير محمّلة');
+            showNotification('خطأ', 'البيانات لم تُحمّل بعد، حاول مجدداً', 'error');
+            return;
+        }
 
-    // 🆕 v17.3: عرض الخصم العام
-    const userGeneralDiscount = parseFloat(userData?.general_discount) || 0;
-    const discountHintHTML = userGeneralDiscount > 0 ? `
-        <div class="user-discount-hint">
-            <span class="material-icons">sell</span>
-            <span>سعرك بعد خصم <strong>${userGeneralDiscount}%</strong> (خاص لك)</span>
-        </div>
-    ` : '';
+        const product = productsData.find(p => p.id === productId);
+        if (!product) {
+            console.error('❌ المنتج غير موجود:', productId);
+            showNotification('تنبيه', 'المنتج غير متوفر', 'warning');
+            return;
+        }
 
-    let customInputHTML = '';
-    if (product.input_type === 'id') {
-        customInputHTML = `
-            <div class="new-input-group">
-                <span class="material-icons new-input-icon">person_pin</span>
-                <input type="text" id="purchasePlayerId" inputmode="numeric" pattern="[0-9]*"
-                       placeholder="ايدي اللاعب (ID)" class="new-input"
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-            </div>`;
-    } else if (product.input_type === 'account_id') {
-        customInputHTML = `
-            <div class="new-input-group">
-                <span class="material-icons new-input-icon">badge</span>
-                <input type="text" id="purchaseAccountId" inputmode="numeric" pattern="[0-9]*"
-                       placeholder="ايدي الحساب" class="new-input"
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-            </div>`;
-    } else if (product.input_type === 'phone') {
-        customInputHTML = `
-            <div class="new-input-group">
-                <span class="material-icons new-input-icon">phone</span>
-                <input type="tel" id="purchasePhone" inputmode="numeric" pattern="[0-9]*"
-                       placeholder="رقم الهاتف" class="new-input"
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-            </div>`;
-    } else if (product.input_type === 'url') {
-        customInputHTML = `
-            <div class="new-input-group url-input-group">
-                <span class="material-icons new-input-icon">link</span>
-                <input type="url" id="purchaseUrl"
-                       placeholder="https://..."
-                       class="new-input url-input"
-                       inputmode="url"
-                       autocomplete="off"
-                       spellcheck="false"
-                       dir="ltr"
-                       style="text-align:left;">
+        if (product.stock === 0) {
+            showNotification('تنبيه', 'المنتج غير متوفر حالياً', 'warning');
+            return;
+        }
+
+        addToRecentlyViewed(productId);
+
+        const isTopup = product.product_type === 'topup';
+        const isBundle = product.product_type === 'bundle' &&
+                         Array.isArray(product.bundles) &&
+                         product.bundles.length > 0;
+        const sypRate = getSypRate();
+        const unitName = product.unit_name || 'قطعة';
+        const baseQty = parseInt(product.base_quantity) || 1;
+        const basePrice = parseFloat(product.base_price) || 0;
+        const unitPrice = baseQty > 0 ? basePrice / baseQty : basePrice;
+
+        // ─── Global state ───
+        window.__currentPurchaseUnitPrice = unitPrice;
+        window.__currentSypRate = sypRate;
+        window.__currentIsTopup = isTopup;
+        window.__currentIsBundle = isBundle;
+        window.__currentProduct = product;
+        selectedBundleId = isBundle ? product.bundles[0].id : null;
+
+        // ─── Discount hint (v17.3) ───
+        const userGeneralDiscount = parseFloat(userData?.general_discount) || 0;
+        const discountHintHTML = userGeneralDiscount > 0 ? `
+            <div class="user-discount-hint">
+                <span class="material-icons">sell</span>
+                <span>سعرك بعد خصم <strong>${userGeneralDiscount}%</strong> (خاص لك)</span>
             </div>
-            <div class="url-hint">
-                <span class="material-icons" style="font-size:14px;">info</span>
-                أدخل رابطاً كاملاً يبدأ بـ <strong>http://</strong> أو <strong>https://</strong>
-            </div>`;
-    }
+        ` : '';
 
-    const fav = isFavorite(product.id);
-    let infoRowHTML = '';
-    if (isBundle) {
-        const sortedBundles = [...product.bundles].sort((a, b) => a.price_usd - b.price_usd);
-        const firstBundle = sortedBundles[0];
-        infoRowHTML = `
-            <div class="bundle-selector">
-                <div class="bundle-selector-label">
-                    <span class="material-icons">redeem</span>
-                    اختر الباقة
+        // ─── Custom input ───
+        let customInputHTML = '';
+        if (product.input_type === 'id') {
+            customInputHTML = `
+                <div class="new-input-group">
+                    <span class="material-icons new-input-icon">person_pin</span>
+                    <input type="text" id="purchasePlayerId" inputmode="numeric" pattern="[0-9]*"
+                           placeholder="ايدي اللاعب (ID)" class="new-input"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>`;
+        } else if (product.input_type === 'account_id') {
+            customInputHTML = `
+                <div class="new-input-group">
+                    <span class="material-icons new-input-icon">badge</span>
+                    <input type="text" id="purchaseAccountId" inputmode="numeric" pattern="[0-9]*"
+                           placeholder="ايدي الحساب" class="new-input"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>`;
+        } else if (product.input_type === 'phone') {
+            customInputHTML = `
+                <div class="new-input-group">
+                    <span class="material-icons new-input-icon">phone</span>
+                    <input type="tel" id="purchasePhone" inputmode="numeric" pattern="[0-9]*"
+                           placeholder="رقم الهاتف" class="new-input"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>`;
+        } else if (product.input_type === 'url') {
+            customInputHTML = `
+                <div class="new-input-group url-input-group">
+                    <span class="material-icons new-input-icon">link</span>
+                    <input type="url" id="purchaseUrl"
+                           placeholder="https://..."
+                           class="new-input url-input"
+                           inputmode="url"
+                           autocomplete="off"
+                           spellcheck="false"
+                           dir="ltr"
+                           style="text-align:left;">
                 </div>
-                <div class="bundle-options-list" id="bundleOptionsList">
-                    ${sortedBundles.map((b, i) => `
-                        <div class="bundle-option ${i === 0 ? 'selected' : ''}" data-id="${b.id}"
-                             onclick="selectBundle(${b.id})">
-                            <div class="bundle-radio">
-                                <div class="bundle-radio-dot"></div>
+                <div class="url-hint">
+                    <span class="material-icons" style="font-size:14px;">info</span>
+                    أدخل رابطاً كاملاً يبدأ بـ <strong>http://</strong> أو <strong>https://</strong>
+                </div>`;
+        }
+
+        // ─── Info row ───
+        const fav = isFavorite(product.id);
+        let infoRowHTML = '';
+
+        if (isBundle) {
+            const sortedBundles = [...product.bundles].sort((a, b) => parseFloat(a.price_usd) - parseFloat(b.price_usd));
+            const firstBundle = sortedBundles[0];
+            infoRowHTML = `
+                <div class="bundle-selector">
+                    <div class="bundle-selector-label">
+                        <span class="material-icons">redeem</span>
+                        اختر الباقة
+                    </div>
+                    <div class="bundle-options-list" id="bundleOptionsList">
+                        ${sortedBundles.map((b, i) => `
+                            <div class="bundle-option ${i === 0 ? 'selected' : ''}" data-id="${b.id}"
+                                 onclick="selectBundle(${b.id})">
+                                <div class="bundle-radio">
+                                    <div class="bundle-radio-dot"></div>
+                                </div>
+                                <div class="bundle-info">
+                                    <div class="bundle-name">${escapeHtml(b.name)}</div>
+                                    ${b.quantity > 0 ? `<div class="bundle-qty">${Number(b.quantity).toLocaleString('ar')} ${escapeHtml(unitName)}</div>` : ''}
+                                </div>
+                                <div class="bundle-price">${formatPrice(b.price_usd)}</div>
                             </div>
-                            <div class="bundle-info">
-                                <div class="bundle-name">${escapeHtml(b.name)}</div>
-                                ${b.quantity > 0 ? `<div class="bundle-qty">${b.quantity.toLocaleString('ar')} ${escapeHtml(unitName)}</div>` : ''}
-                            </div>
-                            <div class="bundle-price">${formatPrice(b.price_usd)}</div>
-                        </div>
-                    `).join('')}
+                        `).join('')}
+                    </div>
                 </div>
-            </div>
-            <div class="new-info-box primary" style="margin-top:14px;">
-                <div class="new-info-label">الإجمالي</div>
-                <div class="new-info-value" id="newTotalDisplay">${formatPrice(firstBundle.price_usd)}</div>
+                <div class="new-info-box primary" style="margin-top:14px;">
+                    <div class="new-info-label">الإجمالي</div>
+                    <div class="new-info-value" id="newTotalDisplay">${formatPrice(firstBundle.price_usd)}</div>
+                </div>
+            `;
+        } else if (isTopup) {
+            const defaultAmount = baseQty;
+            const defaultTotal = baseQty / sypRate;
+            infoRowHTML = `
+                <div class="new-info-row">
+                    <div class="new-info-box">
+                        <div class="new-info-label">المبلغ (ل.س)</div>
+                        <input type="text" id="newSypAmount" inputmode="numeric" pattern="[0-9]*"
+                               value="${defaultAmount}" class="new-qty-input"
+                               oninput="updateTopupTotal()">
+                    </div>
+                    <div class="new-info-box primary">
+                        <div class="new-info-label">الإجمالي ($)</div>
+                        <div class="new-info-value" id="newTotalDisplay">$${defaultTotal.toFixed(2)}</div>
+                    </div>
+                </div>
+                <div class="topup-rate-info">
+                    <span class="material-icons">info</span>
+                    سعر الصرف: <strong>${sypRate.toLocaleString('ar')} ل.س</strong> = <strong>1.00$</strong>
+                </div>
+            `;
+        } else {
+            infoRowHTML = `
+                <div class="new-info-row">
+                    <div class="new-info-box">
+                        <div class="new-info-label">الكمية (${escapeHtml(unitName)})</div>
+                        <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
+                               value="${baseQty}" class="new-qty-input"
+                               oninput="updatePurchaseTotal()">
+                    </div>
+                    <div class="new-info-box primary">
+                        <div class="new-info-label">الاجمالي</div>
+                        <div class="new-info-value" id="newTotalDisplay">${formatPrice(basePrice)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ─── Modal HTML ───
+        const modalContent = `
+            <div class="new-purchase-modal">
+                <div class="new-purchase-header">
+                    <button class="new-fav-btn ${fav ? 'active' : ''}"
+                            onclick="toggleFavorite(${product.id}, event); this.classList.toggle('active');">
+                        <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
+                    </button>
+                    <div class="new-purchase-title-wrap">
+                        ${product.image
+                            ? `<img src="${escapeAttr(product.image)}" class="new-purchase-logo" alt="${escapeAttr(product.name)}">`
+                            : `<div class="new-purchase-logo placeholder">📦</div>`}
+                        <h3 class="new-purchase-title">${escapeHtml(product.name)}</h3>
+                    </div>
+                </div>
+                ${infoRowHTML}
+                ${discountHintHTML}
+                ${customInputHTML}
+                <div class="new-purchase-actions">
+                    <button class="new-btn-cancel" onclick="closeModal()">إلغاء</button>
+                    <button class="new-btn-buy" onclick="confirmPurchaseDialog(${product.id}, this)">شراء</button>
+                </div>
             </div>
         `;
-    } else if (isTopup) {
-        const defaultAmount = baseQty;
-        const defaultTotal = baseQty / sypRate;
-        infoRowHTML = `
-            <div class="new-info-row">
-                <div class="new-info-box">
-                    <div class="new-info-label">المبلغ (ل.س)</div>
-                    <input type="text" id="newSypAmount" inputmode="numeric" pattern="[0-9]*"
-                           value="${defaultAmount}" class="new-qty-input"
-                           oninput="updateTopupTotal()">
-                </div>
-                <div class="new-info-box primary">
-                    <div class="new-info-label">الإجمالي ($)</div>
-                    <div class="new-info-value" id="newTotalDisplay">$${defaultTotal.toFixed(2)}</div>
-                </div>
-            </div>
-            <div class="topup-rate-info">
-                <span class="material-icons">info</span>
-                سعر الصرف: <strong>${sypRate.toLocaleString('ar')} ل.س</strong> = <strong>1.00$</strong>
-            </div>
-        `;
-    } else {
-        infoRowHTML = `
-            <div class="new-info-row">
-                <div class="new-info-box">
-                    <div class="new-info-label">الكمية (${escapeHtml(unitName)})</div>
-                    <input type="text" id="newQtyInput" inputmode="numeric" pattern="[0-9]*"
-                           value="${baseQty}" class="new-qty-input"
-                           oninput="updatePurchaseTotal()">
-                </div>
-                <div class="new-info-box primary">
-                    <div class="new-info-label">الاجمالي</div>
-                    <div class="new-info-value" id="newTotalDisplay">${formatPrice(basePrice)}</div>
-                </div>
-            </div>
-        `;
+
+        openModal('', modalContent);
+    } catch (err) {
+        console.error('❌ openPurchaseModal error:', err);
+        showNotification('خطأ', 'فشل فتح نافذة الشراء', 'error');
     }
-    const modalContent = `
-        <div class="new-purchase-modal">
-            <div class="new-purchase-header">
-                <button class="new-fav-btn ${fav ? 'active' : ''}"
-                        onclick="toggleFavorite(${product.id}, event); this.classList.toggle('active');">
-                    <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
-                </button>
-                <div class="new-purchase-title-wrap">
-                    ${product.image
-                        ? `<img src="${escapeAttr(product.image)}" class="new-purchase-logo" alt="${escapeAttr(product.name)}">`
-                        : `<div class="new-purchase-logo placeholder">📦</div>`}
-                    <h3 class="new-purchase-title">${escapeHtml(product.name)}</h3>
-                </div>
-            </div>
-            $
-{infoRowHTML}
-            ${discountHintHTML}
-            ${customInputHTML}
-            <div class="new-purchase-actions">
-                <button class="new-btn-cancel" onclick="closeModal()">إلغاء</button>
-                <button class="new-btn-buy" onclick="confirmPurchaseDialog(${product.id}, this)">شراء</button>
-            </div>
-        </div>
-    `;
-    openModal('', modalContent);
 }
+
+// ════════════════════════════════════════════════════════════
+// Bundle Selection
+// ════════════════════════════════════════════════════════════
 function selectBundle(bundleId) {
     const product = window.__currentProduct;
     if (!product || !product.bundles) return;
@@ -1337,6 +1484,9 @@ function selectBundle(bundleId) {
     if (display) display.textContent = formatPrice(bundle.price_usd);
 }
 
+// ════════════════════════════════════════════════════════════
+// Total Updates
+// ════════════════════════════════════════════════════════════
 function updatePurchaseTotal() {
     const input = document.getElementById('newQtyInput');
     if (!input) return;
@@ -1361,56 +1511,75 @@ function updateTopupTotal() {
     if (display) display.textContent = `$${totalUsd.toFixed(2)}`;
 }
 
+// ════════════════════════════════════════════════════════════
+// Purchase Confirmation
+// ════════════════════════════════════════════════════════════
 function confirmPurchaseDialog(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product) return;
     const isTopup = product.product_type === 'topup';
     const isBundle = product.product_type === 'bundle';
+
     if (isBundle) {
         if (!selectedBundleId) { showNotification('تنبيه', 'يرجى اختيار باقة', 'warning'); return; }
         if (!validateCustomInput(product)) return;
         executeConfirmPurchase(productId, btn);
         return;
     }
+
     if (isTopup) {
         const amountInput = document.getElementById('newSypAmount');
         const sypAmount = parseInt(amountInput?.value);
-        if (!sypAmount || sypAmount < 1) { showNotification('تنبيه', 'يرجى إدخال مبلغ صحيح بالليرة السورية', 'warning'); return; }
-        const maxQty = product.max_quantity || 0;
-        if (maxQty > 0 && sypAmount > maxQty) { showNotification('تنبيه', `الحد الأقصى هو ${maxQty.toLocaleString('ar')} ل.س`, 'warning'); return; }
+        if (!sypAmount || sypAmount < 1) {
+            showNotification('تنبيه', 'يرجى إدخال مبلغ صحيح بالليرة السورية', 'warning');
+            return;
+        }
+        const maxQty = parseInt(product.max_quantity) || 0;
+        if (maxQty > 0 && sypAmount > maxQty) {
+            showNotification('تنبيه', `الحد الأقصى هو ${maxQty.toLocaleString('ar')} ل.س`, 'warning');
+            return;
+        }
         if (!validateCustomInput(product)) return;
         executeConfirmPurchase(productId, btn);
         return;
     }
+
     const qtyInput = document.getElementById('newQtyInput');
     const qty = parseInt(qtyInput?.value);
-    if (!qty || qty < 1) { showNotification('تنبيه', 'يرجى إدخال كمية صحيحة (1 على الأقل)', 'warning'); return; }
-    const maxQty = product.max_quantity || 0;
-    if (maxQty > 0 && qty > maxQty) { showNotification('تنبيه', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'warning'); return; }
+    if (!qty || qty < 1) {
+        showNotification('تنبيه', 'يرجى إدخال كمية صحيحة (1 على الأقل)', 'warning');
+        return;
+    }
+    const maxQty = parseInt(product.max_quantity) || 0;
+    if (maxQty > 0 && qty > maxQty) {
+        showNotification('تنبيه', `الحد الأقصى للكمية هو ${maxQty.toLocaleString('ar')}`, 'warning');
+        return;
+    }
     if (!validateCustomInput(product)) return;
     executeConfirmPurchase(productId, btn);
 }
 
 function validateCustomInput(product) {
-    if (product.input_type === 'id') {
+    const inputType = product.input_type;
+    if (inputType === 'id') {
         const val = document.getElementById('purchasePlayerId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
             return false;
         }
-    } else if (product.input_type === 'account_id') {
+    } else if (inputType === 'account_id') {
         const val = document.getElementById('purchaseAccountId')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
             return false;
         }
-    } else if (product.input_type === 'phone') {
+    } else if (inputType === 'phone') {
         const val = document.getElementById('purchasePhone')?.value;
         if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
             showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
             return false;
         }
-    } else if (product.input_type === 'url') {
+    } else if (inputType === 'url') {
         const val = document.getElementById('purchaseUrl')?.value?.trim();
         if (!val) {
             showNotification('تنبيه', 'يرجى إدخال الرابط', 'warning');
@@ -1431,10 +1600,13 @@ function validateCustomInput(product) {
 async function executeConfirmPurchase(productId, btn) {
     const product = productsData.find(p => p.id === productId);
     if (!product || !userData) return;
+
     const isTopup = product.product_type === 'topup';
     const isBundle = product.product_type === 'bundle';
+
     const idempotencyKey = `ord-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const orderData = { product_id: productId, idempotency_key: idempotencyKey };
+
     if (isBundle) orderData.bundle_id = selectedBundleId;
     else if (isTopup) orderData.quantity = parseInt(document.getElementById('newSypAmount')?.value);
     else orderData.quantity = parseInt(document.getElementById('newQtyInput')?.value);
@@ -1444,21 +1616,30 @@ async function executeConfirmPurchase(productId, btn) {
     else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
     else if (product.input_type === 'url') orderData.url = document.getElementById('purchaseUrl')?.value?.trim();
 
-    if (btn) setButtonLoading(btn, true);
+    // و-ت4: تعطيل فوري
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ التنفيذ...';
+    }
+
     try {
         const result = await createOrder(orderData);
         if (result && result.error) {
             if (result.code === 'NEGATIVE_LIMIT_EXCEEDED') {
                 showNotification('الرصيد السالب ممتلئ', `${result.error}\n\n💡 قم بالإيداع لسداد دينك.`, 'warning');
-            } else if (result.code === 'NEGATIVE_NOT_ALLOWED') {
+            } else if (result.code === 'INSUFFICIENT_BALANCE' || result.code === 'NEGATIVE_NOT_ALLOWED') {
                 showNotification('رصيد غير كافٍ', `${result.error}\n\n💡 قم بالإيداع أولاً.`, 'warning');
+            } else if (result.code === 'STOCK_INSUFFICIENT') {
+                showNotification('الكمية غير متوفرة', result.error, 'warning');
             } else {
                 showNotification('فشل إرسال الطلب', result.error, 'error');
             }
+            if (btn) { btn.disabled = false; btn.textContent = 'شراء'; }
         } else {
             let msg = `طلبك ${result.order_number} قيد المعالجة`;
-            if (isTopup && result.syp_amount) msg = `${result.syp_amount.toLocaleString('ar')} ل.س — طلبك ${result.order_number} قيد المعالجة`;
-            else if (isBundle) {
+            if (isTopup && result.syp_amount) {
+                msg = `${result.syp_amount.toLocaleString('ar')} ل.س — طلبك ${result.order_number} قيد المعالجة`;
+            } else if (isBundle) {
                 const b = product.bundles.find(x => x.id === selectedBundleId);
                 if (b) msg = `${b.name} — طلبك ${result.order_number} قيد المعالجة`;
             }
@@ -1473,25 +1654,32 @@ async function executeConfirmPurchase(productId, btn) {
     } catch (error) {
         console.error('Order error:', error);
         showNotification('فشل إرسال الطلب', error.message || 'حدث خطأ غير متوقع', 'error');
-    } finally {
-        if (btn) setButtonLoading(btn, false);
+        if (btn) { btn.disabled = false; btn.textContent = 'شراء'; }
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Deposit Flow
+// ════════════════════════════════════════════════════════════
 function showDepositStep1(methodId) {
     const method = paymentMethodsData.find(m => m.id === methodId);
     if (!method) return;
+
     if (!isUserVerified()) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع. اذهب إلى "حسابي" → "توثيق الحساب"', 'warning');
         return;
     }
+
     selectedMethodForDeposit = method;
+
     const qrCode = method.qr_image && method.qr_image.length > 100
         ? `<img src="${escapeAttr(method.qr_image)}" style="width:220px;height:220px;border-radius:16px;object-fit:contain;background:#fff;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);" />`
         : '<div style="color:var(--text-secondary); padding:20px;">لا يوجد رمز QR بعد</div>';
+
     const logo = method.icon && method.icon.length > 100
         ? `<img src="${escapeAttr(method.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
         : '💳';
+
     const body = `
         <div style="text-align:center;">
             <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${escapeHtml(method.name)}</h3></div>
@@ -1501,14 +1689,14 @@ function showDepositStep1(methodId) {
                     <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <span id="copyAccountName">${escapeHtml(method.account_name || '-')}</span>
-                        <button class="icon-btn" onclick="copyText('copyAccountName')"><span class="material-icons">content_copy</span></button>
+                        <button class="icon-btn" onclick="copyText('copyAccountName', 'اسم الحساب')"><span class="material-icons">content_copy</span></button>
                     </div>
                 </div>
                 <div>
                     <div style="font-weight:bold; margin-bottom:4px;">رقم الحساب</div>
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                         <span id="copyAccountNumber">${escapeHtml(method.account || '-')}</span>
-                        <button class="icon-btn" onclick="copyText('copyAccountNumber')"><span class="material-icons">content_copy</span></button>
+                        <button class="icon-btn" onclick="copyText('copyAccountNumber', 'رقم الحساب')"><span class="material-icons">content_copy</span></button>
                     </div>
                 </div>
             </div>
@@ -1525,10 +1713,12 @@ function showDepositStep1(methodId) {
 function showDepositStep2() {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
+
     if (!isUserVerified()) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
         return;
     }
+
     const body = `
         <div style="text-align:right;">
             <h3>إتمام الإيداع</h3>
@@ -1554,58 +1744,66 @@ function showDepositStep2() {
     openModal('إتمام الإيداع', body);
 }
 
-function copyText(elementId) {
+// ════════════════════════════════════════════════════════════
+// Copy Helpers
+// ════════════════════════════════════════════════════════════
+function copyText(elementId, label = 'النص') {
     const text = document.getElementById(elementId)?.innerText || '';
     if (!text) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text)
-            .then(() => showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success'))
-            .catch(() => fallbackCopy(text));
+            .then(() => showNotification('تم النسخ', `تم نسخ ${label}`, 'success'))
+            .catch(() => fallbackCopy(text, label));
     } else {
-        fallbackCopy(text);
+        fallbackCopy(text, label);
     }
 }
 
-// 🆕 v17.2: نسخ الرابط من data-url (بدون inline string)
 function copyUrlFromElement(el) {
     const url = el.getAttribute('data-url') || '';
     if (!url) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url)
             .then(() => showNotification('تم النسخ', 'تم نسخ الرابط', 'success'))
-            .catch(() => fallbackCopy(url));
+            .catch(() => fallbackCopy(url, 'الرابط'));
     } else {
-        fallbackCopy(url);
+        fallbackCopy(url, 'الرابط');
     }
 }
 window.copyUrlFromElement = copyUrlFromElement;
 
-function fallbackCopy(text) {
+function fallbackCopy(text, label) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
     document.body.appendChild(textarea);
     textarea.select();
     try {
         document.execCommand('copy');
-        showNotification('تم النسخ', 'تم نسخ النص بنجاح', 'success');
+        showNotification('تم النسخ', `تم نسخ ${label}`, 'success');
     } catch (e) {
         showNotification('خطأ', 'تعذر النسخ', 'error');
     }
     document.body.removeChild(textarea);
 }
 
+// ════════════════════════════════════════════════════════════
+// 💰 submitDeposit — v18.2.1 (يستخدم /api/deposits/create صريح)
+// ════════════════════════════════════════════════════════════
 async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
+
     if (!isUserVerified()) {
         showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً قبل الإيداع', 'warning');
         return;
     }
+
     const method = selectedMethodForDeposit;
     const amount = parseFloat(document.getElementById('depositAmount')?.value);
-    const senderName = document.getElementById('depositSenderName')?.value;
+    const senderName = document.getElementById('depositSenderName')?.value?.trim();
     const proofFile = document.getElementById('depositProofImage')?.files[0];
+
     if (!amount || amount <= 0) { showNotification('تنبيه', 'أدخل مبلغ صحيح', 'warning'); return; }
-    if (!senderName || !senderName.trim()) { showNotification('تنبيه', 'أدخل اسم المرسل', 'warning'); return; }
+    if (!senderName) { showNotification('تنبيه', 'أدخل اسم المرسل', 'warning'); return; }
     if (!proofFile) { showNotification('تنبيه', 'ارفع صورة الإثبات', 'warning'); return; }
 
     if (proofFile.size > 20 * 1024 * 1024) {
@@ -1613,25 +1811,39 @@ async function submitDeposit(btn) {
         return;
     }
 
-    setButtonLoading(btn, true);
+    // و-ت4: تعطيل فوري
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'جارٍ الإرسال...';
+    }
+
     try {
         const proofBase64 = await compressImageFile(proofFile, 800, 0.6);
-        console.log(`📤 Sending deposit proof: ~${Math.round(proofBase64.length / 1024)} KB`);
+        console.log(`📤 Sending deposit: ~${Math.round(proofBase64.length / 1024)} KB`);
+
+        const idempotencyKey = `dep-${userData.telegram_id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         const result = await createDeposit({
-            amount,
-            method: method.id,
+            amount: amount,
+            method_id: method.id,
             proof_image: proofBase64,
             sender_name: senderName,
+            idempotency_key: idempotencyKey,
         });
+
         if (result && result.error) {
             if (result.code === 'KYC_REQUIRED') {
                 showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
-            } else if (result.code === 'IMAGE_TOO_LARGE') {
-                showNotification('الصورة كبيرة جداً', 'حاول بصورة أصغر', 'error');
+            } else if (result.code === 'IMAGE_INVALID') {
+                showNotification('الصورة غير صحيحة', result.error, 'error');
+            } else if (result.code === 'DAILY_CAP_REACHED') {
+                showNotification('بلغت السقف اليومي', result.error, 'warning');
+            } else if (result.code === 'TOO_MANY_PENDING') {
+                showNotification('لديك إيداعات معلّقة', result.error, 'warning');
             } else {
                 showNotification('فشل الإيداع', result.error, 'error');
             }
+            if (btn) { btn.disabled = false; btn.textContent = 'إرسال'; }
         } else {
             showNotification('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح', 'success');
             closeModal();
@@ -1643,41 +1855,49 @@ async function submitDeposit(btn) {
     } catch (error) {
         console.error('Deposit error:', error);
         showNotification('خطأ', `فشل إرسال الإيداع: ${error.message}`, 'error');
-    } finally {
-        setButtonLoading(btn, false);
+        if (btn) { btn.disabled = false; btn.textContent = 'إرسال'; }
     }
 }
 
-function requestCustomService() {
+// ════════════════════════════════════════════════════════════
+// Custom Service (و-ت1: أسماء صحيحة)
+// ════════════════════════════════════════════════════════════
+function openCustomServiceModal() {
     openModal('طلب خدمة مخصصة', `
         <div class="form-group"><label>اسم الخدمة</label><input type="text" id="serviceName" placeholder="مثال: تصميم شعار"></div>
         <div class="form-group"><label>وصف الخدمة</label><textarea id="serviceDesc" rows="3" placeholder="اكتب تفاصيل الخدمة"></textarea></div>
         <div class="form-group"><label>السعر المتوقع (اختياري)</label><input type="number" id="servicePrice" placeholder="0.00"></div>
-        <button class="btn-primary" onclick="submitServiceRequest(this)">إرسال الطلب</button>
+        <button class="btn-primary" onclick="submitCustomService(this)">إرسال الطلب</button>
         <button class="btn-outline" onclick="closeModal()">إلغاء</button>
     `);
 }
 
-async function submitServiceRequest(btn) {
-    const service_name = document.getElementById('serviceName').value;
-    const description = document.getElementById('serviceDesc').value;
-    const estimated_price = parseFloat(document.getElementById('servicePrice').value) || 0;
+async function submitCustomService(btn) {
+    const service_name = document.getElementById('serviceName')?.value?.trim();
+    const description = document.getElementById('serviceDesc')?.value || '';
+    const estimated_price = parseFloat(document.getElementById('servicePrice')?.value) || 0;
+
     if (!service_name) { showNotification('تنبيه', 'أدخل اسم الخدمة', 'warning'); return; }
-    setButtonLoading(btn, true);
+
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الإرسال...'; }
+
     try {
         const result = await requestCustomService({ service_name, description, estimated_price });
-        if (result && result.error) showNotification('خطأ', result.error, 'error');
-        else { showNotification('تم الإرسال', 'تم إرسال طلب الخدمة بنجاح', 'success'); closeModal(); }
+        if (result && result.error) {
+            showNotification('خطأ', result.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'إرسال الطلب'; }
+        } else {
+            showNotification('تم الإرسال', 'تم إرسال طلب الخدمة بنجاح', 'success');
+            closeModal();
+        }
     } catch (error) {
         showNotification('خطأ', `فشل إرسال الطلب: ${error.message}`, 'error');
-    } finally {
-        setButtonLoading(btn, false);
+        if (btn) { btn.disabled = false; btn.textContent = 'إرسال الطلب'; }
     }
 }
-
-// ============================================================
-// 🎁 Referral Modal
-// ============================================================
+// ════════════════════════════════════════════════════════════
+// Referral Modal
+// ════════════════════════════════════════════════════════════
 function openReferralModal() {
     if (!userData) return;
     const referralCode = userData.referral_code || `SANAD${userData.telegram_id}`;
@@ -1725,7 +1945,7 @@ function openReferralModal() {
                 <div style="font-weight:bold; margin-bottom:6px;">كود الإحالة الخاص بك</div>
                 <div style="font-size:1.2rem; font-weight:800; color:var(--primary); letter-spacing:1px;" id="referralCode">${escapeHtml(referralCode)}</div>
             </div>
-            <button class="btn-primary" onclick="copyText('referralCode')">
+            <button class="btn-primary" onclick="copyText('referralCode', 'كود الإحالة')">
                 <span class="material-icons">content_copy</span> نسخ الكود
             </button>
             <button class="btn-outline" style="margin-top:8px;width:100%;" data-referral-link="${escapeAttr(referralLink)}" onclick="shareReferral(this.getAttribute('data-referral-link'))">
@@ -1745,12 +1965,14 @@ async function submitReferralCode(btn) {
         return;
     }
 
-    setButtonLoading(btn, true);
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ التطبيق...'; }
+
     try {
         const result = await applyReferralCode(code);
 
         if (result && result.error) {
             showNotification('فشل التطبيق', result.error, 'error');
+            if (btn) { btn.disabled = false; btn.textContent = 'تطبيق'; }
         } else {
             showNotification('تم بنجاح 🎉', result.message || 'تم تطبيق كود الإحالة، ستحصل مكافأة صديقك عند أول شراء', 'success');
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
@@ -1760,8 +1982,7 @@ async function submitReferralCode(btn) {
     } catch (error) {
         console.error('Referral apply error:', error);
         showNotification('خطأ', `فشل التطبيق: ${error.message}`, 'error');
-    } finally {
-        setButtonLoading(btn, false);
+        if (btn) { btn.disabled = false; btn.textContent = 'تطبيق'; }
     }
 }
 
@@ -1774,6 +1995,9 @@ function shareReferral(link) {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// FAQ
+// ════════════════════════════════════════════════════════════
 const faqData = [
     { q: 'كيف أشحن رصيدي؟', a: 'يجب توثيق حسابك أولاً (KYC)، ثم اذهب إلى قسم "شحن" واختر طريقة الدفع.' },
     { q: 'كم يستغرق تنفيذ الطلب؟', a: 'عادة ما يتم تنفيذ الطلب خلال 5-15 دقيقة، لكن قد يتأخر في بعض الحالات.' },
@@ -1805,6 +2029,9 @@ function toggleFAQ(index) {
     if (items[index]) items[index].classList.toggle('open');
 }
 
+// ════════════════════════════════════════════════════════════
+// Support & Notifications
+// ════════════════════════════════════════════════════════════
 function openSupport() {
     window.open(publicSettings?.support_url || 'https://t.me/SANADST', '_blank');
 }
@@ -1815,6 +2042,7 @@ async function openNotificationsPage() {
         return;
     }
     notificationsData = await fetchNotifications();
+
     const bodyHTML = `
         <div style="text-align:center;">
             <h3>الإشعارات</h3>
@@ -1827,6 +2055,7 @@ async function openNotificationsPage() {
             `).join('') : '<p>لا توجد إشعارات</p>'}
         </div>`;
     openModal('الإشعارات', bodyHTML);
+
     const unreadIds = notificationsData.filter(n => !n.is_read).map(n => n.id);
     if (unreadIds.length) {
         for (const id of unreadIds) {
@@ -1838,14 +2067,15 @@ async function openNotificationsPage() {
 }
 
 function updateNotificationBadge() {
-    if (!notificationsData || !notificationsData.length) {
-        const badge = document.getElementById('notificationBadge');
-        if (badge) badge.style.display = 'none';
-        return;
-    }
-    const unread = notificationsData.filter(n => !n.is_read).length;
     const badge = document.getElementById('notificationBadge');
     if (!badge) return;
+
+    if (!notificationsData || !notificationsData.length) {
+        badge.style.display = 'none';
+        return;
+    }
+
+    const unread = notificationsData.filter(n => !n.is_read).length;
     if (unread > 0) {
         badge.style.display = 'inline';
         badge.textContent = unread > 99 ? '99+' : unread;
@@ -1854,6 +2084,9 @@ function updateNotificationBadge() {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Navigation Setup
+// ════════════════════════════════════════════════════════════
 function setupNavigation() {
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -1876,6 +2109,7 @@ function setupFilters() {
             });
         });
     }
+
     const depositFilters = document.getElementById('depositFilters');
     if (depositFilters) {
         depositFilters.querySelectorAll('.pill').forEach(pill => {
@@ -1890,26 +2124,69 @@ function setupFilters() {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Search — و-ت2: يعمل من الرئيسية
+// ════════════════════════════════════════════════════════════
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            const query = searchInput.value.toLowerCase();
-            const filtered = productsData.filter(p => p.name.toLowerCase().includes(query));
-            if (currentPage === 'page-products') renderProductsList(filtered);
-        });
-    }
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase().trim();
+
+        // إذا كنا في صفحة المنتجات
+        if (currentPage === 'page-products') {
+            const filtered = productsData.filter(p => (p.name || '').toLowerCase().includes(query));
+            renderProductsList(filtered);
+        }
+    });
+
+    // و-ت2: عند Enter — ابحث من الرئيسية
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const query = searchInput.value.toLowerCase().trim();
+        if (!query) return;
+
+        const results = productsData.filter(p => (p.name || '').toLowerCase().includes(query));
+        showSearchResults(query, results);
+    });
 }
 
+function showSearchResults(query, results) {
+    const titleEl = document.getElementById('productsPageTitle');
+    if (titleEl) titleEl.textContent = `نتائج البحث: "${query}"`;
+
+    if (!results.length) {
+        const list = document.getElementById('productsList');
+        if (list) {
+            list.innerHTML = `<div class="empty-state"><span class="material-icons">search_off</span>لا توجد نتائج لـ "${escapeHtml(query)}"</div>`;
+        }
+    } else {
+        renderProductsList(results);
+    }
+    navigateTo('page-products');
+}
+
+// ════════════════════════════════════════════════════════════
+// Navigate To
+// ════════════════════════════════════════════════════════════
 function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const target = document.getElementById(pageId);
     if (target) target.classList.add('active');
+
     document.querySelectorAll('.nav-item').forEach(item =>
         item.classList.toggle('active', item.getAttribute('data-page') === pageId)
     );
+
     currentPage = pageId;
-    if (pageId === 'page-home') { renderCategories(); renderLatestOrders(); renderRecentlyViewed(); renderHomeVIPBadge(); }
+
+    if (pageId === 'page-home') {
+        renderCategories();
+        renderLatestOrders();
+        renderRecentlyViewed();
+        renderHomeVIPBadge();
+    }
     if (pageId === 'page-orders') renderOrders(ordersData);
     if (pageId === 'page-charge') renderPaymentMethods();
     if (pageId === 'page-deposits') renderDeposits(depositsData);
@@ -1917,10 +2194,14 @@ function navigateTo(pageId) {
     if (pageId === 'page-kyc') updateKYCUI();
     if (pageId === 'page-favorites') renderFavorites();
     if (pageId === 'page-faq') setupFAQ();
+
     const mainContent = document.querySelector('.main-content');
     if (mainContent) mainContent.scrollTop = 0;
 }
 
+// ════════════════════════════════════════════════════════════
+// Image Preview
+// ════════════════════════════════════════════════════════════
 function previewImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -1932,15 +2213,26 @@ function previewImage(input, previewId) {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Modal
+// ════════════════════════════════════════════════════════════
 function openModal(title, bodyHTML) {
-    document.getElementById('modalBody').innerHTML = bodyHTML;
-    document.getElementById('modal').style.display = 'block';
+    const modalBody = document.getElementById('modalBody');
+    if (!modalBody) return;
+    modalBody.innerHTML = bodyHTML;
+    const modal = document.getElementById('modal');
+    if (modal) modal.style.display = 'block';
 }
 
 function closeModal() {
-    document.getElementById('modal').style.display = 'none';
+    const modal = document.getElementById('modal');
+    if (modal) modal.style.display = 'none';
+    selectedBundleId = null;
 }
 
+// ════════════════════════════════════════════════════════════
+// Back & Close
+// ════════════════════════════════════════════════════════════
 function handleBack() {
     if (currentPage !== 'page-home') navigateTo('page-home');
     else window.history.back();
@@ -1951,6 +2243,9 @@ function handleClose() {
     else window.close();
 }
 
+// ════════════════════════════════════════════════════════════
+// Theme
+// ════════════════════════════════════════════════════════════
 function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
     const newTheme = current === 'dark' ? 'light' : 'dark';
@@ -1961,6 +2256,9 @@ function toggleTheme() {
 function goToAccount() { navigateTo('page-account'); }
 function showNotifications() { openNotificationsPage(); }
 
+// ════════════════════════════════════════════════════════════
+// Load Initial Data
+// ════════════════════════════════════════════════════════════
 async function loadInitialData() {
     const results = await Promise.allSettled([
         fetchPublicSettings(),
@@ -1972,7 +2270,8 @@ async function loadInitialData() {
         userData?.telegram_id ? fetchNotifications() : Promise.resolve([]),
         userData?.telegram_id ? getMyKYC() : Promise.resolve({ status: 'none' }),
     ]);
-    if (results[0].status === 'fulfilled') {
+
+    if (results[0].status === 'fulfilled' && results[0].value) {
         publicSettings = { ...publicSettings, ...results[0].value };
         USD_TO_SYP = parseFloat(publicSettings.syp_rate) || 132;
     }
@@ -1984,13 +2283,17 @@ async function loadInitialData() {
     notificationsData = results[6].status === 'fulfilled' ? results[6].value : [];
     const kycResult = results[7].status === 'fulfilled' ? results[7].value : { status: 'none' };
     kycStatus = kycResult?.status || 'none';
+
     results.forEach((r, i) => {
         if (r.status === 'rejected') console.warn(`⚠️ فشل تحميل البيانات ${i}:`, r.reason);
     });
 }
 
+// ════════════════════════════════════════════════════════════
+// Init App
+// ════════════════════════════════════════════════════════════
 async function initApp() {
-    console.log('🚀 بدء تشغيل SANAD+ v17.3 ...');
+    console.log('🚀 بدء تشغيل SANAD+ v18.2.1 ...');
     try {
         const ok = await initTelegram();
         if (!ok) {
@@ -2001,20 +2304,25 @@ async function initApp() {
             if (gs) gs.textContent = 'لم يتم التعرف على حسابك';
             return;
         }
+
         applyTelegramTheme();
+
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
             document.documentElement.setAttribute('data-theme', savedTheme);
             const toggle = document.getElementById('darkModeToggle');
             if (toggle) toggle.checked = (savedTheme === 'dark');
         }
+
         console.log('🔐 جاري المصادقة...');
         const initData = window.Telegram?.WebApp?.initData || '';
         userData = await authenticateUser(initData);
         console.log('✅ تم تسجيل الدخول:', userData.telegram_id);
+
         console.log('📦 تحميل البيانات...');
         await loadInitialData();
         console.log(`✅ تم تحميل: ${categoriesData.length} قسم، ${productsData.length} منتج`);
+
         updateUserUI();
         updateNotificationBadge();
         renderCategories();
@@ -2022,16 +2330,19 @@ async function initApp() {
         renderLatestOrders();
         renderHomeVIPBadge();
         renderAccountVIPBadge();
+
         setupNavigation();
         setupFilters();
         setupSearch();
+
         try {
             PullToRefresh.init();
             SwipeNav.init();
         } catch (e) {
             console.warn('PTR/Swipe غير متاح:', e);
         }
-        console.log('✅ التطبيق جاهز (v17.3)');
+
+        console.log('✅ التطبيق جاهز (v18.2.1)');
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
         const gm = document.getElementById('greetingMessage');
@@ -2041,6 +2352,44 @@ async function initApp() {
     }
 }
 
+// ════════════════════════════════════════════════════════════
+// Window Exports
+// ════════════════════════════════════════════════════════════
+window.openPurchaseModal = openPurchaseModal;
+window.selectBundle = selectBundle;
+window.updatePurchaseTotal = updatePurchaseTotal;
+window.updateTopupTotal = updateTopupTotal;
+window.confirmPurchaseDialog = confirmPurchaseDialog;
+window.executeConfirmPurchase = executeConfirmPurchase;
+window.cancelOrder = cancelOrder;
+window.showDepositStep1 = showDepositStep1;
+window.showDepositStep2 = showDepositStep2;
+window.submitDeposit = submitDeposit;
+window.openCustomServiceModal = openCustomServiceModal;
+window.submitCustomService = submitCustomService;
+window.openReferralModal = openReferralModal;
+window.submitReferralCode = submitReferralCode;
+window.shareReferral = shareReferral;
+window.toggleFAQ = toggleFAQ;
+window.openSupport = openSupport;
+window.openNotificationsPage = openNotificationsPage;
+window.navigateTo = navigateTo;
+window.previewImage = previewImage;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.handleBack = handleBack;
+window.handleClose = handleClose;
+window.toggleTheme = toggleTheme;
+window.goToAccount = goToAccount;
+window.showNotifications = showNotifications;
+window.copyText = copyText;
+window.toggleFavorite = toggleFavorite;
+window.filterUsers = null; // (Admin فقط)
+window.requestCustomService = openCustomServiceModal; // ✅ و-ت1: يشير للمودال (توافق خلفي)
+
+// ════════════════════════════════════════════════════════════
+// Boot
+// ════════════════════════════════════════════════════════════
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {

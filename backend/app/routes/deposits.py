@@ -1,15 +1,21 @@
 # ============================================================
-# 💰 Deposits Routes — v18.2
+# 💰 Deposits Routes — v18.2.1
 # ============================================================
 # Endpoints:
 #   GET  /api/deposits/         → user's deposits (list)
+#   GET  /api/deposits          → same (alias)
 #   POST /api/deposits/create   → create new deposit
+#   POST /api/deposits          → alias
+#   POST /api/deposits/         → alias (trailing slash)
 # ============================================================
 # 🆕 v18.2:
-#   - رفع الصور إلى Cloudinary (public_id فقط في DB، لا base64)
+#   - Cloudinary signed uploads (public_id في DB، لا base64)
 #   - سقف تراكمي يومي (pending + approved)
 #   - حد أقصى للإيداعات المعلّقة
 #   - Decimal لكل الحسابات
+# ============================================================
+# 🆕 v18.2.1:
+#   - إضافة POST /api/deposits/ (trailing slash) لتفادي 405
 # ============================================================
 import re
 import uuid
@@ -18,7 +24,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import (
-    User, Deposit, PaymentMethod, Notification, log_financial,
+    User, Deposit, PaymentMethod, Notification,
 )
 from ..extensions import db
 from . import main
@@ -32,12 +38,11 @@ from ..services.telegram_service import notify_admins
 # ════════════════════════════════════════════════════════════
 # سياسة الإيداع
 # ════════════════════════════════════════════════════════════
-DAILY_DEPOSIT_CAP = Decimal('200.0000')      # سقف 24 ساعة (pending + approved)
-NEW_USER_CAP = Decimal('50.0000')            # أول 7 أيام
+DAILY_DEPOSIT_CAP = Decimal('200.0000')
+NEW_USER_CAP = Decimal('50.0000')
 NEW_USER_DAYS = 7
-PENDING_DEPOSITS_MAX = 3                     # عدد معلّق في اللحظة
-MAX_PROOF_SIZE_BYTES = 3 * 1024 * 1024       # 3MB base64
-
+PENDING_DEPOSITS_MAX = 3
+MAX_PROOF_SIZE_BYTES = 3 * 1024 * 1024
 
 ALLOWED_MIME_TYPES = {
     "image/jpeg": [b"\xff\xd8\xff"],
@@ -50,6 +55,7 @@ ALLOWED_MIME_TYPES = {
 # Helpers
 # ════════════════════════════════════════════════════════════
 def _d(v):
+    """تحويل آمن إلى Decimal بـ 4 خانات عشرية."""
     if v is None:
         return Decimal('0.0000')
     if isinstance(v, Decimal):
@@ -58,6 +64,7 @@ def _d(v):
 
 
 def _f(v):
+    """Decimal → float للـ JSON."""
     if v is None:
         return 0.0
     return float(v)
@@ -74,7 +81,7 @@ def _get_user():
 
 
 def _serialize_deposit(d):
-    """تحويل Deposit إلى dict للـ JSON"""
+    """تحويل Deposit إلى dict للـ JSON."""
     proof_url = None
     if d.proof_image:
         try:
@@ -99,7 +106,7 @@ def _serialize_deposit(d):
 
 
 def _validate_proof_image(data_url):
-    """تحقق من صحة الصورة (MIME + Size + Magic Bytes)"""
+    """تحقق من صحة الصورة (MIME + Size + Magic Bytes)."""
     if not data_url or not isinstance(data_url, str):
         return False, "الصورة مطلوبة", None
 
@@ -189,10 +196,12 @@ def list_deposits():
 
 
 # ════════════════════════════════════════════════════════════
-# POST /api/deposits/create
+# POST /api/deposits/ — create new deposit
 # ════════════════════════════════════════════════════════════
+# 🆕 v18.2.1: أضفنا trailing slash لتوافق MiniApp
 @main.route("/api/deposits/create", methods=["POST"])
 @main.route("/api/deposits", methods=["POST"])
+@main.route("/api/deposits/", methods=["POST"])
 @jwt_required()
 def create_deposit():
     user = _get_user()
@@ -272,7 +281,7 @@ def create_deposit():
             "code": "IMAGE_INVALID",
         }), 400
 
-    # ═══ السقف اليومي (pending + approved في 24 ساعة) ═══
+    # ═══ السقف اليومي ═══
     daily_used = _daily_total(user.id)
 
     cap = DAILY_DEPOSIT_CAP
@@ -300,7 +309,7 @@ def create_deposit():
             "max": PENDING_DEPOSITS_MAX,
         }), 400
 
-    # ═══ رفع الصورة إلى Cloudinary (authenticated/private) ═══
+    # ═══ رفع الصورة إلى Cloudinary ═══
     try:
         public_id = upload_signed_image(
             proof_image,
@@ -326,7 +335,7 @@ def create_deposit():
             currency='USD',
             method_id=method.id,
             method=method.name,
-            proof_image=public_id,       # public_id فقط، لا base64
+            proof_image=public_id,
             sender_name=sender_name,
             transaction_id='DEP-' + uuid.uuid4().hex[:8].upper(),
             status='pending',
