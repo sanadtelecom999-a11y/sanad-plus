@@ -289,5 +289,24 @@
 <script src="js/telegram.js?v=17"></script>
 <script src="js/api.js?v=17"></script>
 <script src="js/app_new.js?v=17"></script>
+
+<!-- 🆕 v18.1: Service Worker registration -->
+<script>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then((reg) => {
+                console.log('✅ SW registered:', reg.scope);
+
+                // تحقق من تحديثات كل ساعة
+                setInterval(() => {
+                    reg.update().catch(() => {});
+                }, 60 * 60 * 1000);
+            })
+            .catch((err) => console.warn('SW error:', err));
+    });
+}
+</script>
+
 </body>
 </html>
