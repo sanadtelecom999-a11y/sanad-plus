@@ -15,7 +15,8 @@ from ..models.base import User, JWTBlacklist, Setting
 from ..extensions import db
 from . import main
 
-AUTH_DATE_MAX_AGE = 3600
+# 🆕 v18.2: نافذة initData قصيرة (10 دقائق بدل ساعة)
+AUTH_DATE_MAX_AGE = 600
 
 
 def verify_telegram_init_data(init_data: str) -> bool:
@@ -70,7 +71,7 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
             first_name=first_name,
             last_name=last_name,
             username=username,
-            balance=0.0,
+            balance=0,
             kyc_status='unverified',
             is_verified=False,
             role='user',
@@ -103,7 +104,7 @@ def user_to_dict(user):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "username": user.username,
-        "balance": user.balance,
+        "balance": float(user.balance) if user.balance is not None else 0.0,
         "kyc_status": user.kyc_status,
         "is_verified": user.is_verified,
         "role": user.role,
@@ -111,7 +112,7 @@ def user_to_dict(user):
         "vip_level": user.vip_level,
         "referral_code": user.referral_code,
         "referral_count": user.referral_count or 0,
-        "general_discount": user.general_discount or 0.0,
+        "general_discount": float(user.general_discount) if user.general_discount else 0.0,
     }
 
 
@@ -200,13 +201,10 @@ def user_logout():
 
     try:
         expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else (
-            datetime.now(timezone.utc) + timedelta(hours=8)
+            datetime.now(timezone.utc) + timedelta(hours=2)
         )
         JWTBlacklist.query.filter_by(jti=jti).delete()
-        db.session.add(JWTBlacklist(
-            jti=jti,
-            expires_at=expires_at,
-        ))
+        db.session.add(JWTBlacklist(jti=jti, expires_at=expires_at))
         db.session.commit()
         return jsonify({"success": True, "message": "تم تسجيل الخروج"}), 200
     except Exception as e:
@@ -226,7 +224,7 @@ def admin_logout():
 
     try:
         expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else (
-            datetime.now(timezone.utc) + timedelta(hours=8)
+            datetime.now(timezone.utc) + timedelta(hours=2)
         )
         JWTBlacklist.query.filter_by(jti=jti).delete()
         db.session.add(JWTBlacklist(jti=jti, expires_at=expires_at))
@@ -253,8 +251,7 @@ def cleanup_expired_blacklist():
 def revoke_all_admin_sessions():
     """
     إبطال كل جلسات الأدمن.
-    يستخدمه admin.py في /admin/api/logout-all.
-    يكتب timestamp في settings، ثم أي توكن صادر قبله يُرفض.
+    يكتب timestamp في settings؛ أي توكن iat < timestamp يُرفض.
     """
     try:
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -273,10 +270,7 @@ def revoke_all_admin_sessions():
 
 
 def is_admin_token_revoked(jwt_payload):
-    """
-    فحص إذا كان التوكن صادراً قبل آخر logout-all.
-    يُستدعى من JWT callback في app/__init__.py (إن مُفعّل).
-    """
+    """فحص إذا كان التوكن صادراً قبل آخر logout-all."""
     try:
         setting = Setting.query.filter_by(key="admin_sessions_revoked_at").first()
         if not setting or not setting.value:

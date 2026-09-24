@@ -176,3 +176,17 @@ secrets/
 .secrets/backup_*/
 *.pyc
 __pycache__/
+
+# ============================================
+# Local backups & test files — v18.2
+# ============================================
+backup_*/
+bump-sw-versions.sh
+loadtest.py
+loadtest_18.1.js
+loadtest_v2.py
+loadtest_results.json
+loadtest_v2_results.json
+
+# Migrations logs
+backend/migrations/*.log

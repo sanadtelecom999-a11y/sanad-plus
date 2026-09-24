@@ -1,45 +1,80 @@
+# ============================================================
+# 🔒 Database Backup — v18.2
+# ============================================================
+# ⚠️ مهم: لا رفع Artifact — البيانات الحساسة لا تُخزّن على GitHub
+# الحماية الحقيقية: Neon PITR (6 ساعات) + Neon Snapshot يدوي
+# ============================================================
 name: Database Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * *'      # يومياً 2 AM UTC
   workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install PostgreSQL 18 Client
         run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
           sudo apt-get update
           sudo apt-get install -y postgresql-client-18
 
-      - name: Verify pg_dump Version
-        run: |
-          /usr/lib/postgresql/18/bin/pg_dump --version
-
-      - name: Run pg_dump
+      - name: Dump Database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          mkdir -p backups
-          /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --no-owner --no-privileges > "backups/sanad_$TIMESTAMP.sql"
-          echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > backup.sql.gz
+          ls -lh backup.sql.gz
 
-      - name: Compress
-        run: gzip backups/*.sql
+      - name: Verify Integrity
+        run: |
+          gzip -t backup.sql.gz
+          SIZE=$(du -h backup.sql.gz | cut -f1)
+          echo "✅ Backup created and verified — Size: $SIZE"
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backup-${{ env.TIMESTAMP }}
-          path: backups/*.gz
-          retention-days: 90
+      # ⚠️ v18.2: لا رفع Artifact
+      # السبب: البيانات (مستخدمون، أرصدة، KYC، إثباتات دفع) حساسة
+      # البديل: Neon PITR + Snapshot يدوي، أو R2/S3 لاحقاً
+
+      # ═══════════════════════════════════════════════════════
+      # (اختياري — فعّله لاحقاً عند إعداد R2)
+      # ═══════════════════════════════════════════════════════
+      # - name: Upload to Cloudflare R2
+      #   env:
+      #     R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      #     R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+      #     R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+      #     R2_BUCKET: sanad-backups
+      #   run: |
+      #     pip install boto3
+      #     python -c "
+      #     import boto3, os
+      #     from datetime import datetime
+      #     s3 = boto3.client(
+      #         's3',
+      #         endpoint_url=os.environ['R2_ENDPOINT'],
+      #         aws_access_key_id=os.environ['R2_ACCESS_KEY'],
+      #         aws_secret_access_key=os.environ['R2_SECRET_KEY'],
+      #     )
+      #     key = f'backup-{datetime.utcnow().strftime(\"%Y%m%d_%H%M%S\")}.sql.gz'
+      #     s3.upload_file('backup.sql.gz', os.environ['R2_BUCKET'], key)
+      #     print(f'Uploaded: {key}')
+      #     "
+
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "✅ Backup workflow completed successfully at $(date -u)"
+          echo "   Note: Backup file is not uploaded (security policy)"
+
+      - name: Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Backup workflow FAILED at $(date -u)"
+          exit 1

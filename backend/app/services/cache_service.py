@@ -1,14 +1,15 @@
 # ============================================================
-# 🔥 Cache Service — Redis (v18.1 — Extended Coverage)
+# 🔥 Cache Service — Redis (v18.2 — Catalog only)
 # ============================================================
 """
 نظام Cache بسيط مبني على Redis (Upstash).
-- JSON serialization
-- TTL لكل نوع
-- Auto-invalidation من admin
-- Fail-safe: لو Redis سقط، الموقع يعمل عادي
-- 🆕 v17.3: تنبيهات Sentry عند سقوط/عودة Redis
-- 🆕 v18.1: توسيع التغطية (settings, single product, admin lists)
+
+⚠️ v18.2 — سياسة الكاش:
+   ✅ يُخزّن: الكتالوج (categories, products, settings, payment_methods)
+   ❌ لا يُخزّن: الطلبات، الإيداعات، KYC، المستخدمين، الرصيد
+
+   الدوال المالية القديمة (key_admin_list, invalidate_admin, ...)
+   مُبقاة كـ no-op stubs للتوافق مع admin.py بدون تعديله.
 """
 import os
 import json
@@ -71,19 +72,22 @@ def _mark_redis_up():
 
 
 # ============================================================
-# ⏱️ TTLs (بالثواني)
+# ⏱️ TTLs — كتالوج فقط (v18.2)
 # ============================================================
-TTL_CATEGORIES = 300        # 5 دقائق
-TTL_PRODUCTS = 120          # 2 دقائق
-TTL_PAYMENT_METHODS = 300   # 5 دقائق
-TTL_SETTINGS = 300          # 🆕 5 دقائق (public settings)
-TTL_SINGLE_PRODUCT = 180    # 🆕 3 دقائق
-TTL_ADMIN_LISTS = 30        # 🆕 30 ثانية (admin lists — يجب أن تكون قصيرة)
+TTL_CATEGORIES = 300
+TTL_PRODUCTS = 120
+TTL_PAYMENT_METHODS = 300
+TTL_SETTINGS = 300
+TTL_SINGLE_PRODUCT = 180
 TTL_DEFAULT = 60
 
+# ⚠️ deprecated — تبقى للتوافق مع admin.py
+# القيمة 0 تعني: لا تخزين
+TTL_ADMIN_LISTS = 0
+
 
 # ============================================================
-# 🔑 Keys
+# 🔑 Keys — كتالوج
 # ============================================================
 def key_categories():
     return "cache:categories:all"
@@ -96,7 +100,6 @@ def key_products(category_id=None):
 
 
 def key_single_product(product_id):
-    """🆕 v18.1"""
     return f"cache:product:{product_id}"
 
 
@@ -105,22 +108,57 @@ def key_payment_methods():
 
 
 def key_settings_public():
-    """🆕 v18.1"""
     return "cache:settings:public"
 
 
+# ============================================================
+# ⚠️ v18.2: No-op Stubs — للتوافق مع admin.py
+# ============================================================
+# admin.py يستدعي هذه الدوال في 57 موضع.
+# نحتفظ بها هنا لتجنب تعديل admin.py ضخم.
+# النتيجة الفعلية: لا كاش على البيانات المالية.
+#
+# - key_admin_list()  → يُرجع مفتاحاً لكن cache_set يرفضه
+# - invalidate_admin() → no-op
+# - invalidate_admin_all() → no-op
+
+_stub_warned = set()
+
+
+def _warn_once(name):
+    if name not in _stub_warned:
+        logger.info(f"ℹ️ {name}: no-op (v18.2 policy — no financial cache)")
+        _stub_warned.add(name)
+
+
 def key_admin_list(name):
-    """🆕 v18.1: قائمة admin عامة (مثل orders, deposits, users)"""
-    return f"cache:admin:{name}"
+    """⚠️ deprecated — لا يُستخدم للتخزين (v18.2)"""
+    _warn_once("key_admin_list")
+    return f"deprecated:admin:{name}"
+
+
+def invalidate_admin(name):
+    """⚠️ deprecated — no-op (v18.2)"""
+    _warn_once("invalidate_admin")
+    return 0
+
+
+def invalidate_admin_all():
+    """⚠️ deprecated — no-op (v18.2)"""
+    _warn_once("invalidate_admin_all")
+    return 0
 
 
 # ============================================================
 # 💾 Core Operations
 # ============================================================
 def cache_get(key):
+    """اقرأ من Cache"""
     global _redis_down
     if not _redis_client:
         return None
+    if key and key.startswith("deprecated:"):
+        return None  # v18.2: لا قراءة للـ admin keys
     try:
         raw = _redis_client.get(key)
         if _redis_down:
@@ -137,9 +175,14 @@ def cache_get(key):
 
 
 def cache_set(key, value, ttl=TTL_DEFAULT):
+    """احفظ في Cache — يرفض ttl <= 0 (v18.2)"""
     global _redis_down
     if not _redis_client:
         return False
+    if ttl is None or ttl <= 0:
+        return False  # v18.2: لا تخزين بقيمة صفرية
+    if key and key.startswith("deprecated:"):
+        return False  # v18.2: لا تخزين للـ admin keys
     try:
         _redis_client.setex(key, ttl, json.dumps(value, ensure_ascii=False))
         if _redis_down:
@@ -198,18 +241,7 @@ def invalidate_payment_methods():
 
 
 def invalidate_settings():
-    """🆕 v18.1"""
     return cache_delete_pattern("cache:settings:*")
-
-
-def invalidate_admin(name):
-    """🆕 v18.1: مسح قائمة admin معينة"""
-    return cache_delete(key_admin_list(name))
-
-
-def invalidate_admin_all():
-    """🆕 v18.1: مسح كل قوائم admin"""
-    return cache_delete_pattern("cache:admin:*")
 
 
 # ============================================================
@@ -217,10 +249,10 @@ def invalidate_admin_all():
 # ============================================================
 def setup_cache_invalidation(app):
     """
-    يربط invalidation تلقائي على Flask app.
+    عند POST/PUT/DELETE ناجح على /admin/api/:
+    → يمسح الكاش المناسب للكتالوج فقط.
 
-    عند أي POST/PUT/DELETE ناجح:
-    → يمسح الـ cache المناسب حسب الـ path.
+    v18.2: لا invalidate للبيانات المالية (لا يوجد كاش لها).
     """
     from flask import request
 
@@ -233,31 +265,24 @@ def setup_cache_invalidation(app):
 
         path = request.path
         try:
-            # Categories
             if "/admin/api/categories" in path:
                 invalidate_categories()
                 logger.info(f"🔥 Invalidated: categories ({path})")
 
-            # Products / Bundles
             if "/admin/api/products" in path:
                 invalidate_products()
                 logger.info(f"🔥 Invalidated: products ({path})")
 
-            # Payment methods
             if "/admin/api/payment-methods" in path:
                 invalidate_payment_methods()
                 logger.info(f"🔥 Invalidated: payment-methods ({path})")
 
-            # 🆕 v18.1: Settings
             if "/admin/api/settings" in path:
                 invalidate_settings()
                 logger.info(f"🔥 Invalidated: settings ({path})")
 
-            # 🆕 v18.1: Admin lists (any write invalidates all admin lists)
-            # نتحقق أولاً إذا كان admin write
-            if path.startswith("/admin/api/"):
-                invalidate_admin_all()
-                logger.info(f"🔥 Invalidated: admin lists ({path})")
+            # v18.2: لا invalidate للطلبات/الإيداعات/KYC
+            # لأن admin.py يستدعي invalidate_admin() وهي no-op الآن
 
         except Exception as e:
             logger.warning(f"Auto-invalidation failed for {path}: {e}")
@@ -282,18 +307,3 @@ def is_healthy():
         return True
     except Exception:
         return False
-
-
-def stats():
-    """🆕 v18.1: إحصائيات Redis (اختياري)"""
-    if not _redis_client:
-        return {"enabled": False}
-    try:
-        info = _redis_client.info("memory")
-        return {
-            "enabled": True,
-            "used_memory_human": info.get("used_memory_human", "N/A"),
-            "keys": _redis_client.dbsize(),
-        }
-    except Exception as e:
-        return {"enabled": True, "error": str(e)[:100]}
