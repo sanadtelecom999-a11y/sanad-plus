@@ -6,6 +6,46 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+
+    <!-- ============================================================
+         🛡️ v18.3.3: KILL ALL SERVICE WORKERS + CACHES
+         يعمل قبل أي شيء آخر. يُلغي SW القديم ويمسح كل Cache Storage.
+         السبب: SW قديم كان يخدم نسخ JS/CSS قديمة، فيعطّل الواجهة.
+         ============================================================ -->
+    <script>
+    (function() {
+        try {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    if (registrations.length === 0) return;
+                    registrations.forEach(function(reg) {
+                        reg.unregister().then(function(success) {
+                            console.log('[SANAD] ✅ SW unregistered:', reg.scope, success);
+                        });
+                    });
+                }).catch(function(err) {
+                    console.warn('[SANAD] SW unregister error:', err);
+                });
+            }
+
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    if (names.length === 0) return;
+                    names.forEach(function(name) {
+                        caches.delete(name).then(function(success) {
+                            console.log('[SANAD] ✅ Cache deleted:', name, success);
+                        });
+                    });
+                }).catch(function(err) {
+                    console.warn('[SANAD] Cache delete error:', err);
+                });
+            }
+        } catch (e) {
+            console.warn('[SANAD] SW kill error:', e);
+        }
+    })();
+    </script>
+
     <title>SANAD+ | سند بلس</title>
     <meta name="theme-color" content="#00A0E9">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +53,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=18">
+    <link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
 
@@ -286,16 +326,9 @@
 
     <div id="flashOverlay" class="flash-overlay"></div>
 
-<script src="js/telegram.js?v=18"></script>
-<script src="js/api.js?v=18"></script>
-<script src="js/app_new.js?v=18"></script>
-
-<!--
-    ⚠️ v18.3.0: Service Worker registration REMOVED.
-    السبب: SW كان يخدم نسخاً قديمة من JS/CSS، فيعطل الواجهة.
-    الحل: Vercel cache headers كافية (immutable + hashed URLs).
-    الـ SW القديم سيلغي نفسه تلقائياً عند فتح الصفحة.
--->
+<script src="js/telegram.js?v=19"></script>
+<script src="js/api.js?v=19"></script>
+<script src="js/app_new.js?v=19"></script>
 
 </body>
 </html>

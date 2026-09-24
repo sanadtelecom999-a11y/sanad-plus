@@ -6,6 +6,44 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+
+<!-- ============================================================
+     🛡️ v18.3.3: KILL ALL SERVICE WORKERS + CACHES
+     ============================================================ -->
+<script>
+(function() {
+    try {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                if (registrations.length === 0) return;
+                registrations.forEach(function(reg) {
+                    reg.unregister().then(function(success) {
+                        console.log('[SANAD-ADMIN] ✅ SW unregistered:', reg.scope, success);
+                    });
+                });
+            }).catch(function(err) {
+                console.warn('[SANAD-ADMIN] SW unregister error:', err);
+            });
+        }
+
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                if (names.length === 0) return;
+                names.forEach(function(name) {
+                    caches.delete(name).then(function(success) {
+                        console.log('[SANAD-ADMIN] ✅ Cache deleted:', name, success);
+                    });
+                });
+            }).catch(function(err) {
+                console.warn('[SANAD-ADMIN] Cache delete error:', err);
+            });
+        }
+    } catch (e) {
+        console.warn('[SANAD-ADMIN] SW kill error:', e);
+    }
+})();
+</script>
+
 <title>SANAD+ Admin</title>
 <meta name="theme-color" content="#0EA5E9">
 <meta name="mobile-web-app-capable" content="yes">
@@ -22,7 +60,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=18">
+<link rel="stylesheet" href="css/admin.css?v=19">
 </head>
 <body>
 
@@ -59,13 +97,11 @@
     </div>
 
     <nav class="sidebar-nav">
-        <!-- لوحة التحكم -->
         <button class="nav-item sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
             <span class="material-icons">space_dashboard</span>
             <span>لوحة التحكم</span>
         </button>
 
-        <!-- العمليات -->
         <div class="nav-group">
             <div class="nav-group-title">العمليات</div>
             <button class="nav-item sidebar-item" data-section="orders" onclick="switchSection('orders')">
@@ -90,7 +126,6 @@
             </button>
         </div>
 
-        <!-- المتجر -->
         <div class="nav-group">
             <div class="nav-group-title">المتجر</div>
             <button class="nav-item sidebar-item" data-section="categories" onclick="switchSection('categories')">
@@ -107,7 +142,6 @@
             </button>
         </div>
 
-        <!-- التسويق -->
         <div class="nav-group">
             <div class="nav-group-title">التسويق</div>
             <button class="nav-item sidebar-item" data-section="coupons" onclick="switchSection('coupons')">
@@ -124,7 +158,6 @@
             </button>
         </div>
 
-        <!-- المستخدمون -->
         <div class="nav-group">
             <div class="nav-group-title">المستخدمون</div>
             <button class="nav-item sidebar-item" data-section="users" onclick="switchSection('users')">
@@ -133,7 +166,6 @@
             </button>
         </div>
 
-        <!-- الأرشيف -->
         <div class="nav-group">
             <div class="nav-group-title">الأرشيف</div>
             <button class="nav-item sidebar-item" data-section="archive" onclick="switchSection('archive')">
@@ -143,7 +175,6 @@
             </button>
         </div>
 
-        <!-- النظام -->
         <div class="nav-group">
             <div class="nav-group-title">النظام</div>
             <button class="nav-item sidebar-item" data-section="activities" onclick="switchSection('activities')">
@@ -167,7 +198,6 @@
      ============================================================ -->
 <main class="main admin-content" id="adminContent">
 
-    <!-- DASHBOARD -->
     <section id="section-dashboard" class="section admin-section active">
         <div class="page-header">
             <div>
@@ -246,7 +276,6 @@
         </div>
     </section>
 
-    <!-- USERS -->
     <section id="section-users" class="section admin-section">
         <div class="page-header">
             <h1>المستخدمون</h1>
@@ -275,7 +304,6 @@
         </div>
     </section>
 
-    <!-- CATEGORIES -->
     <section id="section-categories" class="section admin-section">
         <div class="page-header">
             <h1>الأقسام</h1>
@@ -286,7 +314,6 @@
         <div class="cards-grid" id="categoriesList"></div>
     </section>
 
-    <!-- PRODUCTS -->
     <section id="section-products" class="section admin-section">
         <div class="page-header">
             <h1>المنتجات</h1>
@@ -327,7 +354,6 @@
         </div>
     </section>
 
-    <!-- PAYMENT METHODS -->
     <section id="section-payment-methods" class="section admin-section">
         <div class="page-header">
             <h1>طرق الدفع</h1>
@@ -338,7 +364,6 @@
         <div class="cards-grid" id="paymentMethodsList"></div>
     </section>
 
-    <!-- ORDERS -->
     <section id="section-orders" class="section admin-section">
         <div class="page-header">
             <h1>الطلبات</h1>
@@ -378,7 +403,6 @@
         <div id="ordersList" class="cards-list"></div>
     </section>
 
-    <!-- DEPOSITS -->
     <section id="section-deposits" class="section admin-section">
         <div class="page-header">
             <h1>الإيداعات</h1>
@@ -390,7 +414,6 @@
         <table style="display:none;"><tbody id="depositsTableBody"></tbody></table>
     </section>
 
-    <!-- KYC -->
     <section id="section-kyc" class="section admin-section">
         <div class="page-header">
             <h1>طلبات التوثيق</h1>
@@ -399,7 +422,6 @@
         <table style="display:none;"><tbody id="kycTableBody"></tbody></table>
     </section>
 
-    <!-- SERVICE REQUESTS -->
     <section id="section-service-requests" class="section admin-section">
         <div class="page-header">
             <h1>طلبات الخدمة</h1>
@@ -408,7 +430,6 @@
         <table style="display:none;"><tbody id="serviceRequestsTableBody"></tbody></table>
     </section>
 
-    <!-- COUPONS -->
     <section id="section-coupons" class="section admin-section">
         <div class="page-header">
             <h1>كودات الخصم</h1>
@@ -433,7 +454,6 @@
         </div>
     </section>
 
-    <!-- REFERRALS -->
     <section id="section-referrals" class="section admin-section">
         <div class="page-header">
             <h1>الإحالات</h1>
@@ -458,7 +478,6 @@
         </div>
     </section>
 
-    <!-- ARCHIVE -->
     <section id="section-archive" class="section admin-section">
         <div class="page-header">
             <h1>الأرشيف</h1>
@@ -504,7 +523,6 @@
         </div>
     </section>
 
-    <!-- ACTIVITIES -->
     <section id="section-activities" class="section admin-section">
         <div class="page-header">
             <h1>سجل النشاطات</h1>
@@ -524,7 +542,6 @@
         </div>
     </section>
 
-    <!-- AUDIT LOG -->
     <section id="section-audit-log" class="section admin-section">
         <div class="page-header">
             <h1>التدقيق المالي</h1>
@@ -566,7 +583,6 @@
         </div>
     </section>
 
-    <!-- NOTIFICATIONS -->
     <section id="section-notifications" class="section admin-section">
         <div class="page-header">
             <h1>إرسال إشعار</h1>
@@ -601,7 +617,6 @@
         </div>
     </section>
 
-    <!-- SETTINGS -->
     <section id="section-settings" class="section admin-section">
         <div class="page-header">
             <h1>الإعدادات</h1>
@@ -645,9 +660,6 @@
 
 </main>
 
-<!-- ============================================================
-     BOTTOM NAV + FAB
-     ============================================================ -->
 <nav class="bottom-nav admin-bottom-nav" id="bottomNav">
     <button class="bottom-item bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
         <span class="material-icons">space_dashboard</span>
@@ -672,9 +684,6 @@
     </button>
 </nav>
 
-<!-- ============================================================
-     BULK BAR
-     ============================================================ -->
 <div class="bulk-bar bulk-orders-bar" id="bulkOrdersBar">
     <div class="bulk-info bulk-count">
         <span class="bulk-num bulk-count-num" id="bulkNum">0</span>
@@ -694,9 +703,6 @@
     </button>
 </div>
 
-<!-- ============================================================
-     BOTTOM SHEET
-     ============================================================ -->
 <div class="bottom-sheet-overlay" id="bottomSheetOverlay" onclick="closeBottomSheet()"></div>
 <div class="bottom-sheet" id="bottomSheet">
     <div class="sheet-handle"></div>
@@ -709,22 +715,13 @@
     <div class="sheet-body" id="sheetBody"></div>
 </div>
 
-<!-- ============================================================
-     TOASTS
-     ============================================================ -->
 <div id="toastContainer" class="toast-container"></div>
 
-<!-- ============================================================
-     IMAGE LIGHTBOX
-     ============================================================ -->
 <div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
     <button class="close-lightbox" onclick="closeImageLightbox()">&times;</button>
     <img src="" alt="" class="lightbox-image" id="lightboxImage">
 </div>
 
-<!-- ============================================================
-     LEGACY MODALS (توافق مع admin.js)
-     ============================================================ -->
 <div id="modal" class="modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
@@ -771,13 +768,10 @@
     <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
 </div>
 
-<!-- ============================================================
-     SCRIPTS
-     ============================================================ -->
-<script src="js/api.js?v=18"></script>
-<script src="js/admin.js?v=18"></script>
-<script src="js/admin-v16.js?v=18"></script>
-<script src="js/admin-v17.js?v=18"></script>
+<script src="js/api.js?v=19"></script>
+<script src="js/admin.js?v=19"></script>
+<script src="js/admin-v16.js?v=19"></script>
+<script src="js/admin-v17.js?v=19"></script>
 
 <script>
 (function() {
@@ -882,12 +876,6 @@ window.closeGlobalSearch = window.closeGlobalSearch || function() {
     if (modal) modal.style.display = 'none';
 };
 </script>
-
-<!--
-    ⚠️ v18.3.0: Service Worker registration REMOVED.
-    الـ SW القديم سيلغي نفسه تلقائياً عند أول تحميل (self-destruct).
-    Vercel cache headers كافية (immutable + versioned URLs).
--->
 
 </body>
 </html>
