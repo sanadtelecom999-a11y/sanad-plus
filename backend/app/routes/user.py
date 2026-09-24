@@ -84,6 +84,7 @@ def user_to_dict(user):
         "is_banned": user.is_banned,
         "vip_level": user.vip_level,
         "referral_code": user.referral_code,
+        "general_discount": user.general_discount or 0.0,   # 🆕 v17.3
     }
 
 

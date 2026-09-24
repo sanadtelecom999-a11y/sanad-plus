@@ -1,12 +1,15 @@
 # ============================================================
-# 🌐 Public Settings + Health Check — v17.3
+# 🌐 Public Settings + Health Check — v18
 # ============================================================
 import time
 from flask import jsonify
 from sqlalchemy import text
 from ..models.base import Setting
 from ..extensions import db
-from ..services.cache_service import is_healthy as redis_healthy
+from ..services.cache_service import (
+    is_healthy as redis_healthy,
+    cache_get,
+)
 from . import main
 
 
@@ -17,6 +20,7 @@ def get_public_settings():
     settings = Setting.query.filter(Setting.key.in_(PUBLIC_KEYS)).all()
     result = {s.key: s.value for s in settings}
 
+    # قيم افتراضية
     if "syp_rate" not in result:
         result["syp_rate"] = "132"
     if "store_name" not in result:
@@ -28,20 +32,32 @@ def get_public_settings():
 
 
 # ============================================================
-# 🆕 v17.3: Health Check
+# 🆕 v18: Health Check (DB + Redis + Bot)
 # ============================================================
 @main.route("/api/health", methods=["GET"])
 def health_check():
-    """Health check — DB + Redis + Bot placeholder"""
+    """
+    Health check شامل:
+    - Database latency
+    - Redis latency
+    - Bot heartbeat (آخر 120 ثانية)
+
+    Status codes:
+    - 200: كل المكونات سليمة
+    - 503: أي مكون حرج معطّل
+    """
     start = time.time()
     result = {
         "status": "ok",
         "timestamp": int(time.time()),
-        "version": "v17.3",
+        "version": "v18",
         "checks": {}
     }
+    degraded = False
 
+    # --------------------------------------------------------
     # 1. Database
+    # --------------------------------------------------------
     try:
         db_start = time.time()
         db.session.execute(text("SELECT 1"))
@@ -52,11 +68,13 @@ def health_check():
     except Exception as e:
         result["checks"]["database"] = {
             "status": "error",
-            "error": str(e)[:100]
+            "error": str(e)[:150]
         }
-        result["status"] = "degraded"
+        degraded = True
 
+    # --------------------------------------------------------
     # 2. Redis
+    # --------------------------------------------------------
     try:
         redis_start = time.time()
         if redis_healthy():
@@ -66,19 +84,62 @@ def health_check():
             }
         else:
             result["checks"]["redis"] = {"status": "unavailable"}
-            result["status"] = "degraded"
+            degraded = True
     except Exception as e:
         result["checks"]["redis"] = {
             "status": "error",
-            "error": str(e)[:100]
+            "error": str(e)[:150]
         }
+        degraded = True
 
-    # 3. Bot (not monitored — v18)
-    result["checks"]["bot"] = {
-        "status": "not_monitored",
-        "note": "heartbeat added in v18"
-    }
+    # --------------------------------------------------------
+    # 3. 🆕 v18: Bot Heartbeat
+    # --------------------------------------------------------
+    try:
+        hb = cache_get("bot:heartbeat")
+        now = int(time.time())
 
+        if hb is None:
+            result["checks"]["bot"] = {
+                "status": "unavailable",
+                "note": "no heartbeat found"
+            }
+            degraded = True
+        else:
+            try:
+                hb_ts = int(hb)
+            except (ValueError, TypeError):
+                hb_ts = 0
+
+            age = now - hb_ts
+            if age < 120:
+                result["checks"]["bot"] = {
+                    "status": "ok",
+                    "last_heartbeat": hb_ts,
+                    "age_seconds": age,
+                }
+            else:
+                result["checks"]["bot"] = {
+                    "status": "stale",
+                    "last_heartbeat": hb_ts,
+                    "age_seconds": age,
+                    "note": "heartbeat older than 120s"
+                }
+                degraded = True
+    except Exception as e:
+        result["checks"]["bot"] = {
+            "status": "error",
+            "error": str(e)[:150]
+        }
+        degraded = True
+
+    # --------------------------------------------------------
+    # النتيجة النهائية
+    # --------------------------------------------------------
     result["total_latency_ms"] = round((time.time() - start) * 1000, 2)
 
-    return jsonify(result), 200 if result["status"] == "ok" else 503
+    if degraded:
+        result["status"] = "degraded"
+        return jsonify(result), 503
+
+    return jsonify(result), 200

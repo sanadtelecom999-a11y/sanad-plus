@@ -3,8 +3,10 @@
 # ============================================================
 import os
 import sys
+import time
 import atexit
 import logging
+import threading
 import subprocess
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
@@ -16,7 +18,7 @@ sentry_sdk.init(
     profiles_sample_rate=0.0,
     send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
-    release=os.getenv("RELEASE_VERSION", "v17"),
+    release=os.getenv("RELEASE_VERSION", "v18"),
 )
 
 # ============================================================
@@ -77,7 +79,6 @@ def _fix_negative_balance_defaults():
 def _apply_discount_migration():
     """إضافة users.general_discount + جدول user_product_discounts"""
     try:
-        # 1. حقل general_discount على users
         db.session.execute(text(
             'ALTER TABLE users ADD COLUMN IF NOT EXISTS general_discount FLOAT DEFAULT 0.0'
         ))
@@ -88,7 +89,6 @@ def _apply_discount_migration():
         logger.error(f"general_discount migration failed: {e}")
 
     try:
-        # 2. جدول user_product_discounts (create_all سيتولاه، لكن نُنشئه صراحة للأمان)
         db.session.execute(text("""
             CREATE TABLE IF NOT EXISTS user_product_discounts (
                 id SERIAL PRIMARY KEY,
@@ -164,7 +164,7 @@ def upgrade_database():
                 'max_negative_balance FLOAT DEFAULT 0',
                 'referral_earnings FLOAT DEFAULT 0',
                 'referral_count INTEGER DEFAULT 0',
-                'general_discount FLOAT DEFAULT 0.0',   # 🆕 v17
+                'general_discount FLOAT DEFAULT 0.0',
             ]
             for col in users_cols:
                 try:
@@ -403,8 +403,10 @@ def upgrade_database():
             "CREATE INDEX IF NOT EXISTS idx_otp_session_id ON admin_otp_sessions(session_id)",
             "CREATE INDEX IF NOT EXISTS idx_otp_expires ON admin_otp_sessions(expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_blacklist_jti ON jwt_blacklist(jti)",
-            "CREATE INDEX IF NOT EXISTS idx_upd_user ON user_product_discounts(user_id)",              # 🆕 v17
-            "CREATE INDEX IF NOT EXISTS idx_upd_product ON user_product_discounts(product_id)",      # 🆕 v17
+            "CREATE INDEX IF NOT EXISTS idx_upd_user ON user_product_discounts(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_upd_product ON user_product_discounts(product_id)",
+            "CREATE INDEX IF NOT EXISTS idx_products_category_active ON products(category_id, is_active) WHERE deleted_at IS NULL",
+            "CREATE INDEX IF NOT EXISTS idx_coupons_code_active ON coupons(code, is_active) WHERE deleted_at IS NULL",
         ]
         for idx_sql in indexes:
             try:
@@ -437,29 +439,28 @@ def upgrade_database():
                 if 'already exists' not in str(e).lower():
                     pass
 
-        # v2.4: تصفير الرصيد السالب
         _fix_negative_balance_defaults()
-
-        # 🆕 v17: تطبيق Migration الخصومات
         _apply_discount_migration()
 
         print("اكتملت ترقية قاعدة البيانات (v2.1 + v17)")
 
 
 # ============================================================
-# 🤖 Bot — كـ Subprocess
+# 🤖 Bot — Subprocess + Supervisor (v18)
 # ============================================================
 _bot_process = None
+_shutdown_event = threading.Event()
 
 
 def _start_bot_subprocess():
+    """يشغل البوت مرة واحدة (legacy — يستخدمه supervisor داخلياً)"""
     global _bot_process
 
     bot_script = os.path.join(os.path.dirname(__file__), "bot_main.py")
 
     if not os.path.exists(bot_script):
         logger.error(f"❌ bot_main.py not found: {bot_script}")
-        return
+        return None
 
     try:
         _bot_process = subprocess.Popen(
@@ -469,12 +470,17 @@ def _start_bot_subprocess():
             env=os.environ.copy(),
         )
         logger.info(f"🤖 Bot subprocess started (PID: {_bot_process.pid})")
+        return _bot_process
     except Exception as e:
         logger.error(f"❌ Failed to start bot subprocess: {e}")
+        return None
 
 
 def _stop_bot_subprocess():
+    """إيقاف نظيف للبوت"""
     global _bot_process
+
+    _shutdown_event.set()
 
     if _bot_process is None:
         return
@@ -498,9 +504,85 @@ def _stop_bot_subprocess():
         logger.error(f"❌ Error stopping bot: {e}")
 
 
+def _bot_supervisor():
+    """
+    🆕 v18: يشغّل البوت ويراقبه — يعيد التشغيل عند crash.
+    يعمل في daemon thread داخل Gunicorn worker.
+    """
+    global _bot_process
+
+    bot_script = os.path.join(os.path.dirname(__file__), "bot_main.py")
+
+    if not os.path.exists(bot_script):
+        logger.error(f"❌ bot_main.py not found: {bot_script}")
+        return
+
+    restart_count = 0
+
+    while not _shutdown_event.is_set():
+        try:
+            _bot_process = subprocess.Popen(
+                [sys.executable, "-u", bot_script],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                env=os.environ.copy(),
+            )
+            logger.info(f"🤖 Bot started (PID: {_bot_process.pid}, restarts: {restart_count})")
+
+            # انتظر انتهاء العملية
+            _bot_process.wait()
+
+            if _shutdown_event.is_set():
+                logger.info("🛑 Shutdown requested — supervisor stopping")
+                break
+
+            exit_code = _bot_process.returncode
+            if exit_code == 0:
+                logger.info("🤖 Bot exited cleanly — supervisor stopping")
+                break
+
+            restart_count += 1
+            logger.warning(f"⚠️ Bot crashed (code={exit_code}), restart #{restart_count} in 5s")
+
+            # 🆕 v18: Sentry alert
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_message(
+                    f"Bot crashed (code={exit_code}), restart #{restart_count}",
+                    level="warning"
+                )
+            except Exception:
+                pass
+
+            # انتظر 5 ثوان قبل الإعادة (لكن احترم shutdown)
+            if _shutdown_event.wait(timeout=5):
+                break
+
+        except Exception as e:
+            logger.error(f"Supervisor error: {e}")
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(e)
+            except Exception:
+                pass
+            if _shutdown_event.wait(timeout=10):
+                break
+
+
 def post_fork(server, worker):
+    """
+    🆕 v18: يشغل supervisor thread بدلاً من bot subprocess مباشرة.
+    """
     logger.info("🔧 post_fork hook running...")
-    _start_bot_subprocess()
+
+    supervisor_thread = threading.Thread(
+        target=_bot_supervisor,
+        name="bot-supervisor",
+        daemon=True,
+    )
+    supervisor_thread.start()
+    logger.info("🛡️ Bot supervisor thread started")
+
     atexit.register(_stop_bot_subprocess)
 
 
@@ -547,6 +629,6 @@ if __name__ == "__main__":
 
     logger.info(f"🚀 Starting Gunicorn on port {port}")
     logger.info(f"   workers=1, threads=4, worker_class=gthread")
-    logger.info(f"   Bot will start as subprocess via post_fork")
+    logger.info(f"   Bot supervisor: enabled (v18)")
 
     StandaloneApplication(app, options).run()

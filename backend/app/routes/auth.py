@@ -11,7 +11,7 @@ from flask_jwt_extended import (
     create_access_token, jwt_required,
     get_jwt, get_jwt_identity
 )
-from ..models.base import User, JWTBlacklist, Setting
+from ..models.base import User, JWTBlacklist
 from ..extensions import db
 from . import main
 
@@ -110,7 +110,8 @@ def user_to_dict(user):
         "is_banned": user.is_banned,
         "vip_level": user.vip_level,
         "referral_code": user.referral_code,
-        "general_discount": user.general_discount or 0.0,  # 🆕 v17
+        "referral_count": user.referral_count or 0,
+        "general_discount": user.general_discount or 0.0,   # 🆕 v17.3
     }
 
 
@@ -199,7 +200,7 @@ def user_logout():
 
     try:
         expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else (
-            datetime.now(timezone.utc) + timedelta(hours=2)
+            datetime.now(timezone.utc) + timedelta(hours=8)
         )
         JWTBlacklist.query.filter_by(jti=jti).delete()
         db.session.add(JWTBlacklist(
@@ -225,7 +226,7 @@ def admin_logout():
 
     try:
         expires_at = datetime.fromtimestamp(exp, tz=timezone.utc) if exp else (
-            datetime.now(timezone.utc) + timedelta(hours=2)
+            datetime.now(timezone.utc) + timedelta(hours=8)
         )
         JWTBlacklist.query.filter_by(jti=jti).delete()
         db.session.add(JWTBlacklist(jti=jti, expires_at=expires_at))
@@ -244,49 +245,3 @@ def cleanup_expired_blacklist():
         db.session.commit()
     except Exception:
         db.session.rollback()
-
-
-# ============================================================
-# 🆕 v17.1: Revoke All Admin Sessions
-# ============================================================
-def revoke_all_admin_sessions():
-    """يُبطل كل JWT صادر للأدمن قبل هذه اللحظة."""
-    try:
-        now = datetime.now(timezone.utc)
-        timestamp = str(int(now.timestamp()))
-
-        setting = Setting.query.filter_by(key='admin_sessions_revoked_at').first()
-        if setting:
-            setting.value = timestamp
-        else:
-            setting = Setting(key='admin_sessions_revoked_at', value=timestamp)
-            db.session.add(setting)
-
-        db.session.commit()
-        return True
-    except Exception as e:
-        db.session.rollback()
-        print(f"revoke_all_admin_sessions failed: {e}")
-        return False
-
-
-def is_admin_token_revoked(jwt_payload):
-    """يتحقق إن كان JWT الأدمن صادر قبل آخر revoke-all."""
-    try:
-        iat = jwt_payload.get('iat')
-        if not iat:
-            return False
-
-        setting = Setting.query.filter_by(key='admin_sessions_revoked_at').first()
-        if not setting or not setting.value:
-            return False
-
-        try:
-            cutoff = int(setting.value)
-        except (ValueError, TypeError):
-            return False
-
-        return int(iat) < cutoff
-    except Exception as e:
-        print(f"is_admin_token_revoked error: {e}")
-        return False

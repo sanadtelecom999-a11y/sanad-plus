@@ -1,7 +1,11 @@
+# ============================================================
+# 🤖 SANAD PLUS⁺ Bot — v18 (Sentry + Heartbeat)
+# ============================================================
 import os
 import logging
 import requests
 import time
+import asyncio
 from collections import defaultdict
 
 try:
@@ -22,6 +26,17 @@ for env_path in ENV_PATHS:
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+
+# ============================================================
+# 🛡️ Sentry (already initialized in bot_main.py — just import)
+# ============================================================
+try:
+    import sentry_sdk
+    _SENTRY_AVAILABLE = True
+except ImportError:
+    _SENTRY_AVAILABLE = False
+
+
 # ============================================================
 # ============ Environment Variables ============
 # ============================================================
@@ -36,6 +51,7 @@ try:
     ADMIN_IDS = [int(x.strip()) for x in TELEGRAM_ADMIN_IDS_STR.split(",") if x.strip()]
 except ValueError:
     ADMIN_IDS = []
+
 
 # ============================================================
 # ============ Logging Setup ============
@@ -57,7 +73,6 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============================================================
 # ============ Version (Cache Buster) ============
 # ============================================================
-# 🆕 v2.4: مطابق لـ miniapp/index.html
 MINIAPP_VERSION = "13"
 
 
@@ -145,7 +160,45 @@ def register_or_update_user(user_id, first_name, last_name, username):
             return None
     except Exception as e:
         logger.error(f"❌ خطأ في تسجيل المستخدم: {e}")
+        if _SENTRY_AVAILABLE:
+            sentry_sdk.capture_exception(e)
         return None
+
+
+# ============================================================
+# 🆕 v18: Heartbeat Loop (Redis)
+# ============================================================
+async def heartbeat_loop():
+    """
+    يكتب heartbeat في Redis كل 60 ثانية.
+    يُقرأ من /api/health للتأكد أن البوت حي.
+    """
+    try:
+        from app.services.cache_service import cache_set
+    except Exception as e:
+        logger.error(f"❌ Cannot import cache_set: {e}")
+        return
+
+    # انتظر قليلاً قبل أول heartbeat
+    await asyncio.sleep(5)
+
+    while True:
+        try:
+            now = int(time.time())
+            ok = cache_set("bot:heartbeat", now, ttl=90)
+            if ok:
+                logger.debug(f"💓 Heartbeat sent: {now}")
+            else:
+                logger.warning("⚠️ Heartbeat cache_set failed")
+        except Exception as e:
+            logger.warning(f"Heartbeat error: {e}")
+        await asyncio.sleep(60)
+
+
+async def post_init(application: Application):
+    """يُستدعى بعد تهيئة البوت — يبدأ الـ heartbeat"""
+    logger.info("🚀 post_init: starting heartbeat loop")
+    asyncio.create_task(heartbeat_loop())
 
 
 # ============================================================
@@ -266,11 +319,13 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = (
         f"📊 **معلومات النظام**\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🤖 **البوت:** يعمل\n"
+        f"🤖 **البوت:** يعمل (v18)\n"
         f"📦 **إصدار MiniApp:** v{MINIAPP_VERSION}\n"
         f"🔗 **MiniApp URL:** {get_miniapp_url()}\n"
         f"🖥️ **Backend:** {BACKEND_URL}\n"
         f"👥 **عدد الأدمن:** {len(ADMIN_IDS)}\n"
+        f"🛡️ **Sentry:** {'✅ نشط' if _SENTRY_AVAILABLE else '❌ غير متوفر'}\n"
+        f"💓 **Heartbeat:** كل 60s → Redis\n"
     )
     await update.message.reply_text(info, parse_mode="Markdown")
 
@@ -288,6 +343,13 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
     logger.error(f"❌ خطأ في البوت: {context.error}")
 
+    # 🆕 v18: Sentry capture
+    if _SENTRY_AVAILABLE:
+        try:
+            sentry_sdk.capture_exception(context.error)
+        except Exception:
+            pass
+
     if context.error:
         error_short = str(context.error)[:300]
         notify_admins_sync(
@@ -304,7 +366,13 @@ def create_application() -> Application:
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN غير موجود في ملف .env")
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    # 🆕 v18: post_init → يبدأ heartbeat loop
+    application = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("me", me))
@@ -317,13 +385,16 @@ def create_application() -> Application:
 
 def run_polling():
     application = create_application()
-    logger.info(f"🚀 بدء تشغيل البوت — MiniApp Version: {MINIAPP_VERSION}")
+    logger.info(f"🚀 بدء تشغيل البوت v18 — MiniApp Version: {MINIAPP_VERSION}")
     logger.info(f"🔗 MiniApp URL: {get_miniapp_url()}")
     logger.info(f"👥 عدد الأدمن: {len(ADMIN_IDS)}")
+    logger.info(f"🛡️ Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}")
+    logger.info(f"💓 Heartbeat loop: سيبدأ خلال 5s")
 
     notify_admins_sync(
-        f"✅ البوت بدأ العمل\n"
-        f"MiniApp v{MINIAPP_VERSION}"
+        f"✅ البوت بدأ العمل (v18)\n"
+        f"MiniApp v{MINIAPP_VERSION}\n"
+        f"Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}"
     )
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
