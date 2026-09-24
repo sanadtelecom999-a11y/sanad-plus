@@ -1,4 +1,5 @@
-// miniapp/js/app_new.js — v15 (VIP Badges)
+// miniapp/js/app_new.js — v17 (URL input + VIP badges)
+// ============================================================
 
 let currentPage = 'page-home';
 let userData = null;
@@ -18,7 +19,7 @@ const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
 let currentCurrency = localStorage.getItem('currency') || 'USD';
 
-// 🆕 v15: VIP Levels — 7 مستويات بأيقونات فريدة
+// v17: VIP Levels (نفس شارات Admin)
 const VIP_LEVELS = {
     1: { name: 'برونزي',   icon: 'military_tech' },
     2: { name: 'فضي',      icon: 'star' },
@@ -32,14 +33,8 @@ const VIP_LEVELS = {
 // ============ Image Compression Helper ============
 function compressImageFile(file, maxWidth = 800, quality = 0.6) {
     return new Promise((resolve, reject) => {
-        if (!file) {
-            reject(new Error('لا يوجد ملف'));
-            return;
-        }
-        if (!file.type.startsWith('image/')) {
-            reject(new Error('الملف ليس صورة'));
-            return;
-        }
+        if (!file) { reject(new Error('لا يوجد ملف')); return; }
+        if (!file.type.startsWith('image/')) { reject(new Error('الملف ليس صورة')); return; }
         const reader = new FileReader();
         reader.onload = () => {
             const img = new Image();
@@ -60,9 +55,7 @@ function compressImageFile(file, maxWidth = 800, quality = 0.6) {
                     const sizeKB = Math.round((dataUrl.length * 3 / 4) / 1024);
                     console.log(`📷 Compressed: ${width}x${height} | ~${sizeKB} KB`);
                     resolve(dataUrl);
-                } catch (err) {
-                    reject(err);
-                }
+                } catch (err) { reject(err); }
             };
             img.onerror = () => reject(new Error('فشل قراءة الصورة'));
             img.src = reader.result;
@@ -611,7 +604,6 @@ function updateUserUI() {
     updateCurrencyUI();
 }
 
-// 🆕 v15: Home VIP Badge — يستخدم .vip-badge الجديدة
 function renderHomeVIPBadge() {
     let container = document.getElementById('homeVipBadge');
     if (!container) {
@@ -638,7 +630,6 @@ function renderHomeVIPBadge() {
     `;
 }
 
-// 🆕 v15: Account VIP Badge — في صفحة "حسابي"
 function renderAccountVIPBadge() {
     const container = document.getElementById('accountVipBadge');
     if (!container) return;
@@ -649,7 +640,6 @@ function renderAccountVIPBadge() {
         return;
     }
     const config = VIP_LEVELS[vipLevel];
-    // تعطيل styles القديمة (background من #accountVipBadge)
     container.style.background = 'none';
     container.style.border = 'none';
     container.style.boxShadow = 'none';
@@ -691,6 +681,7 @@ function renderProductCard(prod) {
     const fav = isFavorite(prod.id);
     const isNew = prod.created_at && (Date.now() - new Date(prod.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
     const isBundle = prod.product_type === 'bundle' && prod.bundles && prod.bundles.length > 0;
+    const isUrl = prod.input_type === 'url';
     return `
         <div class="product-card" data-id="${prod.id}" onclick="openPurchaseModal(${prod.id})">
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
@@ -837,16 +828,31 @@ function buildDeliveryDetailsHTML(order) {
     if (delivery.player_id) items.push({ icon: 'person_pin', label: 'ID', value: delivery.player_id });
     if (delivery.account_id) items.push({ icon: 'badge', label: 'ID', value: delivery.account_id });
     if (delivery.phone) items.push({ icon: 'phone', label: 'الهاتف', value: delivery.phone });
+    if (delivery.url) items.push({ icon: 'link', label: 'الرابط', value: delivery.url, isUrl: true });
     if (delivery.bundle_name) items.push({ icon: 'inventory_2', label: 'الباقة', value: delivery.bundle_name });
     if (delivery.syp_amount) items.push({ icon: 'payments', label: 'المبلغ (ل.س)', value: delivery.syp_amount.toLocaleString('ar') });
     if (!items.length) return '';
-    return items.map(item => `
-        <div class="order-detail-line">
-            <span class="material-icons order-detail-icon">${item.icon}</span>
-            <span class="order-detail-label">${item.label}:</span>
-            <span class="order-detail-value">${item.value}</span>
-        </div>
-    `).join('');
+    return items.map(item => {
+        if (item.isUrl) {
+            return `
+                <div class="order-detail-line url-line">
+                    <span class="material-icons order-detail-icon">${item.icon}</span>
+                    <span class="order-detail-label">${item.label}:</span>
+                    <span class="order-detail-value url-value" onclick="copyText('${String(item.value).replace(/'/g, "\\'")}')" title="اضغط للنسخ" style="cursor:pointer;">
+                        ${item.value}
+                        <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-inline-start:4px;opacity:.6;">content_copy</span>
+                    </span>
+                </div>
+            `;
+        }
+        return `
+            <div class="order-detail-line">
+                <span class="material-icons order-detail-icon">${item.icon}</span>
+                <span class="order-detail-label">${item.label}:</span>
+                <span class="order-detail-value">${item.value}</span>
+            </div>
+        `;
+    }).join('');
 }
 
 function renderOrders(orders) {
@@ -980,6 +986,7 @@ function getStatusText(status) {
         default: return status || 'غير معروف';
     }
 }
+
 function renderDeposits(deposits) {
     const list = document.getElementById('depositsList');
     if (!list) return;
@@ -1141,6 +1148,7 @@ function openPurchaseModal(productId) {
     window.__currentIsBundle = isBundle;
     window.__currentProduct = product;
     selectedBundleId = isBundle ? product.bundles[0].id : null;
+
     let customInputHTML = '';
     if (product.input_type === 'id') {
         customInputHTML = `
@@ -1166,8 +1174,26 @@ function openPurchaseModal(productId) {
                        placeholder="رقم الهاتف" class="new-input"
                        oninput="this.value = this.value.replace(/[^0-9]/g, '')">
             </div>`;
+    } else if (product.input_type === 'url') {
+        // 🆕 v17: رابط URL
+        customInputHTML = `
+            <div class="new-input-group url-input-group">
+                <span class="material-icons new-input-icon">link</span>
+                <input type="url" id="purchaseUrl"
+                       placeholder="https://..."
+                       class="new-input url-input"
+                       inputmode="url"
+                       autocomplete="off"
+                       spellcheck="false"
+                       dir="ltr"
+                       style="text-align:left;">
+            </div>
+            <div class="url-hint">
+                <span class="material-icons" style="font-size:14px;">info</span>
+                أدخل رابطاً كاملاً يبدأ بـ <strong>http://</strong> أو <strong>https://</strong>
+            </div>`;
     }
-    const fav = isFavorite(product.id);
+const fav = isFavorite(product.id);
     let infoRowHTML = '';
     if (isBundle) {
         const sortedBundles = [...product.bundles].sort((a, b) => a.price_usd - b.price_usd);
@@ -1331,13 +1357,37 @@ function confirmPurchaseDialog(productId, btn) {
 function validateCustomInput(product) {
     if (product.input_type === 'id') {
         const val = document.getElementById('purchasePlayerId')?.value;
-        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) { showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning'); return false; }
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
+            return false;
+        }
     } else if (product.input_type === 'account_id') {
         const val = document.getElementById('purchaseAccountId')?.value;
-        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) { showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning'); return false; }
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في حقل الايدي', 'warning');
+            return false;
+        }
     } else if (product.input_type === 'phone') {
         const val = document.getElementById('purchasePhone')?.value;
-        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) { showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning'); return false; }
+        if (!val || !val.trim() || !/^[0-9]+$/.test(val)) {
+            showNotification('تنبيه', 'يرجى إدخال أرقام فقط في رقم الهاتف', 'warning');
+            return false;
+        }
+    } else if (product.input_type === 'url') {
+        // 🆕 v17
+        const val = document.getElementById('purchaseUrl')?.value?.trim();
+        if (!val) {
+            showNotification('تنبيه', 'يرجى إدخال الرابط', 'warning');
+            return false;
+        }
+        if (!/^https?:\/\//i.test(val)) {
+            showNotification('تنبيه', 'الرابط يجب أن يبدأ بـ http:// أو https://', 'warning');
+            return false;
+        }
+        if (val.length > 1000) {
+            showNotification('تنبيه', 'الرابط طويل جداً', 'warning');
+            return false;
+        }
     }
     return true;
 }
@@ -1352,9 +1402,12 @@ async function executeConfirmPurchase(productId, btn) {
     if (isBundle) orderData.bundle_id = selectedBundleId;
     else if (isTopup) orderData.quantity = parseInt(document.getElementById('newSypAmount')?.value);
     else orderData.quantity = parseInt(document.getElementById('newQtyInput')?.value);
+
     if (product.input_type === 'id') orderData.player_id = document.getElementById('purchasePlayerId')?.value;
     else if (product.input_type === 'account_id') orderData.account_id = document.getElementById('purchaseAccountId')?.value;
     else if (product.input_type === 'phone') orderData.phone = document.getElementById('purchasePhone')?.value;
+    else if (product.input_type === 'url') orderData.url = document.getElementById('purchaseUrl')?.value?.trim();
+
     if (btn) setButtonLoading(btn, true);
     try {
         const result = await createOrder(orderData);
@@ -1573,7 +1626,7 @@ async function submitServiceRequest(btn) {
 }
 
 // ============================================================
-// 🎁 Referral Modal — v15 (with Apply Code)
+// 🎁 Referral Modal — v17
 // ============================================================
 function openReferralModal() {
     if (!userData) return;
@@ -1650,7 +1703,6 @@ async function submitReferralCode(btn) {
             showNotification('فشل التطبيق', result.error, 'error');
         } else {
             showNotification('تم بنجاح 🎉', result.message || 'تم تطبيق كود الإحالة، ستحصل مكافأة صديقك عند أول شراء', 'success');
-
             userData = await authenticateUser(window.Telegram?.WebApp?.initData || '');
             updateUserUI();
             closeModal();
@@ -1680,6 +1732,7 @@ const faqData = [
     { q: 'ماذا يحدث إذا فشل الطلب؟', a: 'في حال فشل الطلب، يتم استرداد المبلغ تلقائياً إلى رصيدك.' },
     { q: 'ما هو الرصيد السوري؟', a: 'رصيد للاتصالات (MTN، Syriatel) يُشترى بالليرة السورية. أدخل المبلغ بالليرة وسيتم تحويله تلقائياً للدولار.' },
     { q: 'ما هي الباقات؟', a: 'بعض المنتجات مثل PUBG UC توفر باقات متعددة (60 UC، 325 UC، 660 UC...). اختر الباقة المناسبة داخل المنتج.' },
+    { q: 'كيف أشتري متابعين؟', a: 'عند شراء خدمات سوشيال ميديا (متابعين/لايكات)، سيُطلب منك إدخال رابط الحساب أو المنشور.' },
     { q: 'كيف أتواصل مع الدعم؟', a: 'استخدم زر الدعم العائم أسفل الشاشة للتواصل معنا مباشرة.' }
 ];
 
@@ -1887,7 +1940,7 @@ async function loadInitialData() {
 }
 
 async function initApp() {
-    console.log('🚀 بدء تشغيل SANAD+ ...');
+    console.log('🚀 بدء تشغيل SANAD+ v17 ...');
     try {
         const ok = await initTelegram();
         if (!ok) {
@@ -1928,7 +1981,7 @@ async function initApp() {
         } catch (e) {
             console.warn('PTR/Swipe غير متاح:', e);
         }
-        console.log('✅ التطبيق جاهز');
+        console.log('✅ التطبيق جاهز (v17)');
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
         const gm = document.getElementById('greetingMessage');

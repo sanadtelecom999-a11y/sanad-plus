@@ -22,7 +22,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=16">
+<link rel="stylesheet" href="css/admin.css?v=17">
 </head>
 <body>
 
@@ -133,7 +133,7 @@
             </button>
         </div>
 
-        <!-- 🆕 الأرشيف -->
+        <!-- الأرشيف -->
         <div class="nav-group">
             <div class="nav-group-title">الأرشيف</div>
             <button class="nav-item sidebar-item" data-section="archive" onclick="switchSection('archive')">
@@ -387,7 +387,6 @@
             </button>
         </div>
         <div id="depositsList" class="cards-list"></div>
-        <!-- Hidden legacy table for admin.js compatibility -->
         <table style="display:none;"><tbody id="depositsTableBody"></tbody></table>
     </section>
 
@@ -397,7 +396,6 @@
             <h1>طلبات التوثيق</h1>
         </div>
         <div id="kycList" class="cards-list"></div>
-        <!-- Hidden legacy table -->
         <table style="display:none;"><tbody id="kycTableBody"></tbody></table>
     </section>
 
@@ -407,7 +405,6 @@
             <h1>طلبات الخدمة</h1>
         </div>
         <div id="servicesList" class="cards-list"></div>
-        <!-- Hidden legacy table -->
         <table style="display:none;"><tbody id="serviceRequestsTableBody"></tbody></table>
     </section>
 
@@ -497,7 +494,6 @@
             </div>
         </div>
 
-        <!-- Legacy archive containers (للتوافق مع admin.js) -->
         <div id="archiveCatsContainer" style="display:none;">
             <div id="archiveCatsList"></div>
             <span id="archiveCatsCount" style="display:none;">0</span>
@@ -756,7 +752,7 @@
     <div class="modal-content global-search-content">
         <div class="global-search-header">
             <span class="material-icons">search</span>
-            <input type="text" id="globalSearchInput" placeholder="ابحث في المستخدمين، الطلبات، المنتجات..." oninput="performGlobalSearch(this.value)" autocomplete="off">
+            <input type="text" id="globalSearchInput" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" autocomplete="off">
             <button class="close-modal-inline" onclick="closeGlobalSearch()">
                 <span class="material-icons">close</span>
             </button>
@@ -770,9 +766,6 @@
     </div>
 </div>
 
-<!-- ============================================================
-     LEGACY CONTAINERS (للتوافق مع admin.js)
-     ============================================================ -->
 <div id="adminPTr" class="admin-ptr" style="display:none;">
     <div class="admin-ptr-icon"><span class="material-icons" id="adminPTrIcon">arrow_downward</span></div>
     <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
@@ -781,9 +774,10 @@
 <!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script src="js/api.js?v=16"></script>
-<script src="js/admin.js?v=16"></script>
-<script src="js/admin-v16.js?v=16"></script>
+<script src="js/api.js?v=17"></script>
+<script src="js/admin.js?v=17"></script>
+<script src="js/admin-v16.js?v=17"></script>
+<script src="js/admin-v17.js?v=17"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
@@ -795,43 +789,33 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- Override admin.js's switchSection AFTER it loads, wrap with v16 logic -->
 <script>
 (function() {
-    // حفظ الأصل
     const origSwitch = window.switchSection;
 
-    // استبدال بنسخة تعمل مع classes v16
     window.switchSection = function(sectionId) {
-        // 1. إخفاء كل الأقسام
         document.querySelectorAll('.section, .admin-section').forEach(sec => {
             sec.classList.remove('active');
         });
 
-        // 2. إظهار القسم المطلوب
         const section = document.getElementById('section-' + sectionId);
         if (section) section.classList.add('active');
 
-        // 3. تحديث الـ Sidebar
         document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
         });
 
-        // 4. تحديث Bottom Nav
         document.querySelectorAll('.bottom-nav-item, .bottom-item').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
         });
 
-        // 5. تحديث currentSection
         window.currentSection = sectionId;
 
-        // 6. إغلاق Sidebar على الجوال
         if (typeof window.closeSidebar === 'function') window.closeSidebar();
 
-        // 7. تحميل بيانات القسم (استدعاء الدوال من admin.js)
         try {
             if (sectionId === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
-            if (sectionId === 'users' && typeof renderUsers === 'function') renderUsers();
+            if (sectionId === 'users' && typeof window.renderUsers === 'function') window.renderUsers();
             if (sectionId === 'categories' && typeof renderCategories === 'function') renderCategories();
             if (sectionId === 'products') {
                 if (typeof filteredProducts !== 'undefined' && Array.isArray(productsData)) {
@@ -844,13 +828,13 @@ if ('serviceWorker' in navigator) {
                 if (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) {
                     window.filteredOrders = [...ordersData];
                 }
-                if (typeof renderOrders === 'function' && typeof ordersData !== 'undefined') {
-                    renderOrders(ordersData);
+                if (typeof window.renderOrders === 'function' && typeof ordersData !== 'undefined') {
+                    window.renderOrders(ordersData);
                 }
             }
-            if (sectionId === 'deposits' && typeof renderDeposits === 'function') renderDeposits(depositsData);
-            if (sectionId === 'kyc' && typeof renderKYC === 'function') renderKYC();
-            if (sectionId === 'service-requests' && typeof renderServiceRequests === 'function') renderServiceRequests();
+            if (sectionId === 'deposits' && typeof window.renderDeposits === 'function') window.renderDeposits(depositsData);
+            if (sectionId === 'kyc' && typeof window.renderKYC === 'function') window.renderKYC();
+            if (sectionId === 'service-requests' && typeof window.renderServiceRequests === 'function') window.renderServiceRequests();
             if (sectionId === 'coupons' && typeof renderCoupons === 'function') renderCoupons();
             if (sectionId === 'referrals' && typeof loadReferrals === 'function') loadReferrals();
             if (sectionId === 'archive' && typeof window.loadArchiveData === 'function') window.loadArchiveData();
@@ -861,11 +845,9 @@ if ('serviceWorker' in navigator) {
             console.warn('Section load error:', err);
         }
 
-        // 8. Scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
-        // 9. تحديث Greeting على Dashboard
-        if (sectionId === 'dashboard' && typeof window.switchSection === 'function') {
+        if (sectionId === 'dashboard') {
             const h = new Date().getHours();
             const greeting = h < 12 ? 'صباح الخير' : 'مساء الخير';
             const el = document.getElementById('dashGreeting');
@@ -873,6 +855,44 @@ if ('serviceWorker' in navigator) {
         }
     };
 })();
+</script>
+
+<script>
+window.openModal = window.openModal || function(title, bodyHTML) {
+    const modal = document.getElementById('modal');
+    const body = document.getElementById('modalBody');
+    if (modal && body) {
+        body.innerHTML = bodyHTML || '';
+        modal.style.display = 'flex';
+    }
+};
+
+window.closeModal = window.closeModal || function() {
+    const modal = document.getElementById('modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.closeConfirm = window.closeConfirm || function(result) {
+    const modal = document.getElementById('confirmModal');
+    if (modal) modal.style.display = 'none';
+    if (window._confirmResolver) {
+        window._confirmResolver(result);
+        window._confirmResolver = null;
+    }
+};
+
+window.openGlobalSearch = window.openGlobalSearch || function() {
+    const modal = document.getElementById('globalSearchModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('globalSearchInput')?.focus();
+    }
+};
+
+window.closeGlobalSearch = window.closeGlobalSearch || function() {
+    const modal = document.getElementById('globalSearchModal');
+    if (modal) modal.style.display = 'none';
+};
 </script>
 
 </body>

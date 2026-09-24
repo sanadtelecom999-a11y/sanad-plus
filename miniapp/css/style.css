@@ -3553,3 +3553,257 @@ input:checked + .toggle-slider:before {
         animation: none !important;
     }
 }
+/* ============================================================
+   🆕 v17: VIP BADGES — 7 Levels
+   ============================================================ */
+.vip-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 50px;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    height: 26px;
+    line-height: 1;
+    position: relative;
+    overflow: hidden;
+    vertical-align: middle;
+    animation: vipFadeIn 0.5s ease;
+}
+
+.vip-badge .material-icons {
+    font-size: 14px;
+    line-height: 1;
+}
+
+@keyframes vipFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── VIP 1: برونزي ─── */
+.vip-badge.vip-1 {
+    background: linear-gradient(135deg, #7C3F1D 0%, #CD7F32 100%);
+    color: #FFF5EB;
+    border: 1px solid #CD7F32;
+    box-shadow: 0 2px 6px rgba(205,127,50,0.3);
+}
+
+/* ─── VIP 2: فضي ─── */
+.vip-badge.vip-2 {
+    background: linear-gradient(135deg, #64748B 0%, #CBD5E1 100%);
+    color: #0F172A;
+    border: 1px solid #CBD5E1;
+    box-shadow: 0 2px 6px rgba(203,213,225,0.35);
+}
+
+/* ─── VIP 3: ذهبي ─── */
+.vip-badge.vip-3 {
+    background: linear-gradient(135deg, #B8860B 0%, #FFD700 50%, #FBBF24 100%);
+    color: #3F2A00;
+    border: 1px solid #FFD700;
+    box-shadow: 0 2px 10px rgba(255,215,0,0.5);
+}
+
+/* ─── VIP 4: بلاتيني ─── */
+.vip-badge.vip-4 {
+    background: linear-gradient(135deg, #475569 0%, #E2E8F0 50%, #94A3B8 100%);
+    color: #0F172A;
+    border: 1px solid #F1F5F9;
+    box-shadow: 0 0 12px rgba(226,232,240,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+/* ─── VIP 5: ماسي ─── */
+.vip-badge.vip-5 {
+    background: linear-gradient(135deg, #0891B2 0%, #22D3EE 50%, #67E8F9 100%);
+    color: #062F36;
+    border: 1px solid #67E8F9;
+    box-shadow: 0 0 14px rgba(34,211,238,0.6), inset 0 1px 0 rgba(255,255,255,0.4);
+}
+
+/* ─── VIP 6: أسطوري (Shimmer) ─── */
+.vip-badge.vip-6 {
+    background: linear-gradient(135deg, #7C3AED 0%, #C026D3 50%, #EC4899 100%);
+    color: #FFFFFF;
+    border: 1px solid #F472B6;
+    box-shadow: 0 0 18px rgba(236,72,153,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.vip-badge.vip-6::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.6) 50%,
+        transparent 100%
+    );
+    transform: skewX(-20deg);
+    animation: vipShimmer 3s ease-in-out infinite;
+}
+
+/* ─── VIP 7: الأسطورة (Shimmer + Pulse) ─── */
+.vip-badge.vip-7 {
+    background: linear-gradient(135deg, #DC2626 0%, #F97316 50%, #FBBF24 100%);
+    color: #FFFFFF;
+    border: 1px solid #FCD34D;
+    box-shadow: 0 0 22px rgba(220,38,38,0.7), 0 0 40px rgba(251,191,36,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
+    animation: vipFadeIn 0.5s ease, vipPulse 2.5s ease-in-out infinite 0.5s;
+}
+
+.vip-badge.vip-7::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.8) 50%,
+        transparent 100%
+    );
+    transform: skewX(-20deg);
+    animation: vipShimmer 2s ease-in-out infinite;
+}
+
+@keyframes vipShimmer {
+    0% { left: -100%; }
+    60% { left: 150%; }
+    100% { left: 150%; }
+}
+
+@keyframes vipPulse {
+    0%, 100% {
+        box-shadow: 0 0 22px rgba(220,38,38,0.7), 0 0 40px rgba(251,191,36,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(220,38,38,0.9), 0 0 55px rgba(251,191,36,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+}
+
+/* لأجهزة تحترم تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+    .vip-badge.vip-6::after,
+    .vip-badge.vip-7,
+    .vip-badge.vip-7::after {
+        animation: none !important;
+    }
+}
+
+/* ============================================================
+   🆕 v17: URL Input — في Modal الشراء
+   ============================================================ */
+.url-input-group {
+    border-color: rgba(139, 92, 246, 0.4) !important;
+}
+
+.url-input-group:focus-within {
+    border-color: #8B5CF6 !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15) !important;
+}
+
+.url-input-group .new-input-icon {
+    color: #8B5CF6 !important;
+}
+
+.url-input {
+    direction: ltr !important;
+    text-align: left !important;
+    font-family: 'Courier New', monospace !important;
+    font-size: 13px !important;
+    letter-spacing: 0;
+}
+
+.url-input::placeholder {
+    direction: ltr !important;
+    text-align: left !important;
+    color: #94A3B8;
+}
+
+.url-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-top: -8px;
+    margin-bottom: 12px;
+    font-size: 11px;
+    color: #8B5CF6;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .url-hint {
+    background: rgba(139, 92, 246, 0.15);
+    color: #A78BFA;
+}
+
+.url-hint .material-icons {
+    color: #8B5CF6;
+    flex-shrink: 0;
+}
+
+[data-theme="dark"] .url-hint .material-icons {
+    color: #A78BFA;
+}
+
+.url-hint strong {
+    color: #7C3AED;
+    direction: ltr;
+    display: inline-block;
+}
+
+[data-theme="dark"] .url-hint strong {
+    color: #C4B5FD;
+}
+
+/* ============================================================
+   🆕 v17: URL في قائمة الطلبات
+   ============================================================ */
+.order-detail-line.url-line {
+    align-items: flex-start;
+}
+
+.order-detail-value.url-value {
+    direction: ltr;
+    text-align: left;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    word-break: break-all;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    padding: 6px 10px;
+    border-radius: 8px;
+    color: #7C3AED;
+    font-weight: 700;
+    transition: all 200ms ease;
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+}
+
+[data-theme="dark"] .order-detail-value.url-value {
+    background: rgba(139, 92, 246, 0.2);
+    color: #C4B5FD;
+    border-color: rgba(139, 92, 246, 0.4);
+}
+
+.order-detail-value.url-value:active {
+    background: rgba(139, 92, 246, 0.2);
+    transform: scale(0.98);
+}
+
+[data-theme="dark"] .order-detail-value.url-value:active {
+    background: rgba(139, 92, 246, 0.3);
+}

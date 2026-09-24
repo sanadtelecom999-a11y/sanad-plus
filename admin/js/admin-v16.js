@@ -1,7 +1,7 @@
 /* ============================================================
-   admin-v16.js — Mobile-First + Archive + Render Overrides
+   admin-v16.js — v17 (Discounts + VIP v2 + Skip Steps + Dark Order Card)
    ============================================================
-   يُحمّل بعد admin.js (يستبدل الدوال التي تكتب في عناصر v14)
+   يُحمّل بعد admin.js — يستبدل دوال العرض والتفاعل
    ============================================================ */
 (function () {
     'use strict';
@@ -9,18 +9,108 @@
     const OWNER_NAME = 'أبو سند';
 
     /* ============================================================
-       0. OVERRIDE: Render Functions — تكتب في عناصر v16
+       VIP Levels — v2 (7 مستويات بأيقونات جديدة)
+       ============================================================ */
+    const VIP_LEVELS = {
+        1: { name: 'برونزي',   icon: 'military_tech' },
+        2: { name: 'فضي',      icon: 'star' },
+        3: { name: 'ذهبي',     icon: 'emoji_events' },
+        4: { name: 'بلاتيني',  icon: 'diamond' },
+        5: { name: 'ماسي',     icon: 'auto_awesome' },
+        6: { name: 'أسطوري',   icon: 'local_fire_department' },
+        7: { name: 'الأسطورة', icon: 'workspace_premium' },
+    };
+
+    /* ============================================================
+       0. OVERRIDE: Render Functions — تكتب في عناصر v16/v17
        ============================================================ */
 
-    /* ------------------------------------------------------------
-       0.1 renderKYC → #kycList
-       ------------------------------------------------------------ */
+    /* ----- renderUsers → #usersTableBody (v17: زر الخصم + VIP جديد) ----- */
+    window.renderUsers = function (users) {
+        const tbody = document.getElementById('usersTableBody');
+        if (!tbody) return;
+
+        const list = Array.isArray(users)
+            ? users
+            : (typeof usersData !== 'undefined' ? usersData : []);
+
+        if (!list.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><span class="material-icons">people</span>لا يوجد مستخدمون</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = list.map(user => {
+            const balance = user.balance || 0;
+            const balanceColor = balance < 0 ? 'var(--error)' : (balance > 0 ? 'var(--success)' : 'var(--text)');
+            const negBadge = (balance < 0 && user.allow_negative_balance) ?
+                '<span style="font-size:0.7rem;background:var(--error-bg);color:var(--error);padding:2px 6px;border-radius:4px;margin-right:4px;">سالب</span>' : '';
+
+            const vipLevel = user.vip_level || 0;
+            const vipBadge = window.getAdminVIPBadgeHTML(vipLevel);
+
+            const discountPercent = parseFloat(user.general_discount) || 0;
+            const discountBadge = discountPercent > 0
+                ? `<span class="discount-chip active">${discountPercent}%</span>`
+                : `<span class="discount-chip">0%</span>`;
+
+            return `
+            <tr>
+                <td data-label="Telegram ID">
+                    <span class="ltr" style="cursor:pointer;" onclick="copyToClipboard('${user.telegram_id}')" title="اضغط للنسخ">
+                        ${user.telegram_id}
+                    </span>
+                </td>
+                <td data-label="الاسم">${user.username || user.first_name || 'مستخدم'}</td>
+                <td data-label="الرصيد">
+                    <span style="color:${balanceColor};font-weight:800;direction:ltr;">${balance.toFixed(2)}$</span>
+                    ${negBadge}
+                </td>
+                <td data-label="الحالة"><span class="status-badge ${user.is_banned ? 'failed' : 'completed'}">${user.is_banned ? 'محظور' : 'نشط'}</span></td>
+                <td data-label="VIP">${vipBadge}</td>
+                <td data-label="إجراءات" class="user-actions-cell">
+                    <button class="btn-outline btn-sm" onclick="openUserDetailModal(${user.id})" title="تفاصيل المستخدم">
+                        <span class="material-icons" style="font-size:14px;">visibility</span>
+                    </button>
+                    <button class="btn-outline btn-sm" onclick="adjustBalance(${user.id})" title="تعديل الرصيد">
+                        <span class="material-icons" style="font-size:14px;">payments</span>
+                    </button>
+                    <button class="btn-outline btn-sm" onclick="openNegativeBalanceModal(${user.id})" title="الرصيد السالب">
+                        <span class="material-icons" style="font-size:14px;">credit_card</span>
+                    </button>
+                    <button class="btn-outline btn-sm" onclick="openVIPModal(${user.id})" title="VIP">
+                        <span class="material-icons" style="font-size:14px;">star</span>
+                    </button>
+                    <button class="btn-outline btn-sm discount-btn ${discountPercent > 0 ? 'active' : ''}" onclick="openDiscountModal(${user.id})" title="الخصم">
+                        ${discountBadge}
+                    </button>
+                    <button class="btn-outline btn-sm" onclick="toggleBan(${user.id})">
+                        ${user.is_banned ? 'فك الحظر' : 'حظر'}
+                    </button>
+                </td>
+            </tr>
+            `;
+        }).join('');
+    };
+
+    /* ----- Helper: Admin VIP Badge HTML ----- */
+    window.getAdminVIPBadgeHTML = function (level) {
+        const lvl = parseInt(level, 10);
+        if (!lvl || lvl < 1 || lvl > 7) {
+            return '<span style="color:var(--text-3);">—</span>';
+        }
+        const c = VIP_LEVELS[lvl];
+        return `<span class="vip-badge vip-${lvl}" title="VIP ${lvl} — ${c.name}">
+            <span class="material-icons">${c.icon}</span>
+            <span>${c.name}</span>
+        </span>`;
+    };
+
+    /* ----- renderKYC → #kycList ----- */
     window.renderKYC = function () {
         const container = document.getElementById('kycList');
         if (!container) return;
 
         const data = (typeof kycData !== 'undefined' && Array.isArray(kycData)) ? kycData : [];
-
         let filtered = [...data];
         try {
             const tabFilter = (typeof kycTabFilter !== 'undefined') ? kycTabFilter : 'all';
@@ -92,9 +182,7 @@
         }).join('');
     };
 
-    /* ------------------------------------------------------------
-       0.2 renderDeposits → #depositsList
-       ------------------------------------------------------------ */
+    /* ----- renderDeposits → #depositsList ----- */
     window.renderDeposits = function (deposits) {
         const container = document.getElementById('depositsList');
         if (!container) return;
@@ -168,9 +256,7 @@
         }).join('');
     };
 
-    /* ------------------------------------------------------------
-       0.3 renderServiceRequests → #servicesList
-       ------------------------------------------------------------ */
+    /* ----- renderServiceRequests → #servicesList ----- */
     window.renderServiceRequests = function () {
         const container = document.getElementById('servicesList');
         if (!container) return;
@@ -235,9 +321,7 @@
         }).join('');
     };
 
-    /* ------------------------------------------------------------
-       0.4 renderOrders → #ordersList
-       ------------------------------------------------------------ */
+    /* ----- renderOrders → #ordersList ----- */
     window.renderOrders = function (orders) {
         const container = document.getElementById('ordersList');
         if (!container) return;
@@ -317,12 +401,7 @@
                             <button class="card-action view" onclick="viewOrderDetails(${o.id})">
                                 <span class="material-icons">visibility</span> تفاصيل
                             </button>
-                            ${!isFinal && o.status === 'pending' ? `
-                                <button class="card-action approve" onclick="quickApproveOrder(${o.id}, 'review')">
-                                    <span class="material-icons">play_arrow</span> مراجعة
-                                </button>
-                            ` : ''}
-                            ${!isFinal && o.status === 'processing' ? `
+                            ${!isFinal ? `
                                 <button class="card-action approve" onclick="quickApproveOrder(${o.id}, 'completed')">
                                     <span class="material-icons">check</span> إكمال
                                 </button>
@@ -339,9 +418,7 @@
         attachSwipeHandlers();
     };
 
-    /* ------------------------------------------------------------
-       0.5 renderDashboard — override
-       ------------------------------------------------------------ */
+    /* ----- renderDashboard ----- */
     const _origRenderDashboard = window.renderDashboard;
     window.renderDashboard = function () {
         if (typeof _origRenderDashboard === 'function') {
@@ -460,7 +537,7 @@
     }
 
     /* ============================================================
-       1. Greeting
+       1. Greeting + Sidebar + Toast
        ============================================================ */
     function getGreeting() {
         const h = new Date().getHours();
@@ -478,9 +555,6 @@
         }
     }
 
-    /* ============================================================
-       2. Sidebar
-       ============================================================ */
     window.toggleSidebar = function () {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -496,9 +570,6 @@
         if (overlay) overlay.classList.remove('active');
     };
 
-    /* ============================================================
-       3. Toast
-       ============================================================ */
     window.showToast = function (message, type = 'info', duration = 3000) {
         const container = document.getElementById('toastContainer');
         if (!container) return;
@@ -526,7 +597,7 @@
     };
 
     /* ============================================================
-       4. Bottom Sheet
+       2. Bottom Sheet + Confirm
        ============================================================ */
     window.openBottomSheet = function (title, bodyHTML) {
         const sheet = document.getElementById('bottomSheet');
@@ -552,9 +623,6 @@
         document.body.style.overflow = '';
     };
 
-    /* ============================================================
-       5. Confirm
-       ============================================================ */
     window.showConfirm = function (options) {
         return new Promise((resolve) => {
             const {
@@ -593,7 +661,7 @@
     };
 
     /* ============================================================
-       6. Lightbox
+       3. Image Lightbox
        ============================================================ */
     window.openImageLightbox = function (url) {
         const lb = document.getElementById('imageLightbox');
@@ -611,64 +679,397 @@
     };
 
     /* ============================================================
-       7. Order Details
+       🆕 v17: DISCOUNT MODAL
+       ============================================================ */
+    window.openDiscountModal = async function (userId) {
+        const user = (typeof usersData !== 'undefined' && Array.isArray(usersData))
+            ? usersData.find(u => u.id === userId)
+            : null;
+        if (!user) {
+            window.showToast('المستخدم غير موجود', 'error');
+            return;
+        }
+
+        // اجلب الخصومات الحالية من API
+        let discountsData = { general_discount: 0, product_discounts: [] };
+        try {
+            discountsData = await window.fetchUserDiscounts(userId);
+        } catch (err) {
+            console.warn('fetchUserDiscounts failed:', err);
+        }
+
+        const generalPercent = parseFloat(discountsData.general_discount) || 0;
+        const productDiscounts = discountsData.product_discounts || [];
+
+        // قائمة المنتجات للاختيار
+        const productsList = (typeof productsData !== 'undefined' && Array.isArray(productsData))
+            ? productsData
+            : [];
+
+        const productsOptions = productsList.map(p =>
+            `<option value="${p.id}">${p.name}</option>`
+        ).join('');
+
+        const currentDiscountsHTML = productDiscounts.length
+            ? productDiscounts.map(d => `
+                <div class="discount-row">
+                    <div class="discount-row-info">
+                        ${d.product_image ? `<img src="${d.product_image}" class="discount-row-img" alt="">` : '<span class="material-icons">inventory_2</span>'}
+                        <div>
+                            <div class="discount-row-name">${d.product_name}</div>
+                            <div class="discount-row-percent">${d.discount_percent}%</div>
+                        </div>
+                    </div>
+                    <button class="icon-action danger" onclick="deleteDiscountHandler(${userId}, ${d.id})" title="حذف">
+                        <span class="material-icons">delete</span>
+                    </button>
+                </div>
+            `).join('')
+            : '<div class="empty" style="padding:20px;font-size:13px;">لا توجد خصومات على منتجات محددة</div>';
+
+        const bodyHTML = `
+            <div style="text-align:right;">
+                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${user.username || user.first_name || 'مستخدم'} • #${user.telegram_id}</div>
+
+                <!-- خصم عام -->
+                <div class="discount-section">
+                    <div class="discount-section-title">
+                        <span class="material-icons">public</span>
+                        خصم عام (على كل المنتجات)
+                    </div>
+                    <div class="discount-input-row">
+                        <input type="number" id="discGeneral" class="discount-input"
+                               value="${generalPercent}" min="0" max="100" step="0.5"
+                               placeholder="0">
+                        <span class="discount-unit">%</span>
+                        <button class="btn btn-primary btn-sm" onclick="saveGeneralDiscountHandler(${userId})">
+                            <span class="material-icons">save</span> حفظ
+                        </button>
+                    </div>
+                    <small style="color:var(--text-3);font-size:11px;display:block;margin-top:6px;">
+                        💡 يُطبَّق تلقائياً على كل مشتريات المستخدم (يتجاوزه أي خصم مخصص لمنتج معين)
+                    </small>
+                </div>
+
+                <!-- خصم على منتج معين -->
+                <div class="discount-section">
+                    <div class="discount-section-title">
+                        <span class="material-icons">inventory_2</span>
+                        خصم على منتج معين
+                    </div>
+                    <div class="discount-input-row">
+                        <select id="discProductId" class="discount-select">
+                            ${productsOptions || '<option value="">لا توجد منتجات</option>'}
+                        </select>
+                    </div>
+                    <div class="discount-input-row" style="margin-top:8px;">
+                        <input type="number" id="discProductPercent" class="discount-input"
+                               value="0" min="0.01" max="100" step="0.5" placeholder="0">
+                        <span class="discount-unit">%</span>
+                        <button class="btn btn-primary btn-sm" onclick="saveProductDiscountHandler(${userId})">
+                            <span class="material-icons">add</span> إضافة
+                        </button>
+                    </div>
+                    <small style="color:var(--text-3);font-size:11px;display:block;margin-top:6px;">
+                        💡 يتجاوز الخصم العام عند شراء هذا المنتج تحديداً
+                    </small>
+                </div>
+
+                <!-- الخصومات الحالية -->
+                <div class="discount-section">
+                    <div class="discount-section-title">
+                        <span class="material-icons">list</span>
+                        خصومات المنتجات الحالية (${productDiscounts.length})
+                    </div>
+                    <div id="currentDiscountsList">
+                        ${currentDiscountsHTML}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        window.openBottomSheet('💰 خصومات المستخدم', bodyHTML);
+    };
+
+    window.saveGeneralDiscountHandler = async function (userId) {
+        const input = document.getElementById('discGeneral');
+        if (!input) return;
+        const percent = parseFloat(input.value) || 0;
+
+        if (percent < 0 || percent > 100) {
+            window.showToast('النسبة بين 0 و 100', 'warning');
+            return;
+        }
+
+        try {
+            await window.setGeneralDiscount(userId, percent);
+            window.showToast(
+                percent > 0 ? `✅ تم تعيين خصم عام ${percent}%` : '✅ تم إلغاء الخصم العام',
+                'success'
+            );
+            await window.loadAllData();
+            window.renderUsers();
+            window.openDiscountModal(userId);
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    window.saveProductDiscountHandler = async function (userId) {
+        const select = document.getElementById('discProductId');
+        const input = document.getElementById('discProductPercent');
+        if (!select || !input) return;
+
+        const productId = parseInt(select.value);
+        const percent = parseFloat(input.value) || 0;
+
+        if (!productId) {
+            window.showToast('اختر منتجاً', 'warning');
+            return;
+        }
+        if (percent <= 0 || percent > 100) {
+            window.showToast('النسبة بين 0.01 و 100', 'warning');
+            return;
+        }
+
+        try {
+            await window.setProductDiscount(userId, productId, percent);
+            window.showToast(`✅ تم إضافة خصم ${percent}% على المنتج`, 'success');
+            await window.loadAllData();
+            window.renderUsers();
+            window.openDiscountModal(userId);
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    window.deleteDiscountHandler = async function (userId, discountId) {
+        const ok = await window.showConfirm({
+            title: 'حذف الخصم',
+            message: 'هل أنت متأكد من حذف هذا الخصم؟',
+            confirmText: 'حذف',
+            type: 'danger'
+        });
+        if (!ok) return;
+
+        try {
+            await window.deleteProductDiscount(userId, discountId);
+            window.showToast('✅ تم حذف الخصم', 'success');
+            await window.loadAllData();
+            window.renderUsers();
+            window.openDiscountModal(userId);
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    /* ============================================================
+       VIP Modal — v2 (شارات جديدة)
+       ============================================================ */
+    window.openVIPModal = function (userId) {
+        const user = (typeof usersData !== 'undefined' && Array.isArray(usersData))
+            ? usersData.find(u => u.id === userId)
+            : null;
+        if (!user) return;
+
+        const currentLevel = user.vip_level || 0;
+
+        let optionsHTML = `
+            <label class="vip-option ${currentLevel === 0 ? 'selected' : ''}" onclick="selectVIPOption(this, 0)">
+                <input type="radio" name="vipLevel" value="0" ${currentLevel === 0 ? 'checked' : ''} style="display:none;">
+                <span class="material-icons" style="color:var(--text-3);font-size:20px;">block</span>
+                <div style="flex:1;">
+                    <div style="font-weight:700;font-size:14px;">بدون VIP</div>
+                </div>
+            </label>
+        `;
+
+        for (let lvl = 1; lvl <= 7; lvl++) {
+            const c = VIP_LEVELS[lvl];
+            const isSel = lvl === currentLevel;
+            optionsHTML += `
+                <label class="vip-option ${isSel ? 'selected' : ''}" onclick="selectVIPOption(this, ${lvl})">
+                    <input type="radio" name="vipLevel" value="${lvl}" ${isSel ? 'checked' : ''} style="display:none;">
+                    ${window.getAdminVIPBadgeHTML(lvl)}
+                </label>
+            `;
+        }
+
+        window.openBottomSheet('⭐ اختيار مستوى VIP', `
+            <div style="text-align:right;">
+                <div class="card-id" style="margin-bottom:12px;display:inline-block;">${user.username || user.first_name || 'مستخدم'} • #${user.telegram_id}</div>
+                <p style="color:var(--text-3);font-size:12px;margin-bottom:14px;">
+                    ⚠️ VIP مظهر فقط (شارة على الاسم) — لا يُغيّر الأسعار أو الخصومات.
+                </p>
+                <div class="vip-options-list">
+                    ${optionsHTML}
+                </div>
+                <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="saveVIPSelection(${userId})">
+                    <span class="material-icons">save</span> حفظ
+                </button>
+            </div>
+        `);
+    };
+
+    window.selectVIPOption = function (el, level) {
+        document.querySelectorAll('.vip-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        const radio = el.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+    };
+
+    window.saveVIPSelection = async function (userId) {
+        const selected = document.querySelector('input[name="vipLevel"]:checked');
+        if (!selected) {
+            window.showToast('اختر مستوى', 'warning');
+            return;
+        }
+        const level = parseInt(selected.value);
+        try {
+            await window.setUserVIP(userId, level);
+            window.closeBottomSheet();
+            window.showToast(level === 0 ? 'تم إلغاء VIP' : `تم تعيين ${VIP_LEVELS[level].name}`, 'success');
+            await window.loadAllData();
+            window.renderUsers();
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    /* ============================================================
+       🆕 v17: ORDER DETAILS — Dark Card + Skip Steps + Copy
        ============================================================ */
     window.viewOrderDetails = async function (orderId) {
         try {
             const order = await window.fetchAdminOrderFull(orderId);
             const delivery = order.delivery_data || {};
+            const inputType = order.product && order.product.input_type;
 
+            // الحقول القابلة للنسخ
             let deliveryRows = '';
-            if (delivery.player_id) deliveryRows += `<div class="card-row"><span class="material-icons">person_pin</span>ID اللاعب: <strong class="ltr">${delivery.player_id}</strong></div>`;
-            if (delivery.account_id) deliveryRows += `<div class="card-row"><span class="material-icons">badge</span>ID الحساب: <strong class="ltr">${delivery.account_id}</strong></div>`;
-            if (delivery.phone) deliveryRows += `<div class="card-row"><span class="material-icons">phone</span>الهاتف: <strong class="ltr">${delivery.phone}</strong></div>`;
-            if (delivery.bundle_name) deliveryRows += `<div class="card-row"><span class="material-icons">redeem</span>الباقة: <strong>${delivery.bundle_name}</strong></div>`;
-            if (delivery.syp_amount) deliveryRows += `<div class="card-row"><span class="material-icons">payments</span>المبلغ: <strong>${delivery.syp_amount.toLocaleString('ar')} ل.س</strong></div>`;
+            if (delivery.player_id) {
+                deliveryRows += renderCopyableRow('🎮', 'ID اللاعب', delivery.player_id);
+            }
+            if (delivery.account_id) {
+                deliveryRows += renderCopyableRow('🎮', 'ID الحساب', delivery.account_id);
+            }
+            if (delivery.phone) {
+                deliveryRows += renderCopyableRow('📞', 'رقم الهاتف', delivery.phone);
+            }
+            if (delivery.url) {
+                deliveryRows += renderCopyableRow('🔗', 'الرابط', delivery.url);
+            }
+            if (delivery.bundle_name) {
+                deliveryRows += `<div class="delivery-row-info"><span class="dl">📦 الباقة</span><strong>${delivery.bundle_name}</strong></div>`;
+            }
+            if (delivery.syp_amount) {
+                deliveryRows += `<div class="delivery-row-info"><span class="dl">💵 المبلغ</span><strong>${delivery.syp_amount.toLocaleString('ar')} ل.س</strong></div>`;
+            }
+            if (delivery.syp_rate) {
+                deliveryRows += `<div class="delivery-row-info"><span class="dl">📊 سعر الصرف</span><strong>${delivery.syp_rate} ل.س/$</strong></div>`;
+            }
 
             const isFinal = ['completed', 'cancelled', 'failed'].includes(order.status);
 
+            // أزرار الإجراءات — v17: إكمال مباشر من أي حالة
             const actionsHtml = !isFinal ? `
-                <div style="display:grid;gap:8px;margin-top:16px;">
-                    ${order.status === 'pending' ? `
-                        <button class="btn btn-primary btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'review')">
-                            <span class="material-icons">visibility</span> مراجعة
-                        </button>
-                    ` : ''}
-                    ${order.status === 'review' ? `
-                        <button class="btn btn-primary btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'processing')">
-                            <span class="material-icons">play_arrow</span> بدء التنفيذ
-                        </button>
-                    ` : ''}
-                    ${order.status === 'processing' ? `
-                        <button class="btn btn-success btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'completed')">
-                            <span class="material-icons">check</span> إكمال
-                        </button>
-                    ` : ''}
+                <div class="order-detail-actions-v17">
+                    <button class="btn btn-success btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'completed')">
+                        <span class="material-icons">check_circle</span> إكمال مباشر
+                    </button>
                     <button class="btn btn-danger btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'failed')">
                         <span class="material-icons">close</span> فشل
                     </button>
+                    <button class="btn btn-outline btn-block" onclick="closeBottomSheet(); quickApproveOrder(${orderId}, 'cancelled')">
+                        <span class="material-icons">block</span> إلغاء
+                    </button>
                 </div>
             ` : `
-                <div style="text-align:center;padding:16px;background:var(--surface-2);border-radius:12px;font-size:13px;color:var(--text-2);margin-top:16px;">
-                    حالة الطلب نهائية — موجود في الأرشيف
+                <div class="order-final-banner">
+                    ✋ حالة الطلب نهائية — موجود في الأرشيف
                 </div>
             `;
 
-            window.openBottomSheet('تفاصيل الطلب', `
-                <div style="text-align:right;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-                        <div class="card-id">${order.order_number}</div>
+            window.openBottomSheet('📋 تفاصيل الطلب', `
+                <div class="order-detail-v17">
+                    <!-- Header -->
+                    <div class="order-dark-header">
+                        <div class="order-dark-number" onclick="copyToClipboard('${order.order_number}')">
+                            ${order.order_number}
+                            <span class="material-icons" style="font-size:14px;vertical-align:middle;margin-inline-start:6px;opacity:.6;">content_copy</span>
+                        </div>
                         <span class="badge-status ${order.status}">${order.status_arabic}</span>
                     </div>
-                    <div class="card-body">
-                        <div class="card-row"><span class="material-icons">person</span>${(order.user && (order.user.first_name || order.user.username)) || 'مستخدم'} <span class="card-user-id">#${order.user ? order.user.telegram_id : ''}</span></div>
-                        <div class="card-row"><span class="material-icons">inventory_2</span>${order.product ? order.product.name : '-'}</div>
-                        <div class="card-row"><span class="material-icons">shopping_cart</span>الكمية: <strong>${order.quantity} ${(order.product && order.product.unit_name) || 'قطعة'}</strong></div>
-                        ${deliveryRows}
-                        <div class="card-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:6px;">
-                            <span class="material-icons">payments</span>الإجمالي: <strong class="ltr" style="font-size:18px;color:var(--primary);">${order.total_price.toFixed(2)}$</strong>
+
+                    <!-- User -->
+                    <div class="order-dark-section">
+                        <div class="section-mini-title">
+                            <span class="material-icons">person</span>
+                            العميل
+                        </div>
+                        <div class="order-user-line">
+                            <strong>${(order.user && (order.user.first_name || order.user.username)) || 'مستخدم'}</strong>
+                            <span class="copy-id-inline" onclick="copyToClipboard('${order.user ? order.user.telegram_id : ''}')">
+                                #${order.user ? order.user.telegram_id : ''}
+                                <span class="material-icons" style="font-size:12px;">content_copy</span>
+                            </span>
+                        </div>
+                        <div class="order-balance-line">
+                            💰 رصيد العميل: <strong style="color:${order.user && order.user.balance < 0 ? '#F87171' : '#4ADE80'};">
+                                ${(order.user && order.user.balance !== null && order.user.balance !== undefined) ? order.user.balance.toFixed(2) : '0.00'}$
+                            </strong>
                         </div>
                     </div>
+
+                    <!-- Product -->
+                    <div class="order-dark-section">
+                        <div class="section-mini-title">
+                            <span class="material-icons">inventory_2</span>
+                            المنتج
+                        </div>
+                        ${order.product && order.product.image ? `<img src="${order.product.image}" class="product-thumb-dark" alt="">` : ''}
+                        <div class="order-product-line"><strong>${order.product ? order.product.name : '-'}</strong></div>
+                        <div class="order-qty-line">
+                            الكمية: <strong>${order.quantity.toLocaleString('ar')} ${(order.product && order.product.unit_name) || 'قطعة'}</strong>
+                        </div>
+                    </div>
+
+                    <!-- Delivery (Dark & Copyable) -->
+                    ${deliveryRows ? `
+                    <div class="order-dark-section highlight-dark">
+                        <div class="section-mini-title">
+                            <span class="material-icons">vpn_key</span>
+                            بيانات التسليم
+                        </div>
+                        ${deliveryRows}
+                    </div>
+                    ` : ''}
+
+                    <!-- Totals -->
+                    <div class="order-dark-section">
+                        <div class="section-mini-title">
+                            <span class="material-icons">receipt</span>
+                            الفاتورة
+                        </div>
+                        ${order.discount_amount > 0 ? `
+                            <div class="order-total-line">
+                                <span>الخصم:</span>
+                                <strong style="color:#FBBF24;">-${order.discount_amount.toFixed(2)}$</strong>
+                            </div>
+                        ` : ''}
+                        ${order.coupon_code ? `
+                            <div class="order-total-line">
+                                <span>الكوبون:</span>
+                                <strong>${order.coupon_code}</strong>
+                            </div>
+                        ` : ''}
+                        <div class="order-total-line main">
+                            <span>الإجمالي:</span>
+                            <strong class="order-total-amount">${order.total_price.toFixed(2)}$</strong>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
                     ${actionsHtml}
                 </div>
             `);
@@ -677,14 +1078,28 @@
         }
     };
 
+    function renderCopyableRow(emoji, label, value) {
+        return `
+            <div class="delivery-field">
+                <div class="delivery-field-label">${emoji} ${label}</div>
+                <div class="delivery-field-value-wrap">
+                    <div class="delivery-field-value" title="${value}">${value}</div>
+                    <button class="delivery-copy-btn" onclick="copyToClipboard('${String(value).replace(/'/g, "\\'")}')" title="نسخ">
+                        <span class="material-icons">content_copy</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     /* ============================================================
-       8. Quick Approve Order
+       Quick Approve Order — v17 (skip steps)
        ============================================================ */
     window.quickApproveOrder = async function (orderId, newStatus) {
         const labels = {
             review: 'مراجعة',
             processing: 'بدء تنفيذ',
-            completed: 'إكمال',
+            completed: 'إكمال مباشر',
             failed: 'فشل',
             cancelled: 'إلغاء'
         };
@@ -726,7 +1141,7 @@
     };
 
     /* ============================================================
-       9. Swipe
+       4. Swipe
        ============================================================ */
     function attachSwipeHandlers() {
         const cards = document.querySelectorAll('.card-item[data-swipeable="true"]');
@@ -786,7 +1201,7 @@
                     const orderId = card.dataset.orderId;
                     if (orderId) {
                         if (deltaX > 60) {
-                            window.quickApproveOrder(parseInt(orderId), 'review');
+                            window.quickApproveOrder(parseInt(orderId), 'completed');
                         } else {
                             window.viewOrderDetails(parseInt(orderId));
                         }
@@ -809,7 +1224,7 @@
     }
 
     /* ============================================================
-       10. Archive System
+       5. Archive System
        ============================================================ */
     let archiveTab = 'orders';
     let archiveData = { orders: [], deposits: [], kyc: [], services: [] };
@@ -839,7 +1254,7 @@
                 window.fetchArchivedDeposits().catch(() => []),
                 window.fetchArchivedKYC().catch(() => []),
                 window.fetchArchivedServices().catch(() => []),
-window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, services: 0 }))
+                window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, services: 0 }))
             ]);
 
             archiveData = { orders, deposits, kyc, services };
@@ -852,7 +1267,7 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
 
             upd('archiveTabOrdersCount', archiveCounts.orders);
             upd('archiveTabDepositsCount', archiveCounts.deposits);
-            upd('archiveTabKycCount', archiveCounts.kyc);
+upd('archiveTabKycCount', archiveCounts.kyc);
             upd('archiveTabServicesCount', archiveCounts.services);
 
             renderArchiveList();
@@ -1027,7 +1442,7 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     }
 
     /* ============================================================
-       11. Restore Actions
+       6. Restore Actions
        ============================================================ */
     window.restoreArchivedOrder = async function (id) {
         const ok = await window.showConfirm({
@@ -1102,7 +1517,7 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     };
 
     /* ============================================================
-       12. Archive Badge
+       7. Archive Badge
        ============================================================ */
     window.updateArchiveBadges = async function () {
         try {
@@ -1117,13 +1532,11 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
                     el.style.display = 'none';
                 }
             }
-        } catch (err) {
-            // ignore
-        }
+        } catch (err) { /* ignore */ }
     };
 
     /* ============================================================
-       13. Quick Actions FAB
+       8. Quick Actions FAB
        ============================================================ */
     window.openQuickActions = function () {
         window.openBottomSheet('إجراء سريع', `
@@ -1151,7 +1564,7 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     };
 
     /* ============================================================
-       14. Wrap loadAllData
+       9. Wrap loadAllData
        ============================================================ */
     const origLoadAllData = window.loadAllData;
     if (typeof origLoadAllData === 'function') {
@@ -1171,6 +1584,9 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
                 if (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) {
                     window.renderOrders(window.filteredOrders || ordersData);
                 }
+                if (typeof usersData !== 'undefined' && Array.isArray(usersData)) {
+                    window.renderUsers();
+                }
             } catch (e) {
                 console.warn('Re-render after load failed:', e);
             }
@@ -1181,7 +1597,7 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     }
 
     /* ============================================================
-       15. Wrap switchSection
+       10. Wrap switchSection
        ============================================================ */
     const origSwitchSection = window.switchSection;
     if (typeof origSwitchSection === 'function') {
@@ -1206,6 +1622,9 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
                 if (section === 'service-requests' && typeof window.renderServiceRequests === 'function') {
                     window.renderServiceRequests();
                 }
+                if (section === 'users' && typeof window.renderUsers === 'function') {
+                    window.renderUsers();
+                }
                 if (section === 'archive' && typeof window.loadArchiveData === 'function') {
                     window.loadArchiveData();
                 }
@@ -1220,10 +1639,8 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     }
 
     /* ============================================================
-       16. PATCH: Override Legacy Modals → Bottom Sheet
+       11. Legacy Modal Overrides
        ============================================================ */
-
-    /* ----- Override openModal / closeModal ----- */
     window.openModal = function(title, bodyHTML) {
         window.openBottomSheet(title || 'تفاصيل', bodyHTML || '');
     };
@@ -1232,7 +1649,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         window.closeBottomSheet();
     };
 
-    /* ----- Override viewKYCImage — Bottom Sheet مع Lightbox ----- */
     window.viewKYCImage = function(kycId) {
         const kyc = (typeof kycData !== 'undefined' && Array.isArray(kycData))
             ? kycData.find(k => k.id === kycId)
@@ -1289,7 +1705,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         window.openBottomSheet('تفاصيل طلب التوثيق', bodyHtml);
     };
 
-    /* ----- Override viewServiceRequest — Bottom Sheet ----- */
     window.viewServiceRequest = function(reqId) {
         const data = (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData))
             ? serviceRequestsData
@@ -1319,13 +1734,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
                     <div class="card-row"><span class="material-icons">schedule</span><span>${r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''}</span></div>
                 </div>
 
-                ${r.admin_response ? `
-                    <div style="background:var(--primary-soft);padding:14px;border-radius:12px;margin-bottom:16px;">
-                        <div style="font-weight:700;margin-bottom:6px;color:var(--primary);font-size:13px;">رد الإدارة:</div>
-                        <div style="color:var(--text);font-size:14px;">${r.admin_response}</div>
-                    </div>
-                ` : ''}
-
                 ${r.status === 'pending' ? `
                     <div style="display:grid;gap:8px;margin-top:16px;">
                         <button class="btn btn-success btn-block" onclick="closeBottomSheet(); updateServiceStatus(${r.id}, 'completed')">
@@ -1342,7 +1750,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         window.openBottomSheet('تفاصيل طلب الخدمة', bodyHtml);
     };
 
-    /* ----- Helper: تحديث حالة طلب خدمة ----- */
     window.updateServiceStatus = async function(reqId, status) {
         try {
             await window.updateServiceRequest(reqId, { status });
@@ -1354,7 +1761,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         }
     };
 
-    /* ----- Override handleApproveKYC — Bottom Sheet مؤكد ----- */
     window.handleApproveKYC = async function(kycId) {
         const confirmed = await window.showConfirm({
             title: 'قبول التوثيق',
@@ -1375,7 +1781,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         }
     };
 
-    /* ----- Override handleRejectKYC — Bottom Sheet مؤكد ----- */
     window.handleRejectKYC = async function(kycId) {
         const confirmed = await window.showConfirm({
             title: 'رفض التوثيق',
@@ -1396,7 +1801,6 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
         }
     };
 
-    /* ----- Override closeConfirm للـ confirmModal القديم (احتياطي) ----- */
     window.closeConfirm = function(result) {
         const modal = document.getElementById('confirmModal');
         if (modal) modal.style.display = 'none';
@@ -1407,9 +1811,9 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
     };
 
     /* ============================================================
-       17. Init
+       12. Init
        ============================================================ */
-    function initV16() {
+    function initV17() {
         updateGreeting();
         window.updateArchiveBadges();
         attachSwipeHandlers();
@@ -1425,16 +1829,19 @@ window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, servi
                 if (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData)) {
                     window.renderServiceRequests();
                 }
+                if (typeof usersData !== 'undefined' && Array.isArray(usersData)) {
+                    window.renderUsers();
+                }
             } catch (e) {}
         }, 500);
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initV16);
+        document.addEventListener('DOMContentLoaded', initV17);
     } else {
-        setTimeout(initV16, 100);
+        setTimeout(initV17, 100);
     }
 
-    console.log('✅ admin-v16.js loaded — Full Overrides + Legacy Modal Patch Active');
+    console.log('✅ admin-v16.js loaded — v17 with Discounts + VIP v2 + Skip Steps + Dark Order Card');
 
 })();
