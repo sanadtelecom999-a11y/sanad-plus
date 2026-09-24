@@ -1,15 +1,17 @@
 # ============================================================
-# 🔥 Cache Service — Redis (v18.2 — Catalog only)
+# 🔥 Cache Service — Redis (v18.3.2 — Catalog only)
 # ============================================================
 """
 نظام Cache بسيط مبني على Redis (Upstash).
 
 ⚠️ v18.2 — سياسة الكاش:
    ✅ يُخزّن: الكتالوج (categories, products, settings, payment_methods)
-   ❌ لا يُخزّن: الطلبات، الإيداعات، KYC، المستخدمين، الرصيد
+   ❌ لا يُخزّن أبداً: الطلبات، الإيداعات، KYC، المستخدمين، الرصيد
 
-   الدوال المالية القديمة (key_admin_list, invalidate_admin, ...)
-   مُبقاة كـ no-op stubs للتوافق مع admin.py بدون تعديله.
+🆕 v18.3.2:
+   - json.dumps(default=str) — يدعم Decimal/datetime/UUID
+   - السبب: بعد NUMERIC migration، قيم DB تصبح Decimal
+     json.dumps القياسي يرفض Decimal → cache يفشل
 """
 import os
 import json
@@ -72,7 +74,7 @@ def _mark_redis_up():
 
 
 # ============================================================
-# ⏱️ TTLs — كتالوج فقط (v18.2)
+# ⏱️ TTLs — كتالوج فقط
 # ============================================================
 TTL_CATEGORIES = 300
 TTL_PRODUCTS = 120
@@ -82,12 +84,11 @@ TTL_SINGLE_PRODUCT = 180
 TTL_DEFAULT = 60
 
 # ⚠️ deprecated — تبقى للتوافق مع admin.py
-# القيمة 0 تعني: لا تخزين
 TTL_ADMIN_LISTS = 0
 
 
 # ============================================================
-# 🔑 Keys — كتالوج
+# 🔑 Keys
 # ============================================================
 def key_categories():
     return "cache:categories:all"
@@ -112,16 +113,8 @@ def key_settings_public():
 
 
 # ============================================================
-# ⚠️ v18.2: No-op Stubs — للتوافق مع admin.py
+# ⚠️ No-op Stubs — للتوافق مع admin.py
 # ============================================================
-# admin.py يستدعي هذه الدوال في 57 موضع.
-# نحتفظ بها هنا لتجنب تعديل admin.py ضخم.
-# النتيجة الفعلية: لا كاش على البيانات المالية.
-#
-# - key_admin_list()  → يُرجع مفتاحاً لكن cache_set يرفضه
-# - invalidate_admin() → no-op
-# - invalidate_admin_all() → no-op
-
 _stub_warned = set()
 
 
@@ -158,7 +151,7 @@ def cache_get(key):
     if not _redis_client:
         return None
     if key and key.startswith("deprecated:"):
-        return None  # v18.2: لا قراءة للـ admin keys
+        return None
     try:
         raw = _redis_client.get(key)
         if _redis_down:
@@ -175,16 +168,24 @@ def cache_get(key):
 
 
 def cache_set(key, value, ttl=TTL_DEFAULT):
-    """احفظ في Cache — يرفض ttl <= 0 (v18.2)"""
+    """
+    احفظ في Cache.
+
+    🆕 v18.3.2: default=str — يحوّل Decimal/datetime/UUID إلى string
+    """
     global _redis_down
     if not _redis_client:
         return False
     if ttl is None or ttl <= 0:
-        return False  # v18.2: لا تخزين بقيمة صفرية
+        return False
     if key and key.startswith("deprecated:"):
-        return False  # v18.2: لا تخزين للـ admin keys
+        return False
     try:
-        _redis_client.setex(key, ttl, json.dumps(value, ensure_ascii=False))
+        _redis_client.setex(
+            key,
+            ttl,
+            json.dumps(value, ensure_ascii=False, default=str)
+        )
         if _redis_down:
             _mark_redis_up()
         return True
@@ -251,8 +252,6 @@ def setup_cache_invalidation(app):
     """
     عند POST/PUT/DELETE ناجح على /admin/api/:
     → يمسح الكاش المناسب للكتالوج فقط.
-
-    v18.2: لا invalidate للبيانات المالية (لا يوجد كاش لها).
     """
     from flask import request
 
@@ -280,9 +279,6 @@ def setup_cache_invalidation(app):
             if "/admin/api/settings" in path:
                 invalidate_settings()
                 logger.info(f"🔥 Invalidated: settings ({path})")
-
-            # v18.2: لا invalidate للطلبات/الإيداعات/KYC
-            # لأن admin.py يستدعي invalidate_admin() وهي no-op الآن
 
         except Exception as e:
             logger.warning(f"Auto-invalidation failed for {path}: {e}")

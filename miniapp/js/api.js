@@ -1,11 +1,10 @@
 // ============================================================
-// miniapp/js/api.js — v18.3.0
+// miniapp/js/api.js — v18.3.2
 // ============================================================
-// 🆕 v18.3.0:
+// 🆕 v18.3.2:
+//   - تصحيح مسار payment-methods (dash، ليس underscore)
 //   - retry فقط لـ [0, 503] (ليس 500)
-//   - لا يُعرض "محاولة 1/2" للمستخدم — console فقط
-//   - timeout أقصر (30s بدل 60s)
-//   - رسائل خطأ عربية واضحة
+//   - timeout أقصر (30s)
 // ============================================================
 
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
@@ -15,7 +14,7 @@ const API_CONFIG = {
     baseDelay: 1500,
     maxDelay: 4000,
     timeout: 30000,
-    retryOnStatus: [0, 503],   // فقط اتصال/خدمة معطلة — NOT 500
+    retryOnStatus: [0, 503],   // اتصال/خدمة معطلة فقط — NOT 500
 };
 
 let _authToken = null;
@@ -28,7 +27,7 @@ function setAuthToken(t) { _authToken = t; }
 function clearAuthToken() { _authToken = null; }
 
 // ════════════════════════════════════════════════════════════
-// apiFetch — v18.3.0
+// apiFetch
 // ════════════════════════════════════════════════════════════
 async function apiFetch(url, options = {}, _isRetry = false) {
     const controller = new AbortController();
@@ -52,7 +51,6 @@ async function apiFetch(url, options = {}, _isRetry = false) {
         });
     } catch (err) {
         clearTimeout(timeoutId);
-        // network error
         if (!_isRetry && !options.__noRetry) {
             await _sleep(API_CONFIG.baseDelay);
             return apiFetch(url, options, true);
@@ -96,13 +94,11 @@ async function apiFetch(url, options = {}, _isRetry = false) {
             data = {};
         }
     } else {
-        // HTML error page (405, 500, ...)
         const text = await response.text();
         console.error(`[apiFetch] non-JSON response (${response.status}) from ${url}:`, text.substring(0, 300));
         data = { error: `خطأ في السيرفر (${response.status})` };
     }
 
-    // Error status → throw مع البيانات
     if (!response.ok) {
         const err = new Error(data.error || `خطأ ${response.status}`);
         err.status = response.status;
@@ -149,6 +145,7 @@ async function fetchProducts() {
     return apiFetch(`${API_BASE_URL}/api/products/`);
 }
 
+// 🆕 v18.3.2: مسار صحيح بـ dash
 async function fetchPaymentMethods() {
     return apiFetch(`${API_BASE_URL}/api/payment-methods/`);
 }
@@ -168,7 +165,7 @@ async function createOrder(orderData) {
     return apiFetch(`${API_BASE_URL}/api/orders/create`, {
         method: 'POST',
         body: JSON.stringify(orderData),
-        __noRetry: true,   // لا نكرر الطلبات — idempotency يحمي من التكرار
+        __noRetry: true,
     });
 }
 
