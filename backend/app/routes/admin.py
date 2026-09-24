@@ -1,5 +1,5 @@
 # ============================================================
-# 🎛️ Admin Routes — v17.1 (Security Hardened)
+# 🎛️ Admin Routes — v17.2 (Security Hardened)
 # ============================================================
 import os
 import json
@@ -44,7 +44,6 @@ if not ADMIN_PASSWORD_HASH:
 OTP_TTL_SECONDS = 300
 OTP_MAX_ATTEMPTS = 3
 
-# 🆕 v17.1: OTP IP strict check (optional via env)
 OTP_STRICT_IP = os.getenv("ADMIN_OTP_STRICT_IP", "false").lower() == "true"
 
 
@@ -71,12 +70,10 @@ def cleanup_expired_otp_sessions():
         print(f"cleanup expired sessions: {e}")
 
 
-# 🆕 v17.1: دعم IPv4 + IPv6 في القارنة
-def _normalize_ip(ip: str) -> str:
+def _normalize_ip(ip):
     if not ip:
         return ""
     ip = str(ip).strip()
-    # إزالة prefix IPv6 المحلي
     if ip.startswith("::ffff:"):
         ip = ip[7:]
     return ip
@@ -87,7 +84,7 @@ LOGIN_RATE_WINDOW = 300
 LOGIN_RATE_MAX = 5
 
 
-def check_login_rate_limit(ip: str) -> bool:
+def check_login_rate_limit(ip):
     now = time.time()
     _login_attempts[ip] = [
         t for t in _login_attempts[ip]
@@ -137,17 +134,26 @@ def log_admin_activity(action):
 
 def get_arabic_status(status):
     status_map = {
-        "pending": "قيد المعالجة", "review": "قيد المراجعة", "processing": "قيد التنفيذ",
-        "completed": "مكتمل", "failed": "فشل", "cancelled": "ملغي",
-        "approved": "مقبول", "rejected": "مرفوض"
+        "pending": "قيد المعالجة",
+        "review": "قيد المراجعة",
+        "processing": "قيد التنفيذ",
+        "completed": "مكتمل",
+        "failed": "فشل",
+        "cancelled": "ملغي",
+        "approved": "مقبول",
+        "rejected": "مرفوض"
     }
     return status_map.get(status, status)
 
 
 def serialize_bundle(b):
     return {
-        "id": b.id, "product_id": b.product_id, "name": b.name,
-        "quantity": b.quantity, "price_usd": b.price_usd, "is_active": b.is_active,
+        "id": b.id,
+        "product_id": b.product_id,
+        "name": b.name,
+        "quantity": b.quantity,
+        "price_usd": b.price_usd,
+        "is_active": b.is_active,
     }
 
 
@@ -166,28 +172,21 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 
 
 # ============================================================
-# 🆕 v17.1: Rate-limited Admin Notifications
+# Rate-limited Admin Notifications
 # ============================================================
 _notification_tracker = deque(maxlen=200)
-NOTIFICATION_DEDUP_WINDOW = 30  # seconds
+NOTIFICATION_DEDUP_WINDOW = 30
 
 
 def safe_notify_admins(message, important=False):
-    """
-    إرسال إشعار للأدمن مع:
-    - Deduplication: نفس الرسالة خلال 30 ثانية → تجاهل
-    - Rate limit عام: لا يزيد عن X إشعار في الدقيقة
-    """
     try:
         now = time.time()
         key = message[:80]
 
-        # Dedup: آخر 30 ثانية
         for (ts, existing_key) in _notification_tracker:
             if existing_key == key and (now - ts) < NOTIFICATION_DEDUP_WINDOW:
                 return
 
-        # Rate limit: 30 إشعار في الدقيقة (لا يفرق بين الأدمن)
         recent = [ts for (ts, _) in _notification_tracker if (now - ts) < 60]
         if not important and len(recent) >= 30:
             print(f"⚠️ Notification rate limit hit, skipping: {message[:50]}")
@@ -293,14 +292,12 @@ def admin_verify_otp():
         db.session.commit()
         return jsonify({"error": "تجاوزت عدد المحاولات"}), 400
 
-    # 🆕 v17.1: OTP IP strict check (optional)
     if OTP_STRICT_IP:
         current_ip = get_real_ip()
         session_ip = _normalize_ip(session.ip_address)
         current_ip_norm = _normalize_ip(current_ip)
 
         if session_ip and current_ip_norm and session_ip != current_ip_norm:
-            # احذف الجلسة فوراً
             db.session.delete(session)
             db.session.commit()
             print(f"🚨 OTP IP mismatch: session={session_ip}, current={current_ip_norm}")
@@ -329,13 +326,12 @@ def admin_verify_otp():
 
 
 # ============================================================
-# 🆕 v17.1: Logout All Admin Sessions
+# Logout All Admin Sessions
 # ============================================================
 @main.route("/admin/api/logout-all", methods=["POST"])
 @jwt_required()
 @handle_errors
 def admin_logout_all():
-    """يُبطل كل JWT للأدمن (من جميع الأجهزة)."""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -366,11 +362,17 @@ def admin_get_users():
         return jsonify({"error": "غير مصرح"}), 403
     users = User.query.all()
     return jsonify([{
-        "id": u.id, "telegram_id": u.telegram_id, "username": u.username,
-        "first_name": u.first_name, "last_name": u.last_name,
-        "balance": round(u.balance, 2), "kyc_status": u.kyc_status,
-        "is_verified": u.is_verified, "role": u.role,
-        "is_banned": u.is_banned, "vip_level": u.vip_level,
+        "id": u.id,
+        "telegram_id": u.telegram_id,
+        "username": u.username,
+        "first_name": u.first_name,
+        "last_name": u.last_name,
+        "balance": round(u.balance, 2),
+        "kyc_status": u.kyc_status,
+        "is_verified": u.is_verified,
+        "role": u.role,
+        "is_banned": u.is_banned,
+        "vip_level": u.vip_level,
         "referral_code": u.referral_code,
         "referral_count": u.referral_count or 0,
         "referral_earnings": round(u.referral_earnings or 0, 2),
@@ -459,19 +461,29 @@ def admin_adjust_balance(user_id):
     user.balance = round(user.balance + amount, 2)
 
     txn = Transaction(
-        user_id=user.id, type="adjustment", amount=amount,
-        balance_after=user.balance, reference_type="admin_adjustment", reference_id=user.id,
+        user_id=user.id,
+        type="adjustment",
+        amount=amount,
+        balance_after=user.balance,
+        reference_type="admin_adjustment",
+        reference_id=user.id,
     )
     db.session.add(txn)
 
     log_financial(
-        user=user, action="admin_adjustment", amount=amount,
-        balance_before=balance_before, balance_after=user.balance,
-        ref_type="admin_adjustment", ref_id=user.id, note=note,
+        user=user,
+        action="admin_adjustment",
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=user.balance,
+        ref_type="admin_adjustment",
+        ref_id=user.id,
+        note=note,
     )
 
     notif = Notification(
-        user_id=user.id, title="تعديل الرصيد",
+        user_id=user.id,
+        title="تعديل الرصيد",
         message=f"تم تعديل رصيدك بمقدار {amount:.2f}$" + (f" ({note})" if note else ""),
         type="info",
     )
@@ -560,7 +572,7 @@ def admin_user_detail(user_id):
 
 
 # ============================================================
-# 🆕 v17: DISCOUNTS
+# DISCOUNTS
 # ============================================================
 @main.route("/admin/api/users/<int:user_id>/discounts", methods=["GET"])
 @jwt_required()
@@ -642,7 +654,8 @@ def admin_set_product_discount(user_id):
         return jsonify({"error": "منتج غير موجود"}), 404
 
     existing = UserProductDiscount.query.filter_by(
-        user_id=user_id, product_id=product_id
+        user_id=user_id,
+        product_id=product_id
     ).first()
 
     if existing:
@@ -668,7 +681,8 @@ def admin_delete_product_discount(user_id, discount_id):
         return jsonify({"error": "غير مصرح"}), 403
 
     discount = UserProductDiscount.query.filter_by(
-        id=discount_id, user_id=user_id
+        id=discount_id,
+        user_id=user_id
     ).first()
     if not discount:
         return jsonify({"error": "غير موجود"}), 404
@@ -692,16 +706,22 @@ def admin_categories():
     if request.method == "GET":
         categories = Category.query.filter_by(is_active=True).order_by(Category.display_order).all()
         return jsonify([{
-            "id": c.id, "name": c.name, "description": c.description,
-            "image": c.image, "is_active": c.is_active, "display_order": c.display_order,
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "image": c.image,
+            "is_active": c.is_active,
+            "display_order": c.display_order,
         } for c in categories])
 
     data = request.get_json() or {}
     image_url = _normalize_image(data.get("image", ""), folder="sanad/categories")
 
     cat = Category(
-        name=data.get("name"), description=data.get("description", ""),
-        image=image_url, is_active=data.get("is_active", True),
+        name=data.get("name"),
+        description=data.get("description", ""),
+        image=image_url,
+        is_active=data.get("is_active", True),
         display_order=data.get("display_order", 0),
     )
     db.session.add(cat)
@@ -766,15 +786,26 @@ def admin_products():
         products = Product.query.filter_by(is_active=True).all()
         result = []
         for p in products:
-            bundles = ProductBundle.query.filter_by(product_id=p.id, is_active=True).order_by(ProductBundle.price_usd).all()
+            bundles = ProductBundle.query.filter_by(
+                product_id=p.id,
+                is_active=True
+            ).order_by(ProductBundle.price_usd).all()
             result.append({
-                "id": p.id, "category_id": p.category_id, "name": p.name,
-                "description": p.description, "image": p.image,
-                "product_type": p.product_type, "base_quantity": p.base_quantity,
-                "base_price": p.base_price, "unit_name": p.unit_name or "قطعة",
-                "input_type": p.input_type, "custom_input_label": p.custom_input_label,
-                "stock": p.stock, "max_quantity": p.max_quantity,
-                "is_bundle": p.is_bundle, "is_active": p.is_active,
+                "id": p.id,
+                "category_id": p.category_id,
+                "name": p.name,
+                "description": p.description,
+                "image": p.image,
+                "product_type": p.product_type,
+                "base_quantity": p.base_quantity,
+                "base_price": p.base_price,
+                "unit_name": p.unit_name or "قطعة",
+                "input_type": p.input_type,
+                "custom_input_label": p.custom_input_label,
+                "stock": p.stock,
+                "max_quantity": p.max_quantity,
+                "is_bundle": p.is_bundle,
+                "is_active": p.is_active,
                 "bundles": [serialize_bundle(b) for b in bundles],
             })
         return jsonify(result)
@@ -794,8 +825,10 @@ def admin_products():
         input_type = "id"
 
     product = Product(
-        category_id=data.get("category_id"), name=data.get("name"),
-        description=data.get("description", ""), image=image_url,
+        category_id=data.get("category_id"),
+        name=data.get("name"),
+        description=data.get("description", ""),
+        image=image_url,
         product_type=data.get("product_type", "quantity"),
         base_quantity=data.get("base_quantity", 0),
         base_price=data.get("base_price", 0.0),
@@ -821,7 +854,11 @@ def admin_products():
             if not name or price <= 0:
                 continue
             db.session.add(ProductBundle(
-                product_id=product.id, name=name, quantity=qty, price_usd=price, is_active=True,
+                product_id=product.id,
+                name=name,
+                quantity=qty,
+                price_usd=price,
+                is_active=True,
             ))
 
     log_admin_activity(f"إضافة منتج: {product.name}")
@@ -840,23 +877,35 @@ def admin_product_actions(product_id):
         return jsonify({"error": "منتج غير موجود"}), 404
 
     if request.method == "GET":
-        bundles = ProductBundle.query.filter_by(product_id=product.id).order_by(ProductBundle.price_usd).all()
+        bundles = ProductBundle.query.filter_by(
+            product_id=product.id
+        ).order_by(ProductBundle.price_usd).all()
         return jsonify({
-            "id": product.id, "category_id": product.category_id, "name": product.name,
-            "description": product.description, "image": product.image,
-            "product_type": product.product_type, "base_quantity": product.base_quantity,
-            "base_price": product.base_price, "unit_name": product.unit_name or "قطعة",
-            "input_type": product.input_type, "custom_input_label": product.custom_input_label,
-            "stock": product.stock, "max_quantity": product.max_quantity,
-            "is_bundle": product.is_bundle, "is_active": product.is_active,
+            "id": product.id,
+            "category_id": product.category_id,
+            "name": product.name,
+            "description": product.description,
+            "image": product.image,
+            "product_type": product.product_type,
+            "base_quantity": product.base_quantity,
+            "base_price": product.base_price,
+            "unit_name": product.unit_name or "قطعة",
+            "input_type": product.input_type,
+            "custom_input_label": product.custom_input_label,
+            "stock": product.stock,
+            "max_quantity": product.max_quantity,
+            "is_bundle": product.is_bundle,
+            "is_active": product.is_active,
             "bundles": [serialize_bundle(b) for b in bundles],
         })
 
     if request.method == "PUT":
         data = request.get_json() or {}
-        ALLOWED = {"name", "description", "image", "category_id", "product_type",
-                   "base_quantity", "base_price", "unit_name", "input_type",
-                   "custom_input_label", "stock", "max_quantity", "is_bundle", "is_active"}
+        ALLOWED = {
+            "name", "description", "image", "category_id", "product_type",
+            "base_quantity", "base_price", "unit_name", "input_type",
+            "custom_input_label", "stock", "max_quantity", "is_bundle", "is_active"
+        }
         for key, value in data.items():
             if key in ALLOWED and hasattr(product, key):
                 if key == "stock":
@@ -885,7 +934,11 @@ def admin_product_actions(product_id):
                 if not name or price <= 0:
                     continue
                 db.session.add(ProductBundle(
-                    product_id=product.id, name=name, quantity=qty, price_usd=price, is_active=True,
+                    product_id=product.id,
+                    name=name,
+                    quantity=qty,
+                    price_usd=price,
+                    is_active=True,
                 ))
             product.is_bundle = (product.product_type == "bundle")
 
@@ -933,7 +986,9 @@ def admin_bundles(product_id):
         return jsonify({"error": "منتج غير موجود"}), 404
 
     if request.method == "GET":
-        bundles = ProductBundle.query.filter_by(product_id=product_id).order_by(ProductBundle.price_usd).all()
+        bundles = ProductBundle.query.filter_by(
+            product_id=product_id
+        ).order_by(ProductBundle.price_usd).all()
         return jsonify([serialize_bundle(b) for b in bundles])
 
     data = request.get_json() or {}
@@ -947,7 +1002,13 @@ def admin_bundles(product_id):
     if not name or price <= 0:
         return jsonify({"error": "بيانات ناقصة"}), 400
 
-    bundle = ProductBundle(product_id=product_id, name=name, quantity=qty, price_usd=price, is_active=True)
+    bundle = ProductBundle(
+        product_id=product_id,
+        name=name,
+        quantity=qty,
+        price_usd=price,
+        is_active=True,
+    )
     db.session.add(bundle)
     db.session.commit()
     return jsonify(serialize_bundle(bundle)), 201
@@ -968,13 +1029,17 @@ def admin_bundle_actions(product_id, bundle_id):
         if "name" in data and (data.get("name") or "").strip():
             bundle.name = data["name"].strip()
         if "quantity" in data:
-            try: bundle.quantity = int(data["quantity"])
-            except (ValueError, TypeError): pass
+            try:
+                bundle.quantity = int(data["quantity"])
+            except (ValueError, TypeError):
+                pass
         if "price_usd" in data:
             try:
                 p = float(data["price_usd"])
-                if p > 0: bundle.price_usd = p
-            except (ValueError, TypeError): pass
+                if p > 0:
+                    bundle.price_usd = p
+            except (ValueError, TypeError):
+                pass
         if "is_active" in data:
             bundle.is_active = bool(data["is_active"])
         db.session.commit()
@@ -986,7 +1051,7 @@ def admin_bundle_actions(product_id, bundle_id):
 
 
 # ============================================================
-# Archive (Old category/product archive)
+# Archive (Categories + Products — القديم)
 # ============================================================
 @main.route("/admin/api/archive", methods=["GET"])
 @jwt_required()
@@ -1000,15 +1065,23 @@ def admin_archive():
 
     return jsonify({
         "categories": [{
-            "id": c.id, "name": c.name, "description": c.description,
-            "image": c.image, "display_order": c.display_order,
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "image": c.image,
+            "display_order": c.display_order,
         } for c in archived_cats],
         "products": [{
-            "id": p.id, "name": p.name, "description": p.description,
-            "image": p.image, "category_id": p.category_id,
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "image": p.image,
+            "category_id": p.category_id,
             "category_name": (Category.query.get(p.category_id).name if Category.query.get(p.category_id) else "قسم محذوف"),
-            "base_price": p.base_price, "base_quantity": p.base_quantity,
-            "product_type": p.product_type, "unit_name": p.unit_name or "قطعة",
+            "base_price": p.base_price,
+            "base_quantity": p.base_quantity,
+            "product_type": p.product_type,
+            "unit_name": p.unit_name or "قطعة",
         } for p in archived_prods],
     })
 
@@ -1025,11 +1098,17 @@ def admin_payment_methods():
     if request.method == "GET":
         methods = PaymentMethod.query.filter_by(is_active=True).all()
         return jsonify([{
-            "id": m.id, "name": m.name, "description": m.description,
-            "account_name": m.account_name, "account": m.account,
-            "icon": m.icon, "qr_image": m.qr_image,
-            "min_amount": m.min_amount, "fee": m.fee,
-            "requires_kyc": m.requires_kyc, "is_active": m.is_active,
+            "id": m.id,
+            "name": m.name,
+            "description": m.description,
+            "account_name": m.account_name,
+            "account": m.account,
+            "icon": m.icon,
+            "qr_image": m.qr_image,
+            "min_amount": m.min_amount,
+            "fee": m.fee,
+            "requires_kyc": m.requires_kyc,
+            "is_active": m.is_active,
         } for m in methods])
 
     data = request.get_json() or {}
@@ -1037,11 +1116,16 @@ def admin_payment_methods():
     qr_url = _normalize_image(data.get("qr_image", ""), folder="sanad/qr-codes")
 
     method = PaymentMethod(
-        name=data.get("name"), description=data.get("description", ""),
-        account_name=data.get("account_name", ""), account=data.get("account", ""),
-        icon=icon_url, qr_image=qr_url,
-        min_amount=data.get("min_amount", 0), fee=data.get("fee", 0),
-        requires_kyc=data.get("requires_kyc", False), is_active=data.get("is_active", True),
+        name=data.get("name"),
+        description=data.get("description", ""),
+        account_name=data.get("account_name", ""),
+        account=data.get("account", ""),
+        icon=icon_url,
+        qr_image=qr_url,
+        min_amount=data.get("min_amount", 0),
+        fee=data.get("fee", 0),
+        requires_kyc=data.get("requires_kyc", False),
+        is_active=data.get("is_active", True),
     )
     db.session.add(method)
     log_admin_activity(f"إضافة طريقة دفع: {method.name}")
@@ -1062,8 +1146,6 @@ def admin_delete_payment_method(method_id):
     method.deleted_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"success": True})
-
-
 # ============================================================
 # Orders
 # ============================================================
@@ -1081,7 +1163,9 @@ def admin_orders():
         product = Product.query.get(o.product_id)
         user = User.query.get(o.user_id)
         result.append({
-            "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
+            "id": o.id,
+            "order_number": o.order_number,
+            "user_id": o.user_id,
             "user_telegram": user.telegram_id if user else None,
             "user_name": (user.first_name or user.username) if user else None,
             "product_id": o.product_id,
@@ -1089,9 +1173,12 @@ def admin_orders():
             "product_image": product.image if product else None,
             "product_type": product.product_type if product else None,
             "product_unit_name": product.unit_name if product else "قطعة",
-            "quantity": o.quantity, "unit_price": o.unit_price,
-            "total_price": o.total_price, "discount_amount": o.discount_amount or 0,
-            "coupon_code": o.coupon_code, "status": o.status,
+            "quantity": o.quantity,
+            "unit_price": o.unit_price,
+            "total_price": o.total_price,
+            "discount_amount": o.discount_amount or 0,
+            "coupon_code": o.coupon_code,
+            "status": o.status,
             "delivery_data": o.delivery_data,
             "created_at": o.created_at.isoformat() if o.created_at else None,
         })
@@ -1109,14 +1196,19 @@ def admin_order_detail(order_id):
         return jsonify({"error": "طلب غير موجود"}), 404
     product = Product.query.get(order.product_id)
     return jsonify({
-        "id": order.id, "order_number": order.order_number,
-        "user_id": order.user_id, "product_id": order.product_id,
+        "id": order.id,
+        "order_number": order.order_number,
+        "user_id": order.user_id,
+        "product_id": order.product_id,
         "product_name": product.name if product else "منتج محذوف",
         "product_unit_name": product.unit_name if product else "قطعة",
-        "quantity": order.quantity, "unit_price": order.unit_price,
-        "total_price": order.total_price, "discount_amount": order.discount_amount or 0,
+        "quantity": order.quantity,
+        "unit_price": order.unit_price,
+        "total_price": order.total_price,
+        "discount_amount": order.discount_amount or 0,
         "coupon_code": order.coupon_code,
-        "status": order.status, "status_arabic": get_arabic_status(order.status),
+        "status": order.status,
+        "status_arabic": get_arabic_status(order.status),
         "delivery_data": order.delivery_data,
         "created_at": order.created_at.isoformat() if order.created_at else None,
     })
@@ -1193,8 +1285,8 @@ def admin_update_order_status(order_id):
         return jsonify({"error": "طلب غير موجود"}), 404
 
     valid = {
-        "pending":    ["review", "processing", "completed", "failed", "cancelled"],
-        "review":     ["processing", "completed", "failed"],
+        "pending": ["review", "processing", "completed", "failed", "cancelled"],
+        "review": ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
     }
     if order.status in ["completed", "failed", "cancelled"]:
@@ -1219,19 +1311,29 @@ def admin_update_order_status(order_id):
         balance_before = user.balance
         user.balance = round(user.balance + order.total_price, 2)
         db.session.add(Transaction(
-            user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_refund", reference_id=order.id,
+            user_id=user.id,
+            type="refund",
+            amount=order.total_price,
+            balance_after=user.balance,
+            reference_type="order_refund",
+            reference_id=order.id,
         ))
         log_financial(
-            user=user, action="order_refund", amount=order.total_price,
-            balance_before=balance_before, balance_after=user.balance,
-            ref_type="order", ref_id=order.id, note="استرداد بسبب فشل الطلب",
+            user=user,
+            action="order_refund",
+            amount=order.total_price,
+            balance_before=balance_before,
+            balance_after=user.balance,
+            ref_type="order",
+            ref_id=order.id,
+            note="استرداد بسبب فشل الطلب",
         )
         product = Product.query.get(order.product_id)
         if product and product.stock is not None:
             product.stock += order.quantity
         db.session.add(Notification(
-            user_id=user.id, title="استرداد مبلغ",
+            user_id=user.id,
+            title="استرداد مبلغ",
             message=f"تم استرداد {order.total_price:.2f}$ لطلبك {order.order_number}",
             type="success",
         ))
@@ -1241,13 +1343,21 @@ def admin_update_order_status(order_id):
         balance_before = user.balance
         user.balance = round(user.balance + order.total_price, 2)
         db.session.add(Transaction(
-            user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_cancel", reference_id=order.id,
+            user_id=user.id,
+            type="refund",
+            amount=order.total_price,
+            balance_after=user.balance,
+            reference_type="order_cancel",
+            reference_id=order.id,
         ))
         log_financial(
-            user=user, action="order_cancelled", amount=order.total_price,
-            balance_before=balance_before, balance_after=user.balance,
-            ref_type="order", ref_id=order.id,
+            user=user,
+            action="order_cancelled",
+            amount=order.total_price,
+            balance_before=balance_before,
+            balance_after=user.balance,
+            ref_type="order",
+            ref_id=order.id,
         )
         product = Product.query.get(order.product_id)
         if product and product.stock is not None:
@@ -1257,7 +1367,8 @@ def admin_update_order_status(order_id):
     if new_status == "completed" and user:
         try:
             db.session.add(Notification(
-                user_id=user.id, title="تم تنفيذ طلبك",
+                user_id=user.id,
+                title="تم تنفيذ طلبك",
                 message=f"تم إكمال طلبك {order.order_number} بنجاح",
                 type="success",
             ))
@@ -1289,8 +1400,8 @@ def admin_bulk_order_status():
         return jsonify({"error": "الحد الأقصى 100 طلب"}), 400
 
     valid_transitions = {
-        "pending":    ["review", "processing", "completed", "failed", "cancelled"],
-        "review":     ["processing", "completed", "failed"],
+        "pending": ["review", "processing", "completed", "failed", "cancelled"],
+        "review": ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
     }
 
@@ -1328,14 +1439,22 @@ def admin_bulk_order_status():
             balance_before = user.balance
             user.balance = round(user.balance + order.total_price, 2)
             db.session.add(Transaction(
-                user_id=user.id, type="refund", amount=order.total_price,
-                balance_after=user.balance, reference_type=f"order_{new_status}",
+                user_id=user.id,
+                type="refund",
+                amount=order.total_price,
+                balance_after=user.balance,
+                reference_type=f"order_{new_status}",
                 reference_id=order.id,
             ))
             log_financial(
-                user=user, action=f"order_{new_status}", amount=order.total_price,
-                balance_before=balance_before, balance_after=user.balance,
-                ref_type="order", ref_id=order.id, note=f"Bulk: {new_status}",
+                user=user,
+                action=f"order_{new_status}",
+                amount=order.total_price,
+                balance_before=balance_before,
+                balance_after=user.balance,
+                ref_type="order",
+                ref_id=order.id,
+                note=f"Bulk: {new_status}",
             )
             product = Product.query.get(order.product_id)
             if product and product.stock is not None:
@@ -1344,7 +1463,8 @@ def admin_bulk_order_status():
         if new_status == "completed" and user:
             try:
                 db.session.add(Notification(
-                    user_id=user.id, title="تم تنفيذ طلبك",
+                    user_id=user.id,
+                    title="تم تنفيذ طلبك",
                     message=f"تم إكمال طلبك {order.order_number} بنجاح",
                     type="success",
                 ))
@@ -1380,12 +1500,16 @@ def admin_deposits():
     for d in deposits:
         user = User.query.get(d.user_id)
         result.append({
-            "id": d.id, "user_id": d.user_id,
+            "id": d.id,
+            "user_id": d.user_id,
             "user_telegram": user.telegram_id if user else None,
             "user_name": (user.first_name or user.username) if user else None,
-            "amount": d.amount, "method": d.method, "method_id": d.method_id,
+            "amount": d.amount,
+            "method": d.method,
+            "method_id": d.method_id,
             "proof_image": get_signed_url(d.proof_image, expires_in=1800) if d.proof_image else None,
-            "status": d.status, "transaction_id": d.transaction_id,
+            "status": d.status,
+            "transaction_id": d.transaction_id,
             "admin_note": d.admin_note,
             "created_at": d.created_at.isoformat() if d.created_at else None,
         })
@@ -1475,18 +1599,29 @@ def admin_approve_deposit(deposit_id):
             added_amount = dep_amount
 
         user.balance = round(user.balance, 2)
-db.session.add(Transaction(
-            user_id=user.id, type="deposit", amount=dep_amount,
-            balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
+
+        db.session.add(Transaction(
+            user_id=user.id,
+            type="deposit",
+            amount=dep_amount,
+            balance_after=user.balance,
+            reference_type="deposit",
+            reference_id=deposit.id,
         ))
         log_financial(
-            user=user, action="deposit_approved", amount=dep_amount,
-            balance_before=balance_before, balance_after=user.balance,
-            ref_type="deposit", ref_id=deposit.id,
+            user=user,
+            action="deposit_approved",
+            amount=dep_amount,
+            balance_before=balance_before,
+            balance_after=user.balance,
+            ref_type="deposit",
+            ref_id=deposit.id,
         )
         db.session.add(Notification(
-            user_id=user.id, title="إيداع مقبول",
-            message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
+            user_id=user.id,
+            title="إيداع مقبول",
+            message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$",
+            type="success",
         ))
         send_deposit_approved(user, dep_amount, paid_debt, added_amount)
 
@@ -1519,7 +1654,8 @@ def admin_reject_deposit(deposit_id):
     user = User.query.get(deposit.user_id)
     if user:
         db.session.add(Notification(
-            user_id=user.id, title="إيداع مرفوض",
+            user_id=user.id,
+            title="إيداع مرفوض",
             message=f"تم رفض إيداعك بقيمة {deposit.amount:.2f}$" + (f" - {reason}" if reason else ""),
             type="warning",
         ))
@@ -1547,8 +1683,11 @@ def admin_kyc():
         KYCRequest.status == 'pending'
     ).order_by(KYCRequest.submitted_at.desc()).all()
     return jsonify([{
-        "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
-        "phone": k.phone, "address": k.address,
+        "id": k.id,
+        "user_id": k.user_id,
+        "full_name": k.full_name,
+        "phone": k.phone,
+        "address": k.address,
         "selfie_image": get_signed_url(k.selfie_image, expires_in=1800) if k.selfie_image else None,
         "status": k.status,
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
@@ -1572,8 +1711,10 @@ def admin_approve_kyc(kyc_id):
         user.kyc_status = "verified"
         user.is_verified = True
         db.session.add(Notification(
-            user_id=user.id, title="تم توثيق حسابك",
-            message="تم قبول طلب التوثيق", type="success",
+            user_id=user.id,
+            title="تم توثيق حسابك",
+            message="تم قبول طلب التوثيق",
+            type="success",
         ))
 
     log_admin_activity(f"قبول KYC للمستخدم {kyc.user_id}")
@@ -1609,7 +1750,8 @@ def admin_reject_kyc(kyc_id):
         user.kyc_status = "unverified"
         user.is_verified = False
         db.session.add(Notification(
-            user_id=user.id, title="رفض التوثيق",
+            user_id=user.id,
+            title="رفض التوثيق",
             message="تم رفض طلب التوثيق" + (f" - {reason}" if reason else ""),
             type="warning",
         ))
@@ -1641,11 +1783,21 @@ def admin_send_notification():
 
     if target == "all":
         for u in User.query.all():
-            db.session.add(Notification(user_id=u.id, title=title, message=message, type=ntype))
+            db.session.add(Notification(
+                user_id=u.id,
+                title=title,
+                message=message,
+                type=ntype,
+            ))
     else:
         uid = data.get("user_id")
         if uid:
-            db.session.add(Notification(user_id=uid, title=title, message=message, type=ntype))
+            db.session.add(Notification(
+                user_id=uid,
+                title=title,
+                message=message,
+                type=ntype,
+            ))
 
     db.session.commit()
     return jsonify({"success": True})
@@ -1664,9 +1816,13 @@ def admin_service_requests():
         ServiceRequest.status == 'pending'
     ).order_by(ServiceRequest.created_at.desc()).all()
     return jsonify([{
-        "id": r.id, "user_id": r.user_id, "service_name": r.service_name,
-        "description": r.description, "estimated_price": r.estimated_price,
-        "status": r.status, "admin_response": r.admin_response,
+        "id": r.id,
+        "user_id": r.user_id,
+        "service_name": r.service_name,
+        "description": r.description,
+        "estimated_price": r.estimated_price,
+        "status": r.status,
+        "admin_response": r.admin_response,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     } for r in reqs])
 
@@ -1681,8 +1837,10 @@ def admin_update_service_request(req_id):
     req = ServiceRequest.query.get(req_id)
     if not req:
         return jsonify({"error": "غير موجود"}), 404
-    if "status" in data: req.status = data["status"]
-    if "admin_response" in data: req.admin_response = data["admin_response"]
+    if "status" in data:
+        req.status = data["status"]
+    if "admin_response" in data:
+        req.admin_response = data["admin_response"]
     db.session.commit()
     return jsonify({"success": True})
 
@@ -1702,8 +1860,10 @@ def admin_settings():
     data = request.get_json() or {}
     for key, value in data.items():
         s = Setting.query.filter_by(key=key).first()
-        if s: s.value = str(value)
-        else: db.session.add(Setting(key=key, value=str(value)))
+        if s:
+            s.value = str(value)
+        else:
+            db.session.add(Setting(key=key, value=str(value)))
     db.session.commit()
     return jsonify({"success": True})
 
@@ -1720,10 +1880,15 @@ def admin_coupons():
     if request.method == "GET":
         coupons = Coupon.query.order_by(Coupon.created_at.desc()).all()
         return jsonify([{
-            "id": c.id, "code": c.code, "description": c.description,
-            "discount_type": c.discount_type, "discount_value": c.discount_value,
-            "min_amount": c.min_amount, "max_discount": c.max_discount,
-            "max_uses": c.max_uses, "used_count": c.used_count,
+            "id": c.id,
+            "code": c.code,
+            "description": c.description,
+            "discount_type": c.discount_type,
+            "discount_value": c.discount_value,
+            "min_amount": c.min_amount,
+            "max_discount": c.max_discount,
+            "max_uses": c.max_uses,
+            "used_count": c.used_count,
             "expires_at": c.expires_at.isoformat() if c.expires_at else None,
             "is_active": c.is_active,
         } for c in coupons])
@@ -1743,13 +1908,15 @@ def admin_coupons():
             expires_at = None
 
     coupon = Coupon(
-        code=code, description=data.get("description", ""),
+        code=code,
+        description=data.get("description", ""),
         discount_type=data.get("discount_type", "percentage"),
         discount_value=float(data.get("discount_value", 0)),
         min_amount=float(data.get("min_amount", 0)),
         max_discount=float(data.get("max_discount", 0)),
         max_uses=int(data.get("max_uses", 0)),
-        expires_at=expires_at, is_active=data.get("is_active", True),
+        expires_at=expires_at,
+        is_active=data.get("is_active", True),
     )
     db.session.add(coupon)
     db.session.commit()
@@ -1770,10 +1937,14 @@ def admin_coupon_actions(coupon_id):
         data = request.get_json() or {}
         for k in ["is_active", "description", "discount_value", "max_uses"]:
             if k in data:
-                if k == "is_active": coupon.is_active = bool(data[k])
-                elif k == "discount_value": coupon.discount_value = float(data[k])
-                elif k == "max_uses": coupon.max_uses = int(data[k])
-                else: setattr(coupon, k, data[k])
+                if k == "is_active":
+                    coupon.is_active = bool(data[k])
+                elif k == "discount_value":
+                    coupon.discount_value = float(data[k])
+                elif k == "max_uses":
+                    coupon.max_uses = int(data[k])
+                else:
+                    setattr(coupon, k, data[k])
         db.session.commit()
         return jsonify({"success": True})
 
@@ -1819,7 +1990,9 @@ def admin_activities():
         return jsonify({"error": "غير مصرح"}), 403
     acts = AdminActivity.query.order_by(AdminActivity.created_at.desc()).limit(200).all()
     return jsonify([{
-        "id": a.id, "admin_id": a.admin_id, "action": a.action,
+        "id": a.id,
+        "admin_id": a.admin_id,
+        "action": a.action,
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in acts])
 
@@ -1835,21 +2008,30 @@ def admin_audit_log():
     limit = min(int(request.args.get("limit", 100)), 500)
 
     q = FinancialAuditLog.query
-    if user_id: q = q.filter_by(user_id=user_id)
-    if action: q = q.filter_by(action=action)
+    if user_id:
+        q = q.filter_by(user_id=user_id)
+    if action:
+        q = q.filter_by(action=action)
     logs = q.order_by(FinancialAuditLog.created_at.desc()).limit(limit).all()
 
     return jsonify([{
-        "id": l.id, "user_id": l.user_id, "action": l.action,
-        "amount": l.amount, "balance_before": l.balance_before, "balance_after": l.balance_after,
-        "reference_type": l.reference_type, "reference_id": l.reference_id,
-        "admin_id": l.admin_id, "ip_address": l.ip_address, "note": l.note,
+        "id": l.id,
+        "user_id": l.user_id,
+        "action": l.action,
+        "amount": l.amount,
+        "balance_before": l.balance_before,
+        "balance_after": l.balance_after,
+        "reference_type": l.reference_type,
+        "reference_id": l.reference_id,
+        "admin_id": l.admin_id,
+        "ip_address": l.ip_address,
+        "note": l.note,
         "created_at": l.created_at.isoformat() if l.created_at else None,
     } for l in logs])
 
 
 # ============================================================
-# ARCHIVE
+# ARCHIVE (v16)
 # ============================================================
 @main.route("/admin/api/archive/orders", methods=["GET"])
 @jwt_required()
@@ -1865,7 +2047,9 @@ def admin_archive_orders():
         product = Product.query.get(o.product_id)
         user = User.query.get(o.user_id)
         result.append({
-            "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
+            "id": o.id,
+            "order_number": o.order_number,
+            "user_id": o.user_id,
             "user_telegram": user.telegram_id if user else None,
             "user_name": (user.first_name or user.username) if user else None,
             "product_id": o.product_id,
@@ -1873,9 +2057,12 @@ def admin_archive_orders():
             "product_image": product.image if product else None,
             "product_type": product.product_type if product else None,
             "product_unit_name": product.unit_name if product else "قطعة",
-            "quantity": o.quantity, "unit_price": o.unit_price,
-            "total_price": o.total_price, "discount_amount": o.discount_amount or 0,
-            "coupon_code": o.coupon_code, "status": o.status,
+            "quantity": o.quantity,
+            "unit_price": o.unit_price,
+            "total_price": o.total_price,
+            "discount_amount": o.discount_amount or 0,
+            "coupon_code": o.coupon_code,
+            "status": o.status,
             "delivery_data": o.delivery_data,
             "created_at": o.created_at.isoformat() if o.created_at else None,
         })
@@ -1895,12 +2082,16 @@ def admin_archive_deposits():
     for d in deposits:
         user = User.query.get(d.user_id)
         result.append({
-            "id": d.id, "user_id": d.user_id,
+            "id": d.id,
+            "user_id": d.user_id,
             "user_telegram": user.telegram_id if user else None,
             "user_name": (user.first_name or user.username) if user else None,
-            "amount": d.amount, "method": d.method, "method_id": d.method_id,
+            "amount": d.amount,
+            "method": d.method,
+            "method_id": d.method_id,
             "proof_image": get_signed_url(d.proof_image, expires_in=1800) if d.proof_image else None,
-            "status": d.status, "transaction_id": d.transaction_id,
+            "status": d.status,
+            "transaction_id": d.transaction_id,
             "admin_note": d.admin_note,
             "created_at": d.created_at.isoformat() if d.created_at else None,
         })
@@ -1917,8 +2108,11 @@ def admin_archive_kyc():
         KYCRequest.status.in_(['approved', 'rejected'])
     ).order_by(KYCRequest.submitted_at.desc()).limit(200).all()
     return jsonify([{
-        "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
-        "phone": k.phone, "address": k.address,
+        "id": k.id,
+        "user_id": k.user_id,
+        "full_name": k.full_name,
+        "phone": k.phone,
+        "address": k.address,
         "selfie_image": get_signed_url(k.selfie_image, expires_in=1800) if k.selfie_image else None,
         "status": k.status,
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
@@ -1935,9 +2129,13 @@ def admin_archive_services():
         ServiceRequest.status.in_(['completed', 'rejected', 'cancelled'])
     ).order_by(ServiceRequest.created_at.desc()).limit(200).all()
     return jsonify([{
-        "id": r.id, "user_id": r.user_id, "service_name": r.service_name,
-        "description": r.description, "estimated_price": r.estimated_price,
-        "status": r.status, "admin_response": r.admin_response,
+        "id": r.id,
+        "user_id": r.user_id,
+        "service_name": r.service_name,
+        "description": r.description,
+        "estimated_price": r.estimated_price,
+        "status": r.status,
+        "admin_response": r.admin_response,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     } for r in reqs])
 
@@ -1965,7 +2163,7 @@ def admin_archive_counts():
 
 
 # ============================================================
-# RESTORE
+# RESTORE (v16)
 # ============================================================
 @main.route("/admin/api/orders/<int:order_id>/restore", methods=["POST"])
 @jwt_required()
