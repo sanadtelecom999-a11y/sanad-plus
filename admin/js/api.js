@@ -1,11 +1,12 @@
 /* ============================================================
-   🔌 SANAD PLUS⁺ Admin API — v16
+   🔌 SANAD PLUS⁺ Admin API — v17
    ============================================================
    - apiRequest() موحّد
    - JWT تلقائي
    - Retry + Timeout
    - معالجة 401 → redirect login
    - v16: Archive + Restore endpoints
+   - v17: Discounts endpoints (general + per-product)
    ============================================================ */
 
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
@@ -170,6 +171,33 @@ async function setUserNegativeBalance(userId, allow, maxNegative) {
 }
 
 /* ============================================================
+   🆕 v17: Discounts
+   ============================================================ */
+async function fetchUserDiscounts(userId) {
+    return await apiRequest(`/admin/api/users/${userId}/discounts`);
+}
+
+async function setGeneralDiscount(userId, percent) {
+    return await apiRequest(`/admin/api/users/${userId}/discounts/general`, {
+        method: 'POST',
+        body: JSON.stringify({ percent }),
+    });
+}
+
+async function setProductDiscount(userId, productId, percent) {
+    return await apiRequest(`/admin/api/users/${userId}/discounts/product`, {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId, percent }),
+    });
+}
+
+async function deleteProductDiscount(userId, discountId) {
+    return await apiRequest(`/admin/api/users/${userId}/discounts/${discountId}`, {
+        method: 'DELETE',
+    });
+}
+
+/* ============================================================
    📁 Categories
    ============================================================ */
 async function fetchAdminCategories() {
@@ -252,7 +280,7 @@ async function deleteProductBundle(productId, bundleId) {
 }
 
 /* ============================================================
-   📥 Archive (Categories + Products فقط — القديم)
+   📥 Archive (Categories + Products القديم)
    ============================================================ */
 async function fetchArchive() {
     return await apiRequest('/admin/api/archive');
@@ -501,6 +529,12 @@ window.toggleUserBan = toggleUserBan;
 window.setUserVIP = setUserVIP;
 window.toggleUserKYC = toggleUserKYC;
 window.setUserNegativeBalance = setUserNegativeBalance;
+
+// v17 Discounts
+window.fetchUserDiscounts = fetchUserDiscounts;
+window.setGeneralDiscount = setGeneralDiscount;
+window.setProductDiscount = setProductDiscount;
+window.deleteProductDiscount = deleteProductDiscount;
 
 // Categories
 window.fetchAdminCategories = fetchAdminCategories;

@@ -24,7 +24,10 @@ class User(db.Model):
     referral_earnings = db.Column(db.Float, default=0.0)
     referral_count = db.Column(db.Integer, default=0)
 
-    # 🆕 v2.4: DEFAULT = FALSE (كان True)
+    # 🆕 v17: الخصم العام للمستخدم (يطبّق على كل المنتجات)
+    general_discount = db.Column(db.Float, default=0.0)
+
+    # v2.4: DEFAULT = FALSE
     allow_negative_balance = db.Column(db.Boolean, default=False, nullable=False)
 
     max_negative_balance = db.Column(db.Float, default=0.0)
@@ -346,7 +349,22 @@ class FinancialAuditLog(db.Model):
 
 
 # ============================================================
-# 🆕 v2.4: log_financial — يستخدم CF-Connecting-IP أولاً
+# 🆕 v17: User Product Discounts — خصومات مخصصة لمنتج معين
+# ============================================================
+class UserProductDiscount(db.Model):
+    __tablename__ = "user_product_discounts"
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'product_id', name='uq_user_product_discount'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    discount_percent = db.Column(db.Float, nullable=False, default=0.0)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+# ============================================================
+# v2.4: log_financial — يستخدم CF-Connecting-IP أولاً
 # ============================================================
 def log_financial(user, action, amount, balance_before, balance_after,
                   ref_type=None, ref_id=None, admin_id=None, note=None):
@@ -355,7 +373,7 @@ def log_financial(user, action, amount, balance_before, balance_after,
     ip = None
     ua = None
     if has_request_context():
-        # 🆕 v2.4: CF-Connecting-IP أولاً (خلف Cloudflare)
+        # v2.4: CF-Connecting-IP أولاً (خلف Cloudflare)
         cf_ip = request.headers.get("CF-Connecting-IP", "").strip()
         if cf_ip:
             ip = cf_ip

@@ -1,5 +1,5 @@
 # ============================================================
-# 🎛️ Admin Routes — v16
+# 🎛️ Admin Routes — v17
 # ============================================================
 import os
 import json
@@ -17,7 +17,7 @@ from ..models.base import (
     User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod,
     KYCRequest, Notification, Setting, AdminActivity, ServiceRequest,
     Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, log_financial,
-    AdminOTPSession
+    AdminOTPSession, UserProductDiscount
 )
 from ..extensions import db
 from . import main
@@ -80,7 +80,6 @@ def check_login_rate_limit(ip: str) -> bool:
         if now - t < LOGIN_RATE_WINDOW
     ]
 
-    # v2.4: احذف المفاتيح الفارغة
     if not _login_attempts[ip]:
         _login_attempts.pop(ip, None)
         _login_attempts[ip] = []
@@ -159,7 +158,6 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 @limiter.limit("5 per 5 minutes")
 @handle_errors
 def admin_login():
-    # v2.4: استخدام get_real_ip الموحّد
     ip = get_real_ip()
 
     if not check_login_rate_limit(ip):
@@ -173,7 +171,6 @@ def admin_login():
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
     cleanup_expired_otp_sessions()
-    # v2.4: تنظيف الـ blacklist تلقائياً
     cleanup_expired_blacklist()
 
     otp_code = generate_otp_code()
@@ -287,6 +284,7 @@ def admin_get_users():
         "referral_earnings": round(u.referral_earnings or 0, 2),
         "allow_negative_balance": u.allow_negative_balance if u.allow_negative_balance is not None else False,
         "max_negative_balance": u.max_negative_balance or 0,
+        "general_discount": u.general_discount or 0.0,   # 🆕 v17
         "created_at": u.created_at.isoformat() if u.created_at else None,
     } for u in users])
 
@@ -461,11 +459,133 @@ def admin_user_detail(user_id):
         "referral_earnings": user.referral_earnings or 0,
         "allow_negative_balance": user.allow_negative_balance,
         "max_negative_balance": user.max_negative_balance or 0,
+        "general_discount": user.general_discount or 0.0,   # 🆕 v17
         "orders_count": orders_count,
         "deposits_count": deposits_count,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     })
+
+
+# ============================================================
+# 🆕 v17: DISCOUNTS
+# ============================================================
+@main.route("/admin/api/users/<int:user_id>/discounts", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_get_user_discounts(user_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    product_discounts = UserProductDiscount.query.filter_by(user_id=user_id).all()
+    result = []
+    for d in product_discounts:
+        product = Product.query.get(d.product_id)
+        result.append({
+            "id": d.id,
+            "product_id": d.product_id,
+            "product_name": product.name if product else "منتج محذوف",
+            "product_image": product.image if product else None,
+            "discount_percent": d.discount_percent,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+
+    return jsonify({
+        "general_discount": user.general_discount or 0.0,
+        "product_discounts": result,
+    })
+
+
+@main.route("/admin/api/users/<int:user_id>/discounts/general", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_set_general_discount(user_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    data = request.get_json() or {}
+    try:
+        percent = float(data.get("percent", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "نسبة غير صالحة"}), 400
+
+    if percent < 0 or percent > 100:
+        return jsonify({"error": "النسبة بين 0 و 100"}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    user.general_discount = round(percent, 2)
+    log_admin_activity(f"تعيين خصم عام {percent}% للمستخدم {user.telegram_id}")
+    db.session.commit()
+
+    return jsonify({"general_discount": user.general_discount})
+
+
+@main.route("/admin/api/users/<int:user_id>/discounts/product", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_set_product_discount(user_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    data = request.get_json() or {}
+    try:
+        product_id = int(data.get("product_id", 0))
+        percent = float(data.get("percent", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "بيانات غير صالحة"}), 400
+
+    if percent <= 0 or percent > 100:
+        return jsonify({"error": "النسبة بين 0.01 و 100"}), 400
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "مستخدم غير موجود"}), 404
+
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "منتج غير موجود"}), 404
+
+    existing = UserProductDiscount.query.filter_by(
+        user_id=user_id, product_id=product_id
+    ).first()
+
+    if existing:
+        existing.discount_percent = round(percent, 2)
+    else:
+        db.session.add(UserProductDiscount(
+            user_id=user_id,
+            product_id=product_id,
+            discount_percent=round(percent, 2),
+        ))
+
+    log_admin_activity(f"خصم {percent}% على '{product.name}' للمستخدم {user.telegram_id}")
+    db.session.commit()
+
+    return jsonify({"success": True})
+
+
+@main.route("/admin/api/users/<int:user_id>/discounts/<int:discount_id>", methods=["DELETE"])
+@jwt_required()
+@handle_errors
+def admin_delete_product_discount(user_id, discount_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    discount = UserProductDiscount.query.filter_by(
+        id=discount_id, user_id=user_id
+    ).first()
+    if not discount:
+        return jsonify({"error": "غير موجود"}), 404
+
+    db.session.delete(discount)
+    log_admin_activity(f"حذف خصم من المستخدم {user_id}")
+    db.session.commit()
+
+    return jsonify({"success": True})
 
 
 # ============================================================
@@ -577,6 +697,11 @@ def admin_products():
 
     image_url = _normalize_image(data.get("image", ""), folder="sanad/products")
 
+    # v17: input_type يُقبل: id / account_id / phone / url / none
+    input_type = data.get("input_type", "id")
+    if input_type not in ("id", "account_id", "phone", "url", "none"):
+        input_type = "id"
+
     product = Product(
         category_id=data.get("category_id"), name=data.get("name"),
         description=data.get("description", ""), image=image_url,
@@ -584,7 +709,7 @@ def admin_products():
         base_quantity=data.get("base_quantity", 0),
         base_price=data.get("base_price", 0.0),
         unit_name=(data.get("unit_name") or "قطعة").strip() or "قطعة",
-        input_type=data.get("input_type", "id"),
+        input_type=input_type,
         custom_input_label=data.get("custom_input_label", ""),
         stock=stock,
         max_quantity=data.get("max_quantity", 0),
@@ -652,6 +777,9 @@ def admin_product_actions(product_id):
                     value = (value or "قطعة").strip() or "قطعة"
                 if key == "image":
                     value = _normalize_image(value, folder="sanad/products")
+                if key == "input_type":
+                    if value not in ("id", "account_id", "phone", "url", "none"):
+                        value = "id"
                 setattr(product, key, value)
 
         if "bundles" in data:
@@ -843,10 +971,8 @@ def admin_delete_payment_method(method_id):
     method.deleted_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"success": True})
-
-
 # ============================================================
-# Orders — v16: استبعاد المؤرشفة
+# Orders — v17: تخطي خطوات الطلب
 # ============================================================
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
@@ -854,7 +980,6 @@ def admin_delete_payment_method(method_id):
 def admin_orders():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    # v16: عرض الطلبات النشطة فقط
     orders = Order.query.filter(
         Order.status.in_(['pending', 'review', 'processing'])
     ).order_by(Order.created_at.desc()).all()
@@ -943,6 +1068,7 @@ def admin_order_full_detail(order_id):
             "image": product.image if product else None,
             "product_type": product.product_type if product else None,
             "unit_name": product.unit_name if product else "قطعة",
+            "input_type": product.input_type if product else None,     # 🆕 v17
         } if product else None,
         "quantity": order.quantity,
         "unit_price": order.unit_price,
@@ -973,15 +1099,17 @@ def admin_update_order_status(order_id):
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
 
+    # 🆕 v17: يمكن الانتقال مباشرة إلى أي خطوة (تخطي مراحل)
     valid = {
-        "pending": ["review", "failed", "cancelled"],
-        "review": ["processing", "failed"],
+        "pending":    ["review", "processing", "completed", "failed", "cancelled"],
+        "review":     ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
+        # completed/failed/cancelled → نهائية، لا يمكن التغيير
     }
+    if order.status in ["completed", "failed", "cancelled"]:
+        return jsonify({"error": "لا يمكن تغيير طلب بحالة نهائية"}), 400
     if order.status in valid and new_status not in valid[order.status]:
         return jsonify({"error": f"لا يمكن الانتقال من {order.status} إلى {new_status}"}), 400
-    if order.status in ["completed", "failed", "cancelled"]:
-        return jsonify({"error": "لا يمكن تغيير هذا الطلب"}), 400
 
     old_status = order.status
     order.status = new_status
@@ -1035,6 +1163,17 @@ def admin_update_order_status(order_id):
             product.stock += order.quantity
         send_order_refund_cancelled(user, order.total_price, order.order_number)
 
+    # v17: عند الإكمال المباشر — إشعار للمستخدم فقط (لا استرداد)
+    if new_status == "completed" and user:
+        try:
+            db.session.add(Notification(
+                user_id=user.id, title="تم تنفيذ طلبك",
+                message=f"تم إكمال طلبك {order.order_number} بنجاح",
+                type="success",
+            ))
+        except Exception:
+            pass
+
     log_admin_activity(f"تغيير حالة الطلب {order.order_number} إلى {get_arabic_status(new_status)}")
     db.session.commit()
 
@@ -1059,9 +1198,10 @@ def admin_bulk_order_status():
     if len(order_ids) > 100:
         return jsonify({"error": "الحد الأقصى 100 طلب"}), 400
 
+    # 🆕 v17: نفس منطق التخطي
     valid_transitions = {
-        "pending": ["review", "failed", "cancelled"],
-        "review": ["processing", "failed"],
+        "pending":    ["review", "processing", "completed", "failed", "cancelled"],
+        "review":     ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
     }
 
@@ -1112,6 +1252,17 @@ def admin_bulk_order_status():
             if product and product.stock is not None:
                 product.stock += order.quantity
 
+        # v17: إشعار عند الإكمال المباشر
+        if new_status == "completed" and user:
+            try:
+                db.session.add(Notification(
+                    user_id=user.id, title="تم تنفيذ طلبك",
+                    message=f"تم إكمال طلبك {order.order_number} بنجاح",
+                    type="success",
+                ))
+            except Exception:
+                pass
+
         success.append(oid)
 
     log_admin_activity(f"تحديث جماعي: {len(success)} طلب → {get_arabic_status(new_status)}")
@@ -1123,8 +1274,10 @@ def admin_bulk_order_status():
         "success_ids": success,
         "failed": failed,
     })
+
+
 # ============================================================
-# Deposits — v16: استبعاد المؤرشفة
+# Deposits
 # ============================================================
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
@@ -1132,7 +1285,6 @@ def admin_bulk_order_status():
 def admin_deposits():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    # v16: عرض الإيداعات النشطة فقط
     deposits = Deposit.query.filter(
         Deposit.status == 'pending'
     ).order_by(Deposit.created_at.desc()).all()
@@ -1296,7 +1448,7 @@ def admin_reject_deposit(deposit_id):
 
 
 # ============================================================
-# KYC — v16: استبعاد المؤرشفة
+# KYC
 # ============================================================
 @main.route("/admin/api/kyc", methods=["GET"])
 @jwt_required()
@@ -1304,7 +1456,6 @@ def admin_reject_deposit(deposit_id):
 def admin_kyc():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    # v16: عرض KYC النشطة فقط
     kycs = KYCRequest.query.filter(
         KYCRequest.status == 'pending'
     ).order_by(KYCRequest.submitted_at.desc()).all()
@@ -1414,7 +1565,7 @@ def admin_send_notification():
 
 
 # ============================================================
-# Service Requests — v16: استبعاد المؤرشفة
+# Service Requests
 # ============================================================
 @main.route("/admin/api/service-requests", methods=["GET"])
 @jwt_required()
@@ -1422,7 +1573,6 @@ def admin_send_notification():
 def admin_service_requests():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    # v16: عرض طلبات الخدمة النشطة فقط
     reqs = ServiceRequest.query.filter(
         ServiceRequest.status == 'pending'
     ).order_by(ServiceRequest.created_at.desc()).all()

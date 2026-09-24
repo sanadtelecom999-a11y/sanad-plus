@@ -1,5 +1,5 @@
 # ============================================================
-# 📦 Orders Routes — v2.4 (Race Conditions + Referral Inline)
+# 📦 Orders Routes — v17 (Discounts + URL support + Race-safe)
 # ============================================================
 import uuid
 import json
@@ -8,7 +8,8 @@ from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import (
     User, Product, ProductBundle, Order, Transaction,
-    Notification, Coupon, CouponUsage, Referral, Setting, log_financial
+    Notification, Coupon, CouponUsage, Referral, Setting, log_financial,
+    UserProductDiscount,   # 🆕 v17
 )
 from ..extensions import db
 from . import main
@@ -73,6 +74,7 @@ def get_syp_rate():
 
 
 def apply_coupon_to_order(user, coupon_code, order_amount):
+    """يتحقق من الكوبون ويُعيد (discount_amount, coupon_obj) أو (0, None)"""
     if not coupon_code:
         return 0, None
     code = coupon_code.strip().upper()
@@ -101,6 +103,26 @@ def apply_coupon_to_order(user, coupon_code, order_amount):
     return round(discount, 4), coupon
 
 
+def get_user_discount_percent(user, product):
+    """
+    🆕 v17: يُعيد نسبة الخصم المُطبّقة على هذا المنتج لهذا المستخدم.
+    - إن وُجد خصم خاص بالمنتج → يُستخدم (يتجاوز العام)
+    - وإلا → يُستخدم الخصم العام (إن وُجد)
+    """
+    specific = UserProductDiscount.query.filter_by(
+        user_id=user.id,
+        product_id=product.id,
+    ).first()
+
+    if specific and specific.discount_percent and specific.discount_percent > 0:
+        return float(specific.discount_percent)
+
+    if user.general_discount and user.general_discount > 0:
+        return float(user.general_discount)
+
+    return 0.0
+
+
 # ============================================================
 # 🆕 v2.4: Referral Inline — داخل transaction الطلب
 # ============================================================
@@ -108,13 +130,11 @@ def complete_referral_inline(user):
     """
     ✅ تُنفَّذ داخل نفس transaction الطلب — لا commit هنا.
     Returns: dict للإشعار بعد commit، أو None.
-
     ⚠️ يجب أن تُستدعى بعد db.session.flush() (ليرى Order.query.count الطلب الجديد)
     """
     if not user.referred_by_id:
         return None
 
-    # count يرى الطلب الجديد لأنه flushed
     order_count = Order.query.filter_by(user_id=user.id).count()
     if order_count != 1:
         return None
@@ -182,7 +202,7 @@ def create_order():
 
     data = request.get_json() or {}
 
-    # 🆕 v2.4: قفل صف المنتج لمنع race على المخزون
+    # 🔒 قفل صف المنتج لمنع race على المخزون
     product = Product.query.filter_by(
         id=data.get("product_id")
     ).with_for_update().first()
@@ -213,16 +233,31 @@ def create_order():
         if not v or not v.isdigit():
             return fail("أدخل ID اللاعب (أرقام فقط)")
         delivery = {"player_id": v}
+
     elif product.input_type == "account_id":
         v = str(data.get("account_id", "")).strip()
         if not v or not v.isdigit():
             return fail("أدخل ID الحساب (أرقام فقط)")
         delivery = {"account_id": v}
+
     elif product.input_type == "phone":
         v = str(data.get("phone", "")).strip()
         if not v or not v.isdigit():
             return fail("أدخل رقم الهاتف (أرقام فقط)")
         delivery = {"phone": v}
+
+    # 🆕 v17: دعم URL
+    elif product.input_type == "url":
+        v = str(data.get("url", "")).strip()
+        if not v:
+            return fail("أدخل الرابط")
+        if not (v.startswith("http://") or v.startswith("https://")):
+            return fail("الرابط يجب أن يبدأ بـ http:// أو https://")
+        if len(v) > 1000:
+            return fail("الرابط طويل جداً (الحد 1000 حرف)")
+        delivery = {"url": v}
+
+    # input_type == "none" → لا شيء
 
     # ============================================================
     # 💰 حساب السعر حسب نوع المنتج
@@ -289,15 +324,31 @@ def create_order():
         total_price = round(unit_price * quantity, 4)
 
     # ============================================================
-    # 🎟️ تطبيق الكوبون
+    # 🆕 v17: تطبيق خصم المستخدم (قبل الكوبون)
+    # ============================================================
+    user_discount_percent = 0.0
+    user_discount_amount = 0.0
+
+    user_discount_percent = get_user_discount_percent(user, product)
+    if user_discount_percent > 0:
+        user_discount_amount = round(total_price * (user_discount_percent / 100), 4)
+        total_price = round(total_price - user_discount_amount, 4)
+
+    # ============================================================
+    # 🎟️ تطبيق الكوبون (بعد خصم المستخدم)
     # ============================================================
     coupon_code = (data.get("coupon_code") or "").strip()
-    discount = 0
+    coupon_discount = 0
     coupon_obj = None
     if coupon_code:
-        discount, coupon_obj = apply_coupon_to_order(user, coupon_code, total_price)
+        coupon_discount, coupon_obj = apply_coupon_to_order(
+            user, coupon_code, total_price
+        )
         if coupon_obj:
-            total_price = round(total_price - discount, 4)
+            total_price = round(total_price - coupon_discount, 4)
+
+    # المجموع الكلي للخصومات
+    discount = round(user_discount_amount + coupon_discount, 4)
 
     # ============================================================
     # 💳 فحص الرصيد
@@ -387,17 +438,17 @@ def create_order():
             coupon_id=coupon_obj.id,
             user_id=user.id,
             order_id=order.id,
-            discount_applied=discount,
+            discount_applied=coupon_discount,
             used_at=datetime.now(timezone.utc),
         ))
 
     # ============================================================
-    # 🆕 v2.4: Referral INLINE — قبل commit، داخل نفس transaction
+    # 🎁 Referral INLINE — قبل commit، داخل نفس transaction
     # ============================================================
     referral_snapshot = complete_referral_inline(user)
 
     # ============================================================
-    # ✅ Commit واحد فقط (atomic)
+    # ✅ Commit واحد (atomic)
     # ============================================================
     try:
         db.session.commit()
@@ -434,6 +485,9 @@ def create_order():
         "status": order.status,
         "total_price": total_price,
         "discount_amount": discount,
+        "user_discount_percent": user_discount_percent,     # 🆕 v17
+        "user_discount_amount": user_discount_amount,       # 🆕 v17
+        "coupon_discount_amount": coupon_discount,           # 🆕 v17
         "new_balance": user.balance,
     }
     if syp_amount:
@@ -465,7 +519,7 @@ def cancel_order(order_id):
     if (datetime.now(timezone.utc) - created).total_seconds() > 120:
         return fail("انتهت مهلة الإلغاء", code="ORDER_TIME_EXPIRED")
 
-    # 🆕 v2.4: قفل صف المنتج
+    # 🔒 قفل صف المنتج
     product = Product.query.filter_by(
         id=order.product_id
     ).with_for_update().first()

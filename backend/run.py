@@ -16,8 +16,7 @@ sentry_sdk.init(
     profiles_sample_rate=0.0,
     send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
-    # 🆕 v2.4: تحديث الإصدار
-    release=os.getenv("RELEASE_VERSION", "v2.4"),
+    release=os.getenv("RELEASE_VERSION", "v17"),
 )
 
 # ============================================================
@@ -53,7 +52,7 @@ with app.app_context():
 
 
 # ============================================================
-# 🆕 v2.4: تصفير allow_negative_balance للمستخدمين الحاليين
+# v2.4: تصفير allow_negative_balance للمستخدمين الحاليين
 # ============================================================
 def _fix_negative_balance_defaults():
     """تصفير allow_negative_balance للمستخدمين بدون حد سلبي فعلي"""
@@ -73,10 +72,45 @@ def _fix_negative_balance_defaults():
 
 
 # ============================================================
-# 🗄️ Migration
+# 🆕 v17: Migration للخصومات
+# ============================================================
+def _apply_discount_migration():
+    """إضافة users.general_discount + جدول user_product_discounts"""
+    try:
+        # 1. حقل general_discount على users
+        db.session.execute(text(
+            'ALTER TABLE users ADD COLUMN IF NOT EXISTS general_discount FLOAT DEFAULT 0.0'
+        ))
+        db.session.commit()
+        logger.info("✅ users.general_discount ready")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"general_discount migration failed: {e}")
+
+    try:
+        # 2. جدول user_product_discounts (create_all سيتولاه، لكن نُنشئه صراحة للأمان)
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_product_discounts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                discount_percent FLOAT NOT NULL DEFAULT 0.0,
+                created_at TIMESTAMP DEFAULT NOW(),
+                CONSTRAINT uq_user_product_discount UNIQUE (user_id, product_id)
+            )
+        """))
+        db.session.commit()
+        logger.info("✅ user_product_discounts table ready")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"user_product_discounts migration failed: {e}")
+
+
+# ============================================================
+# 🗄️ Migration (v2.1 + v17)
 # ============================================================
 def upgrade_database():
-    """ترقية قاعدة البيانات — v2.1"""
+    """ترقية قاعدة البيانات — v2.1 + v17"""
     with app.app_context():
         inspector = sa.inspect(db.engine)
         print("بدء Migration v2.1...")
@@ -130,6 +164,7 @@ def upgrade_database():
                 'max_negative_balance FLOAT DEFAULT 0',
                 'referral_earnings FLOAT DEFAULT 0',
                 'referral_count INTEGER DEFAULT 0',
+                'general_discount FLOAT DEFAULT 0.0',   # 🆕 v17
             ]
             for col in users_cols:
                 try:
@@ -368,6 +403,8 @@ def upgrade_database():
             "CREATE INDEX IF NOT EXISTS idx_otp_session_id ON admin_otp_sessions(session_id)",
             "CREATE INDEX IF NOT EXISTS idx_otp_expires ON admin_otp_sessions(expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_blacklist_jti ON jwt_blacklist(jti)",
+            "CREATE INDEX IF NOT EXISTS idx_upd_user ON user_product_discounts(user_id)",              # 🆕 v17
+            "CREATE INDEX IF NOT EXISTS idx_upd_product ON user_product_discounts(product_id)",      # 🆕 v17
         ]
         for idx_sql in indexes:
             try:
@@ -400,10 +437,13 @@ def upgrade_database():
                 if 'already exists' not in str(e).lower():
                     pass
 
-        # 🆕 v2.4: تصفير الرصيد السالب
+        # v2.4: تصفير الرصيد السالب
         _fix_negative_balance_defaults()
 
-        print("اكتملت ترقية قاعدة البيانات (v2.1)")
+        # 🆕 v17: تطبيق Migration الخصومات
+        _apply_discount_migration()
+
+        print("اكتملت ترقية قاعدة البيانات (v2.1 + v17)")
 
 
 # ============================================================
