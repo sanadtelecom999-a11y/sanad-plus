@@ -1,5 +1,5 @@
 # ============================================================
-# 🔥 Cache Service — Redis (v17.3 with Health Alerts)
+# 🔥 Cache Service — Redis (v18.1 — Extended Coverage)
 # ============================================================
 """
 نظام Cache بسيط مبني على Redis (Upstash).
@@ -8,6 +8,7 @@
 - Auto-invalidation من admin
 - Fail-safe: لو Redis سقط، الموقع يعمل عادي
 - 🆕 v17.3: تنبيهات Sentry عند سقوط/عودة Redis
+- 🆕 v18.1: توسيع التغطية (settings, single product, admin lists)
 """
 import os
 import json
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 _REDIS_URL = os.getenv("REDIS_URL", "").strip()
 _redis_client = None
-_redis_down = False  # 🆕 v17.3: حالة Redis
+_redis_down = False
 
 if _REDIS_URL:
     try:
@@ -45,7 +46,6 @@ else:
 # 🆕 v17.3: Redis Health Alerts
 # ============================================================
 def _mark_redis_down(error):
-    """تنبيه Sentry عند سقوط Redis (مرة واحدة فقط)"""
     global _redis_down
     if not _redis_down:
         _redis_down = True
@@ -60,7 +60,6 @@ def _mark_redis_down(error):
 
 
 def _mark_redis_up():
-    """تنبيه Sentry عند عودة Redis (مرة واحدة فقط)"""
     global _redis_down
     if _redis_down:
         _redis_down = False
@@ -74,10 +73,13 @@ def _mark_redis_up():
 # ============================================================
 # ⏱️ TTLs (بالثواني)
 # ============================================================
-TTL_CATEGORIES = 300        # 5 دقائق (نادراً ما تتغير)
+TTL_CATEGORIES = 300        # 5 دقائق
 TTL_PRODUCTS = 120          # 2 دقائق
 TTL_PAYMENT_METHODS = 300   # 5 دقائق
-TTL_DEFAULT = 60            # 1 دقيقة
+TTL_SETTINGS = 300          # 🆕 5 دقائق (public settings)
+TTL_SINGLE_PRODUCT = 180    # 🆕 3 دقائق
+TTL_ADMIN_LISTS = 30        # 🆕 30 ثانية (admin lists — يجب أن تكون قصيرة)
+TTL_DEFAULT = 60
 
 
 # ============================================================
@@ -93,15 +95,29 @@ def key_products(category_id=None):
     return "cache:products:all"
 
 
+def key_single_product(product_id):
+    """🆕 v18.1"""
+    return f"cache:product:{product_id}"
+
+
 def key_payment_methods():
     return "cache:payment-methods:all"
 
 
+def key_settings_public():
+    """🆕 v18.1"""
+    return "cache:settings:public"
+
+
+def key_admin_list(name):
+    """🆕 v18.1: قائمة admin عامة (مثل orders, deposits, users)"""
+    return f"cache:admin:{name}"
+
+
 # ============================================================
-# 💾 Core Operations (with Health Alerts)
+# 💾 Core Operations
 # ============================================================
 def cache_get(key):
-    """اقرأ من Cache — يُرجع None لو مفقود"""
     global _redis_down
     if not _redis_client:
         return None
@@ -121,7 +137,6 @@ def cache_get(key):
 
 
 def cache_set(key, value, ttl=TTL_DEFAULT):
-    """احفظ في Cache"""
     global _redis_down
     if not _redis_client:
         return False
@@ -139,7 +154,6 @@ def cache_set(key, value, ttl=TTL_DEFAULT):
 
 
 def cache_delete(*keys):
-    """احذف واحد أو أكثر"""
     if not _redis_client or not keys:
         return 0
     try:
@@ -153,7 +167,6 @@ def cache_delete(*keys):
 
 
 def cache_delete_pattern(pattern):
-    """احذف كل المفاتيح المطابقة (scan_iter آمن للإنتاج)"""
     if not _redis_client:
         return 0
     try:
@@ -177,11 +190,26 @@ def invalidate_categories():
 
 
 def invalidate_products():
-    return cache_delete_pattern("cache:products:*")
+    return cache_delete_pattern("cache:products:*") + cache_delete_pattern("cache:product:*")
 
 
 def invalidate_payment_methods():
     return cache_delete_pattern("cache:payment-methods:*")
+
+
+def invalidate_settings():
+    """🆕 v18.1"""
+    return cache_delete_pattern("cache:settings:*")
+
+
+def invalidate_admin(name):
+    """🆕 v18.1: مسح قائمة admin معينة"""
+    return cache_delete(key_admin_list(name))
+
+
+def invalidate_admin_all():
+    """🆕 v18.1: مسح كل قوائم admin"""
+    return cache_delete_pattern("cache:admin:*")
 
 
 # ============================================================
@@ -191,34 +219,46 @@ def setup_cache_invalidation(app):
     """
     يربط invalidation تلقائي على Flask app.
 
-    عند أي POST/PUT/DELETE على /admin/api/...
-    → يمسح الـ cache المناسب.
-
-    شفاف للمطور — لا يحتاج تعديل admin.py.
+    عند أي POST/PUT/DELETE ناجح:
+    → يمسح الـ cache المناسب حسب الـ path.
     """
     from flask import request
 
     @app.after_request
     def _auto_invalidate(response):
-        # نفّذ فقط على عمليات التعديل
         if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
             return response
-
-        # نفّذ فقط لو الرد ناجح (2xx)
         if not (200 <= response.status_code < 300):
             return response
 
         path = request.path
         try:
+            # Categories
             if "/admin/api/categories" in path:
                 invalidate_categories()
-                logger.info(f"🔥 Cache invalidated: categories ({path})")
+                logger.info(f"🔥 Invalidated: categories ({path})")
+
+            # Products / Bundles
             if "/admin/api/products" in path:
                 invalidate_products()
-                logger.info(f"🔥 Cache invalidated: products ({path})")
+                logger.info(f"🔥 Invalidated: products ({path})")
+
+            # Payment methods
             if "/admin/api/payment-methods" in path:
                 invalidate_payment_methods()
-                logger.info(f"🔥 Cache invalidated: payment-methods ({path})")
+                logger.info(f"🔥 Invalidated: payment-methods ({path})")
+
+            # 🆕 v18.1: Settings
+            if "/admin/api/settings" in path:
+                invalidate_settings()
+                logger.info(f"🔥 Invalidated: settings ({path})")
+
+            # 🆕 v18.1: Admin lists (any write invalidates all admin lists)
+            # نتحقق أولاً إذا كان admin write
+            if path.startswith("/admin/api/"):
+                invalidate_admin_all()
+                logger.info(f"🔥 Invalidated: admin lists ({path})")
+
         except Exception as e:
             logger.warning(f"Auto-invalidation failed for {path}: {e}")
 
@@ -235,7 +275,6 @@ def is_enabled():
 
 
 def is_healthy():
-    """🆕 v17.3: فحص صحة Redis"""
     if not _redis_client:
         return False
     try:
@@ -243,3 +282,18 @@ def is_healthy():
         return True
     except Exception:
         return False
+
+
+def stats():
+    """🆕 v18.1: إحصائيات Redis (اختياري)"""
+    if not _redis_client:
+        return {"enabled": False}
+    try:
+        info = _redis_client.info("memory")
+        return {
+            "enabled": True,
+            "used_memory_human": info.get("used_memory_human", "N/A"),
+            "keys": _redis_client.dbsize(),
+        }
+    except Exception as e:
+        return {"enabled": True, "error": str(e)[:100]}

@@ -1,11 +1,12 @@
 # ============================================================
-# ☁️ Cloudinary Service — v2.3 (with signed URL support)
+# ☁️ Cloudinary Service — v18.1 (Progressive + Better Compression)
 # ============================================================
 """
 خدمة إدارة الصور عبر Cloudinary.
 - رفع صور عامة (categories, products, payment-methods)
 - Signed URLs للصور المحمية (KYC, Deposits)
 - Fail-safe: يحتفظ بـ base64 إذا فشل الرفع
+- 🆕 v18.1: تحسينات ضغط + responsive + progressive loading
 """
 import os
 import time
@@ -40,20 +41,30 @@ else:
 
 
 # ============================================================
-# 🎨 Transformations
+# 🎨 Transformations — 🆕 v18.1 optimized
 # ============================================================
-DEFAULT_TRANSFORM = "w_400,h_400,c_fill,q_auto,f_auto"
-LARGE_TRANSFORM = "w_800,q_auto,f_auto"
-THUMB_TRANSFORM = "w_200,q_auto,f_auto"
+# q_auto:good = quality balanced
+# q_auto:eco = smaller (for thumbnails)
+# f_auto = WebP/AVIF for supported browsers
+# fl_progressive = progressive JPEG (visible improvement)
+
+DEFAULT_TRANSFORM = "w_400,h_400,c_fill,q_auto:good,f_auto,fl_progressive"
+LARGE_TRANSFORM = "w_800,q_auto:good,f_auto,fl_progressive"
+THUMB_TRANSFORM = "w_200,q_auto:eco,f_auto,fl_progressive"
+MOBILE_TRANSFORM = "w_600,q_auto:good,f_auto,fl_progressive"       # 🆕
+TINY_TRANSFORM = "w_100,q_auto:eco,f_auto,fl_progressive"          # 🆕
+HERO_TRANSFORM = "w_1200,q_auto:good,f_auto,fl_progressive"        # 🆕
 
 
 # ============================================================
-# 🌐 Public Upload
+# 🌐 Public Upload — 🆕 v18.1: eager transformations
 # ============================================================
 def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=None):
     """
     رفع صورة عامة (public).
     تُستخدم لـ: categories, products, payment-methods.
+
+    🆕 v18.1: eager transformations لتحسين أول طلب.
     """
     if not _ENABLED:
         logger.warning("Cloudinary not configured — skipping upload")
@@ -62,7 +73,7 @@ def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=Non
     if not base64_data or not isinstance(base64_data, str):
         return None
 
-    # If already a URL — return as-is
+    # URL already — return as-is
     if base64_data.startswith("http://") or base64_data.startswith("https://"):
         return base64_data
 
@@ -78,8 +89,16 @@ def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=Non
             resource_type="image",
             overwrite=True,
             invalidate=True,
+            # 🆕 v18.1: eager transformations
+            eager=[
+                {"width": 200, "crop": "fill", "quality": "auto:eco", "fetch_format": "auto"},
+                {"width": 400, "crop": "fill", "quality": "auto:good", "fetch_format": "auto"},
+                {"width": 800, "crop": "limit", "quality": "auto:good", "fetch_format": "auto"},
+            ],
+            eager_async=True,
+            # 🆕 v18.1: default transformation for direct URL access
             transformation=[
-                {"quality": "auto", "fetch_format": "auto"},
+                {"quality": "auto:good", "fetch_format": "auto", "flags": "progressive"},
             ],
         )
         url = result.get("secure_url")
@@ -92,14 +111,10 @@ def upload_base64_image(base64_data, folder="sanad/uncategorized", public_id=Non
 
 
 # ============================================================
-# 🔒 Signed Upload (للصور الحساسة — اختياري)
+# 🔒 Signed Upload
 # ============================================================
 def upload_signed_image(base64_data, folder="sanad/private", public_id=None):
-    """
-    رفع صورة محمية (authenticated).
-    تحتاج Signed URL للوصول.
-    Returns: public_id (str) أو None
-    """
+    """رفع صورة محمية (authenticated). تحتاج Signed URL للوصول."""
     if not _ENABLED:
         logger.warning("Cloudinary not configured")
         return None
@@ -107,7 +122,6 @@ def upload_signed_image(base64_data, folder="sanad/private", public_id=None):
     if not base64_data or not isinstance(base64_data, str):
         return None
 
-    # If URL — cannot convert to authenticated
     if base64_data.startswith("http://") or base64_data.startswith("https://"):
         return base64_data
 
@@ -139,27 +153,26 @@ def upload_signed_image(base64_data, folder="sanad/private", public_id=None):
 def get_signed_url(public_id, expires_in=1800):
     """
     يُرجع URL للعرض.
-    
+
     منطق آمن (fail-safe):
-    - إذا كان base64 → يُرجعه كما هو (المستخدم يرى الصورة مباشرة)
+    - إذا كان base64 → يُرجعه كما هو
     - إذا كان URL عادي → يُرجعه كما هو
-    - إذا كان public_id لصورة authenticated → يُنشئ signed URL
-    - عند أي فشل → يُرجع القيمة الأصلية (بدون كسر النظام)
+    - إذا كان public_id لصورة authenticated → signed URL
+    - عند أي فشل → يُرجع القيمة الأصلية
     """
     if not public_id:
         return None
 
-    # Case 1: base64 (صور KYC/Deposits القديمة)
+    # base64
     if isinstance(public_id, str) and public_id.startswith("data:"):
         return public_id
 
-    # Case 2: URL عادي (public أو من Cloudinary)
+    # URL عادي
     if isinstance(public_id, str) and (
         public_id.startswith("http://") or public_id.startswith("https://")
     ):
         return public_id
 
-    # Case 3: public_id (نادراً ما يحدث حالياً)
     if not _ENABLED:
         logger.warning("Cloudinary not configured — returning raw public_id")
         return public_id
@@ -177,15 +190,24 @@ def get_signed_url(public_id, expires_in=1800):
 
     except Exception as e:
         logger.warning(f"Signed URL generation failed for {public_id}: {e}")
-        # Fail-safe: return original (base64 or URL still works)
         return public_id
 
 
 # ============================================================
-# 🎨 Optimized URL (للصور العامة)
+# 🎨 Optimized URL — 🆕 v18.1 with more sizes
 # ============================================================
 def get_optimized_url(url, transform="default"):
-    """بناء URL محسّن للصور العامة"""
+    """
+    بناء URL محسّن للصور العامة.
+
+    Available transforms:
+    - "tiny"   → 100px  (icons, list thumbs)
+    - "thumb"  → 200px  (product grid)
+    - "default"→ 400px  (standard)
+    - "mobile" → 600px  (mobile hero)
+    - "large"  → 800px  (detail modal)
+    - "hero"   → 1200px (desktop hero)
+    """
     if not url or not isinstance(url, str):
         return url
 
@@ -196,9 +218,12 @@ def get_optimized_url(url, transform="default"):
         return url
 
     transform_str = {
-        "default": DEFAULT_TRANSFORM,
-        "large": LARGE_TRANSFORM,
+        "tiny": TINY_TRANSFORM,
         "thumb": THUMB_TRANSFORM,
+        "default": DEFAULT_TRANSFORM,
+        "mobile": MOBILE_TRANSFORM,
+        "large": LARGE_TRANSFORM,
+        "hero": HERO_TRANSFORM,
     }.get(transform, DEFAULT_TRANSFORM)
 
     parts = url.split("/upload/", 1)
@@ -209,7 +234,6 @@ def get_optimized_url(url, transform="default"):
 # 🗑️ Delete
 # ============================================================
 def delete_image(public_id):
-    """حذف صورة من Cloudinary"""
     if not _ENABLED or not public_id:
         return False
     try:
@@ -221,7 +245,6 @@ def delete_image(public_id):
 
 
 def extract_public_id(url):
-    """استخراج public_id من Cloudinary URL"""
     if not url or not isinstance(url, str):
         return None
     if "res.cloudinary.com" not in url:
@@ -241,7 +264,7 @@ def extract_public_id(url):
 
 
 # ============================================================
-# 💚 Health Check
+# 💚 Health
 # ============================================================
 def is_enabled():
     return _ENABLED

@@ -1,5 +1,5 @@
 # ============================================================
-# 🌐 Public Settings + Health Check — v18
+# 🌐 Public Settings + Health Check — v18.1
 # ============================================================
 import time
 from flask import jsonify
@@ -9,13 +9,25 @@ from ..extensions import db
 from ..services.cache_service import (
     is_healthy as redis_healthy,
     cache_get,
+    cache_set,
+    key_settings_public,
+    TTL_SETTINGS,
 )
 from . import main
 
 
+# ============================================================
+# 🌐 Public Settings — 🆕 v18.1 with caching
+# ============================================================
 @main.route("/api/settings/public", methods=["GET"])
 def get_public_settings():
-    """إعدادات عامة للمستخدمين (بدون مصادقة)"""
+    """إعدادات عامة للمستخدمين (بدون مصادقة) — cached 5 min"""
+    # 🚀 حاول من Cache أولاً
+    cached = cache_get(key_settings_public())
+    if cached is not None:
+        return jsonify(cached)
+
+    # 💾 قراءة من DB
     PUBLIC_KEYS = ["syp_rate", "store_name", "support_url"]
     settings = Setting.query.filter(Setting.key.in_(PUBLIC_KEYS)).all()
     result = {s.key: s.value for s in settings}
@@ -28,6 +40,8 @@ def get_public_settings():
     if "support_url" not in result:
         result["support_url"] = "https://t.me/SANADST"
 
+    # 💾 احفظ في Cache
+    cache_set(key_settings_public(), result, ttl=TTL_SETTINGS)
     return jsonify(result)
 
 
@@ -50,14 +64,12 @@ def health_check():
     result = {
         "status": "ok",
         "timestamp": int(time.time()),
-        "version": "v18",
+        "version": "v18.1",
         "checks": {}
     }
     degraded = False
 
-    # --------------------------------------------------------
     # 1. Database
-    # --------------------------------------------------------
     try:
         db_start = time.time()
         db.session.execute(text("SELECT 1"))
@@ -72,9 +84,7 @@ def health_check():
         }
         degraded = True
 
-    # --------------------------------------------------------
     # 2. Redis
-    # --------------------------------------------------------
     try:
         redis_start = time.time()
         if redis_healthy():
@@ -92,9 +102,7 @@ def health_check():
         }
         degraded = True
 
-    # --------------------------------------------------------
-    # 3. 🆕 v18: Bot Heartbeat
-    # --------------------------------------------------------
+    # 3. Bot Heartbeat
     try:
         hb = cache_get("bot:heartbeat")
         now = int(time.time())
@@ -133,9 +141,6 @@ def health_check():
         }
         degraded = True
 
-    # --------------------------------------------------------
-    # النتيجة النهائية
-    # --------------------------------------------------------
     result["total_latency_ms"] = round((time.time() - start) * 1000, 2)
 
     if degraded:
