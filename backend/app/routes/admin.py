@@ -1,7 +1,5 @@
 # ============================================================
-# 🎛️ Admin Routes — v2.4
-# الجزء 1 من 2: Imports + Helpers + Auth + Users + Categories
-#                + Products + Bundles + Archive + Payment Methods
+# 🎛️ Admin Routes — v16
 # ============================================================
 import os
 import json
@@ -82,7 +80,7 @@ def check_login_rate_limit(ip: str) -> bool:
         if now - t < LOGIN_RATE_WINDOW
     ]
 
-    # 🆕 v2.4: احذف المفاتيح الفارغة
+    # v2.4: احذف المفاتيح الفارغة
     if not _login_attempts[ip]:
         _login_attempts.pop(ip, None)
         _login_attempts[ip] = []
@@ -161,7 +159,7 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 @limiter.limit("5 per 5 minutes")
 @handle_errors
 def admin_login():
-    # 🆕 v2.4: استخدام get_real_ip الموحّد
+    # v2.4: استخدام get_real_ip الموحّد
     ip = get_real_ip()
 
     if not check_login_rate_limit(ip):
@@ -175,7 +173,7 @@ def admin_login():
         return jsonify({"error": "بيانات غير صحيحة"}), 401
 
     cleanup_expired_otp_sessions()
-    # 🆕 v2.4: تنظيف الـ blacklist تلقائياً
+    # v2.4: تنظيف الـ blacklist تلقائياً
     cleanup_expired_blacklist()
 
     otp_code = generate_otp_code()
@@ -437,7 +435,6 @@ def admin_set_vip(user_id):
 @jwt_required()
 @handle_errors
 def admin_user_detail(user_id):
-    """تفاصيل مستخدم كامل — للمودال"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     user = User.query.get(user_id)
@@ -770,7 +767,7 @@ def admin_bundle_actions(product_id, bundle_id):
 
 
 # ============================================================
-# Archive
+# Archive (Old category/product archive)
 # ============================================================
 @main.route("/admin/api/archive", methods=["GET"])
 @jwt_required()
@@ -846,8 +843,10 @@ def admin_delete_payment_method(method_id):
     method.deleted_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify({"success": True})
+
+
 # ============================================================
-# Orders
+# Orders — v16: استبعاد المؤرشفة
 # ============================================================
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
@@ -855,7 +854,10 @@ def admin_delete_payment_method(method_id):
 def admin_orders():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    orders = Order.query.order_by(Order.created_at.desc()).all()
+    # v16: عرض الطلبات النشطة فقط
+    orders = Order.query.filter(
+        Order.status.in_(['pending', 'review', 'processing'])
+    ).order_by(Order.created_at.desc()).all()
     result = []
     for o in orders:
         product = Product.query.get(o.product_id)
@@ -906,7 +908,6 @@ def admin_order_detail(order_id):
 @jwt_required()
 @handle_errors
 def admin_order_full_detail(order_id):
-    """تفاصيل طلب كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1045,7 +1046,6 @@ def admin_update_order_status(order_id):
 @jwt_required()
 @handle_errors
 def admin_bulk_order_status():
-    """تحديث حالة عدة طلبات دفعة واحدة"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1123,10 +1123,8 @@ def admin_bulk_order_status():
         "success_ids": success,
         "failed": failed,
     })
-
-
 # ============================================================
-# Deposits
+# Deposits — v16: استبعاد المؤرشفة
 # ============================================================
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
@@ -1134,7 +1132,10 @@ def admin_bulk_order_status():
 def admin_deposits():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    deposits = Deposit.query.order_by(Deposit.created_at.desc()).all()
+    # v16: عرض الإيداعات النشطة فقط
+    deposits = Deposit.query.filter(
+        Deposit.status == 'pending'
+    ).order_by(Deposit.created_at.desc()).all()
     result = []
     for d in deposits:
         user = User.query.get(d.user_id)
@@ -1155,7 +1156,6 @@ def admin_deposits():
 @jwt_required()
 @handle_errors
 def admin_deposit_detail(deposit_id):
-    """تفاصيل إيداع كامل — للمودال الجديد"""
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
@@ -1296,7 +1296,7 @@ def admin_reject_deposit(deposit_id):
 
 
 # ============================================================
-# KYC
+# KYC — v16: استبعاد المؤرشفة
 # ============================================================
 @main.route("/admin/api/kyc", methods=["GET"])
 @jwt_required()
@@ -1304,7 +1304,10 @@ def admin_reject_deposit(deposit_id):
 def admin_kyc():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    kycs = KYCRequest.query.order_by(KYCRequest.submitted_at.desc()).all()
+    # v16: عرض KYC النشطة فقط
+    kycs = KYCRequest.query.filter(
+        KYCRequest.status == 'pending'
+    ).order_by(KYCRequest.submitted_at.desc()).all()
     return jsonify([{
         "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
         "phone": k.phone, "address": k.address,
@@ -1411,7 +1414,7 @@ def admin_send_notification():
 
 
 # ============================================================
-# Service Requests
+# Service Requests — v16: استبعاد المؤرشفة
 # ============================================================
 @main.route("/admin/api/service-requests", methods=["GET"])
 @jwt_required()
@@ -1419,7 +1422,10 @@ def admin_send_notification():
 def admin_service_requests():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    reqs = ServiceRequest.query.order_by(ServiceRequest.created_at.desc()).all()
+    # v16: عرض طلبات الخدمة النشطة فقط
+    reqs = ServiceRequest.query.filter(
+        ServiceRequest.status == 'pending'
+    ).order_by(ServiceRequest.created_at.desc()).all()
     return jsonify([{
         "id": r.id, "user_id": r.user_id, "service_name": r.service_name,
         "description": r.description, "estimated_price": r.estimated_price,
@@ -1603,3 +1609,214 @@ def admin_audit_log():
         "admin_id": l.admin_id, "ip_address": l.ip_address, "note": l.note,
         "created_at": l.created_at.isoformat() if l.created_at else None,
     } for l in logs])
+
+
+# ============================================================
+# 🆕 v16: ARCHIVE — استرجاع العناصر المؤرشفة
+# ============================================================
+
+@main.route("/admin/api/archive/orders", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive_orders():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    orders = Order.query.filter(
+        Order.status.in_(['completed', 'cancelled', 'failed'])
+    ).order_by(Order.created_at.desc()).limit(200).all()
+    result = []
+    for o in orders:
+        product = Product.query.get(o.product_id)
+        user = User.query.get(o.user_id)
+        result.append({
+            "id": o.id, "order_number": o.order_number, "user_id": o.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": (user.first_name or user.username) if user else None,
+            "product_id": o.product_id,
+            "product_name": product.name if product else "منتج محذوف",
+            "product_image": product.image if product else None,
+            "product_type": product.product_type if product else None,
+            "product_unit_name": product.unit_name if product else "قطعة",
+            "quantity": o.quantity, "unit_price": o.unit_price,
+            "total_price": o.total_price, "discount_amount": o.discount_amount or 0,
+            "coupon_code": o.coupon_code, "status": o.status,
+            "delivery_data": o.delivery_data,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+        })
+    return jsonify(result)
+
+
+@main.route("/admin/api/archive/deposits", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive_deposits():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    deposits = Deposit.query.filter(
+        Deposit.status.in_(['approved', 'rejected'])
+    ).order_by(Deposit.created_at.desc()).limit(200).all()
+    result = []
+    for d in deposits:
+        user = User.query.get(d.user_id)
+        result.append({
+            "id": d.id, "user_id": d.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": (user.first_name or user.username) if user else None,
+            "amount": d.amount, "method": d.method, "method_id": d.method_id,
+            "proof_image": get_signed_url(d.proof_image, expires_in=1800) if d.proof_image else None,
+            "status": d.status, "transaction_id": d.transaction_id,
+            "admin_note": d.admin_note,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+    return jsonify(result)
+
+
+@main.route("/admin/api/archive/kyc", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive_kyc():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    kycs = KYCRequest.query.filter(
+        KYCRequest.status.in_(['approved', 'rejected'])
+    ).order_by(KYCRequest.submitted_at.desc()).limit(200).all()
+    return jsonify([{
+        "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
+        "phone": k.phone, "address": k.address,
+        "selfie_image": get_signed_url(k.selfie_image, expires_in=1800) if k.selfie_image else None,
+        "status": k.status,
+        "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
+    } for k in kycs])
+
+
+@main.route("/admin/api/archive/services", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive_services():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    reqs = ServiceRequest.query.filter(
+        ServiceRequest.status.in_(['completed', 'rejected', 'cancelled'])
+    ).order_by(ServiceRequest.created_at.desc()).limit(200).all()
+    return jsonify([{
+        "id": r.id, "user_id": r.user_id, "service_name": r.service_name,
+        "description": r.description, "estimated_price": r.estimated_price,
+        "status": r.status, "admin_response": r.admin_response,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    } for r in reqs])
+
+
+@main.route("/admin/api/archive/counts", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_archive_counts():
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    return jsonify({
+        "orders": Order.query.filter(
+            Order.status.in_(['completed', 'cancelled', 'failed'])
+        ).count(),
+        "deposits": Deposit.query.filter(
+            Deposit.status.in_(['approved', 'rejected'])
+        ).count(),
+        "kyc": KYCRequest.query.filter(
+            KYCRequest.status.in_(['approved', 'rejected'])
+        ).count(),
+        "services": ServiceRequest.query.filter(
+            ServiceRequest.status.in_(['completed', 'rejected', 'cancelled'])
+        ).count(),
+    })
+
+
+# ============================================================
+# 🆕 v16: RESTORE
+# ============================================================
+
+@main.route("/admin/api/orders/<int:order_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_order(order_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"error": "طلب غير موجود"}), 404
+    if order.status not in ['completed', 'cancelled', 'failed']:
+        return jsonify({"error": "الطلب ليس مؤرشفاً"}), 400
+
+    order.status = "pending"
+    order.cancelled_at = None
+    order.completed_at = None
+    order.failed_at = None
+    order.updated_at = datetime.now(timezone.utc)
+
+    log_admin_activity(f"استرجاع الطلب {order.order_number} من الأرشيف")
+    db.session.commit()
+    return jsonify({"success": True, "status": order.status})
+
+
+@main.route("/admin/api/deposits/<int:deposit_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_deposit(deposit_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    deposit = Deposit.query.get(deposit_id)
+    if not deposit:
+        return jsonify({"error": "إيداع غير موجود"}), 404
+    if deposit.status not in ['approved', 'rejected']:
+        return jsonify({"error": "الإيداع ليس مؤرشفاً"}), 400
+
+    deposit.status = "pending"
+    deposit.reviewed_at = None
+    deposit.admin_note = None
+
+    log_admin_activity(f"استرجاع الإيداع {deposit.transaction_id}")
+    db.session.commit()
+    return jsonify({"success": True, "status": deposit.status})
+
+
+@main.route("/admin/api/kyc/<int:kyc_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_kyc(kyc_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    kyc = KYCRequest.query.get(kyc_id)
+    if not kyc:
+        return jsonify({"error": "طلب غير موجود"}), 404
+    if kyc.status not in ['approved', 'rejected']:
+        return jsonify({"error": "الطلب ليس مؤرشفاً"}), 400
+
+    kyc.status = "pending"
+    kyc.reviewed_at = None
+    kyc.admin_note = None
+
+    user = User.query.get(kyc.user_id)
+    if user:
+        user.kyc_status = "pending"
+        user.is_verified = False
+
+    log_admin_activity(f"استرجاع KYC {kyc.user_id}")
+    db.session.commit()
+    return jsonify({"success": True, "status": kyc.status})
+
+
+@main.route("/admin/api/services/<int:req_id>/restore", methods=["POST"])
+@jwt_required()
+@handle_errors
+def admin_restore_service(req_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    req = ServiceRequest.query.get(req_id)
+    if not req:
+        return jsonify({"error": "غير موجود"}), 404
+    if req.status not in ['completed', 'rejected', 'cancelled']:
+        return jsonify({"error": "الطلب ليس مؤرشفاً"}), 400
+
+    req.status = "pending"
+    req.admin_response = None
+
+    log_admin_activity(f"استرجاع طلب خدمة {req.id}")
+    db.session.commit()
+    return jsonify({"success": True, "status": req.status})

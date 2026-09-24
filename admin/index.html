@@ -2,305 +2,248 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>SANAD+ | لوحة التحكم</title>
+<title>SANAD+ Admin</title>
 <meta name="theme-color" content="#0EA5E9">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SANAD Admin">
-<meta name="description" content="لوحة تحكم متجر SANAD PLUS⁺">
+<meta name="description" content="لوحة تحكم SANAD PLUS⁺">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=15">
+<link rel="stylesheet" href="css/admin.css?v=16">
 </head>
 <body>
 
 <!-- ============================================================
      TOPBAR
      ============================================================ -->
-<header class="topbar admin-topbar">
-    <div class="topbar-right admin-topbar-right">
-        <button class="icon-btn menu-btn" onclick="toggleSidebar()" aria-label="القائمة">
-            <span class="material-icons">menu</span>
-        </button>
-        <span class="topbar-brand logo-text">SANAD<span class="plus highlight">+</span></span>
+<header class="topbar">
+    <button class="icon-btn" onclick="toggleSidebar()" aria-label="القائمة">
+        <span class="material-icons">menu</span>
+    </button>
+    <div class="topbar-title">
+        <span class="logo">SANAD<span class="plus">+</span></span>
     </div>
-
-    <div class="topbar-center admin-topbar-center">
-        <button class="topbar-search global-search-btn" onclick="openGlobalSearch()">
-            <span class="material-icons">search</span>
-            <span class="global-search-text">ابحث في كل شيء...</span>
-            <span class="kbd global-search-kbd">Ctrl+K</span>
-        </button>
-        <button class="topbar-search-mobile" onclick="openGlobalSearch()">
-            <span class="material-icons">search</span>
-        </button>
-    </div>
-
-    <div class="topbar-actions admin-topbar-left">
-        <button class="icon-btn" onclick="showNotifications?.() || switchSection('notifications')" aria-label="الإشعارات">
-            <span class="material-icons">notifications</span>
-        </button>
-        <button class="icon-btn" id="themeToggleBtn" onclick="toggleAdminTheme()" aria-label="الوضع الليلي">
+    <div class="topbar-actions">
+        <button class="icon-btn" onclick="toggleAdminTheme()" aria-label="الوضع">
             <span class="material-icons" id="themeIcon">dark_mode</span>
         </button>
-        <div class="user-chip">
-            <div class="user-avatar">S</div>
-            <span class="user-name">أبو سند</span>
-        </div>
+        <button class="icon-btn" onclick="logout()" aria-label="خروج">
+            <span class="material-icons">logout</span>
+        </button>
     </div>
 </header>
 
 <!-- ============================================================
      SIDEBAR
      ============================================================ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <span class="logo">SANAD<span class="plus">+</span></span>
+        <button class="icon-btn" onclick="closeSidebar()">
+            <span class="material-icons">close</span>
+        </button>
+    </div>
+
     <nav class="sidebar-nav">
+        <!-- لوحة التحكم -->
+        <button class="nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+            <span class="material-icons">space_dashboard</span>
+            <span>لوحة التحكم</span>
+        </button>
 
-        <!-- 1. لوحة التحكم -->
+        <!-- العمليات -->
         <div class="nav-group">
-            <button class="sidebar-item nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
-                <span class="material-icons">space_dashboard</span>
-                <span>لوحة التحكم</span>
-            </button>
-        </div>
-
-        <!-- 2. العمليات -->
-        <div class="nav-group">
-            <div class="nav-group-title">
-                <span class="material-icons">inventory_2</span>
-                العمليات
-            </div>
-            <button class="sidebar-item nav-item" data-section="orders" onclick="switchSection('orders')">
+            <div class="nav-group-title">العمليات</div>
+            <button class="nav-item" data-section="orders" onclick="switchSection('orders')">
                 <span class="material-icons">receipt_long</span>
                 <span>الطلبات</span>
-                <span class="nav-badge badge" id="badge-orders" style="display:none;">0</span>
+                <span class="nav-badge" id="badge-orders" style="display:none;">0</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="deposits" onclick="switchSection('deposits')">
+            <button class="nav-item" data-section="deposits" onclick="switchSection('deposits')">
                 <span class="material-icons">account_balance_wallet</span>
                 <span>الإيداعات</span>
-                <span class="nav-badge badge" id="badge-deposits" style="display:none;">0</span>
+                <span class="nav-badge" id="badge-deposits" style="display:none;">0</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="kyc" onclick="switchSection('kyc')">
+            <button class="nav-item" data-section="kyc" onclick="switchSection('kyc')">
                 <span class="material-icons">verified_user</span>
                 <span>طلبات التوثيق</span>
-                <span class="nav-badge badge warning" id="badge-kyc" style="display:none;">0</span>
+                <span class="nav-badge" id="badge-kyc" style="display:none;">0</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="service-requests" onclick="switchSection('service-requests')">
+            <button class="nav-item" data-section="service-requests" onclick="switchSection('service-requests')">
                 <span class="material-icons">handyman</span>
                 <span>طلبات الخدمة</span>
-                <span class="nav-badge badge" id="badge-services" style="display:none;">0</span>
+                <span class="nav-badge" id="badge-services" style="display:none;">0</span>
             </button>
         </div>
 
-        <!-- 3. المتجر -->
+        <!-- المتجر -->
         <div class="nav-group">
-            <div class="nav-group-title">
-                <span class="material-icons">storefront</span>
-                المتجر
-            </div>
-            <button class="sidebar-item nav-item" data-section="categories" onclick="switchSection('categories')">
+            <div class="nav-group-title">المتجر</div>
+            <button class="nav-item" data-section="categories" onclick="switchSection('categories')">
                 <span class="material-icons">category</span>
                 <span>الأقسام</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="products" onclick="switchSection('products')">
+            <button class="nav-item" data-section="products" onclick="switchSection('products')">
                 <span class="material-icons">shopping_bag</span>
                 <span>المنتجات</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
+            <button class="nav-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
                 <span class="material-icons">payments</span>
                 <span>طرق الدفع</span>
             </button>
         </div>
 
-        <!-- 4. التسويق -->
+        <!-- التسويق -->
         <div class="nav-group">
-            <div class="nav-group-title">
-                <span class="material-icons">campaign</span>
-                التسويق
-            </div>
-            <button class="sidebar-item nav-item" data-section="coupons" onclick="switchSection('coupons')">
+            <div class="nav-group-title">التسويق</div>
+            <button class="nav-item" data-section="coupons" onclick="switchSection('coupons')">
                 <span class="material-icons">local_offer</span>
                 <span>كودات الخصم</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="referrals" onclick="switchSection('referrals')">
+            <button class="nav-item" data-section="referrals" onclick="switchSection('referrals')">
                 <span class="material-icons">card_giftcard</span>
                 <span>الإحالات</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="notifications" onclick="switchSection('notifications')">
+            <button class="nav-item" data-section="notifications" onclick="switchSection('notifications')">
                 <span class="material-icons">send</span>
                 <span>إرسال إشعار</span>
             </button>
         </div>
 
-        <!-- 5. المستخدمون -->
+        <!-- المستخدمون -->
         <div class="nav-group">
-            <div class="nav-group-title">
-                <span class="material-icons">group</span>
-                المستخدمون
-            </div>
-            <button class="sidebar-item nav-item" data-section="users" onclick="switchSection('users')">
+            <div class="nav-group-title">المستخدمون</div>
+            <button class="nav-item" data-section="users" onclick="switchSection('users')">
                 <span class="material-icons">people</span>
                 <span>إدارة المستخدمين</span>
             </button>
         </div>
 
-        <!-- 6. النظام -->
+        <!-- 🆕 الأرشيف -->
         <div class="nav-group">
-            <div class="nav-group-title">
-                <span class="material-icons">settings</span>
-                النظام
-            </div>
-            <button class="sidebar-item nav-item" data-section="archive" onclick="switchSection('archive')">
-                <span class="material-icons">archive</span>
-                <span>الأرشيف</span>
-                <span class="nav-badge badge archive-badge" id="badge-archive" style="display:none;">0</span>
+            <div class="nav-group-title">الأرشيف</div>
+            <button class="nav-item" data-section="archive" onclick="switchSection('archive')">
+                <span class="material-icons">inventory_2</span>
+                <span>الأرشيف الكامل</span>
+                <span class="nav-badge archive-badge" id="badge-archive-total" style="display:none;">0</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="activities" onclick="switchSection('activities')">
+        </div>
+
+        <!-- النظام -->
+        <div class="nav-group">
+            <div class="nav-group-title">النظام</div>
+            <button class="nav-item" data-section="activities" onclick="switchSection('activities')">
                 <span class="material-icons">history</span>
                 <span>سجل النشاطات</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="audit-log" onclick="switchSection('audit-log')">
+            <button class="nav-item" data-section="audit-log" onclick="switchSection('audit-log')">
                 <span class="material-icons">fact_check</span>
                 <span>التدقيق المالي</span>
             </button>
-            <button class="sidebar-item nav-item" data-section="settings" onclick="switchSection('settings')">
+            <button class="nav-item" data-section="settings" onclick="switchSection('settings')">
                 <span class="material-icons">tune</span>
                 <span>الإعدادات</span>
             </button>
         </div>
-
     </nav>
 </aside>
-
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 
 <!-- ============================================================
      MAIN CONTENT
      ============================================================ -->
-<main class="main admin-content" id="adminContent">
-
-    <!-- Breadcrumbs (auto-updated by admin-v15.js) -->
-    <nav class="breadcrumbs" id="breadcrumbs">
-        <span class="material-icons">home</span>
-        <span class="current">لوحة التحكم</span>
-    </nav>
+<main class="main" id="adminContent">
 
     <!-- ══════════════════════════════════════════════════════
          DASHBOARD
          ══════════════════════════════════════════════════════ -->
-    <section id="section-dashboard" class="admin-section active">
-
+    <section id="section-dashboard" class="section active">
         <div class="page-header">
-            <div class="page-title">
+            <div>
                 <h1 id="dashGreeting">صباح الخير، أبو سند 👋</h1>
                 <p id="dashSubtitle">آخر تحديث: الآن</p>
             </div>
-            <div class="page-actions">
-                <button class="btn btn-outline" onclick="loadAllData().then(renderDashboard)">
-                    <span class="material-icons">refresh</span>
-                    تحديث
-                </button>
-            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadAllData().then(renderDashboard)">
+                <span class="material-icons">refresh</span>
+            </button>
         </div>
 
-        <!-- Attention Card -->
         <div class="attention-card" id="attentionCard">
-            <div class="attention-icon">
+            <div class="attention-header">
                 <span class="material-icons">notifications_active</span>
+                <span>يحتاج انتباهك</span>
             </div>
-            <div class="attention-text">
-                <h3>يحتاج انتباهك</h3>
-                <p id="attentionDesc">جار التحقق من المهام المعلقة...</p>
-            </div>
-            <div class="attention-actions" id="attentionList">
-                <!-- يُملأ من JS -->
-            </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="section-head">
-            <h2>
-                <span class="material-icons">bar_chart</span>
-                الإحصائيات
-            </h2>
-            <div class="time-pills">
-                <button class="time-chip time-pill active" onclick="setDashTimeFilter('today', this)">اليوم</button>
-                <button class="time-chip time-pill" onclick="setDashTimeFilter('week', this)">7 أيام</button>
-                <button class="time-chip time-pill" onclick="setDashTimeFilter('month', this)">30 يوم</button>
-                <button class="time-chip time-pill" onclick="setDashTimeFilter('all', this)">الكل</button>
-            </div>
-        </div>
-
-        <div class="stats-cards stats-grid">
-            <div class="stat stat-card">
-                <div class="stat-head">
-                    <div class="stat-icon primary"><span class="material-icons">payments</span></div>
+            <div class="attention-list" id="attentionList">
+                <div class="attention-empty">
+                    <span class="material-icons">hourglass_empty</span>
+                    جارٍ التحقق...
                 </div>
-                <div class="stat-value stat-number" id="dashRevenue">$0.00</div>
+            </div>
+        </div>
+
+        <div class="section-head">
+            <h2>الإحصائيات</h2>
+            <div class="time-pills">
+                <button class="time-chip active" onclick="setDashTimeFilter('today', this)">اليوم</button>
+                <button class="time-chip" onclick="setDashTimeFilter('week', this)">7 أيام</button>
+                <button class="time-chip" onclick="setDashTimeFilter('month', this)">30 يوم</button>
+                <button class="time-chip" onclick="setDashTimeFilter('all', this)">الكل</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat">
+                <div class="stat-icon primary"><span class="material-icons">payments</span></div>
+                <div class="stat-value" id="dashRevenue">$0.00</div>
                 <div class="stat-label" id="dashRevenueLabel">إيرادات اليوم</div>
             </div>
-            <div class="stat stat-card">
-                <div class="stat-head">
-                    <div class="stat-icon info"><span class="material-icons">receipt_long</span></div>
-                </div>
-                <div class="stat-value stat-number" id="dashOrders">0</div>
+            <div class="stat">
+                <div class="stat-icon info"><span class="material-icons">receipt_long</span></div>
+                <div class="stat-value" id="dashOrders">0</div>
                 <div class="stat-label" id="dashOrdersLabel">طلبات اليوم</div>
             </div>
-            <div class="stat stat-card">
-                <div class="stat-head">
-                    <div class="stat-icon success"><span class="material-icons">person_add</span></div>
-                </div>
-                <div class="stat-value stat-number" id="dashUsers">0</div>
+            <div class="stat">
+                <div class="stat-icon success"><span class="material-icons">person_add</span></div>
+                <div class="stat-value" id="dashUsers">0</div>
                 <div class="stat-label" id="dashUsersLabel">مستخدمون جدد</div>
             </div>
-            <div class="stat stat-card">
-                <div class="stat-head">
-                    <div class="stat-icon warning"><span class="material-icons">account_balance_wallet</span></div>
-                </div>
-                <div class="stat-value stat-number" id="dashDeposits">$0.00</div>
+            <div class="stat">
+                <div class="stat-icon warning"><span class="material-icons">account_balance_wallet</span></div>
+                <div class="stat-value" id="dashDeposits">$0.00</div>
                 <div class="stat-label" id="dashDepositsLabel">إيداعات اليوم</div>
             </div>
         </div>
 
-        <!-- Charts -->
         <div class="charts-grid">
             <div class="chart-card">
-                <div class="chart-header"><h3>الطلبات حسب الحالة</h3></div>
+                <h3>الطلبات حسب الحالة</h3>
                 <div class="chart-body"><canvas id="chartOrdersPie"></canvas></div>
             </div>
             <div class="chart-card">
-                <div class="chart-header"><h3>الإيداعات - آخر 7 أيام</h3></div>
+                <h3>الإيداعات - آخر 7 أيام</h3>
                 <div class="chart-body"><canvas id="chartDepositsLine"></canvas></div>
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="section-head mt-6">
-            <h2><span class="material-icons">schedule</span> آخر العمليات</h2>
-        </div>
-        <div id="recentActivities" class="list">
+        <div class="section-head"><h2>آخر العمليات</h2></div>
+        <div id="recentActivities">
             <div class="empty">
                 <div class="empty-icon"><span class="material-icons">history</span></div>
                 <h3>لا توجد عمليات حديثة</h3>
                 <p>عندما يبدأ المستخدمون بالتفاعل، ستظهر هنا آخر الطلبات والإيداعات.</p>
-                <div class="empty-actions">
-                    <button class="btn btn-primary" onclick="switchSection('orders')">
-                        <span class="material-icons">receipt_long</span>
-                        عرض الطلبات
-                    </button>
-                </div>
             </div>
         </div>
     </section>
@@ -308,27 +251,17 @@
     <!-- ══════════════════════════════════════════════════════
          USERS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-users" class="admin-section">
+    <section id="section-users" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>المستخدمون</h1>
-                <p>إدارة حسابات المستخدمين والأرصدة</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-outline" onclick="exportUsersExcel()">
-                    <span class="material-icons">file_download</span>
-                    تصدير Excel
-                </button>
-            </div>
+            <h1>المستخدمون</h1>
+            <button class="btn btn-outline btn-sm" onclick="exportUsersExcel()">
+                <span class="material-icons">file_download</span> Excel
+            </button>
         </div>
-
-        <div class="toolbar">
-            <div class="search-box search-input">
-                <span class="material-icons">search</span>
-                <input type="text" id="userSearch" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
-            </div>
+        <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="userSearch" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
         </div>
-
         <div class="table-container">
             <table>
                 <thead>
@@ -349,18 +282,12 @@
     <!-- ══════════════════════════════════════════════════════
          CATEGORIES
          ══════════════════════════════════════════════════════ -->
-    <section id="section-categories" class="admin-section">
+    <section id="section-categories" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الأقسام</h1>
-                <p>تنظيم فئات المنتجات في المتجر</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-primary" onclick="openCategoryModal()">
-                    <span class="material-icons">add</span>
-                    إضافة قسم
-                </button>
-            </div>
+            <h1>الأقسام</h1>
+            <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">
+                <span class="material-icons">add</span> قسم
+            </button>
         </div>
         <div class="cards-grid" id="categoriesList"></div>
     </section>
@@ -368,25 +295,18 @@
     <!-- ══════════════════════════════════════════════════════
          PRODUCTS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-products" class="admin-section">
+    <section id="section-products" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>المنتجات</h1>
-                <p>إدارة المنتجات والباقات والأسعار</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-primary" onclick="openProductModal()">
-                    <span class="material-icons">add</span>
-                    إضافة منتج
-                </button>
-            </div>
+            <h1>المنتجات</h1>
+            <button class="btn btn-primary btn-sm" onclick="openProductModal()">
+                <span class="material-icons">add</span> منتج
+            </button>
         </div>
-
-        <div class="toolbar product-toolbar">
-            <div class="search-box search-input">
-                <span class="material-icons">search</span>
-                <input type="text" id="productSearch" placeholder="ابحث عن منتج..." oninput="filterProducts()">
-            </div>
+        <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="productSearch" placeholder="ابحث عن منتج..." oninput="filterProducts()">
+        </div>
+        <div class="filters-row">
             <select id="productCategoryFilter" class="filter-select" onchange="filterProducts()">
                 <option value="all">جميع الأقسام</option>
             </select>
@@ -396,11 +316,7 @@
                 <option value="topup">رصيد سوري</option>
                 <option value="bundle">باقة</option>
             </select>
-            <button class="btn btn-ghost" onclick="resetProductFilters()">
-                <span class="material-icons">refresh</span>
-            </button>
         </div>
-
         <div class="table-container">
             <table>
                 <thead>
@@ -410,7 +326,6 @@
                         <th>القسم</th>
                         <th>السعر</th>
                         <th>الكمية</th>
-                        <th>الحد الأقصى</th>
                         <th>النوع</th>
                         <th>إجراءات</th>
                     </tr>
@@ -423,18 +338,12 @@
     <!-- ══════════════════════════════════════════════════════
          PAYMENT METHODS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-payment-methods" class="admin-section">
+    <section id="section-payment-methods" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>طرق الدفع</h1>
-                <p>إدارة بوابات الدفع المتاحة للشحن</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-primary" onclick="openPaymentMethodModal()">
-                    <span class="material-icons">add</span>
-                    إضافة طريقة
-                </button>
-            </div>
+            <h1>طرق الدفع</h1>
+            <button class="btn btn-primary btn-sm" onclick="openPaymentMethodModal()">
+                <span class="material-icons">add</span> طريقة
+            </button>
         </div>
         <div class="cards-grid" id="paymentMethodsList"></div>
     </section>
@@ -442,198 +351,87 @@
     <!-- ══════════════════════════════════════════════════════
          ORDERS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-orders" class="admin-section">
+    <section id="section-orders" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الطلبات</h1>
-                <p id="ordersSubtitle">إدارة ومعالجة طلبات المستخدمين</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-outline" onclick="exportOrdersExcel()">
-                    <span class="material-icons">file_download</span>
-                    Excel
-                </button>
-            </div>
+            <h1>الطلبات</h1>
+            <button class="btn btn-outline btn-sm" onclick="exportOrdersExcel()">
+                <span class="material-icons">file_download</span> Excel
+            </button>
         </div>
-
-        <div class="toolbar">
-            <div class="search-box search-input">
-                <span class="material-icons">search</span>
-                <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب أو User ID أو اسم المنتج..." oninput="applyOrderFilters()">
-            </div>
+        <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب أو User ID..." oninput="applyOrderFilters()">
+        </div>
+        <div class="filters-row">
             <select id="orderStatusFilter" class="filter-select" onchange="applyOrderFilters()">
                 <option value="all">جميع الحالات</option>
                 <option value="pending">قيد المعالجة</option>
                 <option value="review">قيد المراجعة</option>
                 <option value="processing">قيد التنفيذ</option>
-                <option value="completed">مكتمل</option>
-                <option value="failed">فشل</option>
-                <option value="cancelled">ملغي</option>
             </select>
             <select id="orderSortFilter" class="filter-select" onchange="applyOrderFilters()">
-                <option value="newest">الأحدث أولاً</option>
-                <option value="oldest">الأقدم أولاً</option>
-                <option value="price_high">الأعلى سعراً</option>
-                <option value="price_low">الأقل سعراً</option>
+                <option value="newest">الأحدث</option>
+                <option value="oldest">الأقدم</option>
+                <option value="price_high">الأعلى</option>
+                <option value="price_low">الأقل</option>
             </select>
-            <button class="btn btn-ghost" onclick="resetOrderFilters()">
-                <span class="material-icons">refresh</span>
+        </div>
+        <div class="tabs" id="ordersTabs">
+            <button class="tab active" onclick="setOrdersTab('all', this)">
+                الكل <span class="tab-count" id="ordersTabAll">0</span>
+            </button>
+            <button class="tab" onclick="setOrdersTab('pending', this)">
+                معلق <span class="tab-count" id="ordersTabPending">0</span>
+            </button>
+            <button class="tab" onclick="setOrdersTab('processing', this)">
+                تنفيذ <span class="tab-count" id="ordersTabProcessing">0</span>
             </button>
         </div>
-
-        <div class="tabs filter-tabs" id="ordersTabs">
-            <button class="tab filter-tab active" onclick="setOrdersTab('all', this)">
-                الكل <span class="tab-count tab-badge" id="ordersTabAll">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setOrdersTab('pending', this)">
-                قيد المعالجة <span class="tab-count tab-badge tab-badge-warning" id="ordersTabPending">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setOrdersTab('processing', this)">
-                قيد التنفيذ <span class="tab-count tab-badge tab-badge-info" id="ordersTabProcessing">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setOrdersTab('completed', this)">
-                مكتملة <span class="tab-count tab-badge tab-badge-success" id="ordersTabCompleted">0</span>
-            </button>
-        </div>
-
-        <div id="ordersList" class="list"></div>
+        <div id="ordersList" class="cards-list"></div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════
          DEPOSITS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-deposits" class="admin-section">
+    <section id="section-deposits" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الإيداعات</h1>
-                <p>مراجعة ومعالجة إيداعات المستخدمين</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-outline" onclick="exportDepositsExcel()">
-                    <span class="material-icons">file_download</span>
-                    Excel
-                </button>
-            </div>
-        </div>
-
-        <div class="tabs filter-tabs" id="depositsTabs">
-            <button class="tab filter-tab active" onclick="setDepositsTab('all', this)">
-                الكل <span class="tab-count tab-badge" id="depositsTabAll">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setDepositsTab('pending', this)">
-                معلقة <span class="tab-count tab-badge tab-badge-warning" id="depositsTabPending">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setDepositsTab('approved', this)">
-                مقبولة <span class="tab-count tab-badge tab-badge-success" id="depositsTabApproved">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setDepositsTab('rejected', this)">
-                مرفوضة <span class="tab-count tab-badge tab-badge-danger" id="depositsTabRejected">0</span>
+            <h1>الإيداعات</h1>
+            <button class="btn btn-outline btn-sm" onclick="exportDepositsExcel()">
+                <span class="material-icons">file_download</span> Excel
             </button>
         </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>رقم العملية</th>
-                        <th>المستخدم</th>
-                        <th>المبلغ</th>
-                        <th>الطريقة</th>
-                        <th>الحالة</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="depositsTableBody"></tbody>
-            </table>
-        </div>
+        <div id="depositsList" class="cards-list"></div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════
          KYC
          ══════════════════════════════════════════════════════ -->
-    <section id="section-kyc" class="admin-section">
+    <section id="section-kyc" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>طلبات التوثيق</h1>
-                <p>مراجعة طلبات KYC والموافقة عليها</p>
-            </div>
+            <h1>طلبات التوثيق</h1>
         </div>
-
-        <div class="tabs filter-tabs" id="kycTabs">
-            <button class="tab filter-tab active" onclick="setKYCTab('all', this)">
-                الكل <span class="tab-count tab-badge" id="kycTabAll">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setKYCTab('pending', this)">
-                معلقة <span class="tab-count tab-badge tab-badge-warning" id="kycTabPending">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setKYCTab('approved', this)">
-                مقبولة <span class="tab-count tab-badge tab-badge-success" id="kycTabApproved">0</span>
-            </button>
-            <button class="tab filter-tab" onclick="setKYCTab('rejected', this)">
-                مرفوضة <span class="tab-count tab-badge tab-badge-danger" id="kycTabRejected">0</span>
-            </button>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>معرف المستخدم</th>
-                        <th>الاسم الكامل</th>
-                        <th>الهاتف</th>
-                        <th>العنوان</th>
-                        <th>الصورة</th>
-                        <th>الحالة</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="kycTableBody"></tbody>
-            </table>
-        </div>
+        <div id="kycList" class="cards-list"></div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════
          SERVICE REQUESTS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-service-requests" class="admin-section">
+    <section id="section-service-requests" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>طلبات الخدمة</h1>
-                <p>طلبات الخدمات المخصصة من المستخدمين</p>
-            </div>
+            <h1>طلبات الخدمة</h1>
         </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>معرف المستخدم</th>
-                        <th>اسم الخدمة</th>
-                        <th>الوصف</th>
-                        <th>السعر المتوقع</th>
-                        <th>الحالة</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="serviceRequestsTableBody"></tbody>
-            </table>
-        </div>
+        <div id="servicesList" class="cards-list"></div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════
          COUPONS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-coupons" class="admin-section">
+    <section id="section-coupons" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>كودات الخصم</h1>
-                <p>إنشاء وإدارة أكواد الخصم الترويجية</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-primary" onclick="openCouponModal()">
-                    <span class="material-icons">add</span>
-                    إضافة كود
-                </button>
-            </div>
+            <h1>كودات الخصم</h1>
+            <button class="btn btn-primary btn-sm" onclick="openCouponModal()">
+                <span class="material-icons">add</span> كود
+            </button>
         </div>
         <div class="table-container">
             <table>
@@ -642,9 +440,7 @@
                         <th>الكود</th>
                         <th>النوع</th>
                         <th>القيمة</th>
-                        <th>الحد الأدنى</th>
                         <th>الاستخدامات</th>
-                        <th>الصلاحية</th>
                         <th>الحالة</th>
                         <th>إجراءات</th>
                     </tr>
@@ -657,18 +453,12 @@
     <!-- ══════════════════════════════════════════════════════
          REFERRALS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-referrals" class="admin-section">
+    <section id="section-referrals" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الإحالات</h1>
-                <p>متابعة نظام الإحالات والمكافآت</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-outline" onclick="exportReferralsExcel()">
-                    <span class="material-icons">file_download</span>
-                    Excel
-                </button>
-            </div>
+            <h1>الإحالات</h1>
+            <button class="btn btn-outline btn-sm" onclick="exportReferralsExcel()">
+                <span class="material-icons">file_download</span> Excel
+            </button>
         </div>
         <div class="table-container">
             <table>
@@ -682,59 +472,46 @@
                         <th>التاريخ</th>
                     </tr>
                 </thead>
-                <tbody id="referralsTableBody">
-                    <tr><td colspan="6" class="empty-state">جار التحميل...</td></tr>
-                </tbody>
+                <tbody id="referralsTableBody"></tbody>
             </table>
         </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════
-         ARCHIVE
+         🆕 ARCHIVE
          ══════════════════════════════════════════════════════ -->
-    <section id="section-archive" class="admin-section">
+    <section id="section-archive" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الأرشيف</h1>
-                <p>العناصر المؤرشفة القابلة للاسترجاع</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-ghost" onclick="loadArchive()">
-                    <span class="material-icons">refresh</span>
-                </button>
-            </div>
-        </div>
-
-        <div class="tabs archive-tabs">
-            <button class="tab archive-tab active" data-tab="cats" onclick="switchArchiveTab('cats')">
-                الأقسام المؤرشفة
-                <span class="tab-count archive-count" id="archiveCatsCount">0</span>
-            </button>
-            <button class="tab archive-tab" data-tab="prods" onclick="switchArchiveTab('prods')">
-                المنتجات المؤرشفة
-                <span class="tab-count archive-count" id="archiveProdsCount">0</span>
+            <h1>الأرشيف</h1>
+            <button class="btn btn-outline btn-sm" onclick="loadArchiveData()">
+                <span class="material-icons">refresh</span>
             </button>
         </div>
 
-        <div id="archiveCatsContainer">
-            <div class="cards-grid" id="archiveCatsList"></div>
+        <div class="tabs archive-tabs" id="archiveTabs">
+            <button class="tab active" data-archive-tab="orders" onclick="setArchiveTab('orders', this)">
+                الطلبات <span class="tab-count" id="archiveTabOrdersCount">0</span>
+            </button>
+            <button class="tab" data-archive-tab="deposits" onclick="setArchiveTab('deposits', this)">
+                الإيداعات <span class="tab-count" id="archiveTabDepositsCount">0</span>
+            </button>
+            <button class="tab" data-archive-tab="kyc" onclick="setArchiveTab('kyc', this)">
+                التوثيق <span class="tab-count" id="archiveTabKycCount">0</span>
+            </button>
+            <button class="tab" data-archive-tab="services" onclick="setArchiveTab('services', this)">
+                الخدمة <span class="tab-count" id="archiveTabServicesCount">0</span>
+            </button>
         </div>
 
-        <div id="archiveProdsContainer" style="display:none;">
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>الصورة</th>
-                            <th>الاسم</th>
-                            <th>القسم</th>
-                            <th>السعر</th>
-                            <th>الكمية</th>
-                            <th>إجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="archiveProdsList"></tbody>
-                </table>
+        <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="archiveSearch" placeholder="ابحث في الأرشيف..." oninput="filterArchiveItems()">
+        </div>
+
+        <div id="archiveList" class="cards-list">
+            <div class="empty">
+                <div class="empty-icon"><span class="material-icons">inventory_2</span></div>
+                <h3>جارٍ التحميل...</h3>
             </div>
         </div>
     </section>
@@ -742,17 +519,12 @@
     <!-- ══════════════════════════════════════════════════════
          ACTIVITIES
          ══════════════════════════════════════════════════════ -->
-    <section id="section-activities" class="admin-section">
+    <section id="section-activities" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>سجل النشاطات</h1>
-                <p>سجل كامل لعمليات الأدمن</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-ghost" onclick="loadActivities()">
-                    <span class="material-icons">refresh</span>
-                </button>
-            </div>
+            <h1>سجل النشاطات</h1>
+            <button class="btn btn-outline btn-sm" onclick="loadActivities()">
+                <span class="material-icons">refresh</span>
+            </button>
         </div>
         <div class="table-container">
             <table>
@@ -769,24 +541,18 @@
     <!-- ══════════════════════════════════════════════════════
          AUDIT LOG
          ══════════════════════════════════════════════════════ -->
-    <section id="section-audit-log" class="admin-section">
+    <section id="section-audit-log" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>التدقيق المالي</h1>
-                <p>سجل كامل للعمليات المالية</p>
-            </div>
-            <div class="page-actions">
-                <button class="btn btn-ghost" onclick="loadAuditLog()">
-                    <span class="material-icons">refresh</span>
-                </button>
-            </div>
+            <h1>التدقيق المالي</h1>
+            <button class="btn btn-outline btn-sm" onclick="loadAuditLog()">
+                <span class="material-icons">refresh</span>
+            </button>
         </div>
-
-        <div class="toolbar">
-            <div class="search-box search-input">
-                <span class="material-icons">search</span>
-                <input type="text" id="auditUserSearch" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
-            </div>
+        <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" id="auditUserSearch" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
+        </div>
+        <div class="filters-row">
             <select id="auditActionFilter" class="filter-select" onchange="filterAuditLog()">
                 <option value="">كل العمليات</option>
                 <option value="order_created">شراء طلب</option>
@@ -797,7 +563,6 @@
                 <option value="referral_reward">مكافأة إحالة</option>
             </select>
         </div>
-
         <div class="table-container">
             <table>
                 <thead>
@@ -806,14 +571,12 @@
                         <th>المستخدم</th>
                         <th>العملية</th>
                         <th>المبلغ</th>
-                        <th>الرصيد قبل</th>
                         <th>الرصيد بعد</th>
-                        <th>IP</th>
                         <th>التاريخ</th>
                     </tr>
                 </thead>
                 <tbody id="auditLogTableBody">
-                    <tr><td colspan="8" class="empty-state">جار التحميل...</td></tr>
+                    <tr><td colspan="6" class="empty-state">جار التحميل...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -822,15 +585,11 @@
     <!-- ══════════════════════════════════════════════════════
          NOTIFICATIONS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-notifications" class="admin-section">
+    <section id="section-notifications" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>إرسال إشعار</h1>
-                <p>إرسال إشعار لمستخدم واحد أو للجميع</p>
-            </div>
+            <h1>إرسال إشعار</h1>
         </div>
-
-        <div class="card">
+        <div class="form-card">
             <div class="form-group">
                 <label>نوع الإشعار</label>
                 <select id="notificationType">
@@ -854,7 +613,7 @@
                 <label>نص الإشعار</label>
                 <textarea id="notificationMessage" rows="4" placeholder="أدخل نص الإشعار..."></textarea>
             </div>
-            <button class="btn btn-primary" onclick="sendAdminNotification()">
+            <button class="btn btn-primary btn-block" onclick="sendAdminNotification()">
                 <span class="material-icons">send</span> إرسال
             </button>
         </div>
@@ -863,16 +622,13 @@
     <!-- ══════════════════════════════════════════════════════
          SETTINGS
          ══════════════════════════════════════════════════════ -->
-    <section id="section-settings" class="admin-section">
+    <section id="section-settings" class="section">
         <div class="page-header">
-            <div class="page-title">
-                <h1>الإعدادات</h1>
-                <p>إعدادات المتجر العامة</p>
-            </div>
+            <h1>الإعدادات</h1>
         </div>
 
-        <div class="card">
-            <div class="card-header"><h3>الإعدادات العامة</h3></div>
+        <div class="form-card">
+            <h3>الإعدادات العامة</h3>
             <div class="form-group">
                 <label>اسم المتجر</label>
                 <input type="text" id="storeName" value="SANAD+">
@@ -883,8 +639,8 @@
             </div>
         </div>
 
-        <div class="card mt-6">
-            <div class="card-header"><h3>سعر صرف الليرة السورية</h3></div>
+        <div class="form-card">
+            <h3>سعر صرف الليرة السورية</h3>
             <div class="form-group">
                 <label>سعر الصرف (ل.س لكل 1$)</label>
                 <input type="number" id="sypRate" value="132" step="1" min="1">
@@ -894,7 +650,7 @@
             </div>
             <div class="form-group">
                 <label>معاينة</label>
-                <div style="background:var(--primary-soft);padding:12px;border-radius:12px;font-size:13px;">
+                <div class="syp-preview">
                     <div>1000 ل.س = <strong id="sypPreview1000">7.58$</strong></div>
                     <div>5000 ل.س = <strong id="sypPreview5000">37.88$</strong></div>
                     <div>10000 ل.س = <strong id="sypPreview10000">75.76$</strong></div>
@@ -902,7 +658,7 @@
             </div>
         </div>
 
-        <button class="btn btn-primary btn-block mt-4" onclick="saveSettings()">
+        <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="saveSettings()">
             <span class="material-icons">save</span> حفظ الإعدادات
         </button>
     </section>
@@ -910,115 +666,127 @@
 </main>
 
 <!-- ============================================================
-     BOTTOM NAV (Mobile)
+     BOTTOM NAV + FAB
      ============================================================ -->
-<nav class="bottom-nav admin-bottom-nav" id="adminBottomNav">
-    <button class="bottom-nav-item bottom-item active" data-section="dashboard" onclick="switchSection('dashboard')">
+<nav class="bottom-nav" id="bottomNav">
+    <button class="bottom-item active" data-section="dashboard" onclick="switchSection('dashboard')">
         <span class="material-icons">space_dashboard</span>
         <span>الرئيسية</span>
     </button>
-    <button class="bottom-nav-item bottom-item" data-section="orders" onclick="switchSection('orders')">
+    <button class="bottom-item" data-section="orders" onclick="switchSection('orders')">
         <span class="material-icons">receipt_long</span>
         <span>الطلبات</span>
-        <span class="bottom-nav-badge badge" id="badge-mobile-orders" style="display:none;">0</span>
+        <span class="bottom-nav-badge" id="badge-mobile-orders" style="display:none;">0</span>
     </button>
-    <button class="bottom-nav-item bottom-item" data-section="deposits" onclick="switchSection('deposits')">
+    <button class="bottom-item fab-slot" onclick="openQuickActions()">
+        <span class="material-icons" style="font-size:28px;color:white;">add</span>
+    </button>
+    <button class="bottom-item" data-section="deposits" onclick="switchSection('deposits')">
         <span class="material-icons">account_balance_wallet</span>
         <span>الإيداعات</span>
-        <span class="bottom-nav-badge badge" id="badge-mobile-deposits" style="display:none;">0</span>
+        <span class="bottom-nav-badge" id="badge-mobile-deposits" style="display:none;">0</span>
     </button>
-    <button class="bottom-nav-item bottom-item" data-section="users" onclick="switchSection('users')">
-        <span class="material-icons">people</span>
-        <span>المستخدمون</span>
-    </button>
-    <button class="bottom-nav-item bottom-item" onclick="toggleSidebar()">
+    <button class="bottom-item" onclick="toggleSidebar()">
         <span class="material-icons">menu</span>
         <span>المزيد</span>
     </button>
 </nav>
 
-<!-- FAB -->
-<button class="fab" onclick="openGlobalSearch()" aria-label="إجراء سريع">
-    <span class="material-icons">add</span>
-</button>
-
 <!-- ============================================================
-     BULK ORDERS BAR — يظهر عند تحديد طلبات فقط
+     BULK BAR (يظهر عند التحديد فقط)
      ============================================================ -->
-<div class="bulk-orders-bar bulk-bar" id="bulkOrdersBar">
-    <div class="bulk-count">
-        <span class="num bulk-count-num">0</span>
+<div class="bulk-bar" id="bulkOrdersBar">
+    <div class="bulk-info">
+        <span class="bulk-num" id="bulkNum">0</span>
         <span>محدد</span>
     </div>
-    <button class="bulk-action success bulk-btn btn-complete" onclick="bulkChangeStatus('completed')">
-        <span class="material-icons">check</span>
-        إكمال
+    <button class="bulk-action success" onclick="bulkChangeStatus('completed')">
+        <span class="material-icons">check</span> إكمال
     </button>
-    <button class="bulk-action danger bulk-btn btn-fail" onclick="bulkChangeStatus('failed')">
-        <span class="material-icons">close</span>
-        فشل
+    <button class="bulk-action danger" onclick="bulkChangeStatus('failed')">
+        <span class="material-icons">close</span> فشل
     </button>
-    <button class="bulk-action bulk-btn btn-cancel" onclick="bulkChangeStatus('cancelled')">
-        <span class="material-icons">block</span>
-        إلغاء
+    <button class="bulk-action" onclick="bulkChangeStatus('cancelled')">
+        <span class="material-icons">block</span> إلغاء
     </button>
-    <button class="bulk-close bulk-close-btn" onclick="clearSelectedOrders()">
+    <button class="bulk-close" onclick="clearSelectedOrders()">
         <span class="material-icons">close</span>
     </button>
 </div>
 
 <!-- ============================================================
-     MODALS
+     BOTTOM SHEET
      ============================================================ -->
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <button class="close-modal" onclick="closeModal()">&times;</button>
-        </div>
+<div class="bottom-sheet-overlay" id="bottomSheetOverlay" onclick="closeBottomSheet()"></div>
+<div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+        <h3 id="sheetTitle"></h3>
+        <button class="icon-btn" onclick="closeBottomSheet()">
+            <span class="material-icons">close</span>
+        </button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<!-- ============================================================
+     TOASTS
+     ============================================================ -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- ============================================================
+     IMAGE LIGHTBOX
+     ============================================================ -->
+<div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
+    <button class="close-lightbox" onclick="closeImageLightbox()">&times;</button>
+    <img src="" alt="" class="lightbox-image" id="lightboxImage">
+</div>
+
+<!-- ============================================================
+     LEGACY MODAL (يستخدمه admin.js للـ Confirm القديم)
+     ============================================================ -->
+<div id="modal" class="modal-legacy" style="display:none;">
+    <div class="modal-legacy-content">
         <div id="modalBody"></div>
     </div>
 </div>
 
-<div id="confirmModal" class="modal confirm-modal-overlay">
-    <div class="modal-content confirm-content">
-        <div class="confirm-icon" id="confirmIcon">
-            <span class="material-icons">help_outline</span>
-        </div>
-        <h3 id="confirmTitle">تأكيد العملية</h3>
+<!-- ============================================================
+     LEGACY CONFIRM (fallback)
+     ============================================================ -->
+<div id="confirmModal" class="modal-legacy" style="display:none;">
+    <div class="modal-legacy-content">
+        <h3 id="confirmTitle">تأكيد</h3>
         <p id="confirmMessage">هل أنت متأكد؟</p>
-        <div class="confirm-actions">
+        <div style="display:flex;gap:8px;margin-top:16px;">
             <button class="btn btn-primary" id="confirmBtn" onclick="closeConfirm(true)">تأكيد</button>
             <button class="btn btn-outline" onclick="closeConfirm(false)">إلغاء</button>
         </div>
     </div>
 </div>
 
-<div id="globalSearchModal" class="modal global-search-modal">
-    <div class="modal-content global-search-content">
-        <div class="global-search-header">
+<!-- ============================================================
+     LEGACY GLOBAL SEARCH (fallback)
+     ============================================================ -->
+<div id="globalSearchModal" class="modal-legacy" style="display:none;">
+    <div class="modal-legacy-content">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
             <span class="material-icons">search</span>
-            <input type="text" id="globalSearchInput" placeholder="ابحث في المستخدمين، الطلبات، المنتجات..." oninput="performGlobalSearch(this.value)" autocomplete="off">
-            <button class="close-modal-inline" onclick="closeGlobalSearch()">
+            <input type="text" id="globalSearchInput" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);">
+            <button class="icon-btn" onclick="closeGlobalSearch()">
                 <span class="material-icons">close</span>
             </button>
         </div>
-        <div class="global-search-results" id="globalSearchResults">
-            <div class="global-search-hint">
-                <span class="material-icons">search</span>
-                <p>ابدأ الكتابة للبحث...</p>
-                <small>مثال: رقم طلب، Telegram ID، اسم منتج</small>
-            </div>
-        </div>
+        <div id="globalSearchResults"></div>
     </div>
 </div>
 
-<!-- Toast -->
-<div id="toastContainer" class="toast-container"></div>
-
-<!-- Scripts -->
-<script src="js/api.js?v=15"></script>
-<script src="js/admin.js?v=15"></script>
-<script src="js/admin-v15.js?v=15"></script>
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="js/api.js?v=16"></script>
+<script src="js/admin.js?v=16"></script>
+<script src="js/admin-v16.js?v=16"></script>
 
 <!-- Service Worker -->
 <script>
@@ -1029,6 +797,45 @@ if ('serviceWorker' in navigator) {
             .catch((err) => console.warn('SW error:', err));
     });
 }
+</script>
+
+<!-- Legacy Modal helpers (في حال لم يكن admin.js يحتوي عليها) -->
+<script>
+window.openModal = window.openModal || function(title, bodyHTML) {
+    const modal = document.getElementById('modal');
+    const body = document.getElementById('modalBody');
+    if (modal && body) {
+        body.innerHTML = bodyHTML || '';
+        modal.style.display = 'flex';
+    }
+};
+
+window.closeModal = window.closeModal || function() {
+    const modal = document.getElementById('modal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.closeConfirm = window.closeConfirm || function(result) {
+    const modal = document.getElementById('confirmModal');
+    if (modal) modal.style.display = 'none';
+    if (window._confirmResolver) {
+        window._confirmResolver(result);
+        window._confirmResolver = null;
+    }
+};
+
+window.openGlobalSearch = window.openGlobalSearch || function() {
+    const modal = document.getElementById('globalSearchModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.getElementById('globalSearchInput')?.focus();
+    }
+};
+
+window.closeGlobalSearch = window.closeGlobalSearch || function() {
+    const modal = document.getElementById('globalSearchModal');
+    if (modal) modal.style.display = 'none';
+};
 </script>
 
 </body>
