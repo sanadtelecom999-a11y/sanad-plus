@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=17">
+    <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 
@@ -286,27 +286,16 @@
 
     <div id="flashOverlay" class="flash-overlay"></div>
 
-<script src="js/telegram.js?v=17"></script>
-<script src="js/api.js?v=17"></script>
-<script src="js/app_new.js?v=17"></script>
+<script src="js/telegram.js?v=18"></script>
+<script src="js/api.js?v=18"></script>
+<script src="js/app_new.js?v=18"></script>
 
-<!-- 🆕 v18.1: Service Worker registration -->
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then((reg) => {
-                console.log('✅ SW registered:', reg.scope);
-
-                // تحقق من تحديثات كل ساعة
-                setInterval(() => {
-                    reg.update().catch(() => {});
-                }, 60 * 60 * 1000);
-            })
-            .catch((err) => console.warn('SW error:', err));
-    });
-}
-</script>
+<!--
+    ⚠️ v18.3.0: Service Worker registration REMOVED.
+    السبب: SW كان يخدم نسخاً قديمة من JS/CSS، فيعطل الواجهة.
+    الحل: Vercel cache headers كافية (immutable + hashed URLs).
+    الـ SW القديم سيلغي نفسه تلقائياً عند فتح الصفحة.
+-->
 
 </body>
 </html>

@@ -1,343 +1,245 @@
-// miniapp/js/api.js
+// ============================================================
+// miniapp/js/api.js — v18.3.0
+// ============================================================
+// 🆕 v18.3.0:
+//   - retry فقط لـ [0, 503] (ليس 500)
+//   - لا يُعرض "محاولة 1/2" للمستخدم — console فقط
+//   - timeout أقصر (30s بدل 60s)
+//   - رسائل خطأ عربية واضحة
+// ============================================================
 
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
 
-// ============================================================
-// 🔑 JWT Storage
-// ============================================================
-const TOKEN_KEY = 'user_token';
-
-function getAuthToken() {
-    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
-}
-
-function setAuthToken(token) {
-    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) {}
-}
-
-function clearAuthToken() {
-    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
-}
-
-// ============================================================
-// ⚙️ Retry Config
-// ============================================================
-const RETRY_CONFIG = {
-    maxRetries: 2,
-    baseDelay: 3000,
-    maxDelay: 15000,
-    timeout: 60000,
-    retryOnStatus: [0, 408, 429, 500, 502, 503, 504],
+const API_CONFIG = {
+    maxRetries: 1,
+    baseDelay: 1500,
+    maxDelay: 4000,
+    timeout: 30000,
+    retryOnStatus: [0, 503],   // فقط اتصال/خدمة معطلة — NOT 500
 };
 
-// ============================================================
-// 🚀 apiFetch — مع JWT + Retry
-// ============================================================
-async function apiFetch(url, options = {}, retries = RETRY_CONFIG.maxRetries) {
-    const token = getAuthToken();
+let _authToken = null;
 
-    const config = {
-        method: options.method || 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options.headers || {}),
-        },
-        ...options,
+// ════════════════════════════════════════════════════════════
+// Token Management
+// ════════════════════════════════════════════════════════════
+function getAuthToken() { return _authToken; }
+function setAuthToken(t) { _authToken = t; }
+function clearAuthToken() { _authToken = null; }
+
+// ════════════════════════════════════════════════════════════
+// apiFetch — v18.3.0
+// ════════════════════════════════════════════════════════════
+async function apiFetch(url, options = {}, _isRetry = false) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
     };
 
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+    if (_authToken && !headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${_authToken}`;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), RETRY_CONFIG.timeout);
-    config.signal = controller.signal;
-
+    let response;
     try {
-        const response = await fetch(url, config);
+        response = await fetch(url, {
+            ...options,
+            headers,
+            signal: controller.signal,
+        });
+    } catch (err) {
         clearTimeout(timeoutId);
-
-        if (response.status === 401) {
-            clearAuthToken();
-            const initData = window.Telegram?.WebApp?.initData || '';
-            if (initData && !options.__retried_auth) {
-                console.warn('⚠️ Token منتهي — إعادة المصادقة');
-                try {
-                    const authRes = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ initData }),
-                    });
-                    if (authRes.ok) {
-                        const authData = await authRes.json();
-                        if (authData.access_token) {
-                            setAuthToken(authData.access_token);
-                            return apiFetch(url, { ...options, __retried_auth: true }, retries);
-                        }
-                    }
-                } catch (e) {
-                    console.error('فشل إعادة المصادقة:', e);
-                }
-            }
+        // network error
+        if (!_isRetry && !options.__noRetry) {
+            await _sleep(API_CONFIG.baseDelay);
+            return apiFetch(url, options, true);
         }
-
-        if (RETRY_CONFIG.retryOnStatus.includes(response.status) && retries > 0) {
-            const delay = calculateDelay(retries);
-            console.warn(`⚠️ Status ${response.status} — Retry in ${delay}ms`);
-            showConnectingIndicator(RETRY_CONFIG.maxRetries - retries + 1);
-            await sleep(delay);
-            return apiFetch(url, options, retries - 1);
-        }
-
-        let data;
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-        } else {
-            data = await response.text();
-        }
-
-        if (!response.ok) {
-            let errorMessage = `خطأ ${response.status}`;
-            if (typeof data === 'object' && data.error) errorMessage = data.error;
-            else if (typeof data === 'string' && data) errorMessage = data;
-            throw new Error(errorMessage);
-        }
-
-        hideConnectingIndicator();
-        return data;
-
-    } catch (error) {
+        throw new Error('تعذر الاتصال بالسيرفر');
+    } finally {
         clearTimeout(timeoutId);
-
-        const isRetryable = (
-            error.name === 'AbortError' ||
-            error.message.includes('Failed to fetch') ||
-            error.message.includes('NetworkError')
-        );
-
-        if (isRetryable && retries > 0) {
-            const delay = calculateDelay(retries);
-            console.warn(`⚠️ Network error — Retry in ${delay}ms`);
-            showConnectingIndicator(RETRY_CONFIG.maxRetries - retries + 1);
-            await sleep(delay);
-            return apiFetch(url, options, retries - 1);
-        }
-
-        hideConnectingIndicator();
-        throw error;
-    }
-}
-
-function calculateDelay(retriesLeft) {
-    const attempt = RETRY_CONFIG.maxRetries - retriesLeft;
-    return Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt), RETRY_CONFIG.maxDelay);
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function showConnectingIndicator(attempt) {
-    let el = document.getElementById('__connecting_msg');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = '__connecting_msg';
-        el.style.cssText = `
-            position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
-            background: #0D47A1; color: white; padding: 10px 18px;
-            border-radius: 12px; font-size: 13px; z-index: 99999;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); display: flex;
-            align-items: center; gap: 8px; font-family: 'Tajawal', sans-serif;
-        `;
-        document.body.appendChild(el);
-    }
-    el.innerHTML = `
-        <span style="display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:__spin 0.8s linear infinite;"></span>
-        جاري الاتصال... (محاولة ${attempt})
-    `;
-    if (!document.getElementById('__spin_style')) {
-        const style = document.createElement('style');
-        style.id = '__spin_style';
-        style.textContent = '@keyframes __spin { to { transform: rotate(360deg); } }';
-        document.head.appendChild(style);
-    }
-}
-
-function hideConnectingIndicator() {
-    const el = document.getElementById('__connecting_msg');
-    if (el) el.remove();
-}
-
-function pingBackend() {
-    fetch(`${API_BASE_URL}/api/categories/`, { method: 'GET' }).catch(() => {});
-}
-
-// ============================================================
-// 🔐 authenticateUser — يحفظ التوكن
-// ============================================================
-async function authenticateUser(initData) {
-    let telegram_id = null;
-    let first_name = '';
-    let last_name = '';
-    let username = '';
-
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-        const u = window.Telegram.WebApp.initDataUnsafe.user;
-        telegram_id = u.id;
-        first_name = u.first_name || '';
-        last_name = u.last_name || '';
-        username = u.username || '';
-    } else if (window.currentUser && window.currentUser.id) {
-        telegram_id = window.currentUser.id;
-        first_name = window.currentUser.first_name || '';
-        last_name = window.currentUser.last_name || '';
-        username = window.currentUser.username || '';
     }
 
-    if (!telegram_id) {
-        throw new Error('TELEGRAM_ID_MISSING');
-    }
-
-    if (!initData) {
-        throw new Error('INITDATA_MISSING');
-    }
-
-    const response = await fetch(`${API_BASE_URL}/api/auth/telegram`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            telegram_id,
-            first_name,
-            last_name,
-            username,
-            initData,
-        }),
-    });
-
-    if (!response.ok) {
-        let errorMsg = 'فشل المصادقة';
+    // 401 → re-auth مرة واحدة
+    if (response.status === 401 && !options.__noReauth) {
         try {
-            const err = await response.json();
-            if (err.error) errorMsg = err.error;
-        } catch (e) {}
-        throw new Error(errorMsg);
+            const initData = window.Telegram?.WebApp?.initData || '';
+            if (initData) {
+                await authenticateUser(initData);
+                const opts = { ...options, __noReauth: true };
+                return apiFetch(url, opts, true);
+            }
+        } catch (e) {
+            // فشل re-auth — أكمل للـ error
+        }
     }
 
-    const data = await response.json();
+    // retry للأخطاء المؤقتة فقط (0, 503)
+    if (API_CONFIG.retryOnStatus.includes(response.status) && !_isRetry && !options.__noRetry) {
+        console.warn(`[apiFetch] retry ${response.status} for ${url}`);
+        await _sleep(API_CONFIG.baseDelay);
+        return apiFetch(url, options, true);
+    }
 
+    // 204 / empty
+    if (response.status === 204) return {};
+
+    // Parse JSON
+    let data;
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        try {
+            data = await response.json();
+        } catch (e) {
+            data = {};
+        }
+    } else {
+        // HTML error page (405, 500, ...)
+        const text = await response.text();
+        console.error(`[apiFetch] non-JSON response (${response.status}) from ${url}:`, text.substring(0, 300));
+        data = { error: `خطأ في السيرفر (${response.status})` };
+    }
+
+    // Error status → throw مع البيانات
+    if (!response.ok) {
+        const err = new Error(data.error || `خطأ ${response.status}`);
+        err.status = response.status;
+        err.code = data.code;
+        err.data = data;
+        throw err;
+    }
+
+    return data;
+}
+
+function _sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+}
+
+// ════════════════════════════════════════════════════════════
+// Authentication
+// ════════════════════════════════════════════════════════════
+async function authenticateUser(initData) {
+    const data = await apiFetch(`${API_BASE_URL}/api/auth/telegram`, {
+        method: 'POST',
+        body: JSON.stringify({ initData }),
+        __noRetry: true,
+        __noReauth: true,
+    });
     if (data.access_token) {
         setAuthToken(data.access_token);
-        console.log('✅ تم حفظ JWT');
     }
-
     return data.user || data;
 }
 
-// ============================================================
-// 🆕 Public Settings
-// ============================================================
+// ════════════════════════════════════════════════════════════
+// Public endpoints
+// ════════════════════════════════════════════════════════════
 async function fetchPublicSettings() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/settings/public`);
-        if (!response.ok) return {};
-        return await response.json();
-    } catch (e) {
-        console.warn('فشل تحميل الإعدادات العامة:', e);
-        return {};
-    }
+    return apiFetch(`${API_BASE_URL}/api/settings/public`, { __noRetry: true });
 }
 
-// ============================================================
-// 🔌 API Wrappers
-// ============================================================
 async function fetchCategories() {
-    return await apiFetch(`${API_BASE_URL}/api/categories/`);
+    return apiFetch(`${API_BASE_URL}/api/categories/`);
 }
 
-async function fetchProducts(categoryId = null) {
-    const url = categoryId
-        ? `${API_BASE_URL}/api/products/?category_id=${categoryId}`
-        : `${API_BASE_URL}/api/products/`;
-    return await apiFetch(url);
+async function fetchProducts() {
+    return apiFetch(`${API_BASE_URL}/api/products/`);
 }
 
 async function fetchPaymentMethods() {
-    return await apiFetch(`${API_BASE_URL}/api/payment-methods/`);
+    return apiFetch(`${API_BASE_URL}/api/payment_methods/`);
 }
 
+// ════════════════════════════════════════════════════════════
+// User endpoints
+// ════════════════════════════════════════════════════════════
 async function fetchUserOrders() {
-    return await apiFetch(`${API_BASE_URL}/api/orders/my`);
+    return apiFetch(`${API_BASE_URL}/api/orders/`);
 }
 
 async function fetchUserDeposits() {
-    return await apiFetch(`${API_BASE_URL}/api/deposits/my`);
+    return apiFetch(`${API_BASE_URL}/api/deposits/`);
 }
 
 async function createOrder(orderData) {
-    const { telegram_id, ...cleanData } = orderData;
-    return await apiFetch(`${API_BASE_URL}/api/orders/`, {
+    return apiFetch(`${API_BASE_URL}/api/orders/create`, {
         method: 'POST',
-        body: JSON.stringify(cleanData),
+        body: JSON.stringify(orderData),
+        __noRetry: true,   // لا نكرر الطلبات — idempotency يحمي من التكرار
     });
 }
 
 async function createDeposit(depositData) {
-    const { telegram_id, ...cleanData } = depositData;
-    return await apiFetch(`${API_BASE_URL}/api/deposits/`, {
+    return apiFetch(`${API_BASE_URL}/api/deposits/create`, {
         method: 'POST',
-        body: JSON.stringify(cleanData),
+        body: JSON.stringify(depositData),
+        __noRetry: true,
     });
 }
 
 async function submitKYC(kycData) {
-    const { telegram_id, ...cleanData } = kycData;
-    return await apiFetch(`${API_BASE_URL}/api/kyc/submit`, {
+    return apiFetch(`${API_BASE_URL}/api/kyc/submit`, {
         method: 'POST',
-        body: JSON.stringify(cleanData),
+        body: JSON.stringify(kycData),
+        __noRetry: true,
     });
 }
 
 async function getMyKYC() {
-    return await apiFetch(`${API_BASE_URL}/api/kyc/my`);
+    return apiFetch(`${API_BASE_URL}/api/kyc/my`);
 }
 
 async function fetchNotifications() {
-    return await apiFetch(`${API_BASE_URL}/api/user/notifications`);
+    return apiFetch(`${API_BASE_URL}/api/user/notifications`);
 }
 
-async function markNotificationRead(notificationId) {
-    await apiFetch(`${API_BASE_URL}/api/user/notifications/read`, {
+async function markNotificationRead(id) {
+    return apiFetch(`${API_BASE_URL}/api/user/notifications/read`, {
         method: 'POST',
-        body: JSON.stringify({ id: notificationId }),
+        body: JSON.stringify({ id }),
+        __noRetry: true,
     });
 }
 
-async function requestCustomService(serviceData) {
-    const { telegram_id, ...cleanData } = serviceData;
-    return await apiFetch(`${API_BASE_URL}/api/user/request-service`, {
+async function requestCustomService(data) {
+    return apiFetch(`${API_BASE_URL}/api/user/request-service`, {
         method: 'POST',
-        body: JSON.stringify(cleanData),
+        body: JSON.stringify(data),
+        __noRetry: true,
     });
 }
 
-// ============================================================
-// 🆕 Referral — Apply Code
-// ============================================================
-async function applyReferralCode(referralCode) {
-    return await apiFetch(`${API_BASE_URL}/api/user/apply-referral`, {
+async function applyReferralCode(code) {
+    return apiFetch(`${API_BASE_URL}/api/referrals/apply`, {
         method: 'POST',
-        body: JSON.stringify({ referral_code: referralCode }),
+        body: JSON.stringify({ code }),
+        __noRetry: true,
     });
 }
 
-async function fetchUserReferrals() {
-    return await apiFetch(`${API_BASE_URL}/api/user/referrals`);
-}
-
-// Ping عند التحميل
-if (typeof window !== 'undefined') {
-    window.addEventListener('load', () => {
-        setTimeout(pingBackend, 100);
-    });
-}
+// ════════════════════════════════════════════════════════════
+// Exports
+// ════════════════════════════════════════════════════════════
+window.API_BASE_URL = API_BASE_URL;
+window.apiFetch = apiFetch;
+window.getAuthToken = getAuthToken;
+window.setAuthToken = setAuthToken;
+window.clearAuthToken = clearAuthToken;
+window.authenticateUser = authenticateUser;
+window.fetchPublicSettings = fetchPublicSettings;
+window.fetchCategories = fetchCategories;
+window.fetchProducts = fetchProducts;
+window.fetchPaymentMethods = fetchPaymentMethods;
+window.fetchUserOrders = fetchUserOrders;
+window.fetchUserDeposits = fetchUserDeposits;
+window.createOrder = createOrder;
+window.createDeposit = createDeposit;
+window.submitKYC = submitKYC;
+window.getMyKYC = getMyKYC;
+window.fetchNotifications = fetchNotifications;
+window.markNotificationRead = markNotificationRead;
+window.requestCustomService = requestCustomService;
+window.applyReferralCode = applyReferralCode;

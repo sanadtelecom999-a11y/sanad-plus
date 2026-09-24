@@ -22,7 +22,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=17">
+<link rel="stylesheet" href="css/admin.css?v=18">
 </head>
 <body>
 
@@ -774,25 +774,13 @@
 <!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script src="js/api.js?v=17"></script>
-<script src="js/admin.js?v=17"></script>
-<script src="js/admin-v16.js?v=17"></script>
-<script src="js/admin-v17.js?v=17"></script>
-
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then((reg) => console.log('✅ SW registered:', reg.scope))
-            .catch((err) => console.warn('SW error:', err));
-    });
-}
-</script>
+<script src="js/api.js?v=18"></script>
+<script src="js/admin.js?v=18"></script>
+<script src="js/admin-v16.js?v=18"></script>
+<script src="js/admin-v17.js?v=18"></script>
 
 <script>
 (function() {
-    const origSwitch = window.switchSection;
-
     window.switchSection = function(sectionId) {
         document.querySelectorAll('.section, .admin-section').forEach(sec => {
             sec.classList.remove('active');
@@ -894,6 +882,12 @@ window.closeGlobalSearch = window.closeGlobalSearch || function() {
     if (modal) modal.style.display = 'none';
 };
 </script>
+
+<!--
+    ⚠️ v18.3.0: Service Worker registration REMOVED.
+    الـ SW القديم سيلغي نفسه تلقائياً عند أول تحميل (self-destruct).
+    Vercel cache headers كافية (immutable + versioned URLs).
+-->
 
 </body>
 </html>

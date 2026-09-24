@@ -1,17 +1,21 @@
 # ============================================================
-# 💰 Deposits Routes — v18.2.3
+# 💰 Deposits Routes — v18.3.0 (base64 in DB, no Cloudinary)
 # ============================================================
 # Endpoints:
 #   GET  /api/deposits/         → list
 #   GET  /api/deposits          → alias
 #   POST /api/deposits/create   → create
 #   POST /api/deposits          → alias
-#   POST /api/deposits/         → alias (trailing slash)
+#   POST /api/deposits/         → alias
 # ============================================================
-# v18.2.3: fix naive vs aware datetime comparison
+# v18.3.0:
+#   - تخزين الصورة base64 في DB (بدون Cloudinary)
+#   - حل مشكلة datetime naive/aware
+#   - كشف idempotency مبكّر
 # ============================================================
 import re
 import uuid
+import base64
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from flask import request, jsonify
@@ -21,22 +25,31 @@ from ..models.base import (
 )
 from ..extensions import db
 from . import main
-from ..services.cloudinary_service import (
-    upload_signed_image,
-    get_signed_url,
-)
 from ..services.telegram_service import notify_admins
 
 
 # ════════════════════════════════════════════════════════════
-# 🆕 v18.2.3: Helpers
+# Constants
+# ════════════════════════════════════════════════════════════
+MAX_DATA_URL_LENGTH = 3 * 1024 * 1024       # 3 MB base64
+MAX_BINARY_SIZE = 2 * 1024 * 1024           # 2 MB binary
+DAILY_DEPOSIT_CAP = Decimal('200.0000')
+NEW_USER_CAP = Decimal('50.0000')
+NEW_USER_DAYS = 7
+PENDING_DEPOSITS_MAX = 3
+
+ALLOWED_MIME_TYPES = {
+    "image/jpeg": [b"\xff\xd8\xff"],
+    "image/png":  [b"\x89PNG\r\n\x1a\n"],
+    "image/webp": [b"RIFF"],
+}
+
+
+# ════════════════════════════════════════════════════════════
+# Helpers
 # ════════════════════════════════════════════════════════════
 def _aware(dt):
-    """
-    يحوّل datetime naive إلى aware بـ UTC.
-    ضروري لأن SQLAlchemy يخزّن TIMESTAMP WITHOUT TIME ZONE،
-    فالقيم من DB تعود naive دائماً.
-    """
+    """يحوّل naive datetime إلى aware UTC."""
     if dt is None:
         return None
     if dt.tzinfo is None:
@@ -45,12 +58,10 @@ def _aware(dt):
 
 
 def _utcnow():
-    """الوقت الحالي بـ UTC — aware."""
     return datetime.now(timezone.utc)
 
 
 def _d(v):
-    """تحويل آمن إلى Decimal."""
     if v is None:
         return Decimal('0.0000')
     if isinstance(v, Decimal):
@@ -59,7 +70,6 @@ def _d(v):
 
 
 def _f(v):
-    """Decimal → float."""
     if v is None:
         return 0.0
     return float(v)
@@ -76,13 +86,7 @@ def _get_user():
 
 
 def _serialize_deposit(d):
-    proof_url = None
-    if d.proof_image:
-        try:
-            proof_url = get_signed_url(d.proof_image, expires_in=1800)
-        except Exception:
-            proof_url = None
-
+    """تحويل Deposit → JSON. proof_image يُرجَع كما هو (base64 أو URL)."""
     return {
         "id": d.id,
         "transaction_id": d.transaction_id,
@@ -92,65 +96,55 @@ def _serialize_deposit(d):
         "method_id": d.method_id,
         "status": d.status,
         "admin_note": d.admin_note,
-        "proof_image": proof_url,
+        "proof_image": d.proof_image if d.proof_image else None,
         "sender_name": d.sender_name,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "reviewed_at": d.reviewed_at.isoformat() if d.reviewed_at else None,
     }
 
 
-def _validate_proof_image(data_url):
+def _validate_image(data_url):
+    """تحقق MIME + size + magic bytes."""
     if not data_url or not isinstance(data_url, str):
-        return False, "الصورة مطلوبة", None
+        return False, "الصورة مطلوبة"
 
-    if len(data_url) > 3 * 1024 * 1024:
-        return False, "الصورة كبيرة جداً (الحد 3 MB)", None
+    if len(data_url) > MAX_DATA_URL_LENGTH:
+        return False, "الصورة كبيرة جداً (الحد 3 MB)"
 
     if not data_url.startswith("data:image/"):
-        return False, "صيغة الصورة غير صحيحة", None
+        return False, "صيغة الصورة غير صحيحة"
 
     match = re.match(r"^data:(image/[a-z]+);base64,(.+)$", data_url, re.DOTALL)
     if not match:
-        return False, "بيانات Base64 تالفة", None
+        return False, "بيانات Base64 تالفة"
 
     mime_type, b64_data = match.group(1), match.group(2)
 
-    allowed = {
-        "image/jpeg": [b"\xff\xd8\xff"],
-        "image/png":  [b"\x89PNG\r\n\x1a\n"],
-        "image/webp": [b"RIFF"],
-    }
-
-    if mime_type not in allowed:
-        return False, f"صيغة غير مدعومة ({mime_type})", None
+    if mime_type not in ALLOWED_MIME_TYPES:
+        return False, f"صيغة غير مدعومة ({mime_type})"
 
     try:
-        import base64
-        binary_data = base64.b64decode(b64_data, validate=True)
+        binary = base64.b64decode(b64_data, validate=True)
     except Exception:
-        return False, "بيانات Base64 تالفة", None
+        return False, "بيانات Base64 تالفة"
 
-    if len(binary_data) < 100:
-        return False, "الصورة صغيرة جداً", None
+    if len(binary) < 100:
+        return False, "الصورة صغيرة جداً"
 
-    if not any(binary_data.startswith(sig) for sig in allowed[mime_type]):
-        return False, "محتوى الملف لا يطابق الصيغة", None
+    if len(binary) > MAX_BINARY_SIZE:
+        return False, "الصورة كبيرة جداً بعد فك الترميز"
+
+    if not any(binary.startswith(sig) for sig in ALLOWED_MIME_TYPES[mime_type]):
+        return False, "محتوى الملف لا يطابق الصيغة"
 
     if mime_type == "image/webp":
-        if len(binary_data) < 12 or binary_data[8:12] != b"WEBP":
-            return False, "ملف WebP تالف", None
+        if len(binary) < 12 or binary[8:12] != b"WEBP":
+            return False, "ملف WebP تالف"
 
-    return True, None, mime_type
+    return True, None
 
 
-# ════════════════════════════════════════════════════════════
-# 🆕 v18.2.3: Fixed datetime handling
-# ════════════════════════════════════════════════════════════
 def _daily_total(user_id):
-    """
-    مجموع الإيداعات (pending + approved) في آخر 24 ساعة.
-    ⚠️ يستخدم _aware() لتفادي naive/aware mismatch.
-    """
     cutoff = _utcnow() - timedelta(hours=24)
     result = db.session.query(
         db.func.coalesce(db.func.sum(Deposit.amount), 0)
@@ -168,16 +162,9 @@ def _pending_count(user_id):
 
 
 def _account_age_days(user):
-    """
-    🆕 v18.2.3: يحسب عمر الحساب بأمان.
-    السبب: user.created_at من DB قد يكون naive.
-    """
     if not user.created_at:
         return 999
-
-    created = _aware(user.created_at)
-    now = _utcnow()
-    return (now - created).days
+    return (_utcnow() - _aware(user.created_at)).days
 
 
 # ════════════════════════════════════════════════════════════
@@ -224,7 +211,6 @@ def create_deposit():
     if user.is_banned:
         return jsonify({"error": "حسابك موقوف", "code": "USER_BANNED"}), 403
 
-    # KYC Gate
     if user.kyc_status != 'verified' and not user.is_verified:
         return jsonify({
             "error": "يجب توثيق حسابك أولاً",
@@ -238,17 +224,7 @@ def create_deposit():
     proof_image = data.get("proof_image", "")
     idempotency_key = (data.get("idempotency_key") or "").strip() or None
 
-    # Validation
-    if not method_id:
-        return jsonify({"error": "طريقة الدفع مطلوبة"}), 400
-    if amount_raw is None:
-        return jsonify({"error": "المبلغ مطلوب"}), 400
-    if not sender_name:
-        return jsonify({"error": "اسم المرسل مطلوب"}), 400
-    if not proof_image:
-        return jsonify({"error": "صورة الإثبات مطلوبة"}), 400
-
-    # Idempotency
+    # Idempotency — مبكر جداً
     if idempotency_key:
         existing = Deposit.query.filter_by(idempotency_key=idempotency_key).first()
         if existing:
@@ -258,12 +234,19 @@ def create_deposit():
                 "idempotent": True,
             }), 200
 
-    # Payment method
+    if not method_id:
+        return jsonify({"error": "طريقة الدفع مطلوبة"}), 400
+    if amount_raw is None:
+        return jsonify({"error": "المبلغ مطلوب"}), 400
+    if not sender_name:
+        return jsonify({"error": "اسم المرسل مطلوب"}), 400
+    if not proof_image:
+        return jsonify({"error": "صورة الإثبات مطلوبة"}), 400
+
     method = PaymentMethod.query.filter_by(id=method_id, is_active=True).first()
     if not method:
         return jsonify({"error": "طريقة الدفع غير متوفرة"}), 404
 
-    # Amount
     try:
         amount_d = _d(amount_raw)
     except (ValueError, TypeError):
@@ -285,23 +268,18 @@ def create_deposit():
             "code": "AMOUNT_ABOVE_MAX",
         }), 400
 
-    # Image validation
-    is_valid, error_msg, mime_type = _validate_proof_image(proof_image)
+    # Validate image
+    is_valid, error_msg = _validate_image(proof_image)
     if not is_valid:
         return jsonify({
             "error": error_msg,
             "code": "IMAGE_INVALID",
         }), 400
 
-    # ═══════════════════════════════════════════════════════
-    # 🆕 v18.2.3: Daily cap — يستخدم _account_age_days
-    # ═══════════════════════════════════════════════════════
+    # Daily cap
     daily_used = _daily_total(user.id)
-
     cap = Decimal('200.0000')
-    account_age_days = _account_age_days(user)
-
-    if account_age_days < 7:
+    if _account_age_days(user) < NEW_USER_DAYS:
         cap = Decimal('50.0000')
 
     if daily_used + amount_d > cap:
@@ -314,33 +292,15 @@ def create_deposit():
 
     # Pending count
     pending = _pending_count(user.id)
-    if pending >= 3:
+    if pending >= PENDING_DEPOSITS_MAX:
         return jsonify({
             "error": f"لديك {pending} إيداعات قيد المراجعة — انتظر",
             "code": "TOO_MANY_PENDING",
             "pending": pending,
-            "max": 3,
+            "max": PENDING_DEPOSITS_MAX,
         }), 400
 
-    # Upload to Cloudinary
-    try:
-        public_id = upload_signed_image(
-            proof_image,
-            folder=f"sanad/deposits/{user.id}",
-        )
-        if not public_id:
-            return jsonify({
-                "error": "فشل رفع الصورة — حاول مجدداً",
-                "code": "UPLOAD_FAILED",
-            }), 500
-    except Exception as e:
-        print(f"❌ Cloudinary upload error: {e}")
-        return jsonify({
-            "error": "فشل رفع الصورة",
-            "code": "UPLOAD_FAILED",
-        }), 500
-
-    # Create deposit
+    # ═══ إنشاء الإيداع — الصورة base64 مباشرة في DB ═══
     try:
         deposit = Deposit(
             user_id=user.id,
@@ -348,7 +308,7 @@ def create_deposit():
             currency='USD',
             method_id=method.id,
             method=method.name,
-            proof_image=public_id,
+            proof_image=proof_image,       # base64 كامل
             sender_name=sender_name,
             transaction_id='DEP-' + uuid.uuid4().hex[:8].upper(),
             status='pending',
