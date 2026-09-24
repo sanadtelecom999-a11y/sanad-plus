@@ -21,7 +21,6 @@
 
         const data = (typeof kycData !== 'undefined' && Array.isArray(kycData)) ? kycData : [];
 
-        // فلترة حسب tab (إن وُجد)
         let filtered = [...data];
         try {
             const tabFilter = (typeof kycTabFilter !== 'undefined') ? kycTabFilter : 'all';
@@ -104,7 +103,6 @@
             ? deposits
             : (typeof depositsData !== 'undefined' ? depositsData : []);
 
-        // فلترة حسب tab
         let filtered = [...data];
         try {
             const tabFilter = (typeof depositsTabFilter !== 'undefined') ? depositsTabFilter : 'all';
@@ -238,7 +236,7 @@
     };
 
     /* ------------------------------------------------------------
-       0.4 renderOrders → #ordersList (بطاقات v16)
+       0.4 renderOrders → #ordersList
        ------------------------------------------------------------ */
     window.renderOrders = function (orders) {
         const container = document.getElementById('ordersList');
@@ -248,7 +246,6 @@
             ? orders
             : (typeof ordersData !== 'undefined' ? ordersData : []);
 
-        // فلترة حسب tab
         let filtered = [...data];
         try {
             const tabFilter = (typeof ordersTabFilter !== 'undefined') ? ordersTabFilter : 'all';
@@ -343,7 +340,7 @@
     };
 
     /* ------------------------------------------------------------
-       0.5 renderDashboard — override (يضمن أن يعمل على v16)
+       0.5 renderDashboard — override
        ------------------------------------------------------------ */
     const _origRenderDashboard = window.renderDashboard;
     window.renderDashboard = function () {
@@ -351,16 +348,12 @@
             try { _origRenderDashboard(); } catch (e) { console.warn('renderDashboard error:', e); }
         }
 
-        // Greeting
         const h = new Date().getHours();
         const greeting = h < 12 ? 'صباح الخير' : 'مساء الخير';
         const el = document.getElementById('dashGreeting');
         if (el) el.textContent = `${greeting}، ${OWNER_NAME} 👋`;
 
-        // Attention Card
         renderAttentionCard();
-
-        // Recent activities
         renderRecentActivities();
     };
 
@@ -618,7 +611,7 @@
     };
 
     /* ============================================================
-       7. Order Details — Bottom Sheet
+       7. Order Details
        ============================================================ */
     window.viewOrderDetails = async function (orderId) {
         try {
@@ -685,7 +678,7 @@
     };
 
     /* ============================================================
-       8. Quick Approve
+       8. Quick Approve Order
        ============================================================ */
     window.quickApproveOrder = async function (orderId, newStatus) {
         const labels = {
@@ -846,7 +839,7 @@
                 window.fetchArchivedDeposits().catch(() => []),
                 window.fetchArchivedKYC().catch(() => []),
                 window.fetchArchivedServices().catch(() => []),
-                window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, services: 0 }))
+window.fetchArchiveCounts().catch(() => ({ orders: 0, deposits: 0, kyc: 0, services: 0 }))
             ]);
 
             archiveData = { orders, deposits, kyc, services };
@@ -1034,7 +1027,7 @@
     }
 
     /* ============================================================
-       11. Restore
+       11. Restore Actions
        ============================================================ */
     window.restoreArchivedOrder = async function (id) {
         const ok = await window.showConfirm({
@@ -1158,14 +1151,13 @@
     };
 
     /* ============================================================
-       14. Wrap loadAllData — إعادة رسم بعد كل تحميل
+       14. Wrap loadAllData
        ============================================================ */
     const origLoadAllData = window.loadAllData;
     if (typeof origLoadAllData === 'function') {
         window.loadAllData = async function () {
             const result = await origLoadAllData.apply(this, arguments);
 
-            // إعادة رسم الأقسام المخفية (في حال كانت مفتوحة)
             try {
                 if (typeof kycData !== 'undefined' && Array.isArray(kycData)) {
                     window.renderKYC();
@@ -1189,7 +1181,7 @@
     }
 
     /* ============================================================
-       15. Wrap switchSection — إجبار إعادة الرسم عند التنقل
+       15. Wrap switchSection
        ============================================================ */
     const origSwitchSection = window.switchSection;
     if (typeof origSwitchSection === 'function') {
@@ -1198,7 +1190,6 @@
 
             window.closeSidebar();
 
-            // إعادة رسم فورية لكل قسم عند التنقل
             try {
                 if (section === 'dashboard' && typeof window.renderDashboard === 'function') {
                     window.renderDashboard();
@@ -1229,14 +1220,200 @@
     }
 
     /* ============================================================
-       16. Init
+       16. PATCH: Override Legacy Modals → Bottom Sheet
+       ============================================================ */
+
+    /* ----- Override openModal / closeModal ----- */
+    window.openModal = function(title, bodyHTML) {
+        window.openBottomSheet(title || 'تفاصيل', bodyHTML || '');
+    };
+
+    window.closeModal = function() {
+        window.closeBottomSheet();
+    };
+
+    /* ----- Override viewKYCImage — Bottom Sheet مع Lightbox ----- */
+    window.viewKYCImage = function(kycId) {
+        const kyc = (typeof kycData !== 'undefined' && Array.isArray(kycData))
+            ? kycData.find(k => k.id === kycId)
+            : null;
+
+        if (!kyc) {
+            window.showToast('الطلب غير موجود', 'error');
+            return;
+        }
+
+        const statusText = kyc.status === 'approved' ? 'مقبول'
+                         : kyc.status === 'rejected' ? 'مرفوض'
+                         : 'معلق';
+
+        const bodyHtml = `
+            <div style="text-align:right;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+                    <div class="card-id">#${kyc.user_id}</div>
+                    <span class="badge-status ${kyc.status}">${statusText}</span>
+                </div>
+
+                <div style="background:var(--surface-2);padding:14px;border-radius:12px;margin-bottom:16px;">
+                    <div class="card-row"><span class="material-icons">person</span><strong>${kyc.full_name || '-'}</strong></div>
+                    <div class="card-row"><span class="material-icons">phone</span><span class="ltr">${kyc.phone || '-'}</span></div>
+                    ${kyc.address ? `<div class="card-row"><span class="material-icons">location_on</span><span>${kyc.address}</span></div>` : ''}
+                    <div class="card-row"><span class="material-icons">schedule</span><span>${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleString('ar') : ''}</span></div>
+                </div>
+
+                ${kyc.selfie_image ? `
+                    <div style="margin-bottom:12px;">
+                        <div style="font-weight:700;margin-bottom:8px;color:var(--text-2);font-size:13px;">صورة السيلفي:</div>
+                        <div style="border-radius:12px;overflow:hidden;border:2px solid var(--border);max-height:400px;background:var(--surface-2);">
+                            <img src="${kyc.selfie_image}"
+                                 onclick="openImageLightbox('${kyc.selfie_image}')"
+                                 style="width:100%;height:auto;max-height:400px;object-fit:contain;cursor:zoom-in;display:block;"
+                                 alt="KYC Selfie">
+                        </div>
+                    </div>
+                ` : `<div style="text-align:center;padding:20px;color:var(--text-3);font-size:13px;">لا توجد صورة</div>`}
+
+                ${kyc.status === 'pending' ? `
+                    <div style="display:flex;gap:8px;margin-top:16px;">
+                        <button class="btn btn-success btn-block" onclick="closeBottomSheet(); window.handleApproveKYC(${kyc.id})">
+                            <span class="material-icons">check</span> قبول
+                        </button>
+                        <button class="btn btn-danger btn-block" onclick="closeBottomSheet(); window.handleRejectKYC(${kyc.id})">
+                            <span class="material-icons">close</span> رفض
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        window.openBottomSheet('تفاصيل طلب التوثيق', bodyHtml);
+    };
+
+    /* ----- Override viewServiceRequest — Bottom Sheet ----- */
+    window.viewServiceRequest = function(reqId) {
+        const data = (typeof serviceRequestsData !== 'undefined' && Array.isArray(serviceRequestsData))
+            ? serviceRequestsData
+            : [];
+        const r = data.find(x => x.id === reqId);
+        if (!r) {
+            window.showToast('الطلب غير موجود', 'error');
+            return;
+        }
+
+        const statusText = r.status === 'completed' ? 'مكتمل'
+                         : r.status === 'rejected' ? 'مرفوض'
+                         : r.status === 'cancelled' ? 'ملغي'
+                         : 'معلق';
+
+        const bodyHtml = `
+            <div style="text-align:right;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+                    <div class="card-id">#${r.user_id}</div>
+                    <span class="badge-status ${r.status}">${statusText}</span>
+                </div>
+
+                <div style="background:var(--surface-2);padding:14px;border-radius:12px;margin-bottom:16px;">
+                    <div class="card-row"><span class="material-icons">handyman</span><strong>${r.service_name || '-'}</strong></div>
+                    ${r.description ? `<div class="card-row"><span class="material-icons">description</span><span>${r.description}</span></div>` : ''}
+                    ${r.estimated_price ? `<div class="card-row"><span class="material-icons">payments</span><span class="ltr">${r.estimated_price}$</span></div>` : ''}
+                    <div class="card-row"><span class="material-icons">schedule</span><span>${r.created_at ? new Date(r.created_at).toLocaleString('ar') : ''}</span></div>
+                </div>
+
+                ${r.admin_response ? `
+                    <div style="background:var(--primary-soft);padding:14px;border-radius:12px;margin-bottom:16px;">
+                        <div style="font-weight:700;margin-bottom:6px;color:var(--primary);font-size:13px;">رد الإدارة:</div>
+                        <div style="color:var(--text);font-size:14px;">${r.admin_response}</div>
+                    </div>
+                ` : ''}
+
+                ${r.status === 'pending' ? `
+                    <div style="display:grid;gap:8px;margin-top:16px;">
+                        <button class="btn btn-success btn-block" onclick="closeBottomSheet(); updateServiceStatus(${r.id}, 'completed')">
+                            <span class="material-icons">check</span> إكمال
+                        </button>
+                        <button class="btn btn-danger btn-block" onclick="closeBottomSheet(); updateServiceStatus(${r.id}, 'rejected')">
+                            <span class="material-icons">close</span> رفض
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        window.openBottomSheet('تفاصيل طلب الخدمة', bodyHtml);
+    };
+
+    /* ----- Helper: تحديث حالة طلب خدمة ----- */
+    window.updateServiceStatus = async function(reqId, status) {
+        try {
+            await window.updateServiceRequest(reqId, { status });
+            window.showToast('✅ تم التحديث', 'success');
+            if (typeof window.loadAllData === 'function') await window.loadAllData();
+            window.renderServiceRequests();
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    /* ----- Override handleApproveKYC — Bottom Sheet مؤكد ----- */
+    window.handleApproveKYC = async function(kycId) {
+        const confirmed = await window.showConfirm({
+            title: 'قبول التوثيق',
+            message: 'هل أنت متأكد من قبول طلب التوثيق؟',
+            confirmText: 'قبول',
+            type: 'primary'
+        });
+        if (!confirmed) return;
+
+        try {
+            await window.approveKYCRequest(kycId);
+            window.showToast('✅ تم قبول التوثيق — نُقل إلى الأرشيف', 'success');
+            if (typeof window.loadAllData === 'function') await window.loadAllData();
+            window.renderKYC();
+            if (typeof window.updateArchiveBadges === 'function') window.updateArchiveBadges();
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    /* ----- Override handleRejectKYC — Bottom Sheet مؤكد ----- */
+    window.handleRejectKYC = async function(kycId) {
+        const confirmed = await window.showConfirm({
+            title: 'رفض التوثيق',
+            message: 'هل أنت متأكد من رفض طلب التوثيق؟',
+            confirmText: 'رفض',
+            type: 'danger'
+        });
+        if (!confirmed) return;
+
+        try {
+            await window.rejectKYCRequest(kycId);
+            window.showToast('تم رفض التوثيق — نُقل إلى الأرشيف', 'warning');
+            if (typeof window.loadAllData === 'function') await window.loadAllData();
+            window.renderKYC();
+            if (typeof window.updateArchiveBadges === 'function') window.updateArchiveBadges();
+        } catch (err) {
+            window.showToast(`فشل: ${err.message}`, 'error');
+        }
+    };
+
+    /* ----- Override closeConfirm للـ confirmModal القديم (احتياطي) ----- */
+    window.closeConfirm = function(result) {
+        const modal = document.getElementById('confirmModal');
+        if (modal) modal.style.display = 'none';
+        if (window._confirmResolver) {
+            window._confirmResolver(result);
+            window._confirmResolver = null;
+        }
+    };
+
+    /* ============================================================
+       17. Init
        ============================================================ */
     function initV16() {
         updateGreeting();
         window.updateArchiveBadges();
         attachSwipeHandlers();
 
-        // إعادة رسم KYC/Deposits/Services إذا كانت بيانات موجودة
         setTimeout(() => {
             try {
                 if (typeof kycData !== 'undefined' && Array.isArray(kycData)) {
@@ -1258,6 +1435,6 @@
         setTimeout(initV16, 100);
     }
 
-    console.log('✅ admin-v16.js loaded — Full Overrides Active');
+    console.log('✅ admin-v16.js loaded — Full Overrides + Legacy Modal Patch Active');
 
 })();
