@@ -2385,7 +2385,6 @@ window.showNotifications = showNotifications;
 window.copyText = copyText;
 window.toggleFavorite = toggleFavorite;
 window.filterUsers = null; // (Admin فقط)
-window.requestCustomService = openCustomServiceModal; // ✅ و-ت1: يشير للمودال (توافق خلفي)
 
 // ════════════════════════════════════════════════════════════
 // Boot
