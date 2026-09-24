@@ -150,7 +150,7 @@ async function fetchProducts() {
 }
 
 async function fetchPaymentMethods() {
-    return apiFetch(`${API_BASE_URL}/api/payment_methods/`);
+    return apiFetch(`${API_BASE_URL}/api/payment-methods/`);
 }
 
 // ════════════════════════════════════════════════════════════
