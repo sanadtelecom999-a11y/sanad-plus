@@ -1,17 +1,24 @@
 # ============================================================
-# 📦 Orders Routes — v18.2
+# 📦 Orders Routes — v18.3.4
 # ============================================================
 # Endpoints:
 #   GET  /api/orders/            → user's orders (list)
 #   POST /api/orders/create      → create new order
 #   POST /api/orders/<id>/cancel → cancel (120s window)
 # ============================================================
-# 🆕 v18.2:
-#   - Decimal بدل float لكل الحسابات
-#   - رفض الطلب إذا المخزون لا يكفي (لا max(0, ...))
+# v18.2:
+#   - Decimal لكل الحسابات
+#   - رفض المخزون إذا لا يكفي (لا max(0, ...))
 #   - قفل صف الكوبون (لا تجاوز max_uses)
 #   - قفل صف الطلب عند الإلغاء
 #   - topup لا يُخصم من المخزون
+# ============================================================
+# 🆕 v18.3.4:
+#   - إصلاح حساب unit_price: دائماً base_price / base_qty
+#   - السبب: base_price هو سعر الحزمة كاملة (base_qty وحدة)
+#     مثال: Xena Live — 8700 وحدة مقابل 1.00$ → الوحدة = 0.000115$
+#     قبل الإصلاح: 1.00 × 8700 = 8700$ ❌
+#     بعد الإصلاح: 0.000115 × 8700 = 1.00$ ✅
 # ============================================================
 import json
 import uuid
@@ -69,7 +76,7 @@ def _serialize_order(order, product=None):
     delivery = None
     if order.delivery_data:
         try:
-            delivery = order.delivery_data
+            delivery = json.loads(order.delivery_data) if isinstance(order.delivery_data, str) else order.delivery_data
         except Exception:
             delivery = None
 
@@ -107,7 +114,6 @@ def list_orders():
     if not user:
         return jsonify({"error": "غير مصرح"}), 401
 
-    # pagination
     try:
         limit = min(int(request.args.get("limit", 50)), 100)
         offset = max(int(request.args.get("offset", 0)), 0)
@@ -219,24 +225,23 @@ def create_order():
             base_qty = product.base_quantity or 1
             base_price = _d(product.base_price)
 
-            if is_topup:
-                # topup: السعر لكل base_qty ل.س
-                # مثال: base_quantity=1000، base_price=0.76$ → 5000 ل.س = 3.80$
+            # 🆕 v18.3.4: unit_price = base_price / base_qty دائماً
+            # السبب: base_price هو سعر الحزمة كاملة (base_qty وحدة)
+            # مثال: Xena Live — 8700 وحدة مقابل 1.00$ → الوحدة 0.000115$
+            if base_qty > 0:
                 unit_price = (base_price / Decimal(base_qty)).quantize(
-                    Decimal('0.0001'), rounding=ROUND_HALF_UP
-                )
-                base_total = (base_price * Decimal(quantity) / Decimal(base_qty)).quantize(
                     Decimal('0.0001'), rounding=ROUND_HALF_UP
                 )
             else:
                 unit_price = base_price
-                base_total = (base_price * Decimal(quantity)).quantize(
-                    Decimal('0.0001'), rounding=ROUND_HALF_UP
-                )
+
+            base_total = (unit_price * Decimal(quantity)).quantize(
+                Decimal('0.0001'), rounding=ROUND_HALF_UP
+            )
             bundle_name = None
 
         # ═══ 4. تحقق المخزون (رفض، لا max) ═══
-        # topup لا يُخصم من المخزون (شحن رصيد = بلا مخزون)
+        # topup لا يُخصم من المخزون
         stock_to_check = quantity if not is_topup else 0
         if not is_topup and product.stock is not None:
             if product.stock < stock_to_check:
