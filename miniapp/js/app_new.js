@@ -1,4 +1,4 @@
-// miniapp/js/app_new.js — v17.2 (XSS Hardened + URL + VIP v2)
+// miniapp/js/app_new.js — v17.3 (XSS Hardened + URL + VIP v2 + Discount Hint)
 
 let currentPage = 'page-home';
 let userData = null;
@@ -1176,6 +1176,15 @@ function openPurchaseModal(productId) {
     window.__currentProduct = product;
     selectedBundleId = isBundle ? product.bundles[0].id : null;
 
+    // 🆕 v17.3: عرض الخصم العام
+    const userGeneralDiscount = parseFloat(userData?.general_discount) || 0;
+    const discountHintHTML = userGeneralDiscount > 0 ? `
+        <div class="user-discount-hint">
+            <span class="material-icons">sell</span>
+            <span>سعرك بعد خصم <strong>${userGeneralDiscount}%</strong> (خاص لك)</span>
+        </div>
+    ` : '';
+
     let customInputHTML = '';
     if (product.input_type === 'id') {
         customInputHTML = `
@@ -1303,7 +1312,9 @@ function openPurchaseModal(productId) {
                     <h3 class="new-purchase-title">${escapeHtml(product.name)}</h3>
                 </div>
             </div>
-            ${infoRowHTML}
+            $
+{infoRowHTML}
+            ${discountHintHTML}
             ${customInputHTML}
             <div class="new-purchase-actions">
                 <button class="new-btn-cancel" onclick="closeModal()">إلغاء</button>
@@ -1979,7 +1990,7 @@ async function loadInitialData() {
 }
 
 async function initApp() {
-    console.log('🚀 بدء تشغيل SANAD+ v17.2 ...');
+    console.log('🚀 بدء تشغيل SANAD+ v17.3 ...');
     try {
         const ok = await initTelegram();
         if (!ok) {
@@ -2020,7 +2031,7 @@ async function initApp() {
         } catch (e) {
             console.warn('PTR/Swipe غير متاح:', e);
         }
-        console.log('✅ التطبيق جاهز (v17.2)');
+        console.log('✅ التطبيق جاهز (v17.3)');
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
         const gm = document.getElementById('greetingMessage');
