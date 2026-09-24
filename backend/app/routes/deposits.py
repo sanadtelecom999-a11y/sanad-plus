@@ -1,21 +1,14 @@
 # ============================================================
-# 💰 Deposits Routes — v18.2.1
+# 💰 Deposits Routes — v18.2.3
 # ============================================================
 # Endpoints:
-#   GET  /api/deposits/         → user's deposits (list)
-#   GET  /api/deposits          → same (alias)
-#   POST /api/deposits/create   → create new deposit
+#   GET  /api/deposits/         → list
+#   GET  /api/deposits          → alias
+#   POST /api/deposits/create   → create
 #   POST /api/deposits          → alias
 #   POST /api/deposits/         → alias (trailing slash)
 # ============================================================
-# 🆕 v18.2:
-#   - Cloudinary signed uploads (public_id في DB، لا base64)
-#   - سقف تراكمي يومي (pending + approved)
-#   - حد أقصى للإيداعات المعلّقة
-#   - Decimal لكل الحسابات
-# ============================================================
-# 🆕 v18.2.1:
-#   - إضافة POST /api/deposits/ (trailing slash) لتفادي 405
+# v18.2.3: fix naive vs aware datetime comparison
 # ============================================================
 import re
 import uuid
@@ -36,26 +29,28 @@ from ..services.telegram_service import notify_admins
 
 
 # ════════════════════════════════════════════════════════════
-# سياسة الإيداع
+# 🆕 v18.2.3: Helpers
 # ════════════════════════════════════════════════════════════
-DAILY_DEPOSIT_CAP = Decimal('200.0000')
-NEW_USER_CAP = Decimal('50.0000')
-NEW_USER_DAYS = 7
-PENDING_DEPOSITS_MAX = 3
-MAX_PROOF_SIZE_BYTES = 3 * 1024 * 1024
+def _aware(dt):
+    """
+    يحوّل datetime naive إلى aware بـ UTC.
+    ضروري لأن SQLAlchemy يخزّن TIMESTAMP WITHOUT TIME ZONE،
+    فالقيم من DB تعود naive دائماً.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
-ALLOWED_MIME_TYPES = {
-    "image/jpeg": [b"\xff\xd8\xff"],
-    "image/png":  [b"\x89PNG\r\n\x1a\n"],
-    "image/webp": [b"RIFF"],
-}
+
+def _utcnow():
+    """الوقت الحالي بـ UTC — aware."""
+    return datetime.now(timezone.utc)
 
 
-# ════════════════════════════════════════════════════════════
-# Helpers
-# ════════════════════════════════════════════════════════════
 def _d(v):
-    """تحويل آمن إلى Decimal بـ 4 خانات عشرية."""
+    """تحويل آمن إلى Decimal."""
     if v is None:
         return Decimal('0.0000')
     if isinstance(v, Decimal):
@@ -64,7 +59,7 @@ def _d(v):
 
 
 def _f(v):
-    """Decimal → float للـ JSON."""
+    """Decimal → float."""
     if v is None:
         return 0.0
     return float(v)
@@ -81,7 +76,6 @@ def _get_user():
 
 
 def _serialize_deposit(d):
-    """تحويل Deposit إلى dict للـ JSON."""
     proof_url = None
     if d.proof_image:
         try:
@@ -106,11 +100,10 @@ def _serialize_deposit(d):
 
 
 def _validate_proof_image(data_url):
-    """تحقق من صحة الصورة (MIME + Size + Magic Bytes)."""
     if not data_url or not isinstance(data_url, str):
         return False, "الصورة مطلوبة", None
 
-    if len(data_url) > MAX_PROOF_SIZE_BYTES:
+    if len(data_url) > 3 * 1024 * 1024:
         return False, "الصورة كبيرة جداً (الحد 3 MB)", None
 
     if not data_url.startswith("data:image/"):
@@ -122,7 +115,13 @@ def _validate_proof_image(data_url):
 
     mime_type, b64_data = match.group(1), match.group(2)
 
-    if mime_type not in ALLOWED_MIME_TYPES:
+    allowed = {
+        "image/jpeg": [b"\xff\xd8\xff"],
+        "image/png":  [b"\x89PNG\r\n\x1a\n"],
+        "image/webp": [b"RIFF"],
+    }
+
+    if mime_type not in allowed:
         return False, f"صيغة غير مدعومة ({mime_type})", None
 
     try:
@@ -134,8 +133,7 @@ def _validate_proof_image(data_url):
     if len(binary_data) < 100:
         return False, "الصورة صغيرة جداً", None
 
-    signatures = ALLOWED_MIME_TYPES[mime_type]
-    if not any(binary_data.startswith(sig) for sig in signatures):
+    if not any(binary_data.startswith(sig) for sig in allowed[mime_type]):
         return False, "محتوى الملف لا يطابق الصيغة", None
 
     if mime_type == "image/webp":
@@ -145,12 +143,15 @@ def _validate_proof_image(data_url):
     return True, None, mime_type
 
 
+# ════════════════════════════════════════════════════════════
+# 🆕 v18.2.3: Fixed datetime handling
+# ════════════════════════════════════════════════════════════
 def _daily_total(user_id):
     """
     مجموع الإيداعات (pending + approved) في آخر 24 ساعة.
-    ⚠️ يشمل pending — لمنع الغسل عبر إيداعات معلّقة متعددة.
+    ⚠️ يستخدم _aware() لتفادي naive/aware mismatch.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = _utcnow() - timedelta(hours=24)
     result = db.session.query(
         db.func.coalesce(db.func.sum(Deposit.amount), 0)
     ).filter(
@@ -166,8 +167,21 @@ def _pending_count(user_id):
     return Deposit.query.filter_by(user_id=user_id, status='pending').count()
 
 
+def _account_age_days(user):
+    """
+    🆕 v18.2.3: يحسب عمر الحساب بأمان.
+    السبب: user.created_at من DB قد يكون naive.
+    """
+    if not user.created_at:
+        return 999
+
+    created = _aware(user.created_at)
+    now = _utcnow()
+    return (now - created).days
+
+
 # ════════════════════════════════════════════════════════════
-# GET /api/deposits/ — list user deposits
+# GET /api/deposits/
 # ════════════════════════════════════════════════════════════
 @main.route("/api/deposits/", methods=["GET"])
 @main.route("/api/deposits", methods=["GET"])
@@ -196,9 +210,8 @@ def list_deposits():
 
 
 # ════════════════════════════════════════════════════════════
-# POST /api/deposits/ — create new deposit
+# POST /api/deposits/ — create
 # ════════════════════════════════════════════════════════════
-# 🆕 v18.2.1: أضفنا trailing slash لتوافق MiniApp
 @main.route("/api/deposits/create", methods=["POST"])
 @main.route("/api/deposits", methods=["POST"])
 @main.route("/api/deposits/", methods=["POST"])
@@ -211,7 +224,7 @@ def create_deposit():
     if user.is_banned:
         return jsonify({"error": "حسابك موقوف", "code": "USER_BANNED"}), 403
 
-    # ═══ KYC Gate ═══
+    # KYC Gate
     if user.kyc_status != 'verified' and not user.is_verified:
         return jsonify({
             "error": "يجب توثيق حسابك أولاً",
@@ -225,6 +238,7 @@ def create_deposit():
     proof_image = data.get("proof_image", "")
     idempotency_key = (data.get("idempotency_key") or "").strip() or None
 
+    # Validation
     if not method_id:
         return jsonify({"error": "طريقة الدفع مطلوبة"}), 400
     if amount_raw is None:
@@ -234,7 +248,7 @@ def create_deposit():
     if not proof_image:
         return jsonify({"error": "صورة الإثبات مطلوبة"}), 400
 
-    # ═══ Idempotency ═══
+    # Idempotency
     if idempotency_key:
         existing = Deposit.query.filter_by(idempotency_key=idempotency_key).first()
         if existing:
@@ -244,12 +258,12 @@ def create_deposit():
                 "idempotent": True,
             }), 200
 
-    # ═══ طريقة الدفع ═══
+    # Payment method
     method = PaymentMethod.query.filter_by(id=method_id, is_active=True).first()
     if not method:
         return jsonify({"error": "طريقة الدفع غير متوفرة"}), 404
 
-    # ═══ المبلغ ═══
+    # Amount
     try:
         amount_d = _d(amount_raw)
     except (ValueError, TypeError):
@@ -258,14 +272,12 @@ def create_deposit():
     if amount_d <= 0:
         return jsonify({"error": "المبلغ غير صحيح"}), 400
 
-    # حد أدنى
     if method.min_amount and amount_d < _d(method.min_amount):
         return jsonify({
             "error": f"الحد الأدنى {_f(method.min_amount)}$",
             "code": "AMOUNT_BELOW_MIN",
         }), 400
 
-    # حد أقصى
     max_amount = _d(method.max_amount) if method.max_amount else Decimal('500.0000')
     if amount_d > max_amount:
         return jsonify({
@@ -273,7 +285,7 @@ def create_deposit():
             "code": "AMOUNT_ABOVE_MAX",
         }), 400
 
-    # ═══ التحقق من الصورة ═══
+    # Image validation
     is_valid, error_msg, mime_type = _validate_proof_image(proof_image)
     if not is_valid:
         return jsonify({
@@ -281,15 +293,16 @@ def create_deposit():
             "code": "IMAGE_INVALID",
         }), 400
 
-    # ═══ السقف اليومي ═══
+    # ═══════════════════════════════════════════════════════
+    # 🆕 v18.2.3: Daily cap — يستخدم _account_age_days
+    # ═══════════════════════════════════════════════════════
     daily_used = _daily_total(user.id)
 
-    cap = DAILY_DEPOSIT_CAP
-    account_age_days = 999
-    if user.created_at:
-        account_age_days = (datetime.now(timezone.utc) - user.created_at).days
-    if account_age_days < NEW_USER_DAYS:
-        cap = NEW_USER_CAP
+    cap = Decimal('200.0000')
+    account_age_days = _account_age_days(user)
+
+    if account_age_days < 7:
+        cap = Decimal('50.0000')
 
     if daily_used + amount_d > cap:
         return jsonify({
@@ -299,17 +312,17 @@ def create_deposit():
             "cap": _f(cap),
         }), 400
 
-    # ═══ عدد المعلّق ═══
+    # Pending count
     pending = _pending_count(user.id)
-    if pending >= PENDING_DEPOSITS_MAX:
+    if pending >= 3:
         return jsonify({
             "error": f"لديك {pending} إيداعات قيد المراجعة — انتظر",
             "code": "TOO_MANY_PENDING",
             "pending": pending,
-            "max": PENDING_DEPOSITS_MAX,
+            "max": 3,
         }), 400
 
-    # ═══ رفع الصورة إلى Cloudinary ═══
+    # Upload to Cloudinary
     try:
         public_id = upload_signed_image(
             proof_image,
@@ -327,7 +340,7 @@ def create_deposit():
             "code": "UPLOAD_FAILED",
         }), 500
 
-    # ═══ إنشاء الإيداع ═══
+    # Create deposit
     try:
         deposit = Deposit(
             user_id=user.id,

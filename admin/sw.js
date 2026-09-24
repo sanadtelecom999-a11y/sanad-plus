@@ -1,13 +1,8 @@
 // ============================================================
-// 🎛️ SANAD+ Admin — Service Worker (v18.1)
-// ============================================================
-// Admin Panel له احتياجات مختلفة:
-//   - لا pre-cache كامل (قد يتغير التصميم)
-//   - التحديثات الفورية مهمة
-//   - API calls → network-only
+// 🎛️ SANAD+ Admin — Service Worker (v18.2.3)
 // ============================================================
 
-const CACHE_VERSION = 'sanad-admin-v18.1-1';
+const CACHE_VERSION = 'sanad-admin-v18.2.3-2026-09-25';
 
 const PRECACHE_URLS = [
     '/',
@@ -28,9 +23,6 @@ const FONT_DOMAINS = /fonts\.(googleapis|gstatic)\.com/;
 const TELEGRAM_SDK = /telegram\.org/;
 
 
-// ============================================================
-// 🚀 Install
-// ============================================================
 self.addEventListener('install', (event) => {
     console.log('[SW] Admin installing', CACHE_VERSION);
     event.waitUntil(
@@ -42,9 +34,6 @@ self.addEventListener('install', (event) => {
 });
 
 
-// ============================================================
-// 🔄 Activate
-// ============================================================
 self.addEventListener('activate', (event) => {
     console.log('[SW] Admin activating', CACHE_VERSION);
     event.waitUntil(
@@ -59,35 +48,25 @@ self.addEventListener('activate', (event) => {
 });
 
 
-// ============================================================
-// 🎯 Fetch
-// ============================================================
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
     if (request.method !== 'GET') return;
     if (!url.protocol.startsWith('http')) return;
-
-    // Telegram SDK → network-only
     if (TELEGRAM_SDK.test(url.href)) return;
-
-    // API → network-only (مهم جداً لبيانات الأدمن)
     if (API_PATTERN.test(url.pathname)) return;
 
-    // HTML → network-first
     if (request.headers.get('accept')?.includes('text/html')) {
         event.respondWith(networkFirst(request));
         return;
     }
 
-    // Static + Fonts → stale-while-revalidate
     if (STATIC_EXT.test(url.pathname) || FONT_DOMAINS.test(url.hostname)) {
         event.respondWith(staleWhileRevalidate(request));
         return;
     }
 
-    // Images → cache-first
     if (IMAGE_EXT.test(url.pathname)) {
         event.respondWith(cacheFirst(request));
         return;
@@ -97,9 +76,6 @@ self.addEventListener('fetch', (event) => {
 });
 
 
-// ============================================================
-// استراتيجيات
-// ============================================================
 async function networkFirst(request) {
     try {
         const response = await fetch(request);
@@ -136,6 +112,7 @@ async function staleWhileRevalidate(request) {
 async function cacheFirst(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
+
     try {
         const response = await fetch(request);
         if (response && response.status === 200) {
