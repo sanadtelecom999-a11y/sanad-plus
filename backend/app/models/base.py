@@ -207,7 +207,6 @@ class Deposit(db.Model):
     txid = db.Column(db.String(100))
     transaction_id = db.Column(db.String(100), unique=True, index=True)
     fee = db.Column(MONEY, default=Decimal('0.0000'))
-    fee_type = db.Column(db.String(20), default="percentage")  # 🆕 v18.3.6
     status = db.Column(db.String(20), default='pending', index=True)
     admin_note = db.Column(db.Text)
     idempotency_key = db.Column(db.String(100), unique=True)
@@ -246,6 +245,7 @@ class PaymentMethod(db.Model):
     min_amount = db.Column(MONEY, default=Decimal('0.0000'))
     max_amount = db.Column(MONEY, default=Decimal('500.0000'))  # 🆕 v18.2
     fee = db.Column(MONEY, default=Decimal('0.0000'))
+    fee_type = db.Column(db.String(20), default="percentage")  # v18.3.6
 
     requires_kyc = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
