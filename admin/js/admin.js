@@ -2154,17 +2154,18 @@ function openEditProductModal(productId) {
             ${!isTopup ? `
             <div class="edit-modal-grid">
                 <div class="form-group">
-                    <label>السعر الأساسي ($)</label>
+                    <label>السعر (للحزمة كاملة) $</label>
                     <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="0.01" min="0">
+            <small style="color:var(--text-muted,#888);font-size:0.7rem;display:block;margin-top:4px;">💡 سعر الحزمة كاملة، وليس سعر الوحدة</small>
                 </div>
                 <div class="form-group">
-                    <label>الكمية الأساسية</label>
+                    <label>الكمية (عدد الوحدات في الحزمة)</label>
                     <input type="number" id="editProductQuantity" value="${prod.base_quantity || 0}" min="0">
                 </div>
             </div>
             ` : `
             <div class="form-group">
-                <label>السعر بالليرة السورية</label>
+                <label>السعر بالليرة السورية (للحزمة كاملة)</label>
                 <input type="number" id="editProductPrice" value="${prod.base_price || 0}" step="1" min="0">
                 <small style="color:var(--warning);font-size:0.75rem;display:block;margin-top:4px;">💡 السعر يُدخل بالليرة السورية</small>
             </div>

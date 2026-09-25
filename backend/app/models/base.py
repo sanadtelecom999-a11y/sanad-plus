@@ -101,6 +101,19 @@ class Product(db.Model):
     description = db.Column(db.Text)
     image = db.Column(db.Text)
     product_type = db.Column(db.String(20), default='quantity')
+    # ═══════════════════════════════════════════════════════════
+    # ⚠️ SEMANTIC CONTRACT — DO NOT CHANGE WITHOUT UPDATING MiniApp
+    # ═══════════════════════════════════════════════════════════
+    # base_quantity = عدد الوحدات في الحزمة الكاملة
+    # base_price    = السعر الإجمالي للحزمة الكاملة (base_quantity وحدة)
+    #
+    # الحساب الصحيح:
+    #   unit_price = base_price / base_quantity
+    #   total      = unit_price × quantity
+    #
+    # ❌ base_price ليس سعر الوحدة
+    # ✅ مثال: Xena Live — 8700 وحدة بـ 1.00$ (0.000115$ للوحدة)
+    # ═══════════════════════════════════════════════════════════
     base_quantity = db.Column(db.Integer, default=0)
     base_price = db.Column(MONEY, nullable=False, default=Decimal('0.0000'))
     unit_name = db.Column(db.String(50), default='قطعة')
