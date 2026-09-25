@@ -2442,44 +2442,100 @@ function renderPaymentMethods() {
         container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><span class="material-icons">payment</span>لا توجد طرق دفع</div>';
         return;
     }
-    container.innerHTML = paymentMethodsData.map(m => `
+    container.innerHTML = paymentMethodsData.map(m => {
+        const minAmt = parseFloat(m.min_amount || 0).toFixed(2);
+        const maxAmt = parseFloat(m.max_amount || 500).toFixed(2);
+        const feeVal = parseFloat(m.fee || 0);
+        const feeText = feeVal > 0
+            ? (m.fee_type === 'fixed' ? `${feeVal.toFixed(2)}$` : `${feeVal.toFixed(2)}%`)
+            : 'بدون';
+        return `
         <div class="payment-card">
             <div class="card-icon">${m.icon && m.icon.length > 100 ? `<img src="${m.icon}" alt="${m.name}">` : '💳'}</div>
             <div class="card-title">${m.name}</div>
             <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:4px;">${m.description || ''}</div>
-            ${m.requires_kyc ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق</div>' : ''}
-            <div class="card-actions">
+            <div style="font-size:0.72rem;color:var(--text-2);margin-top:8px;line-height:1.8;text-align:right;background:var(--surface-2);padding:8px 10px;border-radius:10px;">
+                💰 الحد الأدنى: <strong style="color:var(--text);">${minAmt}$</strong><br>
+                📈 الحد الأقصى: <strong style="color:var(--text);">${maxAmt}$</strong><br>
+                💵 الرسوم: <strong style="color:var(--text);">${feeText}</strong>
+            </div>
+            ${m.requires_kyc ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:6px;">🔒 تتطلب توثيق</div>' : ''}
+            <div class="card-actions" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px;">
+                <button class="btn-outline btn-sm" onclick="openEditPaymentMethodModal(${m.id})">
+                    <span class="material-icons" style="font-size:14px;vertical-align:middle;">edit</span> تعديل
+                </button>
                 <button class="btn-danger btn-sm" onclick="deletePaymentMethodHandler(${m.id})">حذف</button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
-function openPaymentMethodModal() {
-    const body = `
-        <h3 style="margin-bottom:14px;">إضافة طريقة دفع</h3>
-        <div class="form-group"><label>اسم طريقة الدفع</label><input type="text" id="paymentName"></div>
-        <div class="form-group"><label>اسم الحساب</label><input type="text" id="paymentAccountName"></div>
-        <div class="form-group"><label>رقم الحساب</label><input type="text" id="paymentAccount"></div>
+function _pmFieldsHTML(pm) {
+    const p = pm || {};
+    return `
+        <div class="form-group"><label>اسم طريقة الدفع</label>
+            <input type="text" id="paymentName" value="${(p.name || '').replace(/"/g, '&quot;')}"></div>
+        <div class="form-group"><label>وصف مختصر (اختياري)</label>
+            <input type="text" id="paymentDescription" value="${(p.description || '').replace(/"/g, '&quot;')}"></div>
+        <div class="form-group"><label>اسم الحساب</label>
+            <input type="text" id="paymentAccountName" value="${(p.account_name || '').replace(/"/g, '&quot;')}"></div>
+        <div class="form-group"><label>رقم الحساب</label>
+            <input type="text" id="paymentAccount" value="${(p.account || '').replace(/"/g, '&quot;')}"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label>الحد الأدنى ($)</label>
+                <input type="number" id="paymentMinAmount" value="${p.min_amount || 0}" step="0.01" min="0">
+                <small style="color:var(--text-3);font-size:11px;display:block;margin-top:4px;">0 = بلا حد</small>
+            </div>
+            <div class="form-group">
+                <label>الحد الأقصى ($)</label>
+                <input type="number" id="paymentMaxAmount" value="${p.max_amount || 500}" step="0.01" min="0">
+                <small style="color:var(--text-3);font-size:11px;display:block;margin-top:4px;">0 = بلا حد</small>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label>نوع الرسوم</label>
+                <select id="paymentFeeType">
+                    <option value="percentage" ${p.fee_type === 'percentage' ? 'selected' : ''}>نسبة (%)</option>
+                    <option value="fixed" ${p.fee_type === 'fixed' ? 'selected' : ''}>مبلغ ثابت ($)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>قيمة الرسوم</label>
+                <input type="number" id="paymentFee" value="${p.fee || 0}" step="0.01" min="0">
+                <small style="color:var(--text-3);font-size:11px;display:block;margin-top:4px;">0 = بدون رسوم</small>
+            </div>
+        </div>
 
         <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--primary-light);padding:12px;border-radius:12px;">
-                <input type="checkbox" id="paymentRequiresKyc" style="width:20px;height:20px;cursor:pointer;">
+                <input type="checkbox" id="paymentRequiresKyc" ${p.requires_kyc ? 'checked' : ''} style="width:20px;height:20px;cursor:pointer;">
                 <span style="font-weight:600;">🔒 تتطلب هذه الطريقة توثيق الحساب</span>
             </label>
         </div>
 
         <div class="form-group">
             <label>صورة QR</label>
-            <div class="image-preview" id="paymentQRPreview">لا صورة</div>
+            <div class="image-preview" id="paymentQRPreview">${p.qr_image ? `<img src="${p.qr_image}" alt="">` : 'لا صورة'}</div>
             <input type="file" id="paymentQR" accept="image/*" onchange="previewImage(this,'paymentQRPreview')">
         </div>
         <div class="form-group">
             <label>لوجو الطريقة</label>
-            <div class="image-preview" id="paymentLogoPreview">لا صورة</div>
+            <div class="image-preview" id="paymentLogoPreview">${p.icon ? `<img src="${p.icon}" alt="">` : 'لا صورة'}</div>
             <input type="file" id="paymentLogo" accept="image/*" onchange="previewImage(this,'paymentLogoPreview')">
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
+    `;
+}
+
+function openPaymentMethodModal() {
+    const body = `
+        <h3 style="margin-bottom:14px;">إضافة طريقة دفع</h3>
+        ${_pmFieldsHTML(null)}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
             <button class="btn-primary" onclick="savePaymentMethod(this)">حفظ</button>
             <button class="btn-outline" onclick="closeModal()">إلغاء</button>
         </div>
@@ -2487,32 +2543,88 @@ function openPaymentMethodModal() {
     openModal('إضافة طريقة دفع', body);
 }
 
+function openEditPaymentMethodModal(methodId) {
+    const pm = paymentMethodsData.find(m => m.id === methodId);
+    if (!pm) { showToast('الطريقة غير موجودة', 'error'); return; }
+    const body = `
+        <h3 style="margin-bottom:14px;">تعديل طريقة دفع</h3>
+        <div style="background:var(--primary-light);padding:10px;border-radius:10px;margin-bottom:14px;text-align:center;font-weight:700;">
+            #${pm.id} — ${pm.name}
+        </div>
+        ${_pmFieldsHTML(pm)}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+            <button class="btn-primary" onclick="saveEditedPaymentMethod(${methodId}, this)">حفظ التعديلات</button>
+            <button class="btn-outline" onclick="closeModal()">إلغاء</button>
+        </div>
+    `;
+    openModal('تعديل طريقة دفع', body);
+}
+
+function _readPMForm() {
+    const name = (document.getElementById('paymentName')?.value || '').trim();
+    const description = (document.getElementById('paymentDescription')?.value || '').trim();
+    const account_name = (document.getElementById('paymentAccountName')?.value || '').trim();
+    const account = (document.getElementById('paymentAccount')?.value || '').trim();
+    const min_amount = parseFloat(document.getElementById('paymentMinAmount')?.value) || 0;
+    const max_amount = parseFloat(document.getElementById('paymentMaxAmount')?.value) || 0;
+    const fee = parseFloat(document.getElementById('paymentFee')?.value) || 0;
+    const fee_type = document.getElementById('paymentFeeType')?.value || 'percentage';
+    const requires_kyc = document.getElementById('paymentRequiresKyc')?.checked || false;
+    return { name, description, account_name, account, min_amount, max_amount, fee, fee_type, requires_kyc };
+}
+
+function _validatePM(data) {
+    if (!data.name) return 'أدخل اسم الطريقة';
+    if (data.min_amount < 0 || data.max_amount < 0 || data.fee < 0) return 'لا يمكن أن تكون القيم سالبة';
+    if (data.max_amount > 0 && data.min_amount > data.max_amount) return 'الحد الأدنى أكبر من الحد الأقصى';
+    if (data.fee_type === 'percentage' && data.fee > 100) return 'نسبة الرسوم يجب أن تكون 100% أو أقل';
+    return null;
+}
+
 async function savePaymentMethod(btn) {
-    const name = document.getElementById('paymentName').value;
-    const account_name = document.getElementById('paymentAccountName').value;
-    const account = document.getElementById('paymentAccount').value;
-    const requires_kyc = document.getElementById('paymentRequiresKyc').checked;
-    if (!name) { showToast('أدخل اسم الطريقة', 'warning'); return; }
-    const qrFile = document.getElementById('paymentQR').files[0];
-    const logoFile = document.getElementById('paymentLogo').files[0];
-    let qr_image = '';
-    let logo_image = '';
-    if (qrFile) qr_image = await fileToBase64(qrFile, 512);
-    if (logoFile) logo_image = await fileToSquareBase64(logoFile, 512);
+    const data = _readPMForm();
+    const err = _validatePM(data);
+    if (err) { showToast(err, 'warning'); return; }
+
+    const qrFile = document.getElementById('paymentQR')?.files[0];
+    const logoFile = document.getElementById('paymentLogo')?.files[0];
+    if (qrFile) data.qr_image = await fileToBase64(qrFile, 512);
+    if (logoFile) data.icon = await fileToSquareBase64(logoFile, 512);
+    data.is_active = true;
 
     if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
     try {
-        await createPaymentMethod({
-            name, description: '', account_name, account,
-            icon: logo_image, qr_image, requires_kyc, is_active: true
-        });
+        await createPaymentMethod(data);
         closeModal();
         await loadAllData();
         renderPaymentMethods();
-        showToast('تم إضافة طريقة الدفع بنجاح', 'success');
+        showToast('✅ تم إضافة طريقة الدفع', 'success');
     } catch (error) {
-        showToast(`فشل إضافة طريقة الدفع: ${error.message}`, 'error');
+        showToast(`فشل الإضافة: ${error.message}`, 'error');
         if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+    }
+}
+
+async function saveEditedPaymentMethod(methodId, btn) {
+    const data = _readPMForm();
+    const err = _validatePM(data);
+    if (err) { showToast(err, 'warning'); return; }
+
+    const qrFile = document.getElementById('paymentQR')?.files[0];
+    const logoFile = document.getElementById('paymentLogo')?.files[0];
+    if (qrFile) data.qr_image = await fileToBase64(qrFile, 512);
+    if (logoFile) data.icon = await fileToSquareBase64(logoFile, 512);
+
+    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+    try {
+        await updatePaymentMethod(methodId, data);
+        closeModal();
+        await loadAllData();
+        renderPaymentMethods();
+        showToast('✅ تم تعديل طريقة الدفع', 'success');
+    } catch (error) {
+        showToast(`فشل التعديل: ${error.message}`, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
     }
 }
 

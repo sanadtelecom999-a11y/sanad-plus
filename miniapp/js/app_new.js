@@ -841,13 +841,26 @@ function renderPaymentMethods() {
     const verified = isUserVerified();
     container.innerHTML = paymentMethodsData.map(m => {
         const locked = m.requires_kyc && !verified;
+        const minAmt = parseFloat(m.min_amount || 0);
+        const maxAmt = parseFloat(m.max_amount || 500);
+        const feeVal = parseFloat(m.fee || 0);
+        const feeLabel = feeVal > 0
+            ? (m.fee_type === 'fixed' ? `+${feeVal.toFixed(2)}$` : `+${feeVal.toFixed(2)}%`)
+            : 'بدون';
         return `
         <div class="payment-method ${locked ? 'locked' : ''}" data-id="${m.id}" onclick="${locked ? `showLockedPaymentMessage()` : `showDepositStep1(${m.id})`}">
             <div class="payment-method-info">
                 ${m.icon && m.icon.length > 100 ? `<img src="${escapeAttr(m.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${escapeAttr(m.name)}">` : '<span class="payment-method-icon">💳</span>'}
-                <div>
+                <div style="flex:1;min-width:0;">
                     <div class="payment-method-name">${escapeHtml(m.name)}</div>
                     <div class="payment-method-desc">${escapeHtml(m.description || '')}</div>
+                    <div class="payment-method-limits">
+                        <span class="pm-limit"><span class="material-icons">south</span> ${minAmt.toFixed(2)}$</span>
+                        <span class="pm-sep">•</span>
+                        <span class="pm-limit"><span class="material-icons">north</span> ${maxAmt.toFixed(2)}$</span>
+                        <span class="pm-sep">•</span>
+                        <span class="pm-limit fee"><span class="material-icons">percent</span> ${feeLabel}</span>
+                    </div>
                     ${locked ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق الحساب</div>' : ''}
                 </div>
             </div>
@@ -1680,10 +1693,33 @@ function showDepositStep1(methodId) {
         ? `<img src="${escapeAttr(method.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;" />`
         : '💳';
 
+    const minAmt = parseFloat(method.min_amount || 0);
+    const maxAmt = parseFloat(method.max_amount || 500);
+    const feeVal = parseFloat(method.fee || 0);
+    const feeLabel = feeVal > 0
+        ? (method.fee_type === 'fixed' ? `${feeVal.toFixed(2)}$` : `${feeVal.toFixed(2)}%`)
+        : 'بدون';
+
     const body = `
         <div style="text-align:center;">
             <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${escapeHtml(method.name)}</h3></div>
             <p style="color:var(--text-secondary); margin-bottom:16px;">${escapeHtml(method.description || '')}</p>
+
+            <div class="deposit-info-card" style="margin-bottom:16px;">
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">south</span> الحد الأدنى</span>
+                    <span class="deposit-info-value">${minAmt.toFixed(2)}$</span>
+                </div>
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">north</span> الحد الأقصى</span>
+                    <span class="deposit-info-value">${maxAmt.toFixed(2)}$</span>
+                </div>
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">percent</span> الرسوم</span>
+                    <span class="deposit-info-value">${feeLabel}</span>
+                </div>
+            </div>
+
             <div style="background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:16px; text-align:right;">
                 <div style="margin-bottom:12px;">
                     <div style="font-weight:bold; margin-bottom:4px;">اسم الحساب</div>
@@ -1710,6 +1746,36 @@ function showDepositStep1(methodId) {
     openModal('طريقة الدفع', body);
 }
 
+function updateDepositFeePreview() {
+    const amountInput = document.getElementById('depositAmount');
+    const preview = document.getElementById('depositFeePreview');
+    if (!amountInput || !preview || !selectedMethodForDeposit) return;
+
+    const amount = parseFloat(amountInput.value) || 0;
+    const feeVal = parseFloat(selectedMethodForDeposit.fee || 0);
+    const feeType = selectedMethodForDeposit.fee_type || 'percentage';
+
+    let feeAmount = 0;
+    if (feeVal > 0 && amount > 0) {
+        if (feeType === 'percentage') {
+            feeAmount = amount * feeVal / 100;
+        } else {
+            feeAmount = Math.min(feeVal, amount);
+        }
+    }
+    const netAmount = amount - feeAmount;
+
+    if (amount > 0) {
+        preview.style.display = 'block';
+        document.getElementById('previewAmount').textContent = amount.toFixed(2) + '$';
+        document.getElementById('previewFee').textContent = '-' + feeAmount.toFixed(2) + '$';
+        document.getElementById('previewNet').textContent = netAmount.toFixed(2) + '$';
+    } else {
+        preview.style.display = 'none';
+    }
+}
+window.updateDepositFeePreview = updateDepositFeePreview;
+
 function showDepositStep2() {
     if (!selectedMethodForDeposit) return;
     const method = selectedMethodForDeposit;
@@ -1719,12 +1785,51 @@ function showDepositStep2() {
         return;
     }
 
+    const minAmt = parseFloat(method.min_amount || 0);
+    const maxAmt = parseFloat(method.max_amount || 500);
+    const feeVal = parseFloat(method.fee || 0);
+    const feeType = method.fee_type || 'percentage';
+
     const body = `
         <div style="text-align:right;">
             <h3>إتمام الإيداع</h3>
+
+            <div class="deposit-info-card" style="margin-bottom:14px;">
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">south</span> الحد الأدنى</span>
+                    <span class="deposit-info-value">${minAmt.toFixed(2)}$</span>
+                </div>
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">north</span> الحد الأقصى</span>
+                    <span class="deposit-info-value">${maxAmt.toFixed(2)}$</span>
+                </div>
+                ${feeVal > 0 ? `
+                <div class="deposit-info-row">
+                    <span class="deposit-info-label"><span class="material-icons">percent</span> الرسوم</span>
+                    <span class="deposit-info-value" style="color:var(--warning);">${feeType === 'fixed' ? feeVal.toFixed(2) + '$' : feeVal.toFixed(2) + '%'}</span>
+                </div>
+                ` : ''}
+            </div>
+
             <div class="form-group">
                 <label>المبلغ بالدولار</label>
-                <input type="number" id="depositAmount" min="${method.min_amount || 0}" step="0.01" class="input-field">
+                <input type="number" id="depositAmount" min="${minAmt}" max="${maxAmt}" step="0.01" class="input-field"
+                       oninput="updateDepositFeePreview()" placeholder="${minAmt.toFixed(2)} - ${maxAmt.toFixed(2)}">
+            </div>
+
+            <div class="deposit-fee-preview" id="depositFeePreview" style="display:none;">
+                <div class="deposit-fee-row">
+                    <span>المبلغ المُرسل:</span>
+                    <strong id="previewAmount">0.00$</strong>
+                </div>
+                <div class="deposit-fee-row fee">
+                    <span>الرسوم:</span>
+                    <strong id="previewFee">-0.00$</strong>
+                </div>
+                <div class="deposit-fee-row total">
+                    <span>الصافي إلى رصيدك:</span>
+                    <strong id="previewNet">0.00$</strong>
+                </div>
             </div>
             <div class="form-group">
                 <label>اسم المرسل</label>
@@ -1803,6 +1908,19 @@ async function submitDeposit(btn) {
     const proofFile = document.getElementById('depositProofImage')?.files[0];
 
     if (!amount || amount <= 0) { showNotification('تنبيه', 'أدخل مبلغ صحيح', 'warning'); return; }
+
+    // 🆕 v18.3.6: min/max validation client-side
+    const minAmt = parseFloat(method.min_amount || 0);
+    const maxAmt = parseFloat(method.max_amount || 500);
+    if (amount < minAmt) {
+        showNotification('تنبيه', `الحد الأدنى للإيداع هو ${minAmt.toFixed(2)}$`, 'warning');
+        return;
+    }
+    if (amount > maxAmt) {
+        showNotification('تنبيه', `الحد الأقصى للإيداع هو ${maxAmt.toFixed(2)}$`, 'warning');
+        return;
+    }
+
     if (!senderName) { showNotification('تنبيه', 'أدخل اسم المرسل', 'warning'); return; }
     if (!proofFile) { showNotification('تنبيه', 'ارفع صورة الإثبات', 'warning'); return; }
 
@@ -1845,7 +1963,10 @@ async function submitDeposit(btn) {
             }
             if (btn) { btn.disabled = false; btn.textContent = 'إرسال'; }
         } else {
-            showNotification('تم الإرسال', 'تم إرسال طلب الإيداع بنجاح', 'success');
+            const feeMsg = result.fee && result.fee > 0
+                ? ` — الرسوم: ${parseFloat(result.fee).toFixed(2)}$`
+                : '';
+            showNotification('تم الإرسال', `تم إرسال طلب الإيداع بنجاح${feeMsg}`, 'success');
             closeModal();
             selectedMethodForDeposit = null;
             depositsData = await fetchUserDeposits();

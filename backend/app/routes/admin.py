@@ -958,8 +958,47 @@ def admin_bundle_actions(product_id, bundle_id):
 
 
 # ============================================================
-# Payment Methods — 🆕 v18.1: cached
-# ============================================================
+# 💳 Payment Methods — v18.3.6
+def _serialize_payment_method(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "description": m.description,
+        "account_name": m.account_name,
+        "account": m.account,
+        "icon": m.icon,
+        "qr_image": m.qr_image,
+        "min_amount": float(m.min_amount or 0),
+        "max_amount": float(m.max_amount or 500),
+        "fee": float(m.fee or 0),
+        "fee_type": getattr(m, "fee_type", None) or "percentage",
+        "requires_kyc": m.requires_kyc,
+        "is_active": m.is_active,
+    }
+
+
+def _validate_payment_method_data(data, current=None):
+    try:
+        min_amt = float(data.get("min_amount", current.min_amount if current else 0) or 0)
+        max_amt = float(data.get("max_amount", current.max_amount if current and current.max_amount else 500) or 500)
+        fee_val = float(data.get("fee", current.fee if current else 0) or 0)
+    except (ValueError, TypeError):
+        return None, "قيم رقمية غير صحيحة"
+
+    if min_amt < 0 or max_amt < 0 or fee_val < 0:
+        return None, "لا يمكن أن تكون القيم سالبة"
+    if max_amt > 0 and min_amt > max_amt:
+        return None, "الحد الأدنى أكبر من الحد الأقصى"
+
+    fee_type = data.get("fee_type", getattr(current, "fee_type", None) if current else "percentage")
+    if fee_type not in ("percentage", "fixed"):
+        fee_type = "percentage"
+    if fee_type == "percentage" and fee_val > 100:
+        return None, "نسبة الرسوم يجب أن تكون 100% أو أقل"
+
+    return {"min_amount": min_amt, "max_amount": max_amt, "fee": fee_val, "fee_type": fee_type}, None
+
+
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
@@ -968,54 +1007,84 @@ def admin_payment_methods():
         return jsonify({"error": "غير مصرح"}), 403
 
     if request.method == "GET":
-        cached = cache_get(key_admin_list("payment-methods"))
-        if cached is not None:
-            return jsonify(cached)
-
         methods = PaymentMethod.query.filter_by(is_active=True).all()
-        result = [{
-            "id": m.id, "name": m.name, "description": m.description,
-            "account_name": m.account_name, "account": m.account,
-            "icon": m.icon, "qr_image": m.qr_image,
-            "min_amount": m.min_amount, "fee": m.fee,
-            "requires_kyc": m.requires_kyc, "is_active": m.is_active,
-        } for m in methods]
+        return jsonify([_serialize_payment_method(m) for m in methods])
 
-        cache_set(key_admin_list("payment-methods"), result, ttl=TTL_ADMIN_LISTS)
-        return jsonify(result)
-
-    # POST
     data = request.get_json() or {}
+    validated, err = _validate_payment_method_data(data)
+    if err:
+        return jsonify({"error": err}), 400
+
     icon_url = _normalize_image(data.get("icon", ""), folder="sanad/payment-methods")
     qr_url = _normalize_image(data.get("qr_image", ""), folder="sanad/qr-codes")
 
     method = PaymentMethod(
-        name=data.get("name"), description=data.get("description", ""),
-        account_name=data.get("account_name", ""), account=data.get("account", ""),
-        icon=icon_url, qr_image=qr_url,
-        min_amount=data.get("min_amount", 0), fee=data.get("fee", 0),
-        requires_kyc=data.get("requires_kyc", False), is_active=data.get("is_active", True),
+        name=data.get("name"),
+        description=data.get("description", ""),
+        account_name=data.get("account_name", ""),
+        account=data.get("account", ""),
+        icon=icon_url,
+        qr_image=qr_url,
+        min_amount=validated["min_amount"],
+        max_amount=validated["max_amount"],
+        fee=validated["fee"],
+        requires_kyc=data.get("requires_kyc", False),
+        is_active=data.get("is_active", True),
     )
+    if hasattr(method, "fee_type"):
+        method.fee_type = validated["fee_type"]
+
     db.session.add(method)
     log_admin_activity(f"إضافة طريقة دفع: {method.name}")
     db.session.commit()
     return jsonify({"id": method.id}), 201
 
 
-@main.route("/admin/api/payment-methods/<int:method_id>", methods=["DELETE"])
+@main.route("/admin/api/payment-methods/<int:method_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 @handle_errors
-def admin_delete_payment_method(method_id):
+def admin_payment_method_actions(method_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
+
     method = PaymentMethod.query.get(method_id)
     if not method:
         return jsonify({"error": "غير موجودة"}), 404
-    method.is_active = False
-    method.deleted_at = datetime.now(timezone.utc)
+
+    if request.method == "DELETE":
+        method.is_active = False
+        method.deleted_at = datetime.now(timezone.utc)
+        log_admin_activity(f"أرشفة طريقة دفع: {method.name}")
+        db.session.commit()
+        return jsonify({"success": True})
+
+    data = request.get_json() or {}
+    validated, err = _validate_payment_method_data(data, current=method)
+    if err:
+        return jsonify({"error": err}), 400
+
+    if "name" in data and data["name"]: method.name = data["name"]
+    if "description" in data: method.description = data["description"]
+    if "account_name" in data: method.account_name = data["account_name"]
+    if "account" in data: method.account = data["account"]
+    if "icon" in data and data["icon"]:
+        method.icon = _normalize_image(data["icon"], folder="sanad/payment-methods")
+    if "qr_image" in data and data["qr_image"]:
+        method.qr_image = _normalize_image(data["qr_image"], folder="sanad/qr-codes")
+    if "requires_kyc" in data: method.requires_kyc = bool(data["requires_kyc"])
+    if "is_active" in data: method.is_active = bool(data["is_active"])
+
+    method.min_amount = validated["min_amount"]
+    method.max_amount = validated["max_amount"]
+    method.fee = validated["fee"]
+    if hasattr(method, "fee_type"):
+        method.fee_type = validated["fee_type"]
+
+    log_admin_activity(f"تعديل طريقة دفع: {method.name}")
     db.session.commit()
-    return jsonify({"success": True})
-# ============================================================
+    return jsonify({"success": True, "id": method.id})
+
+
 # Orders — 🆕 v18.1: joinedload + cached
 # ============================================================
 @main.route("/admin/api/orders", methods=["GET"])
@@ -1434,27 +1503,33 @@ def admin_approve_deposit(deposit_id):
     deposit.reviewed_at = datetime.now(timezone.utc)
     user = User.query.get(deposit.user_id)
 
+    # 🆕 v18.3.6: اخصم الرسوم أولاً
+    deposit_fee = round(deposit.fee or 0, 2)
+    dep_amount = round(deposit.amount, 2)
+    net_amount = round(dep_amount - deposit_fee, 2)
+    if net_amount < 0:
+        net_amount = 0.0
+
     paid_debt = 0.0
-    added_amount = round(deposit.amount, 2)
+    added_amount = net_amount
 
     if user:
         balance_before = round(user.balance, 2)
         current = round(user.balance, 2)
-        dep_amount = round(deposit.amount, 2)
 
         if current < 0:
             debt = abs(current)
-            if dep_amount >= debt:
+            if net_amount >= debt:
                 paid_debt = round(debt, 2)
-                added_amount = round(dep_amount - debt, 2)
+                added_amount = round(net_amount - debt, 2)
                 user.balance = added_amount
             else:
-                paid_debt = dep_amount
+                paid_debt = net_amount
                 added_amount = 0.0
-                user.balance = round(current + dep_amount, 2)
+                user.balance = round(current + net_amount, 2)
         else:
-            user.balance = round(current + dep_amount, 2)
-            added_amount = dep_amount
+            user.balance = round(current + net_amount, 2)
+            added_amount = net_amount
 
         user.balance = round(user.balance, 2)
 

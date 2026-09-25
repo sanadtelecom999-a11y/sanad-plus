@@ -33,9 +33,7 @@ from ..services.telegram_service import notify_admins
 # ════════════════════════════════════════════════════════════
 MAX_DATA_URL_LENGTH = 3 * 1024 * 1024       # 3 MB base64
 MAX_BINARY_SIZE = 2 * 1024 * 1024           # 2 MB binary
-DAILY_DEPOSIT_CAP = Decimal('200.0000')
-NEW_USER_CAP = Decimal('50.0000')
-NEW_USER_DAYS = 7
+# 🆕 v18.3.6: أُزيلت DAILY_DEPOSIT_CAP و NEW_USER_CAP — الأدمن يحدد min/max لكل طريقة
 PENDING_DEPOSITS_MAX = 3
 
 ALLOWED_MIME_TYPES = {
@@ -91,6 +89,7 @@ def _serialize_deposit(d):
         "id": d.id,
         "transaction_id": d.transaction_id,
         "amount": _f(d.amount),
+        "fee": _f(d.fee) if d.fee else 0.0,
         "currency": d.currency,
         "method": d.method,
         "method_id": d.method_id,
@@ -144,27 +143,24 @@ def _validate_image(data_url):
     return True, None
 
 
-def _daily_total(user_id):
-    cutoff = _utcnow() - timedelta(hours=24)
-    result = db.session.query(
-        db.func.coalesce(db.func.sum(Deposit.amount), 0)
-    ).filter(
-        Deposit.user_id == user_id,
-        Deposit.created_at >= cutoff,
-        Deposit.status.in_(['pending', 'approved']),
-    ).scalar()
-
-    return _d(result)
-
-
 def _pending_count(user_id):
     return Deposit.query.filter_by(user_id=user_id, status='pending').count()
 
 
-def _account_age_days(user):
-    if not user.created_at:
-        return 999
-    return (_utcnow() - _aware(user.created_at)).days
+def _calculate_fee(method, amount_d):
+    """🆕 v18.3.6: احسب الرسوم (percentage أو fixed)"""
+    if not method or not method.fee:
+        return Decimal('0.0000')
+    fee_val = _d(method.fee)
+    if fee_val <= 0:
+        return Decimal('0.0000')
+    fee_type = method.fee_type or 'percentage'
+    if fee_type == 'percentage':
+        return (amount_d * fee_val / Decimal('100')).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
+    else:  # fixed
+        if fee_val > amount_d:
+            return amount_d
+        return fee_val.quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)
 
 
 # ════════════════════════════════════════════════════════════
@@ -261,7 +257,11 @@ def create_deposit():
             "code": "AMOUNT_BELOW_MIN",
         }), 400
 
-    max_amount = _d(method.max_amount) if method.max_amount else Decimal('500.0000')
+    # 🆕 v18.3.6: max_amount مع fallback آمن
+    try:
+        max_amount = _d(method.max_amount) if method.max_amount else Decimal('500.0000')
+    except AttributeError:
+        max_amount = Decimal('500.0000')
     if amount_d > max_amount:
         return jsonify({
             "error": f"الحد الأقصى {_f(max_amount)}$",
@@ -276,20 +276,7 @@ def create_deposit():
             "code": "IMAGE_INVALID",
         }), 400
 
-    # Daily cap
-    daily_used = _daily_total(user.id)
-    cap = Decimal('200.0000')
-    if _account_age_days(user) < NEW_USER_DAYS:
-        cap = Decimal('50.0000')
-
-    if daily_used + amount_d > cap:
-        return jsonify({
-            "error": f"بلغت سقف اليوم ({_f(cap)}$)",
-            "code": "DAILY_CAP_REACHED",
-            "used": _f(daily_used),
-            "cap": _f(cap),
-        }), 400
-
+    # 🆕 v18.3.6: أُزيل السقف اليومي — الأدمن يحدد min/max لكل طريقة
     # Pending count
     pending = _pending_count(user.id)
     if pending >= PENDING_DEPOSITS_MAX:
@@ -300,15 +287,19 @@ def create_deposit():
             "max": PENDING_DEPOSITS_MAX,
         }), 400
 
+    # ═══ احسب الرسوم ═══
+    fee_amount = _calculate_fee(method, amount_d)
+
     # ═══ إنشاء الإيداع — الصورة base64 مباشرة في DB ═══
     try:
         deposit = Deposit(
             user_id=user.id,
             amount=amount_d,
+            fee=fee_amount,
             currency='USD',
             method_id=method.id,
             method=method.name,
-            proof_image=proof_image,       # base64 كامل
+            proof_image=proof_image,
             sender_name=sender_name,
             transaction_id='DEP-' + uuid.uuid4().hex[:8].upper(),
             status='pending',
@@ -336,6 +327,7 @@ def create_deposit():
             'transaction_id': deposit.transaction_id,
             'status': deposit.status,
             'amount': _f(amount_d),
+            'fee': _f(fee_amount),
         }), 201
 
     except Exception as e:

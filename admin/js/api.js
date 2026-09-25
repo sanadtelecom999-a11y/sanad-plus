@@ -300,6 +300,13 @@ async function createPaymentMethod(payload) {
     });
 }
 
+async function updatePaymentMethod(methodId, payload) {
+    return await apiRequest(`/admin/api/payment-methods/${methodId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+    });
+}
+
 async function deletePaymentMethod(methodId) {
     return await apiRequest(`/admin/api/payment-methods/${methodId}`, {
         method: 'DELETE',
@@ -562,6 +569,7 @@ window.fetchArchive = fetchArchive;
 // Payment Methods
 window.fetchAdminPaymentMethods = fetchAdminPaymentMethods;
 window.createPaymentMethod = createPaymentMethod;
+window.updatePaymentMethod = updatePaymentMethod;
 window.deletePaymentMethod = deletePaymentMethod;
 
 // Orders

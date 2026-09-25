@@ -290,6 +290,26 @@ def upgrade_database():
                 except Exception:
                     db.session.rollback()
 
+        if inspector.has_table('payment_methods'):
+            # 🆕 v18.3.6: max_amount + fee_type
+            pm_cols = [
+                'max_amount FLOAT DEFAULT 500.0',
+                "fee_type VARCHAR(20) DEFAULT 'percentage'",
+            ]
+            for col in pm_cols:
+                try:
+                    db.session.execute(text(f'ALTER TABLE payment_methods ADD COLUMN IF NOT EXISTS {col}'))
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            try:
+                db.session.execute(text("UPDATE payment_methods SET max_amount = 500.0 WHERE max_amount IS NULL"))
+                db.session.commit()
+                print("payment_methods.max_amount ready")
+            except Exception as e:
+                db.session.rollback()
+                print(f"pm.max_amount migration: {e}")
+
         if inspector.has_table('deposits'):
             deposits_cols = [
                 'admin_note TEXT',

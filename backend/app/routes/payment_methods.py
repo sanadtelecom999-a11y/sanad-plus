@@ -28,7 +28,9 @@ def get_payment_methods():
         "icon": m.icon,
         "qr_image": m.qr_image,
         "min_amount": m.min_amount,
-        "fee": m.fee,
+        "max_amount": m.max_amount if m.max_amount else 500.0,
+        "fee": m.fee or 0,
+        "fee_type": m.fee_type or "percentage",
         "requires_kyc": m.requires_kyc,
     } for m in methods]
 
