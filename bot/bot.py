@@ -73,7 +73,7 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============================================================
 # ============ Version (Cache Buster) ============
 # ============================================================
-MINIAPP_VERSION = "16"
+MINIAPP_VERSION = "17"
 
 
 def get_miniapp_url():
