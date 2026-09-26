@@ -1391,7 +1391,6 @@ body {
     margin-top: 3px;
     font-weight: 500;
 }
-
 /* ============================================================
    ============ تفاصيل التسليم ============
    ============================================================ */
@@ -1551,7 +1550,7 @@ body {
     background-color: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 16px;
+    padding: 14px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1576,7 +1575,8 @@ body {
 
 .payment-method-name {
     font-weight: 700;
-    color: var(--primary);
+    color: var(--text);
+    font-size: 1rem;
 }
 
 .payment-method-desc {
@@ -3199,45 +3199,8 @@ input:checked + .toggle-slider:before {
 }
 
 /* ============================================================
-   🆕 v18.3.6: Payment Method Limits + Deposit Info Card
+   🆕 v18.3.6.3: Deposit Info Card + Compact Payment Methods
    ============================================================ */
-
-.payment-method-limits {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-    font-size: 0.72rem;
-    color: var(--text-secondary);
-    font-weight: 700;
-}
-
-.pm-limit {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    background: var(--primary-light);
-    padding: 2px 8px;
-    border-radius: 50px;
-    color: var(--primary-dark);
-    direction: ltr;
-}
-
-.pm-limit .material-icons {
-    font-size: 12px;
-    opacity: 0.8;
-}
-
-.pm-limit.fee {
-    background: var(--warning-bg);
-    color: #92400E;
-}
-
-.pm-sep {
-    color: var(--text-secondary);
-    opacity: 0.5;
-}
 
 .deposit-info-card {
     background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
@@ -3249,32 +3212,77 @@ input:checked + .toggle-slider:before {
     gap: 10px;
 }
 
-.deposit-info-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+.deposit-info-card.compact {
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 0;
 }
 
-.deposit-info-label {
-    display: inline-flex;
-    align-items: center;
+.deposit-info-inline {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
     gap: 6px;
-    font-size: 0.82rem;
+    flex-wrap: nowrap;
+}
+
+.deposit-info-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+.deposit-info-chip .material-icons {
+    font-size: 14px;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.deposit-info-chip .chip-label {
+    font-size: 0.65rem;
     color: var(--text-secondary);
     font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.1;
 }
 
-.deposit-info-label .material-icons {
-    font-size: 16px;
-    color: var(--primary);
-}
-
-.deposit-info-value {
-    font-size: 1rem;
+.deposit-info-chip .chip-value {
+    font-size: 0.85rem;
     font-weight: 800;
     color: var(--primary-dark);
     direction: ltr;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.deposit-info-chip.warning {
+    background: var(--warning-bg);
+    border-color: rgba(255, 193, 7, 0.5);
+}
+
+.deposit-info-chip.warning .material-icons {
+    color: #92400E;
+}
+
+.deposit-info-chip.warning .chip-value {
+    color: #92400E;
+}
+
+[data-theme="dark"] .deposit-info-chip {
+    background: var(--surface);
+}
+
+[data-theme="dark"] .deposit-info-chip.warning {
+    background: rgba(255, 193, 7, 0.15);
 }
 
 .deposit-fee-preview {
@@ -3323,10 +3331,15 @@ input:checked + .toggle-slider:before {
     font-size: 1.1rem;
 }
 
-[data-theme="dark"] .deposit-info-card {
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
+@media (max-width: 360px) {
+    .deposit-info-chip .chip-value {
+        font-size: 0.78rem;
+    }
+    .deposit-info-chip .chip-label {
+        font-size: 0.6rem;
+    }
 }
 
 /* ============================================================
-   END OF style.css v18.3.6
+   END OF style.css v18.3.6.3
    ============================================================ */

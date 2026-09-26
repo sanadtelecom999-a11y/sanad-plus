@@ -1,14 +1,9 @@
 // ============================================================
-// SANAD+ MiniApp — app_new.js — v18.2.1
+// SANAD+ MiniApp — app_new.js — v18.3.6.3
 // ============================================================
 // الإصلاحات في هذه النسخة:
-//   - openPurchaseModal محصَّن بـ try/catch
-//   - submitDeposit يستخدم /api/deposits/create (صريح)
-//   - و-ت1: requestCustomService → openCustomServiceModal + submitCustomService
-//   - و-ت2: البحث من الرئيسية يعمل
-//   - و-ت3: لا تغيير (CSS)
-//   - و-ت4: تعطيل الزر فور الضغط
-//   - السعر لا يظهر خارج مودال الشراء
+//   - renderPaymentMethods: بطاقة مضغوطة (اسم + أيقونة فقط)
+//   - showDepositStep2: بطاقة معلومات أفقية
 // ============================================================
 
 // ─── State ───
@@ -829,7 +824,7 @@ function renderProductsList(products) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Payment Methods
+// 🆕 v18.3.6.3: Payment Methods — Compact Cards (اسم + أيقونة فقط)
 // ════════════════════════════════════════════════════════════
 function renderPaymentMethods() {
     const container = document.getElementById('paymentMethodsList');
@@ -841,27 +836,15 @@ function renderPaymentMethods() {
     const verified = isUserVerified();
     container.innerHTML = paymentMethodsData.map(m => {
         const locked = m.requires_kyc && !verified;
-        const minAmt = parseFloat(m.min_amount || 0);
-        const maxAmt = parseFloat(m.max_amount || 500);
-        const feeVal = parseFloat(m.fee || 0);
-        const feeLabel = feeVal > 0
-            ? (m.fee_type === 'fixed' ? `+${feeVal.toFixed(2)}$` : `+${feeVal.toFixed(2)}%`)
-            : 'بدون';
         return `
         <div class="payment-method ${locked ? 'locked' : ''}" data-id="${m.id}" onclick="${locked ? `showLockedPaymentMessage()` : `showDepositStep1(${m.id})`}">
             <div class="payment-method-info">
-                ${m.icon && m.icon.length > 100 ? `<img src="${escapeAttr(m.icon)}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${escapeAttr(m.name)}">` : '<span class="payment-method-icon">💳</span>'}
+                ${m.icon && m.icon.length > 100
+                    ? `<img src="${escapeAttr(m.icon)}" style="width:42px;height:42px;border-radius:10px;object-fit:cover;${locked ? 'filter:grayscale(0.7);' : ''}" alt="${escapeAttr(m.name)}">`
+                    : '<span class="payment-method-icon">💳</span>'}
                 <div style="flex:1;min-width:0;">
                     <div class="payment-method-name">${escapeHtml(m.name)}</div>
-                    <div class="payment-method-desc">${escapeHtml(m.description || '')}</div>
-                    <div class="payment-method-limits">
-                        <span class="pm-limit"><span class="material-icons">south</span> ${minAmt.toFixed(2)}$</span>
-                        <span class="pm-sep">•</span>
-                        <span class="pm-limit"><span class="material-icons">north</span> ${maxAmt.toFixed(2)}$</span>
-                        <span class="pm-sep">•</span>
-                        <span class="pm-limit fee"><span class="material-icons">percent</span> ${feeLabel}</span>
-                    </div>
-                    ${locked ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:4px;">🔒 تتطلب توثيق الحساب</div>' : ''}
+                    ${locked ? '<div style="font-size:0.7rem;color:var(--warning);font-weight:700;margin-top:2px;">🔒 تتطلب توثيق</div>' : ''}
                 </div>
             </div>
             <span class="material-icons">${locked ? 'lock' : 'chevron_left'}</span>
@@ -971,6 +954,7 @@ function buildDeliveryDetailsHTML(order) {
         `;
     }).join('');
 }
+
 // ════════════════════════════════════════════════════════════
 // Orders Rendering
 // ════════════════════════════════════════════════════════════
@@ -1696,27 +1680,35 @@ function showDepositStep1(methodId) {
     const minAmt = parseFloat(method.min_amount || 0);
     const maxAmt = parseFloat(method.max_amount || 500);
     const feeVal = parseFloat(method.fee || 0);
+    const feeType = method.fee_type || 'percentage';
     const feeLabel = feeVal > 0
-        ? (method.fee_type === 'fixed' ? `${feeVal.toFixed(2)}$` : `${feeVal.toFixed(2)}%`)
-        : 'بدون';
+        ? (feeType === 'fixed' ? `${feeVal.toFixed(2)}$` : `${feeVal.toFixed(2)}%`)
+        : null;
 
     const body = `
         <div style="text-align:center;">
             <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px;">${logo}<h3 style="margin:0;">${escapeHtml(method.name)}</h3></div>
             <p style="color:var(--text-secondary); margin-bottom:16px;">${escapeHtml(method.description || '')}</p>
 
-            <div class="deposit-info-card" style="margin-bottom:16px;">
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">south</span> الحد الأدنى</span>
-                    <span class="deposit-info-value">${minAmt.toFixed(2)}$</span>
-                </div>
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">north</span> الحد الأقصى</span>
-                    <span class="deposit-info-value">${maxAmt.toFixed(2)}$</span>
-                </div>
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">percent</span> الرسوم</span>
-                    <span class="deposit-info-value">${feeLabel}</span>
+            <div class="deposit-info-card compact" style="margin-bottom:16px;">
+                <div class="deposit-info-inline">
+                    <div class="deposit-info-chip">
+                        <span class="material-icons">south</span>
+                        <span class="chip-label">الأدنى</span>
+                        <strong class="chip-value">${minAmt.toFixed(2)}$</strong>
+                    </div>
+                    <div class="deposit-info-chip">
+                        <span class="material-icons">north</span>
+                        <span class="chip-label">الأقصى</span>
+                        <strong class="chip-value">${maxAmt.toFixed(2)}$</strong>
+                    </div>
+                    ${feeLabel ? `
+                    <div class="deposit-info-chip warning">
+                        <span class="material-icons">percent</span>
+                        <span class="chip-label">الرسوم</span>
+                        <strong class="chip-value">${feeLabel}</strong>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
 
@@ -1736,10 +1728,12 @@ function showDepositStep1(methodId) {
                     </div>
                 </div>
             </div>
+
             <div style="margin-bottom:16px;">
                 <div style="font-weight:bold; margin-bottom:8px;">رمز QR للتحويل</div>
                 ${qrCode}
             </div>
+
             <button class="btn-primary" onclick="showDepositStep2()">التالي</button>
         </div>
     `;
@@ -1789,26 +1783,34 @@ function showDepositStep2() {
     const maxAmt = parseFloat(method.max_amount || 500);
     const feeVal = parseFloat(method.fee || 0);
     const feeType = method.fee_type || 'percentage';
+    const feeLabelStep2 = feeVal > 0
+        ? (feeType === 'fixed' ? feeVal.toFixed(2) + '$' : feeVal.toFixed(2) + '%')
+        : null;
 
     const body = `
         <div style="text-align:right;">
             <h3>إتمام الإيداع</h3>
 
-            <div class="deposit-info-card" style="margin-bottom:14px;">
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">south</span> الحد الأدنى</span>
-                    <span class="deposit-info-value">${minAmt.toFixed(2)}$</span>
+            <div class="deposit-info-card compact" style="margin-bottom:12px;">
+                <div class="deposit-info-inline">
+                    <div class="deposit-info-chip">
+                        <span class="material-icons">south</span>
+                        <span class="chip-label">الأدنى</span>
+                        <strong class="chip-value">${minAmt.toFixed(2)}$</strong>
+                    </div>
+                    <div class="deposit-info-chip">
+                        <span class="material-icons">north</span>
+                        <span class="chip-label">الأقصى</span>
+                        <strong class="chip-value">${maxAmt.toFixed(2)}$</strong>
+                    </div>
+                    ${feeLabelStep2 ? `
+                    <div class="deposit-info-chip warning">
+                        <span class="material-icons">percent</span>
+                        <span class="chip-label">الرسوم</span>
+                        <strong class="chip-value">${feeLabelStep2}</strong>
+                    </div>
+                    ` : ''}
                 </div>
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">north</span> الحد الأقصى</span>
-                    <span class="deposit-info-value">${maxAmt.toFixed(2)}$</span>
-                </div>
-                ${feeVal > 0 ? `
-                <div class="deposit-info-row">
-                    <span class="deposit-info-label"><span class="material-icons">percent</span> الرسوم</span>
-                    <span class="deposit-info-value" style="color:var(--warning);">${feeType === 'fixed' ? feeVal.toFixed(2) + '$' : feeVal.toFixed(2) + '%'}</span>
-                </div>
-                ` : ''}
             </div>
 
             <div class="form-group">
@@ -1831,10 +1833,12 @@ function showDepositStep2() {
                     <strong id="previewNet">0.00$</strong>
                 </div>
             </div>
+
             <div class="form-group">
                 <label>اسم المرسل</label>
                 <input type="text" id="depositSenderName" placeholder="أدخل اسم المرسل" class="input-field">
             </div>
+
             <div class="form-group">
                 <label>إثبات التحويل (صورة)</label>
                 <div class="image-preview" id="depositProofPreview">📷</div>
@@ -1843,6 +1847,7 @@ function showDepositStep2() {
                     💡 الحد الأقصى: 2 MB — الصورة ستُضغط تلقائياً
                 </small>
             </div>
+
             <button class="btn-primary" onclick="submitDeposit(this)">إرسال</button>
         </div>
     `;
@@ -1892,7 +1897,7 @@ function fallbackCopy(text, label) {
 }
 
 // ════════════════════════════════════════════════════════════
-// 💰 submitDeposit — v18.2.1 (يستخدم /api/deposits/create صريح)
+// 💰 submitDeposit — v18.3.6 (مع validation min/max)
 // ════════════════════════════════════════════════════════════
 async function submitDeposit(btn) {
     if (!selectedMethodForDeposit) return;
@@ -1909,7 +1914,6 @@ async function submitDeposit(btn) {
 
     if (!amount || amount <= 0) { showNotification('تنبيه', 'أدخل مبلغ صحيح', 'warning'); return; }
 
-    // 🆕 v18.3.6: min/max validation client-side
     const minAmt = parseFloat(method.min_amount || 0);
     const maxAmt = parseFloat(method.max_amount || 500);
     if (amount < minAmt) {
@@ -1929,7 +1933,6 @@ async function submitDeposit(btn) {
         return;
     }
 
-    // و-ت4: تعطيل فوري
     if (btn) {
         btn.disabled = true;
         btn.textContent = 'جارٍ الإرسال...';
@@ -1954,8 +1957,10 @@ async function submitDeposit(btn) {
                 showNotification('التوثيق مطلوب', 'يجب توثيق حسابك أولاً', 'warning');
             } else if (result.code === 'IMAGE_INVALID') {
                 showNotification('الصورة غير صحيحة', result.error, 'error');
-            } else if (result.code === 'DAILY_CAP_REACHED') {
-                showNotification('بلغت السقف اليومي', result.error, 'warning');
+            } else if (result.code === 'AMOUNT_BELOW_MIN') {
+                showNotification('مبلغ أقل من الحد الأدنى', result.error, 'warning');
+            } else if (result.code === 'AMOUNT_ABOVE_MAX') {
+                showNotification('مبلغ أعلى من الحد الأقصى', result.error, 'warning');
             } else if (result.code === 'TOO_MANY_PENDING') {
                 showNotification('لديك إيداعات معلّقة', result.error, 'warning');
             } else {
@@ -1981,7 +1986,7 @@ async function submitDeposit(btn) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Custom Service (و-ت1: أسماء صحيحة)
+// Custom Service
 // ════════════════════════════════════════════════════════════
 function openCustomServiceModal() {
     openModal('طلب خدمة مخصصة', `
@@ -2016,6 +2021,7 @@ async function submitCustomService(btn) {
         if (btn) { btn.disabled = false; btn.textContent = 'إرسال الطلب'; }
     }
 }
+
 // ════════════════════════════════════════════════════════════
 // Referral Modal
 // ════════════════════════════════════════════════════════════
@@ -2115,7 +2121,6 @@ function shareReferral(link) {
         window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, '_blank');
     }
 }
-
 // ════════════════════════════════════════════════════════════
 // FAQ
 // ════════════════════════════════════════════════════════════
@@ -2255,14 +2260,12 @@ function setupSearch() {
     searchInput.addEventListener('input', () => {
         const query = searchInput.value.toLowerCase().trim();
 
-        // إذا كنا في صفحة المنتجات
         if (currentPage === 'page-products') {
             const filtered = productsData.filter(p => (p.name || '').toLowerCase().includes(query));
             renderProductsList(filtered);
         }
     });
 
-    // و-ت2: عند Enter — ابحث من الرئيسية
     searchInput.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
         const query = searchInput.value.toLowerCase().trim();
@@ -2414,7 +2417,7 @@ async function loadInitialData() {
 // Init App
 // ════════════════════════════════════════════════════════════
 async function initApp() {
-    console.log('🚀 بدء تشغيل SANAD+ v18.2.1 ...');
+    console.log('🚀 بدء تشغيل SANAD+ v18.3.6.3 ...');
     try {
         const ok = await initTelegram();
         if (!ok) {
@@ -2463,7 +2466,7 @@ async function initApp() {
             console.warn('PTR/Swipe غير متاح:', e);
         }
 
-        console.log('✅ التطبيق جاهز (v18.2.1)');
+        console.log('✅ التطبيق جاهز (v18.3.6.3)');
     } catch (error) {
         console.error('❌ فشل تشغيل التطبيق:', error);
         const gm = document.getElementById('greetingMessage');
@@ -2505,7 +2508,6 @@ window.goToAccount = goToAccount;
 window.showNotifications = showNotifications;
 window.copyText = copyText;
 window.toggleFavorite = toggleFavorite;
-window.filterUsers = null; // (Admin فقط)
 
 // ════════════════════════════════════════════════════════════
 // Boot
