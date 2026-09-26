@@ -1040,7 +1040,7 @@
                         </div>
                         <div class="order-balance-line">
                             💰 رصيد العميل: <strong style="color:${order.user && order.user.balance < 0 ? '#F87171' : '#4ADE80'};">
-                                ${(order.user && order.user.balance !== null && order.user.balance !== undefined) ? order.user.balance.toFixed(2) : '0.00'}$
+                                ${(order.user && order.user.balance !== null && order.user.balance !== undefined) ? parseFloat(order.user.balance).toFixed(2) : '0.00'}$
                             </strong>
                         </div>
                     </div>
@@ -1086,7 +1086,7 @@
                         ` : ''}
                         <div class="order-total-line main">
                             <span>الإجمالي:</span>
-                            <strong class="order-total-amount">${order.total_price.toFixed(2)}$</strong>
+                            <strong class="order-total-amount">${parseFloat(order.total_price).toFixed(2)}$</strong>
                         </div>
                     </div>
 

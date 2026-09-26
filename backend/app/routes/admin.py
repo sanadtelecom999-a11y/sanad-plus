@@ -1186,7 +1186,7 @@ def admin_order_full_detail(order_id):
             "first_name": user.first_name if user else None,
             "last_name": user.last_name if user else None,
             "username": user.username if user else None,
-            "balance": user.balance if user else None,
+            "balance": float(user.balance) if user and user.balance is not None else 0.0,
             "kyc_status": user.kyc_status if user else None,
         } if user else None,
         "product": {
@@ -1466,7 +1466,7 @@ def admin_deposit_detail(deposit_id):
             "first_name": user.first_name if user else None,
             "last_name": user.last_name if user else None,
             "username": user.username if user else None,
-            "balance": user.balance if user else None,
+            "balance": float(user.balance) if user and user.balance is not None else 0.0,
             "kyc_status": user.kyc_status if user else None,
         } if user else None,
         "amount": deposit.amount,

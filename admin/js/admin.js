@@ -3078,7 +3078,7 @@ async function viewOrderDetails(orderId) {
                     <div class="detail-row">
                         <span class="detail-label">رصيد العميل</span>
                         <span class="detail-value ltr" style="color:${order.user?.balance < 0 ? 'var(--error)' : 'var(--success)'};font-weight:800;">
-                            ${(order.user?.balance || 0).toFixed(2)}$
+                            ${parseFloat(order.user?.balance || 0).toFixed(2)}$
                         </span>
                     </div>
                     <button class="btn-outline btn-sm" style="width:100%;margin-top:8px;" onclick="closeModal(); goToUserFromSearch(${order.user?.id})">
@@ -3264,7 +3264,7 @@ async function viewDepositDetails(depositId) {
                         <div class="detail-row">
                             <span class="detail-label">رصيد العميل</span>
                             <span class="detail-value ltr" style="color:${d.user.balance < 0 ? 'var(--error)' : 'var(--success)'};font-weight:800;">
-                                ${(d.user.balance || 0).toFixed(2)}$
+                                ${parseFloat(d.user.balance || 0).toFixed(2)}$
                             </span>
                         </div>
                         <div class="detail-row">
