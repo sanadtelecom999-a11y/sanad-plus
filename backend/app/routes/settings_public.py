@@ -1,5 +1,5 @@
 # ============================================================
-# 🌐 Public Settings + Health Check — v18.1
+# 🌐 Public Settings + Health Check — v18.3.6
 # ============================================================
 import time
 from flask import jsonify
@@ -17,7 +17,7 @@ from . import main
 
 
 # ============================================================
-# 🌐 Public Settings — 🆕 v18.1 with caching
+# 🌐 Public Settings — with caching
 # ============================================================
 @main.route("/api/settings/public", methods=["GET"])
 def get_public_settings():
@@ -64,12 +64,14 @@ def health_check():
     result = {
         "status": "ok",
         "timestamp": int(time.time()),
-        "version": "v18.1",
+        "version": "v18.3.6",
         "checks": {}
     }
     degraded = False
 
+    # --------------------------------------------------------
     # 1. Database
+    # --------------------------------------------------------
     try:
         db_start = time.time()
         db.session.execute(text("SELECT 1"))
@@ -84,7 +86,9 @@ def health_check():
         }
         degraded = True
 
+    # --------------------------------------------------------
     # 2. Redis
+    # --------------------------------------------------------
     try:
         redis_start = time.time()
         if redis_healthy():
@@ -102,7 +106,9 @@ def health_check():
         }
         degraded = True
 
-    # 3. Bot Heartbeat
+    # --------------------------------------------------------
+    # 3. 🆕 v18: Bot Heartbeat
+    # --------------------------------------------------------
     try:
         hb = cache_get("bot:heartbeat")
         now = int(time.time())
@@ -141,6 +147,9 @@ def health_check():
         }
         degraded = True
 
+    # --------------------------------------------------------
+    # النتيجة النهائية
+    # --------------------------------------------------------
     result["total_latency_ms"] = round((time.time() - start) * 1000, 2)
 
     if degraded:
