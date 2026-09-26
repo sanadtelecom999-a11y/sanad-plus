@@ -2226,3 +2226,139 @@ def admin_restore_service(req_id):
     invalidate_admin("service-requests")
 
     return jsonify({"success": True, "status": req.status})
+
+# ============================================================
+# 🆕 v18.3.8: Admin Inbox
+# ============================================================
+@main.route("/admin/api/inbox", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_inbox():
+    """
+    شاشة موحّدة لكل ما يحتاج مراجعة:
+    - Pending deposits
+    - Pending orders (pending/review)
+    - Pending KYC
+    - Pending service requests
+    """
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+
+    LIMIT = 5
+
+    # ═══ Deposits ═══
+    deposits_q = (
+        Deposit.query
+        .filter(Deposit.status == 'pending')
+        .order_by(Deposit.created_at.desc())
+        .limit(LIMIT)
+        .all()
+    )
+
+    pending_deposits = []
+    for d in deposits_q:
+        user = User.query.get(d.user_id)
+        pending_deposits.append({
+            "id": d.id,
+            "transaction_id": d.transaction_id,
+            "amount": float(d.amount or 0),
+            "fee": float(d.fee or 0),
+            "method": d.method,
+            "method_id": d.method_id,
+            "user_id": d.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": ((user.first_name or user.username) if user else None),
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        })
+
+    # ═══ Orders ═══
+    orders_q = (
+        Order.query
+        .filter(Order.status.in_(['pending', 'review']))
+        .order_by(Order.created_at.desc())
+        .limit(LIMIT)
+        .all()
+    )
+
+    pending_orders = []
+    for o in orders_q:
+        user = User.query.get(o.user_id)
+        product = Product.query.get(o.product_id)
+        pending_orders.append({
+            "id": o.id,
+            "order_number": o.order_number,
+            "status": o.status,
+            "quantity": o.quantity,
+            "total_price": float(o.total_price or 0),
+            "unit_price": float(o.unit_price or 0),
+            "product_id": o.product_id,
+            "product_name": product.name if product else "منتج محذوف",
+            "product_type": product.product_type if product else None,
+            "product_unit_name": product.unit_name if product else "قطعة",
+            "user_id": o.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": ((user.first_name or user.username) if user else None),
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+        })
+
+    # ═══ KYC ═══
+    kyc_q = (
+        KYCRequest.query
+        .filter(KYCRequest.status == 'pending')
+        .order_by(KYCRequest.submitted_at.desc())
+        .limit(LIMIT)
+        .all()
+    )
+
+    pending_kyc = []
+    for k in kyc_q:
+        user = User.query.get(k.user_id)
+        pending_kyc.append({
+            "id": k.id,
+            "user_id": k.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "full_name": k.full_name,
+            "phone": k.phone,
+            "address": k.address,
+            "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
+        })
+
+    # ═══ Services ═══
+    services_q = (
+        ServiceRequest.query
+        .filter(ServiceRequest.status == 'pending')
+        .order_by(ServiceRequest.created_at.desc())
+        .limit(LIMIT)
+        .all()
+    )
+
+    pending_services = []
+    for r in services_q:
+        user = User.query.get(r.user_id)
+        pending_services.append({
+            "id": r.id,
+            "service_name": r.service_name,
+            "description": r.description,
+            "estimated_price": float(r.estimated_price) if r.estimated_price else None,
+            "user_id": r.user_id,
+            "user_telegram": user.telegram_id if user else None,
+            "user_name": ((user.first_name or user.username) if user else None),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+
+    # ═══ Counts ═══
+    counts = {
+        "deposits": Deposit.query.filter(Deposit.status == 'pending').count(),
+        "orders": Order.query.filter(Order.status.in_(['pending', 'review'])).count(),
+        "kyc": KYCRequest.query.filter(KYCRequest.status == 'pending').count(),
+        "services": ServiceRequest.query.filter(ServiceRequest.status == 'pending').count(),
+    }
+    counts["total"] = sum(counts.values())
+
+    return jsonify({
+        "pending_deposits": pending_deposits,
+        "pending_orders": pending_orders,
+        "pending_kyc": pending_kyc,
+        "pending_services": pending_services,
+        "counts": counts,
+    })
