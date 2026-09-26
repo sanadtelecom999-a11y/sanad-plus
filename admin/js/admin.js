@@ -3994,3 +3994,393 @@ function exportReferralsExcel() {
 // ============================================================
 // ============ End of admin.js v14 ============
 // ============================================================
+
+/* ============================================================
+   🆕 v18.3.8: Admin Inbox
+   ============================================================ */
+let inboxData = null;
+
+async function loadInbox() {
+    const container = document.getElementById('inboxContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="empty">
+                <div class="empty-icon"><span class="material-icons">hourglass_empty</span></div>
+                <h3>جارٍ التحميل...</h3>
+            </div>
+        `;
+    }
+
+    try {
+        const data = await fetchAdminInbox();
+        inboxData = data;
+        renderInbox();
+        updateInboxBadge();
+    } catch (err) {
+        if (container) {
+            container.innerHTML = `
+                <div class="empty">
+                    <div class="empty-icon"><span class="material-icons">error</span></div>
+                    <h3>فشل التحميل</h3>
+                    <p>${escapeHtml(err.message)}</p>
+                </div>
+            `;
+        }
+        showToast(`فشل تحميل الإرساليات: ${err.message}`, 'error');
+    }
+}
+
+function updateInboxBadge() {
+    if (!inboxData || !inboxData.counts) return;
+    const total = inboxData.counts.total || 0;
+
+    const sidebarBadge = document.getElementById('badge-inbox');
+    const mobileBadge = document.getElementById('badge-mobile-inbox');
+    const subtitle = document.getElementById('inboxSubtitle');
+
+    [sidebarBadge, mobileBadge].forEach(el => {
+        if (!el) return;
+        if (total > 0) {
+            el.textContent = total > 99 ? '99+' : total;
+            el.style.display = 'inline-flex';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+
+    if (subtitle) {
+        subtitle.textContent = total > 0
+            ? `${total} عنصر يحتاج مراجعتك`
+            : 'كل شيء تحت السيطرة ✨';
+    }
+}
+
+function scrollToInboxSection(type) {
+    const el = document.getElementById('inbox-section-' + type);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function _inboxChipHTML(count, type, icon) {
+    const hasItems = count > 0;
+    return `
+        <div class="inbox-chip ${hasItems ? 'has-items' : ''}" data-type="${type}" onclick="scrollToInboxSection('${type}')">
+            <span class="material-icons">${icon}</span>
+            <span class="inbox-chip-count">${count}</span>
+            <span class="inbox-chip-label">${type === 'deposits' ? 'إيداعات' : type === 'orders' ? 'طلبات' : type === 'kyc' ? 'توثيق' : 'خدمات'}</span>
+        </div>
+    `;
+}
+
+function renderInbox() {
+    if (!inboxData) return;
+    const container = document.getElementById('inboxContainer');
+    const summary = document.getElementById('inboxSummary');
+    if (!container) return;
+
+    const c = inboxData.counts || { deposits: 0, orders: 0, kyc: 0, services: 0, total: 0 };
+
+    // Update summary chips
+    if (summary) {
+        summary.innerHTML = `
+            ${_inboxChipHTML(c.deposits || 0, 'deposits', 'account_balance_wallet')}
+            ${_inboxChipHTML(c.orders || 0, 'orders', 'receipt_long')}
+            ${_inboxChipHTML(c.kyc || 0, 'kyc', 'verified_user')}
+            ${_inboxChipHTML(c.services || 0, 'services', 'handyman')}
+        `;
+    }
+
+    // Counts in header for backward compat
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('inboxCountDeposits', c.deposits || 0);
+    setText('inboxCountOrders', c.orders || 0);
+    setText('inboxCountKYC', c.kyc || 0);
+    setText('inboxCountServices', c.services || 0);
+
+    if ((c.total || 0) === 0) {
+        container.innerHTML = `
+            <div class="empty">
+                <div class="empty-icon"><span class="material-icons">check_circle</span></div>
+                <h3>كل شيء تحت السيطرة</h3>
+                <p>لا توجد عناصر تحتاج مراجعتك الآن.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+
+    // ═══ Deposits ═══
+    if ((inboxData.pending_deposits || []).length) {
+        html += `
+            <div class="inbox-section" id="inbox-section-deposits">
+                <div class="inbox-section-header">
+                    <h3>
+                        <span class="material-icons" style="color:var(--success);">account_balance_wallet</span>
+                        إيداعات
+                    </h3>
+                    <span class="inbox-section-count">${c.deposits}</span>
+                </div>
+                <div class="inbox-section-body">
+                    ${inboxData.pending_deposits.map(d => `
+                        <div class="inbox-item">
+                            <div class="inbox-item-icon success">
+                                <span class="material-icons">arrow_downward</span>
+                            </div>
+                            <div class="inbox-item-content">
+                                <div class="inbox-item-title">${escapeHtml(d.transaction_id)}</div>
+                                <div class="inbox-item-subtitle">
+                                    ${escapeHtml(d.user_name || 'مستخدم')} • #${escapeHtml(d.user_telegram || d.user_id)}
+                                    • ${escapeHtml(d.method || '-')}
+                                </div>
+                                <div class="inbox-item-amount" style="margin-top:4px;">$${parseFloat(d.amount || 0).toFixed(2)}</div>
+                            </div>
+                            <div class="inbox-item-actions">
+                                <button class="inbox-action view" onclick="viewDepositDetails(${d.id})" title="تفاصيل">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                                <button class="inbox-action approve" onclick="inboxApproveDeposit(${d.id})" title="قبول">
+                                    <span class="material-icons">check</span>
+                                </button>
+                                <button class="inbox-action reject" onclick="inboxRejectDeposit(${d.id})" title="رفض">
+                                    <span class="material-icons">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // ═══ Orders ═══
+    if ((inboxData.pending_orders || []).length) {
+        html += `
+            <div class="inbox-section" id="inbox-section-orders">
+                <div class="inbox-section-header">
+                    <h3>
+                        <span class="material-icons" style="color:var(--info);">receipt_long</span>
+                        طلبات
+                    </h3>
+                    <span class="inbox-section-count">${c.orders}</span>
+                </div>
+                <div class="inbox-section-body">
+                    ${inboxData.pending_orders.map(o => {
+                        const isTopup = o.product_type === 'topup';
+                        const qty = isTopup
+                            ? `${parseInt(o.quantity || 0).toLocaleString('ar')} ل.س`
+                            : `${parseInt(o.quantity || 0).toLocaleString('ar')} ${escapeHtml(o.product_unit_name || 'قطعة')}`;
+                        return `
+                        <div class="inbox-item">
+                            <div class="inbox-item-icon" style="background:var(--info-soft);color:var(--info);">
+                                <span class="material-icons">shopping_bag</span>
+                            </div>
+                            <div class="inbox-item-content">
+                                <div class="inbox-item-title">${escapeHtml(o.order_number)}</div>
+                                <div class="inbox-item-subtitle">
+                                    ${escapeHtml(o.product_name || '-')} • ${qty}
+                                </div>
+                                <div class="inbox-item-subtitle" style="margin-top:2px;">
+                                    ${escapeHtml(o.user_name || 'مستخدم')} • #${escapeHtml(o.user_telegram || o.user_id)}
+                                </div>
+                                <div class="inbox-item-amount" style="margin-top:4px;color:var(--primary);">$${parseFloat(o.total_price || 0).toFixed(2)}</div>
+                            </div>
+                            <div class="inbox-item-actions">
+                                <button class="inbox-action view" onclick="viewOrderDetails(${o.id})" title="تفاصيل">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                                <button class="inbox-action approve" onclick="inboxApproveOrder(${o.id})" title="إكمال">
+                                    <span class="material-icons">check</span>
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // ═══ KYC ═══
+    if ((inboxData.pending_kyc || []).length) {
+        html += `
+            <div class="inbox-section" id="inbox-section-kyc">
+                <div class="inbox-section-header">
+                    <h3>
+                        <span class="material-icons" style="color:var(--warning);">verified_user</span>
+                        طلبات توثيق
+                    </h3>
+                    <span class="inbox-section-count">${c.kyc}</span>
+                </div>
+                <div class="inbox-section-body">
+                    ${inboxData.pending_kyc.map(k => `
+                        <div class="inbox-item">
+                            <div class="inbox-item-icon warning">
+                                <span class="material-icons">badge</span>
+                            </div>
+                            <div class="inbox-item-content">
+                                <div class="inbox-item-title">${escapeHtml(k.full_name)}</div>
+                                <div class="inbox-item-subtitle">
+                                    ${escapeHtml(k.phone || '-')} • #${escapeHtml(k.user_telegram || k.user_id)}
+                                </div>
+                            </div>
+                            <div class="inbox-item-actions">
+                                <button class="inbox-action view" onclick="viewKYCImage(${k.id})" title="عرض">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                                <button class="inbox-action approve" onclick="inboxApproveKYC(${k.id})" title="قبول">
+                                    <span class="material-icons">check</span>
+                                </button>
+                                <button class="inbox-action reject" onclick="inboxRejectKYC(${k.id})" title="رفض">
+                                    <span class="material-icons">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // ═══ Services ═══
+    if ((inboxData.pending_services || []).length) {
+        html += `
+            <div class="inbox-section" id="inbox-section-services">
+                <div class="inbox-section-header">
+                    <h3>
+                        <span class="material-icons" style="color:var(--primary);">handyman</span>
+                        طلبات خدمة
+                    </h3>
+                    <span class="inbox-section-count">${c.services}</span>
+                </div>
+                <div class="inbox-section-body">
+                    ${inboxData.pending_services.map(s => `
+                        <div class="inbox-item">
+                            <div class="inbox-item-icon">
+                                <span class="material-icons">build</span>
+                            </div>
+                            <div class="inbox-item-content">
+                                <div class="inbox-item-title">${escapeHtml(s.service_name || '-')}</div>
+                                <div class="inbox-item-subtitle">
+                                    ${escapeHtml(s.user_name || 'مستخدم')} • #${escapeHtml(s.user_telegram || s.user_id)}
+                                </div>
+                            </div>
+                            <div class="inbox-item-actions">
+                                <button class="inbox-action view" onclick="viewServiceRequest(${s.id})" title="عرض">
+                                    <span class="material-icons">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+async function inboxApproveDeposit(id) {
+    const ok = await showConfirm({
+        title: 'قبول الإيداع',
+        message: 'هل تريد قبول هذا الإيداع وإضافة المبلغ للرصيد؟',
+        confirmText: 'قبول',
+        type: 'success'
+    });
+    if (!ok) return;
+
+    try {
+        await approveDeposit(id);
+        showToast('✅ تم قبول الإيداع', 'success');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+}
+
+async function inboxRejectDeposit(id) {
+    const ok = await showConfirm({
+        title: 'رفض الإيداع',
+        message: 'هل تريد رفض هذا الإيداع؟',
+        confirmText: 'رفض',
+        type: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+        await rejectDeposit(id);
+        showToast('تم رفض الإيداع', 'warning');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+}
+
+async function inboxApproveOrder(id) {
+    const ok = await showConfirm({
+        title: 'إكمال الطلب',
+        message: 'هل تريد تعليم الطلب كمكتمل؟',
+        confirmText: 'إكمال',
+        type: 'success'
+    });
+    if (!ok) return;
+
+    try {
+        await updateOrderStatus(id, 'completed');
+        showToast('✅ تم إكمال الطلب', 'success');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+}
+
+async function inboxApproveKYC(id) {
+    const ok = await showConfirm({
+        title: 'قبول التوثيق',
+        message: 'هل تريد قبول طلب التوثيق؟',
+        confirmText: 'قبول',
+        type: 'success'
+    });
+    if (!ok) return;
+
+    try {
+        await approveKYCRequest(id);
+        showToast('✅ تم قبول التوثيق', 'success');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+}
+
+async function inboxRejectKYC(id) {
+    const ok = await showConfirm({
+        title: 'رفض التوثيق',
+        message: 'هل تريد رفض طلب التوثيق؟',
+        confirmText: 'رفض',
+        type: 'danger'
+    });
+    if (!ok) return;
+
+    try {
+        await rejectKYCRequest(id);
+        showToast('تم رفض التوثيق', 'warning');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+}
+
+// Expose globally
+window.loadInbox = loadInbox;
+window.renderInbox = renderInbox;
+window.scrollToInboxSection = scrollToInboxSection;
+window.inboxApproveDeposit = inboxApproveDeposit;
+window.inboxRejectDeposit = inboxRejectDeposit;
+window.inboxApproveOrder = inboxApproveOrder;
+window.inboxApproveKYC = inboxApproveKYC;
+window.inboxRejectKYC = inboxRejectKYC;
+window.updateInboxBadge = updateInboxBadge;

@@ -1,12 +1,14 @@
 /* ============================================================
-   🔌 SANAD PLUS⁺ Admin API — v17
+   🔌 SANAD PLUS⁺ Admin API — v18.3.8
    ============================================================
    - apiRequest() موحّد
    - JWT تلقائي
    - Retry + Timeout
    - معالجة 401 → redirect login
    - v16: Archive + Restore endpoints
-   - v17: Discounts endpoints (general + per-product)
+   - v17: Discounts endpoints
+   - v18.3.6: Payment methods min/max/fee
+   - v18.3.8: Admin Inbox
    ============================================================ */
 
 const API_BASE_URL = 'https://sanad-plus-backend.onrender.com';
@@ -61,24 +63,20 @@ async function apiRequest(path, options = {}) {
 
         clearTimeout(timeoutId);
 
-        // 401 → session expired
         if (response.status === 401) {
             clearToken();
             if (typeof showLogin === 'function') showLogin();
             throw new Error('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
         }
 
-        // 403 → forbidden
         if (response.status === 403) {
             throw new Error('غير مصرح لك بهذا الإجراء');
         }
 
-        // 429 → rate limit
         if (response.status === 429) {
             throw new Error('محاولات كثيرة، يرجى المحاولة لاحقاً');
         }
 
-        // 5xx → server error
         if (response.status >= 500) {
             throw new Error('خطأ في الخادم، حاول لاحقاً');
         }
@@ -471,7 +469,7 @@ async function saveAdminSettings(payload) {
 }
 
 /* ============================================================
-   🆕 v16: ARCHIVE — جلب العناصر المؤرشفة
+   🆕 v16: ARCHIVE
    ============================================================ */
 async function fetchArchivedOrders() {
     return await apiRequest('/admin/api/archive/orders');
@@ -494,7 +492,7 @@ async function fetchArchiveCounts() {
 }
 
 /* ============================================================
-   🆕 v16: RESTORE — إرجاع العنصر للقائمة الرئيسية
+   🆕 v16: RESTORE
    ============================================================ */
 async function restoreOrder(orderId) {
     return await apiRequest(`/admin/api/orders/${orderId}/restore`, { method: 'POST' });
@@ -513,7 +511,14 @@ async function restoreService(reqId) {
 }
 
 /* ============================================================
-   📤 Global expose (للاستخدام من admin.js و admin-v16.js)
+   🆕 v18.3.8: Admin Inbox
+   ============================================================ */
+async function fetchAdminInbox() {
+    return await apiRequest('/admin/api/inbox');
+}
+
+/* ============================================================
+   📤 Global expose
    ============================================================ */
 window.apiRequest = apiRequest;
 
@@ -563,7 +568,7 @@ window.createProductBundle = createProductBundle;
 window.updateProductBundle = updateProductBundle;
 window.deleteProductBundle = deleteProductBundle;
 
-// Old archive (categories/products)
+// Old archive
 window.fetchArchive = fetchArchive;
 
 // Payment Methods
@@ -624,3 +629,6 @@ window.restoreOrder = restoreOrder;
 window.restoreDeposit = restoreDeposit;
 window.restoreKYC = restoreKYC;
 window.restoreService = restoreService;
+
+// v18.3.8: Inbox
+window.fetchAdminInbox = fetchAdminInbox;

@@ -2434,3 +2434,275 @@ html, body,
 /* ============================================================
    END OF admin.css v17
    ============================================================ */
+/* ============================================================
+   🆕 v18.3.8: Admin Inbox
+   ============================================================ */
+
+.inbox-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.inbox-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 12px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+}
+
+.inbox-chip:active {
+    transform: scale(0.96);
+}
+
+.inbox-chip .material-icons {
+    font-size: 22px;
+    color: var(--primary);
+}
+
+.inbox-chip[data-type="deposits"] .material-icons { color: var(--success); }
+.inbox-chip[data-type="orders"] .material-icons { color: var(--info); }
+.inbox-chip[data-type="kyc"] .material-icons { color: var(--warning); }
+.inbox-chip[data-type="services"] .material-icons { color: var(--primary); }
+
+.inbox-chip-count {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--text);
+    line-height: 1;
+    direction: ltr;
+}
+
+.inbox-chip-label {
+    font-size: 0.7rem;
+    color: var(--text-2);
+    font-weight: 600;
+}
+
+.inbox-chip.has-items {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, var(--primary-soft) 0%, var(--surface) 100%);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.08);
+}
+
+.inbox-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.inbox-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+
+.inbox-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.inbox-section-header h3 {
+    font-size: 14px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--text);
+}
+
+.inbox-section-header h3 .material-icons {
+    font-size: 18px;
+}
+
+.inbox-section-count {
+    background: var(--primary);
+    color: white;
+    font-size: 11px;
+    font-weight: 900;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: var(--r-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.inbox-section-count.empty {
+    background: var(--surface-2);
+    color: var(--text-3);
+}
+
+.inbox-section-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.inbox-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    transition: var(--transition);
+}
+
+.inbox-item:active {
+    transform: scale(0.99);
+}
+
+.inbox-item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.inbox-item-icon.success { background: var(--success-soft); color: var(--success); }
+.inbox-item-icon.warning { background: var(--warning-soft); color: #92400E; }
+.inbox-item-icon.danger { background: var(--error-soft); color: var(--danger); }
+
+.inbox-item-icon .material-icons {
+    font-size: 20px;
+}
+
+.inbox-item-content {
+    min-width: 0;
+    text-align: right;
+}
+
+.inbox-item-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+    direction: ltr;
+    display: inline-block;
+}
+
+.inbox-item-subtitle {
+    font-size: 11px;
+    color: var(--text-2);
+    margin-top: 2px;
+}
+
+.inbox-item-amount {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--success);
+    direction: ltr;
+}
+
+.inbox-item-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.inbox-action {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-sm);
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+    flex-shrink: 0;
+}
+
+.inbox-action:active {
+    transform: scale(0.92);
+}
+
+.inbox-action.approve {
+    background: var(--success-soft);
+    color: #047857;
+}
+
+.inbox-action.approve:hover {
+    background: var(--success);
+    color: white;
+}
+
+.inbox-action.reject {
+    background: var(--error-soft);
+    color: #B91C1C;
+}
+
+.inbox-action.reject:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.inbox-action.view {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.inbox-action.view:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.inbox-action .material-icons {
+    font-size: 18px;
+}
+
+.inbox-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-3);
+    font-size: 12px;
+}
+
+@media (max-width: 400px) {
+    .inbox-chip {
+        padding: 10px 4px;
+    }
+    .inbox-chip-count {
+        font-size: 1.1rem;
+    }
+    .inbox-chip-label {
+        font-size: 0.65rem;
+    }
+    .inbox-item {
+        grid-template-columns: auto 1fr;
+    }
+    .inbox-item-actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+    }
+}
+
+/* ============================================================
+   END OF v18.3.8 Inbox styles
+   ============================================================ */

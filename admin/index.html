@@ -60,7 +60,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=20">
+<link rel="stylesheet" href="css/admin.css?v=21">
 </head>
 <body>
 
@@ -104,6 +104,11 @@
 
         <div class="nav-group">
             <div class="nav-group-title">العمليات</div>
+            <button class="nav-item sidebar-item" data-section="inbox" onclick="switchSection('inbox')">
+                <span class="material-icons">inbox</span>
+                <span>الإرساليات</span>
+                <span class="nav-badge" id="badge-inbox" style="display:none;">0</span>
+            </button>
             <button class="nav-item sidebar-item" data-section="orders" onclick="switchSection('orders')">
                 <span class="material-icons">receipt_long</span>
                 <span>الطلبات</span>
@@ -198,6 +203,50 @@
      ============================================================ -->
 <main class="main admin-content" id="adminContent">
 
+    <!-- INBOX -->
+    <section id="section-inbox" class="section admin-section">
+        <div class="page-header">
+            <div>
+                <h1>📥 الإرساليات</h1>
+                <p id="inboxSubtitle">كل ما يحتاج مراجعة في مكان واحد</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadInbox()">
+                <span class="material-icons">refresh</span> تحديث
+            </button>
+        </div>
+
+        <div class="inbox-summary" id="inboxSummary">
+            <div class="inbox-chip" data-type="deposits" onclick="scrollToInboxSection('deposits')">
+                <span class="material-icons">account_balance_wallet</span>
+                <span class="inbox-chip-count" id="inboxCountDeposits">0</span>
+                <span class="inbox-chip-label">إيداعات</span>
+            </div>
+            <div class="inbox-chip" data-type="orders" onclick="scrollToInboxSection('orders')">
+                <span class="material-icons">receipt_long</span>
+                <span class="inbox-chip-count" id="inboxCountOrders">0</span>
+                <span class="inbox-chip-label">طلبات</span>
+            </div>
+            <div class="inbox-chip" data-type="kyc" onclick="scrollToInboxSection('kyc')">
+                <span class="material-icons">verified_user</span>
+                <span class="inbox-chip-count" id="inboxCountKYC">0</span>
+                <span class="inbox-chip-label">توثيق</span>
+            </div>
+            <div class="inbox-chip" data-type="services" onclick="scrollToInboxSection('services')">
+                <span class="material-icons">handyman</span>
+                <span class="inbox-chip-count" id="inboxCountServices">0</span>
+                <span class="inbox-chip-label">خدمات</span>
+            </div>
+        </div>
+
+        <div class="inbox-container" id="inboxContainer">
+            <div class="empty">
+                <div class="empty-icon"><span class="material-icons">hourglass_empty</span></div>
+                <h3>جارٍ التحميل...</h3>
+            </div>
+        </div>
+    </section>
+
+    <!-- DASHBOARD -->
     <section id="section-dashboard" class="section admin-section active">
         <div class="page-header">
             <div>
@@ -276,6 +325,7 @@
         </div>
     </section>
 
+    <!-- USERS -->
     <section id="section-users" class="section admin-section">
         <div class="page-header">
             <h1>المستخدمون</h1>
@@ -304,6 +354,7 @@
         </div>
     </section>
 
+    <!-- CATEGORIES -->
     <section id="section-categories" class="section admin-section">
         <div class="page-header">
             <h1>الأقسام</h1>
@@ -314,6 +365,7 @@
         <div class="cards-grid" id="categoriesList"></div>
     </section>
 
+    <!-- PRODUCTS -->
     <section id="section-products" class="section admin-section">
         <div class="page-header">
             <h1>المنتجات</h1>
@@ -354,6 +406,7 @@
         </div>
     </section>
 
+    <!-- PAYMENT METHODS -->
     <section id="section-payment-methods" class="section admin-section">
         <div class="page-header">
             <h1>طرق الدفع</h1>
@@ -364,6 +417,7 @@
         <div class="cards-grid" id="paymentMethodsList"></div>
     </section>
 
+    <!-- ORDERS -->
     <section id="section-orders" class="section admin-section">
         <div class="page-header">
             <h1>الطلبات</h1>
@@ -403,6 +457,7 @@
         <div id="ordersList" class="cards-list"></div>
     </section>
 
+    <!-- DEPOSITS -->
     <section id="section-deposits" class="section admin-section">
         <div class="page-header">
             <h1>الإيداعات</h1>
@@ -414,6 +469,7 @@
         <table style="display:none;"><tbody id="depositsTableBody"></tbody></table>
     </section>
 
+    <!-- KYC -->
     <section id="section-kyc" class="section admin-section">
         <div class="page-header">
             <h1>طلبات التوثيق</h1>
@@ -422,6 +478,7 @@
         <table style="display:none;"><tbody id="kycTableBody"></tbody></table>
     </section>
 
+    <!-- SERVICE REQUESTS -->
     <section id="section-service-requests" class="section admin-section">
         <div class="page-header">
             <h1>طلبات الخدمة</h1>
@@ -430,6 +487,7 @@
         <table style="display:none;"><tbody id="serviceRequestsTableBody"></tbody></table>
     </section>
 
+    <!-- COUPONS -->
     <section id="section-coupons" class="section admin-section">
         <div class="page-header">
             <h1>كودات الخصم</h1>
@@ -454,6 +512,7 @@
         </div>
     </section>
 
+    <!-- REFERRALS -->
     <section id="section-referrals" class="section admin-section">
         <div class="page-header">
             <h1>الإحالات</h1>
@@ -478,6 +537,7 @@
         </div>
     </section>
 
+    <!-- ARCHIVE -->
     <section id="section-archive" class="section admin-section">
         <div class="page-header">
             <h1>الأرشيف</h1>
@@ -523,6 +583,7 @@
         </div>
     </section>
 
+    <!-- ACTIVITIES -->
     <section id="section-activities" class="section admin-section">
         <div class="page-header">
             <h1>سجل النشاطات</h1>
@@ -542,6 +603,7 @@
         </div>
     </section>
 
+    <!-- AUDIT LOG -->
     <section id="section-audit-log" class="section admin-section">
         <div class="page-header">
             <h1>التدقيق المالي</h1>
@@ -583,6 +645,7 @@
         </div>
     </section>
 
+    <!-- NOTIFICATIONS -->
     <section id="section-notifications" class="section admin-section">
         <div class="page-header">
             <h1>إرسال إشعار</h1>
@@ -617,6 +680,7 @@
         </div>
     </section>
 
+    <!-- SETTINGS -->
     <section id="section-settings" class="section admin-section">
         <div class="page-header">
             <h1>الإعدادات</h1>
@@ -660,15 +724,18 @@
 
 </main>
 
+<!-- ============================================================
+     BOTTOM NAV + FAB
+     ============================================================ -->
 <nav class="bottom-nav admin-bottom-nav" id="bottomNav">
     <button class="bottom-item bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
         <span class="material-icons">space_dashboard</span>
         <span>الرئيسية</span>
     </button>
-    <button class="bottom-item bottom-nav-item" data-section="orders" onclick="switchSection('orders')">
-        <span class="material-icons">receipt_long</span>
-        <span>الطلبات</span>
-        <span class="bottom-nav-badge" id="badge-mobile-orders" style="display:none;">0</span>
+    <button class="bottom-item bottom-nav-item" data-section="inbox" onclick="switchSection('inbox')">
+        <span class="material-icons">inbox</span>
+        <span>الإرساليات</span>
+        <span class="bottom-nav-badge" id="badge-mobile-inbox" style="display:none;">0</span>
     </button>
     <button class="bottom-item fab-slot" onclick="openQuickActions()">
         <span class="material-icons" style="font-size:28px;color:white;">add</span>
@@ -684,6 +751,9 @@
     </button>
 </nav>
 
+<!-- ============================================================
+     BULK BAR
+     ============================================================ -->
 <div class="bulk-bar bulk-orders-bar" id="bulkOrdersBar">
     <div class="bulk-info bulk-count">
         <span class="bulk-num bulk-count-num" id="bulkNum">0</span>
@@ -703,6 +773,9 @@
     </button>
 </div>
 
+<!-- ============================================================
+     BOTTOM SHEET
+     ============================================================ -->
 <div class="bottom-sheet-overlay" id="bottomSheetOverlay" onclick="closeBottomSheet()"></div>
 <div class="bottom-sheet" id="bottomSheet">
     <div class="sheet-handle"></div>
@@ -715,13 +788,22 @@
     <div class="sheet-body" id="sheetBody"></div>
 </div>
 
+<!-- ============================================================
+     TOASTS
+     ============================================================ -->
 <div id="toastContainer" class="toast-container"></div>
 
+<!-- ============================================================
+     IMAGE LIGHTBOX
+     ============================================================ -->
 <div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
     <button class="close-lightbox" onclick="closeImageLightbox()">&times;</button>
     <img src="" alt="" class="lightbox-image" id="lightboxImage">
 </div>
 
+<!-- ============================================================
+     LEGACY MODALS
+     ============================================================ -->
 <div id="modal" class="modal" style="display:none;">
     <div class="modal-content">
         <div class="modal-header">
@@ -768,10 +850,13 @@
     <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
 </div>
 
-<script src="js/api.js?v=20"></script>
-<script src="js/admin.js?v=20"></script>
-<script src="js/admin-v16.js?v=20"></script>
-<script src="js/admin-v17.js?v=20"></script>
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="js/api.js?v=21"></script>
+<script src="js/admin.js?v=21"></script>
+<script src="js/admin-v16.js?v=21"></script>
+<script src="js/admin-v17.js?v=21"></script>
 
 <script>
 (function() {
@@ -823,6 +908,7 @@
             if (sectionId === 'activities' && typeof loadActivities === 'function') loadActivities();
             if (sectionId === 'audit-log' && typeof loadAuditLog === 'function') loadAuditLog();
             if (sectionId === 'settings' && typeof loadSettings === 'function') loadSettings();
+            if (sectionId === 'inbox' && typeof loadInbox === 'function') loadInbox();
         } catch (err) {
             console.warn('Section load error:', err);
         }
