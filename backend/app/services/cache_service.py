@@ -303,3 +303,32 @@ def is_healthy():
         return True
     except Exception:
         return False
+
+# ============================================================
+# 🆕 v18.4: Rate Limiting Helper (Redis-based)
+# ============================================================
+def rate_limit_check(key: str, max_requests: int, window_seconds: int):
+    """
+    Sliding bucket counter باستخدام Redis.
+
+    Returns:
+        True  → المستخدم تجاوز الحد
+        False → مسموح
+        None  → Redis غير متاح (استخدم fallback)
+    """
+    if not _redis_client:
+        return None
+    try:
+        import time
+        bucket = int(time.time() // window_seconds)
+        full_key = f"ratelimit:{key}:{bucket}"
+        count = _redis_client.incr(full_key)
+        if count == 1:
+            _redis_client.expire(full_key, window_seconds)
+        return count > max_requests
+    except redis.RedisError as e:
+        _mark_redis_down(e)
+        return None
+    except Exception as e:
+        logger.warning(f"rate_limit_check failed: {e}")
+        return None

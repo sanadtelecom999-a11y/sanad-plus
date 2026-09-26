@@ -91,10 +91,24 @@ RATE_LIMIT_MAX = 10
 
 
 def is_rate_limited(user_id):
-    """فحص إذا كان المستخدم قد تجاوز الحد المسموح"""
+    """🆕 v18.4: Redis-based rate limiting مع in-memory fallback"""
     if user_id in ADMIN_IDS:
         return False
 
+    # ═══ محاولة Redis أولاً ═══
+    try:
+        from app.services.cache_service import rate_limit_check
+        result = rate_limit_check(
+            key=f"bot:{user_id}",
+            max_requests=RATE_LIMIT_MAX,
+            window_seconds=RATE_LIMIT_WINDOW,
+        )
+        if result is not None:
+            return result
+    except Exception as e:
+        logger.warning(f"Redis rate-limit unavailable, using memory: {e}")
+
+    # ═══ Fallback: in-memory ═══
     now = time.time()
     _rate_limit_store[user_id] = [
         t for t in _rate_limit_store[user_id]
