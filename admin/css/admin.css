@@ -2706,3 +2706,138 @@ html, body,
 /* ============================================================
    END OF v18.3.8 Inbox styles
    ============================================================ */
+
+/* ============================================================
+   🆕 v18.4: Inbox Auto-refresh Toggle + Filters
+   ============================================================ */
+
+.inbox-autorefresh-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-2);
+    transition: var(--transition);
+}
+
+.inbox-autorefresh-toggle input {
+    display: none;
+}
+
+.toggle-track {
+    width: 32px;
+    height: 18px;
+    background: var(--surface-2);
+    border-radius: 10px;
+    position: relative;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    transition: var(--transition);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+.inbox-autorefresh-toggle input:checked + .toggle-track {
+    background: var(--success);
+}
+
+.inbox-autorefresh-toggle input:checked + .toggle-track .toggle-thumb {
+    transform: translateX(14px);
+}
+
+.toggle-label {
+    white-space: nowrap;
+}
+
+.inbox-autorefresh-toggle input:checked ~ .toggle-label {
+    color: var(--success);
+}
+
+.inbox-filters {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: 12px;
+    padding-bottom: 4px;
+}
+
+.inbox-filters::-webkit-scrollbar {
+    display: none;
+}
+
+.inbox-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-2);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition);
+    font-family: inherit;
+}
+
+.inbox-filter:active {
+    transform: scale(0.96);
+}
+
+.inbox-filter.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.inbox-filter-count {
+    background: rgba(255,255,255,0.25);
+    padding: 1px 7px;
+    border-radius: var(--r-full);
+    font-size: 10px;
+    font-weight: 900;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.inbox-filter:not(.active) .inbox-filter-count {
+    background: var(--surface-2);
+    color: var(--text-2);
+}
+
+.inbox-section.hidden {
+    display: none;
+}
+
+@media (max-width: 500px) {
+    .inbox-autorefresh-toggle .toggle-label {
+        display: none;
+    }
+    .inbox-filter {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+}
+
+/* ============================================================
+   END OF v18.4 Inbox v2
+   ============================================================ */

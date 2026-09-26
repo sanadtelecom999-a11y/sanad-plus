@@ -4384,3 +4384,178 @@ window.inboxApproveOrder = inboxApproveOrder;
 window.inboxApproveKYC = inboxApproveKYC;
 window.inboxRejectKYC = inboxRejectKYC;
 window.updateInboxBadge = updateInboxBadge;
+
+
+/* ============================================================
+   🆕 v18.4: Inbox v2 — Auto-refresh + Sound + Filters + Double-confirm
+   ============================================================ */
+
+let _inboxAutoRefreshTimer = null;
+let _inboxCurrentFilter = 'all';
+let _inboxLastTotal = -1;
+
+// ═══ Auto-refresh ═══
+function toggleInboxAutoRefresh() {
+    const toggle = document.getElementById('inboxAutoRefresh');
+    if (!toggle) return;
+
+    if (toggle.checked) {
+        _startInboxAutoRefresh();
+        showToast('🔄 تحديث تلقائي كل 30 ثانية', 'info', 2000);
+    } else {
+        _stopInboxAutoRefresh();
+        showToast('⏸️ تحديث تلقائي متوقف', 'info', 2000);
+    }
+}
+
+function _startInboxAutoRefresh() {
+    _stopInboxAutoRefresh();
+    _inboxAutoRefreshTimer = setInterval(() => {
+        if (currentSection === 'inbox') {
+            loadInbox();
+        }
+    }, 30000);
+}
+
+function _stopInboxAutoRefresh() {
+    if (_inboxAutoRefreshTimer) {
+        clearInterval(_inboxAutoRefreshTimer);
+        _inboxAutoRefreshTimer = null;
+    }
+}
+
+// ═══ Sound Notification ═══
+function playInboxSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(1320, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(1760, audioCtx.currentTime + 0.2);
+
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    } catch (e) {
+        console.warn('Audio not available:', e);
+    }
+}
+
+// ═══ Filters ═══
+function setInboxFilter(filter, btn) {
+    _inboxCurrentFilter = filter;
+
+    document.querySelectorAll('.inbox-filter').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+
+    _applyInboxFilter();
+}
+
+function _applyInboxFilter() {
+    const sections = document.querySelectorAll('.inbox-section');
+    sections.forEach(sec => {
+        const sectionType = sec.id.replace('inbox-section-', '');
+        if (_inboxCurrentFilter === 'all' || sectionType === _inboxCurrentFilter) {
+            sec.classList.remove('hidden');
+        } else {
+            sec.classList.add('hidden');
+        }
+    });
+}
+
+// ═══ Double-confirm للمبالغ الكبيرة ═══
+async function inboxDoubleConfirm(title, message, amount) {
+    if (amount >= 50) {
+        const first = await showConfirm({ title, message, confirmText: 'متابعة', type: 'warning' });
+        if (!first) return false;
+
+        const second = await showConfirm({
+            title: '⚠️ تأكيد مزدوج',
+            message: `مبلغ كبير ($${amount.toFixed(2)})\n\nهل أنت متأكد تماماً؟`,
+            confirmText: 'نعم، متأكد',
+            type: 'danger'
+        });
+        return second;
+    }
+
+    return await showConfirm({ title, message, confirmText: 'تأكيد' });
+}
+
+// ═══ Override inboxApproveDeposit with Double-confirm ═══
+const _origInboxApproveDeposit = window.inboxApproveDeposit;
+window.inboxApproveDeposit = async function(id) {
+    const deposit = (inboxData?.pending_deposits || []).find(d => d.id === id);
+    const amount = deposit ? parseFloat(deposit.amount) : 0;
+
+    const ok = await inboxDoubleConfirm(
+        'قبول الإيداع',
+        `سيتم إضافة $${amount.toFixed(2)} إلى رصيد العميل`,
+        amount
+    );
+    if (!ok) return;
+
+    try {
+        await approveDeposit(id);
+        showToast('✅ تم قبول الإيداع', 'success');
+        await loadInbox();
+        if (typeof loadAllData === 'function') await loadAllData();
+    } catch (err) {
+        showToast(`فشل: ${err.message}`, 'error');
+    }
+};
+
+// ═══ Update badge + sound on new items ═══
+const _origRenderInbox = window.renderInbox;
+window.renderInbox = function() {
+    if (typeof _origRenderInbox === 'function') {
+        _origRenderInbox();
+    }
+
+    // Sound على عنصر جديد
+    const currentTotal = inboxData?.counts?.total || 0;
+    if (_inboxLastTotal !== -1 && currentTotal > _inboxLastTotal) {
+        playInboxSound();
+        showToast(`🔔 ${currentTotal - _inboxLastTotal} عنصر جديد`, 'info', 3000);
+    }
+    _inboxLastTotal = currentTotal;
+
+    // تحديث counts في Filter Tabs
+    const allCountEl = document.getElementById('inboxFilterAllCount');
+    if (allCountEl) allCountEl.textContent = currentTotal;
+
+    // إعادة تطبيق الفلتر بعد render
+    _applyInboxFilter();
+};
+
+// ═══ Cleanup عند الخروج من Inbox ═══
+const _origSwitchSection = window.switchSection;
+window.switchSection = function(section) {
+    if (section !== 'inbox') {
+        _stopInboxAutoRefresh();
+        const toggle = document.getElementById('inboxAutoRefresh');
+        if (toggle && toggle.checked) {
+            toggle.checked = false;
+        }
+    }
+    if (typeof _origSwitchSection === 'function') {
+        _origSwitchSection(section);
+    }
+    if (section === 'inbox') {
+        loadInbox();
+    }
+};
+
+// Expose
+window.toggleInboxAutoRefresh = toggleInboxAutoRefresh;
+window.setInboxFilter = setInboxFilter;
+window.playInboxSound = playInboxSound;
+
+console.log('✅ v18.4 Inbox v2 loaded');
