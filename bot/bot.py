@@ -62,6 +62,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+if not ADMIN_IDS:
+    logger.warning("⚠️ TELEGRAM_ADMIN_IDS فارغ — لن تُرسل تنبيهات!")
+
 # 🔒 إخفاء التوكن من httpx/telegram logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
@@ -73,7 +76,8 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============================================================
 # ============ Version (Cache Buster) ============
 # ============================================================
-MINIAPP_VERSION = "17"
+MINIAPP_VERSION = "22"
+BOT_VERSION = "v18.4.5"
 
 
 def get_miniapp_url():
@@ -219,6 +223,8 @@ async def post_init(application: Application):
 # ============ /start ============
 # ============================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_user:
+        return
     user_id = update.effective_user.id
     first_name = update.effective_user.first_name or "مستخدم"
     last_name = update.effective_user.last_name or ""
@@ -277,6 +283,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============ /me ============
 # ============================================================
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_user:
+        return
     user_id = update.effective_user.id
 
     if is_rate_limited(user_id):
@@ -333,7 +341,7 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     info = (
         f"📊 **معلومات النظام**\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🤖 **البوت:** يعمل (v18)\n"
+        f"🤖 **البوت:** يعمل ({BOT_VERSION})\n"
         f"📦 **إصدار MiniApp:** v{MINIAPP_VERSION}\n"
         f"🔗 **MiniApp URL:** {get_miniapp_url()}\n"
         f"🖥️ **Backend:** {BACKEND_URL}\n"
@@ -361,16 +369,19 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     if _SENTRY_AVAILABLE:
         try:
             sentry_sdk.capture_exception(context.error)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Sentry capture failed: {e}")
 
     if context.error:
         error_short = str(context.error)[:300]
-        notify_admins_sync(
-            f"❌ **خطأ في البوت**\n"
-            f"`{error_short}`",
-            important=True
-        )
+        try:
+            notify_admins_sync(
+                f"❌ **خطأ في البوت**\n"
+                f"`{error_short}`",
+                important=True
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify admins: {e}")
 
 
 # ============================================================
@@ -406,7 +417,7 @@ def run_polling():
     logger.info(f"💓 Heartbeat loop: سيبدأ خلال 5s")
 
     notify_admins_sync(
-        f"✅ البوت بدأ العمل (v18)\n"
+        f"✅ البوت بدأ العمل ({BOT_VERSION})\n"
         f"MiniApp v{MINIAPP_VERSION}\n"
         f"Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}"
     )
