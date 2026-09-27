@@ -230,6 +230,18 @@ async def post_init(application: Application):
     _heartbeat_task = asyncio.create_task(heartbeat_loop())
 
 
+async def post_shutdown(application: Application):
+    """🆕 v18.4.10: cleanup heartbeat على shutdown نظيف"""
+    global _heartbeat_task
+    if _heartbeat_task and not _heartbeat_task.done():
+        _heartbeat_task.cancel()
+        try:
+            await _heartbeat_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("🛑 post_shutdown: heartbeat task cancelled")
+
+
 # ============================================================
 # ============ /start ============
 # ============================================================
