@@ -55,7 +55,7 @@ for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
     try:
         ADMIN_IDS.append(int(_x))
     except ValueError:
-        print(f"⚠️ Invalid admin ID: {_x}")
+        logger.warning(f"⚠️ Invalid admin ID: {_x}")
 
 
 # ============================================================
@@ -82,7 +82,7 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============ Version (Cache Buster) ============
 # ============================================================
 MINIAPP_VERSION = "22"
-BOT_VERSION = "v18.4.7"
+BOT_VERSION = "v18.4.8"
 
 
 def get_miniapp_url():
@@ -223,6 +223,9 @@ _heartbeat_task = None  # 🆕 v18.4.7: keep reference (prevent GC)
 async def post_init(application: Application):
     """يُستدعى بعد تهيئة البوت — يبدأ الـ heartbeat"""
     global _heartbeat_task
+    # 🆕 v18.4.8: cancel previous task if any (restart safety)
+    if _heartbeat_task and not _heartbeat_task.done():
+        _heartbeat_task.cancel()
     logger.info("🚀 post_init: starting heartbeat loop")
     _heartbeat_task = asyncio.create_task(heartbeat_loop())
 
