@@ -1377,7 +1377,7 @@ function getStatusArabic(status) {
                         <div class="card-row"><span class="material-icons">schedule</span>${item.created_at ? new Date(item.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
-                        <div class="card-price ltr">${item.total_price.toFixed(2)}$</div>
+                        <div class="card-price ltr">${parseFloat(item.total_price).toFixed(2)}$</div>
                         <div class="card-actions">
                             <button class="card-action restore" onclick="restoreArchivedOrder(${item.id})">
                                 <span class="material-icons">undo</span> استرجاع
@@ -1401,7 +1401,7 @@ function getStatusArabic(status) {
                         <div class="card-row"><span class="material-icons">schedule</span>${item.created_at ? new Date(item.created_at).toLocaleString('ar') : ''}</div>
                     </div>
                     <div class="card-footer">
-                        <div class="card-price ltr">$${item.amount.toFixed(2)}</div>
+                        <div class="card-price ltr">$${parseFloat(item.amount).toFixed(2)}</div>
                         <div class="card-actions">
                             <button class="card-action restore" onclick="restoreArchivedDeposit(${item.id})">
                                 <span class="material-icons">undo</span> استرجاع
