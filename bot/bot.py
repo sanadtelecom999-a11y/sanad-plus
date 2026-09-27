@@ -407,6 +407,7 @@ def create_application() -> Application:
         Application.builder()
         .token(BOT_TOKEN)
         .post_init(post_init)
+        .post_shutdown(post_shutdown)
         .build()
     )
 
