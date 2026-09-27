@@ -47,10 +47,15 @@ ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.a
 BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
 BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
 
-try:
-    ADMIN_IDS = [int(x.strip()) for x in TELEGRAM_ADMIN_IDS_STR.split(",") if x.strip()]
-except ValueError:
-    ADMIN_IDS = []
+ADMIN_IDS = []
+for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
+    _x = _x.strip()
+    if not _x:
+        continue
+    try:
+        ADMIN_IDS.append(int(_x))
+    except ValueError:
+        print(f"⚠️ Invalid admin ID: {_x}")
 
 
 # ============================================================
@@ -213,10 +218,13 @@ async def heartbeat_loop():
         await asyncio.sleep(60)
 
 
+_heartbeat_task = None  # 🆕 v18.4.7: keep reference (prevent GC)
+
 async def post_init(application: Application):
     """يُستدعى بعد تهيئة البوت — يبدأ الـ heartbeat"""
+    global _heartbeat_task
     logger.info("🚀 post_init: starting heartbeat loop")
-    asyncio.create_task(heartbeat_loop())
+    _heartbeat_task = asyncio.create_task(heartbeat_loop())
 
 
 # ============================================================
@@ -410,7 +418,7 @@ def create_application() -> Application:
 
 def run_polling():
     application = create_application()
-    logger.info(f"🚀 بدء تشغيل البوت v18 — MiniApp Version: {MINIAPP_VERSION}")
+    logger.info(f"🚀 بدء تشغيل البوت {BOT_VERSION} — MiniApp Version: {MINIAPP_VERSION}")
     logger.info(f"🔗 MiniApp URL: {get_miniapp_url()}")
     logger.info(f"👥 عدد الأدمن: {len(ADMIN_IDS)}")
     logger.info(f"🛡️ Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}")
