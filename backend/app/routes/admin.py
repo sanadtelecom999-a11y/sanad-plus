@@ -394,7 +394,7 @@ def admin_adjust_balance(user_id):
     if amount == 0:
         return jsonify({"error": "المبلغ لا يمكن أن يكون صفراً"}), 400
 
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
