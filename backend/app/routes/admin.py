@@ -1490,7 +1490,7 @@ def admin_deposit_detail(deposit_id):
 def admin_approve_deposit(deposit_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    deposit = Deposit.query.get(deposit_id)
+    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
     if not deposit:
         return jsonify({"error": "إيداع غير موجود"}), 404
     if deposit.status != "pending":
@@ -1498,7 +1498,7 @@ def admin_approve_deposit(deposit_id):
 
     deposit.status = "approved"
     deposit.reviewed_at = datetime.now(timezone.utc)
-    user = User.query.get(deposit.user_id)
+    user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
 
     # 🆕 v18.3.6: اخصم الرسوم أولاً
     deposit_fee = round(deposit.fee or 0, 2)
@@ -1560,7 +1560,7 @@ def admin_approve_deposit(deposit_id):
 def admin_reject_deposit(deposit_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    deposit = Deposit.query.get(deposit_id)
+    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
     if not deposit:
         return jsonify({"error": "إيداع غير موجود"}), 404
     if deposit.status != "pending":
@@ -1574,7 +1574,7 @@ def admin_reject_deposit(deposit_id):
     if reason:
         deposit.admin_note = reason
 
-    user = User.query.get(deposit.user_id)
+    user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
     if user:
         db.session.add(Notification(
             user_id=user.id, title="إيداع مرفوض",
@@ -1634,13 +1634,16 @@ def admin_kyc():
 def admin_approve_kyc(kyc_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    kyc = KYCRequest.query.get(kyc_id)
+    kyc = KYCRequest.query.filter_by(id=kyc_id).with_for_update().first()
     if not kyc:
         return jsonify({"error": "طلب غير موجود"}), 404
 
+    if kyc.status != "pending":
+        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+
     kyc.status = "approved"
     kyc.reviewed_at = datetime.now(timezone.utc)
-    user = User.query.get(kyc.user_id)
+    user = User.query.filter_by(id=kyc.user_id).with_for_update().first()
     if user:
         user.kyc_status = "verified"
         user.is_verified = True
@@ -1667,19 +1670,22 @@ def admin_approve_kyc(kyc_id):
 def admin_reject_kyc(kyc_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    kyc = KYCRequest.query.get(kyc_id)
+    kyc = KYCRequest.query.filter_by(id=kyc_id).with_for_update().first()
     if not kyc:
         return jsonify({"error": "طلب غير موجود"}), 404
 
     data = request.get_json() or {}
     reason = data.get("reason", "")
 
+    if kyc.status != "pending":
+        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+
     kyc.status = "rejected"
     kyc.reviewed_at = datetime.now(timezone.utc)
     if reason:
         kyc.admin_note = reason
 
-    user = User.query.get(kyc.user_id)
+    user = User.query.filter_by(id=kyc.user_id).with_for_update().first()
     if user:
         user.kyc_status = "unverified"
         user.is_verified = False
