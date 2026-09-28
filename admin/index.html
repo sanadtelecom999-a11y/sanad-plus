@@ -360,7 +360,7 @@
         </div>
         <div class="search-box">
             <span class="material-icons">search</span>
-            <input type="text" id="userSearch" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
+            <input type="text" id="userSearch" aria-label="بحث في المستخدمين" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
         </div>
         <div class="table-container">
             <table>
@@ -400,13 +400,13 @@
         </div>
         <div class="search-box">
             <span class="material-icons">search</span>
-            <input type="text" id="productSearch" placeholder="ابحث عن منتج..." oninput="filterProducts()">
+            <input type="text" id="productSearch" aria-label="بحث في المنتجات" placeholder="ابحث عن منتج..." oninput="filterProducts()">
         </div>
         <div class="filters-row">
-            <select id="productCategoryFilter" class="filter-select" onchange="filterProducts()">
+            <select id="productCategoryFilter" aria-label="فلترة حسب القسم" class="filter-select" onchange="filterProducts()">
                 <option value="all">جميع الأقسام</option>
             </select>
-            <select id="productTypeFilter" class="filter-select" onchange="filterProducts()">
+            <select id="productTypeFilter" aria-label="فلترة حسب النوع" class="filter-select" onchange="filterProducts()">
                 <option value="all">جميع الأنواع</option>
                 <option value="quantity">كمية</option>
                 <option value="topup">رصيد سوري</option>
@@ -452,16 +452,16 @@
         </div>
         <div class="search-box">
             <span class="material-icons">search</span>
-            <input type="text" id="orderSearchQuery" placeholder="ابحث برقم الطلب أو User ID..." oninput="applyOrderFilters()">
+            <input type="text" id="orderSearchQuery" aria-label="بحث في الطلبات" placeholder="ابحث برقم الطلب أو User ID..." oninput="applyOrderFilters()">
         </div>
         <div class="filters-row">
-            <select id="orderStatusFilter" class="filter-select" onchange="applyOrderFilters()">
+            <select id="orderStatusFilter" aria-label="فلترة حسب الحالة" class="filter-select" onchange="applyOrderFilters()">
                 <option value="all">جميع الحالات</option>
                 <option value="pending">قيد المعالجة</option>
                 <option value="review">قيد المراجعة</option>
                 <option value="processing">قيد التنفيذ</option>
             </select>
-            <select id="orderSortFilter" class="filter-select" onchange="applyOrderFilters()">
+            <select id="orderSortFilter" aria-label="ترتيب الطلبات" class="filter-select" onchange="applyOrderFilters()">
                 <option value="newest">الأحدث</option>
                 <option value="oldest">الأقدم</option>
                 <option value="price_high">الأعلى</option>
@@ -588,7 +588,7 @@
 
         <div class="search-box">
             <span class="material-icons">search</span>
-            <input type="text" id="archiveSearch" placeholder="ابحث في الأرشيف..." oninput="filterArchiveItems()">
+            <input type="text" id="archiveSearch" aria-label="بحث في الأرشيف" placeholder="ابحث في الأرشيف..." oninput="filterArchiveItems()">
         </div>
 
         <div id="archiveList" class="cards-list">
@@ -638,10 +638,10 @@
         </div>
         <div class="search-box">
             <span class="material-icons">search</span>
-            <input type="text" id="auditUserSearch" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
+            <input type="text" id="auditUserSearch" aria-label="فلترة التدقيق حسب المستخدم" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
         </div>
         <div class="filters-row">
-            <select id="auditActionFilter" class="filter-select" onchange="filterAuditLog()">
+            <select id="auditActionFilter" aria-label="فلترة حسب العملية" class="filter-select" onchange="filterAuditLog()">
                 <option value="">كل العمليات</option>
                 <option value="order_created">شراء طلب</option>
                 <option value="order_refund">استرداد طلب</option>
@@ -678,7 +678,7 @@
         <div class="form-card">
             <div class="form-group">
                 <label>نوع الإشعار</label>
-                <select id="notificationType">
+                <select id="notificationType" aria-label="نوع الإشعار">
                     <option value="info">معلومات</option>
                     <option value="success">نجاح</option>
                     <option value="warning">تحذير</option>
@@ -686,14 +686,14 @@
             </div>
             <div class="form-group">
                 <label>إلى</label>
-                <select id="notificationTarget" onchange="toggleSpecificUser()">
+                <select id="notificationTarget" aria-label="هدف الإشعار" onchange="toggleSpecificUser()">
                     <option value="all">جميع المستخدمين</option>
                     <option value="specific">مستخدم محدد</option>
                 </select>
             </div>
             <div class="form-group" id="specificUserGroup" style="display:none;">
                 <label>معرف المستخدم</label>
-                <input type="text" id="notificationUserId" placeholder="Telegram ID">
+                <input type="text" id="notificationUserId" aria-label="معرف المستخدم" placeholder="Telegram ID">
             </div>
             <div class="form-group">
                 <label>نص الإشعار</label>
@@ -856,7 +856,7 @@
     <div class="modal-content global-search-content">
         <div class="global-search-header">
             <span class="material-icons">search</span>
-            <input type="text" id="globalSearchInput" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" autocomplete="off">
+            <input type="text" id="globalSearchInput" aria-label="بحث عام" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" autocomplete="off">
             <button class="close-modal-inline" onclick="closeGlobalSearch()">
                 <span class="material-icons">close</span>
             </button>
