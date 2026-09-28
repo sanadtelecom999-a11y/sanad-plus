@@ -64,7 +64,7 @@ def health_check():
     result = {
         "status": "ok",
         "timestamp": int(time.time()),
-        "version": "v18.4.11",
+        "version": "v18.4.14",
         "checks": {}
     }
     degraded = False
