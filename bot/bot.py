@@ -378,6 +378,32 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================================================
 # ============ 🛡️ Global Error Handler ============
 # ============================================================
+# ─────────────────────────────────────────────────────────────
+# Error Notification Throttling — v18.4.11
+# ─────────────────────────────────────────────────────────────
+_error_notify_buckets = defaultdict(list)
+_ERROR_NOTIFY_WINDOW = 300
+_ERROR_NOTIFY_MAX = 3
+_ERROR_NOTIFY_KEY_LEN = 80
+
+def _should_notify_error(error_str: str) -> bool:
+    if not error_str:
+        return True
+    key = error_str[:_ERROR_NOTIFY_KEY_LEN]
+    now = time.time()
+    bucket = int(now // _ERROR_NOTIFY_WINDOW)
+    if len(_error_notify_buckets) > 1000:
+        for k in list(_error_notify_buckets.keys()):
+            if k[1] < bucket:
+                del _error_notify_buckets[k]
+    full_key = (key, bucket)
+    _error_notify_buckets[full_key].append(now)
+    count = len(_error_notify_buckets[full_key])
+    if count == _ERROR_NOTIFY_MAX + 1:
+        logger.warning(f"Rate limit triggered: {key[:50]}...")
+        return True
+    return count <= _ERROR_NOTIFY_MAX
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """التعامل مع الأخطاء غير المتوقعة"""
     error_str = str(context.error)
@@ -397,14 +423,16 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
 
     if context.error:
         error_short = str(context.error)[:300]
-        try:
-            notify_admins_sync(
-                f"❌ **خطأ في البوت**\n"
-                f"`{error_short}`",
-                important=True
-            )
-        except Exception as e:
-            logger.error(f"Failed to notify admins: {e}")
+        if _should_notify_error(error_short):
+            try:
+                notify_admins_sync(
+                    f"❌ **خطأ في البوت**\n`{error_short}`",
+                    important=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admins: {e}")
+        else:
+            logger.debug(f"Error notification throttled: {error_short[:50]}")
 
 
 # ============================================================
