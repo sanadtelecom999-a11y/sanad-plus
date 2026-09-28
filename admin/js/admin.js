@@ -550,7 +550,7 @@ function performGlobalSearch(query) {
                         <div class="search-result-icon"><span class="material-icons">person</span></div>
                         <div class="search-result-content">
                             <div class="search-result-title">${u.username || u.first_name || 'مستخدم'}</div>
-                            <div class="search-result-subtitle ltr">${u.telegram_id} • ${u.balance.toFixed(2)}$</div>
+                            <div class="search-result-subtitle ltr">${u.telegram_id} • ${parseFloat(u.balance).toFixed(2)}$</div>
                         </div>
                         <span class="material-icons search-result-arrow">chevron_left</span>
                     </button>
@@ -1349,7 +1349,7 @@ async function openUserDetailModal(userId) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
                     <div style="background:var(--background);padding:12px;border-radius:12px;text-align:center;">
                         <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;">الرصيد</div>
-                        <div style="font-size:1.4rem;font-weight:800;color:${balanceColor};" class="ltr">${user.balance.toFixed(2)}$</div>
+                        <div style="font-size:1.4rem;font-weight:800;color:${balanceColor};" class="ltr">${parseFloat(user.balance).toFixed(2)}$</div>
                     </div>
                     <div style="background:var(--background);padding:12px;border-radius:12px;text-align:center;">
                         <div style="font-size:0.75rem;color:var(--text-secondary);margin-bottom:4px;">الحالة</div>
@@ -1437,7 +1437,7 @@ function openNegativeBalanceModal(userId) {
                 <div style="font-weight:700;">${user.username || user.first_name || 'مستخدم'}</div>
                 <div style="color:var(--text-secondary);font-size:0.85rem;">
                     الرصيد الحالي: <strong style="color:${user.balance < 0 ? 'var(--error)' : 'var(--text)'};">
-                        ${user.balance.toFixed(2)}$
+                        ${parseFloat(user.balance).toFixed(2)}$
                     </strong>
                 </div>
             </div>
@@ -1601,7 +1601,7 @@ async function adjustBalance(userId) {
         <div style="text-align:right;">
             <div style="background:var(--primary-light);padding:12px;border-radius:12px;margin-bottom:14px;">
                 <div style="font-weight:700;">${user.username || user.first_name || 'مستخدم'}</div>
-                <div style="color:var(--text-secondary);font-size:0.85rem;">الرصيد الحالي: <strong>${user.balance.toFixed(2)}$</strong></div>
+                <div style="color:var(--text-secondary);font-size:0.85rem;">الرصيد الحالي: <strong>${parseFloat(user.balance).toFixed(2)}$</strong></div>
             </div>
             <div class="form-group">
                 <label>نوع العملية</label>
@@ -2879,7 +2879,7 @@ function renderOrderCard(order) {
                     <span class="status-badge ${statusColors[order.status]}">${getStatusArabic(order.status)}</span>
                 </div>
                 <div class="order-price-tag">
-                    <div class="price-value ltr">${order.total_price.toFixed(2)}$</div>
+                    <div class="price-value ltr">${parseFloat(order.total_price).toFixed(2)}$</div>
                 </div>
             </div>
 
@@ -3107,12 +3107,12 @@ async function viewOrderDetails(orderId) {
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">سعر الوحدة</span>
-                        <span class="detail-value ltr">${order.unit_price.toFixed(4)}$</span>
+                        <span class="detail-value ltr">${parseFloat(order.unit_price).toFixed(4)}$</span>
                     </div>
                     ${order.discount_amount > 0 ? `
                     <div class="detail-row">
                         <span class="detail-label">الخصم</span>
-                        <span class="detail-value ltr" style="color:var(--success);">-${order.discount_amount.toFixed(2)}$</span>
+                        <span class="detail-value ltr" style="color:var(--success);">-${parseFloat(order.discount_amount).toFixed(2)}$</span>
                     </div>
                     ` : ''}
                     ${order.coupon_code ? `
@@ -3124,7 +3124,7 @@ async function viewOrderDetails(orderId) {
                     <div class="detail-row total-row">
                         <span class="detail-label" style="font-weight:800;">الإجمالي</span>
                         <span class="detail-value ltr" style="font-weight:900;color:var(--primary);font-size:1.1rem;">
-                            ${order.total_price.toFixed(2)}$
+                            ${parseFloat(order.total_price).toFixed(2)}$
                         </span>
                     </div>
                 </div>
@@ -3203,7 +3203,7 @@ function renderDeposits(deposits) {
                     #${d.user_telegram || d.user_id}
                 </div>
             </td>
-            <td data-label="المبلغ"><strong class="ltr">${d.amount.toFixed(2)}$</strong></td>
+            <td data-label="المبلغ"><strong class="ltr">${parseFloat(d.amount).toFixed(2)}$</strong></td>
             <td data-label="الطريقة">${d.method || '-'}</td>
             <td data-label="الحالة"><span class="status-badge ${d.status === 'approved' ? 'completed' : d.status === 'rejected' ? 'failed' : 'pending'}">${d.status === 'approved' ? 'مقبول' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}</span></td>
             <td data-label="إجراءات">
@@ -3290,7 +3290,7 @@ async function viewDepositDetails(depositId) {
                     <div class="detail-row">
                         <span class="detail-label">المبلغ</span>
                         <span class="detail-value ltr" style="font-weight:900;color:var(--success);font-size:1.2rem;">
-                            ${d.amount.toFixed(2)}$ ${d.currency || ''}
+                            ${parseFloat(d.amount).toFixed(2)}$ ${d.currency || ''}
                         </span>
                     </div>
                     <div class="detail-row">
@@ -3948,7 +3948,7 @@ function exportUsersExcel() {
     if (!usersData.length) { showToast('لا يوجد مستخدمون للتصدير', 'warning'); return; }
     const rows = [['Telegram ID', 'الاسم', 'Username', 'الرصيد', 'الحالة', 'VIP', 'KYC', 'تاريخ التسجيل']];
     usersData.forEach(u => {
-        rows.push([u.telegram_id, u.first_name || '', u.username || '', u.balance.toFixed(2),
+        rows.push([u.telegram_id, u.first_name || '', u.username || '', parseFloat(u.balance).toFixed(2),
             u.is_banned ? 'محظور' : 'نشط', u.vip_level > 0 ? 'VIP' + u.vip_level : '-',
             u.kyc_status, u.created_at ? new Date(u.created_at).toLocaleString('ar') : '']);
     });
@@ -4132,7 +4132,7 @@ function renderInbox() {
                                     ${escapeHtml(d.user_name || 'مستخدم')} • #${escapeHtml(d.user_telegram || d.user_id)}
                                     • ${escapeHtml(d.method || '-')}
                                 </div>
-                                <div class="inbox-item-amount" style="margin-top:4px;">$${parseFloat(d.amount || 0).toFixed(2)}</div>
+                                <div class="inbox-item-amount" style="margin-top:4px;">$${parseFloat(parseFloat(d.amount) || 0).toFixed(2)}</div>
                             </div>
                             <div class="inbox-item-actions">
                                 <button class="inbox-action view" onclick="viewDepositDetails(${d.id})" title="تفاصيل">
@@ -4182,7 +4182,7 @@ function renderInbox() {
                                 <div class="inbox-item-subtitle" style="margin-top:2px;">
                                     ${escapeHtml(o.user_name || 'مستخدم')} • #${escapeHtml(o.user_telegram || o.user_id)}
                                 </div>
-                                <div class="inbox-item-amount" style="margin-top:4px;color:var(--primary);">$${parseFloat(o.total_price || 0).toFixed(2)}</div>
+                                <div class="inbox-item-amount" style="margin-top:4px;color:var(--primary);">$${parseFloat(parseFloat(o.total_price) || 0).toFixed(2)}</div>
                             </div>
                             <div class="inbox-item-actions">
                                 <button class="inbox-action view" onclick="viewOrderDetails(${o.id})" title="تفاصيل">

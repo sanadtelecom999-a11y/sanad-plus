@@ -3,6 +3,7 @@
 # ============================================================
 import os
 from flask import Flask, jsonify, request
+from decimal import Decimal
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -187,4 +188,18 @@ def create_app():
     from .services.cache_service import setup_cache_invalidation
     setup_cache_invalidation(app)
 
+
+    # ============================================================
+    # v18.4.13: Decimal -> float in JSON
+    # ============================================================
+    from flask.json.provider import DefaultJSONProvider
+
+    class _SanadJSONProvider(DefaultJSONProvider):
+        @staticmethod
+        def default(o):
+            if isinstance(o, Decimal):
+                return float(o)
+            return DefaultJSONProvider.default(o)
+
+    app.json = _SanadJSONProvider(app)
     return app

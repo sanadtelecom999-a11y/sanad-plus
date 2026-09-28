@@ -265,7 +265,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <div class="card-price ltr" style="color:var(--success);font-weight:900;">$${(d.amount || 0).toFixed(2)}</div>
+                        <div class="card-price ltr" style="color:var(--success);font-weight:900;">$${(parseFloat(d.amount) || 0).toFixed(2)}</div>
                         <div class="card-actions">
                             <button class="card-action view" onclick="viewDepositDetails(${d.id})">
                                 <span class="material-icons">visibility</span> تفاصيل
@@ -429,7 +429,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <div class="card-price ltr">${(o.total_price || 0).toFixed(2)}$</div>
+                        <div class="card-price ltr">${(parseFloat(o.total_price) || 0).toFixed(2)}$</div>
                         <div class="card-actions">
                             <button class="card-action view" onclick="viewOrderDetails(${o.id})">
                                 <span class="material-icons">visibility</span> تفاصيل
@@ -563,7 +563,7 @@
                             </div>
                         </div>
                         <div class="card-footer">
-                            <div class="card-price ltr">${(o.total_price || 0).toFixed(2)}$</div>
+                            <div class="card-price ltr">${(parseFloat(o.total_price) || 0).toFixed(2)}$</div>
                         </div>
                     </div>
                 `).join('')}
@@ -1075,7 +1075,7 @@
                         ${order.discount_amount > 0 ? `
                             <div class="order-total-line">
                                 <span>الخصم:</span>
-                                <strong style="color:#FBBF24;">-${order.discount_amount.toFixed(2)}$</strong>
+                                <strong style="color:#FBBF24;">-${parseFloat(order.discount_amount).toFixed(2)}$</strong>
                             </div>
                         ` : ''}
                         ${order.coupon_code ? `
