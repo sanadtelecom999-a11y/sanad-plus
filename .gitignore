@@ -197,3 +197,5 @@ backend/migrations/*.log
 /patch_*.py
 /test_*.py
 /*.save
+docs/FULL_SOURCE.md
+FULL_SOURCE.md
