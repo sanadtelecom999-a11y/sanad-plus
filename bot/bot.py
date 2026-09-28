@@ -26,6 +26,9 @@ for env_path in ENV_PATHS:
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+# Early logger definition (v18.4.14 — fixes ADMIN_IDS parse bug)
+logger = logging.getLogger(__name__)
+
 
 # ============================================================
 # 🛡️ Sentry (already initialized in bot_main.py — just import)
@@ -55,7 +58,7 @@ for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
     try:
         ADMIN_IDS.append(int(_x))
     except ValueError:
-        print(f"⚠️ Invalid admin ID (parse): {_x}")
+        logger.warning(f"⚠️ Invalid admin ID: {_x}")
 
 
 # ============================================================
@@ -82,7 +85,7 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============ Version (Cache Buster) ============
 # ============================================================
 MINIAPP_VERSION = "22"
-BOT_VERSION = "v18.4.11"
+BOT_VERSION = "v18.4.14"
 
 
 def get_miniapp_url():
@@ -118,6 +121,20 @@ def is_rate_limited(user_id):
         logger.warning(f"Redis rate-limit unavailable, using memory: {e}")
 
     # ═══ Fallback: in-memory ═══
+    # 🆕 v18.4.14: Emergency flush — memory leak prevention
+    if len(_rate_limit_store) > 50_000:
+        logger.warning(
+            f"🚨 _rate_limit_store overflow ({len(_rate_limit_store)} keys) — flushing"
+        )
+        if _SENTRY_AVAILABLE:
+            try:
+                sentry_sdk.capture_message(
+                    "Rate limit fallback overflow", level="warning"
+                )
+            except Exception:
+                pass
+        _rate_limit_store.clear()
+
     now = time.time()
     _rate_limit_store[user_id] = [
         t for t in _rate_limit_store[user_id]
