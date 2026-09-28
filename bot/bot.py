@@ -55,7 +55,7 @@ for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
     try:
         ADMIN_IDS.append(int(_x))
     except ValueError:
-        logger.warning(f"⚠️ Invalid admin ID: {_x}")
+        print(f"⚠️ Invalid admin ID (parse): {_x}")
 
 
 # ============================================================
@@ -82,7 +82,7 @@ logging.getLogger("telegram.request").setLevel(logging.WARNING)
 # ============ Version (Cache Buster) ============
 # ============================================================
 MINIAPP_VERSION = "22"
-BOT_VERSION = "v18.4.10.1"
+BOT_VERSION = "v18.4.11"
 
 
 def get_miniapp_url():
