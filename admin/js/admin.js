@@ -791,7 +791,7 @@ async function loadAllData() {
             fetchAdminKYC(),
             fetchServiceRequests(),
             fetchAdminCoupons(),
-            fetchArchive(),
+            Promise.resolve({ categories: [], products: [] }),
             fetchAdminSettings(),
         ]);
         usersData = results[0].status === 'fulfilled' ? results[0].value : [];
