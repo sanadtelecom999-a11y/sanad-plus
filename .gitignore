@@ -190,3 +190,10 @@ loadtest_v2_results.json
 
 # Migrations logs
 backend/migrations/*.log
+
+# Temporary migration scripts (one-shot)
+/fix_*.py
+/phase*.py
+/patch_*.py
+/test_*.py
+/*.save
