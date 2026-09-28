@@ -1222,19 +1222,27 @@ def admin_update_order_status(order_id):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     new_status = data.get("status")
-    order = Order.query.get(order_id)
+
+    # LOCK ORDER FIRST (canonical: order -> user -> product)
+    order = Order.query.filter_by(id=order_id).with_for_update().first()
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
+
+    if order.status in ["completed", "failed", "cancelled"]:
+        return jsonify({"error": "لا يمكن تغيير طلب بحالة نهائية"}), 400
 
     valid = {
         "pending":    ["review", "processing", "completed", "failed", "cancelled"],
         "review":     ["processing", "completed", "failed"],
         "processing": ["completed", "failed"],
     }
-    if order.status in ["completed", "failed", "cancelled"]:
-        return jsonify({"error": "لا يمكن تغيير طلب بحالة نهائية"}), 400
-    if order.status in valid and new_status not in valid[order.status]:
+    if order.status not in valid:
+        return jsonify({"error": f"حالة غير معروفة: {order.status}"}), 400
+    if new_status not in valid[order.status]:
         return jsonify({"error": f"لا يمكن الانتقال من {order.status} إلى {new_status}"}), 400
+
+    user = User.query.filter_by(id=order.user_id).with_for_update().first()
+    product = Product.query.filter_by(id=order.product_id).with_for_update().first()
 
     old_status = order.status
     order.status = new_status
@@ -1247,21 +1255,19 @@ def admin_update_order_status(order_id):
     elif new_status == "failed":
         order.failed_at = datetime.now(timezone.utc)
 
-    user = User.query.get(order.user_id)
-
     if new_status == "failed" and old_status != "failed" and user:
         balance_before = user.balance
         user.balance = round(user.balance + order.total_price, 2)
         db.session.add(Transaction(
             user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_refund", reference_id=order.id,
+            balance_after=user.balance, reference_type="order_refund",
+            reference_id=order.id,
         ))
         log_financial(
             user=user, action="order_refund", amount=order.total_price,
             balance_before=balance_before, balance_after=user.balance,
             ref_type="order", ref_id=order.id, note="استرداد بسبب فشل الطلب",
         )
-        product = Product.query.get(order.product_id)
         if product and product.stock is not None:
             product.stock += order.quantity
         db.session.add(Notification(
@@ -1276,35 +1282,30 @@ def admin_update_order_status(order_id):
         user.balance = round(user.balance + order.total_price, 2)
         db.session.add(Transaction(
             user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_cancel", reference_id=order.id,
+            balance_after=user.balance, reference_type="order_cancel",
+            reference_id=order.id,
         ))
         log_financial(
             user=user, action="order_cancelled", amount=order.total_price,
             balance_before=balance_before, balance_after=user.balance,
             ref_type="order", ref_id=order.id,
         )
-        product = Product.query.get(order.product_id)
         if product and product.stock is not None:
             product.stock += order.quantity
         send_order_refund_cancelled(user, order.total_price, order.order_number)
 
     if new_status == "completed" and user:
-        try:
-            db.session.add(Notification(
-                user_id=user.id, title="تم تنفيذ طلبك",
-                message=f"تم إكمال طلبك {order.order_number} بنجاح",
-                type="success",
-            ))
-        except Exception:
-            pass
+        db.session.add(Notification(
+            user_id=user.id, title="تم تنفيذ طلبك",
+            message=f"تم إكمال طلبك {order.order_number} بنجاح",
+            type="success",
+        ))
 
     log_admin_activity(f"تغيير حالة الطلب {order.order_number} إلى {get_arabic_status(new_status)}")
     db.session.commit()
 
-    # 🆕 v18.1: manual invalidation (auto also works)
     invalidate_admin("orders")
-
-    notify_admins(f"طلب {order.order_number} → {get_arabic_status(new_status)}")
+    notify_admins(f"طلب {order.order_number} -> {get_arabic_status(new_status)}")
     return jsonify({"status": order.status})
 
 
@@ -1321,9 +1322,10 @@ def admin_bulk_order_status():
 
     if not order_ids or not new_status:
         return jsonify({"error": "بيانات ناقصة"}), 400
-
     if len(order_ids) > 100:
         return jsonify({"error": "الحد الأقصى 100 طلب"}), 400
+
+    order_ids = sorted(set(int(x) for x in order_ids))
 
     valid_transitions = {
         "pending":    ["review", "processing", "completed", "failed", "cancelled"],
@@ -1335,19 +1337,22 @@ def admin_bulk_order_status():
     failed = []
 
     for oid in order_ids:
-        order = Order.query.get(oid)
+        order = Order.query.filter_by(id=oid).with_for_update().first()
         if not order:
             failed.append({"id": oid, "reason": "غير موجود"})
             continue
-
         if order.status in ["completed", "failed", "cancelled"]:
-            failed.append({"id": oid, "reason": f"الحالة {order.status}"})
+            failed.append({"id": oid, "reason": f"الحالة النهائية: {order.status}"})
+            continue
+        if order.status not in valid_transitions:
+            failed.append({"id": oid, "reason": f"حالة غير معروفة: {order.status}"})
+            continue
+        if new_status not in valid_transitions[order.status]:
+            failed.append({"id": oid, "reason": f"لا يمكن {order.status} -> {new_status}"})
             continue
 
-        allowed = valid_transitions.get(order.status, [])
-        if new_status not in allowed:
-            failed.append({"id": oid, "reason": f"لا يمكن {order.status} → {new_status}"})
-            continue
+        user = User.query.filter_by(id=order.user_id).with_for_update().first()
+        product = Product.query.filter_by(id=order.product_id).with_for_update().first()
 
         old_status = order.status
         order.status = new_status
@@ -1360,8 +1365,7 @@ def admin_bulk_order_status():
         elif new_status == "failed":
             order.failed_at = datetime.now(timezone.utc)
 
-        user = User.query.get(order.user_id)
-        if new_status in ["failed", "cancelled"] and user and old_status not in ["failed", "cancelled"]:
+        if new_status in ("failed", "cancelled") and user and old_status not in ("failed", "cancelled"):
             balance_before = user.balance
             user.balance = round(user.balance + order.total_price, 2)
             db.session.add(Transaction(
@@ -1374,23 +1378,19 @@ def admin_bulk_order_status():
                 balance_before=balance_before, balance_after=user.balance,
                 ref_type="order", ref_id=order.id, note=f"Bulk: {new_status}",
             )
-            product = Product.query.get(order.product_id)
             if product and product.stock is not None:
                 product.stock += order.quantity
 
         if new_status == "completed" and user:
-            try:
-                db.session.add(Notification(
-                    user_id=user.id, title="تم تنفيذ طلبك",
-                    message=f"تم إكمال طلبك {order.order_number} بنجاح",
-                    type="success",
-                ))
-            except Exception:
-                pass
+            db.session.add(Notification(
+                user_id=user.id, title="تم تنفيذ طلبك",
+                message=f"تم إكمال طلبك {order.order_number} بنجاح",
+                type="success",
+            ))
 
         success.append(oid)
 
-    log_admin_activity(f"تحديث جماعي: {len(success)} طلب → {get_arabic_status(new_status)}")
+    log_admin_activity(f"تحديث جماعي: {len(success)} طلب -> {get_arabic_status(new_status)}")
     db.session.commit()
 
     invalidate_admin("orders")
@@ -1403,9 +1403,6 @@ def admin_bulk_order_status():
     })
 
 
-# ============================================================
-# Deposits — 🆕 v18.1: joinedload + cached
-# ============================================================
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
 @handle_errors
