@@ -1866,6 +1866,23 @@ function getStatusArabic(status) {
         setTimeout(initV17, 100);
     }
 
+
+    /* ============================================================
+       🆕 v18.4.12: Reset deposits filter (fix stuck filter bug)
+       ============================================================ */
+    window.resetDepositsFilter = function () {
+        try {
+            if (typeof depositsTabFilter !== 'undefined') {
+                depositsTabFilter = 'all';
+            }
+            document.querySelectorAll('#depositsTabs .filter-tab').forEach(function (b, i) {
+                b.classList.toggle('active', i === 0);
+            });
+        } catch (e) {
+            console.warn('resetDepositsFilter error:', e);
+        }
+    };
+
     console.log('✅ admin-v16.js loaded — v17.2 XSS Hardened');
 
 })();

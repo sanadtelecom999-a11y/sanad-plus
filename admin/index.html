@@ -60,7 +60,7 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=25">
+<link rel="stylesheet" href="css/admin.css?v=26">
 </head>
 <body>
 
@@ -879,9 +879,9 @@
      SCRIPTS
      ============================================================ -->
 <script src="js/api.js?v=25"></script>
-<script src="js/admin.js?v=25"></script>
-<script src="js/admin-v16.js?v=25"></script>
-<script src="js/admin-v17.js?v=25"></script>
+<script src="js/admin.js?v=26"></script>
+<script src="js/admin-v16.js?v=26"></script>
+<script src="js/admin-v17.js?v=26"></script>
 
 <script>
 (function() {
@@ -924,7 +924,10 @@
                     window.renderOrders(ordersData);
                 }
             }
-            if (sectionId === 'deposits' && typeof window.renderDeposits === 'function') window.renderDeposits(depositsData);
+            if (sectionId === 'deposits') {
+                if (typeof window.resetDepositsFilter === 'function') window.resetDepositsFilter();
+                if (typeof window.renderDeposits === 'function') window.renderDeposits(depositsData);
+            }
             if (sectionId === 'kyc' && typeof window.renderKYC === 'function') window.renderKYC();
             if (sectionId === 'service-requests' && typeof window.renderServiceRequests === 'function') window.renderServiceRequests();
             if (sectionId === 'coupons' && typeof renderCoupons === 'function') renderCoupons();
