@@ -33,10 +33,31 @@ def _get_database_url():
 
 class Config:
     # ─── Flask ───
-    SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+    # v18.4.15: Fail loud — refuse insecure defaults
+    _SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+    if (
+        not _SECRET_KEY
+        or len(_SECRET_KEY) < 32
+        or _SECRET_KEY in ("change-me", "changeme", "secret")
+    ):
+        raise RuntimeError(
+            "SECRET_KEY must be at least 32 characters and not a known weak default. "
+            "Refusing to start."
+        )
+    SECRET_KEY = _SECRET_KEY
 
     # ─── JWT ───
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
+    # v18.4.15: JWT_SECRET_KEY must be explicit (not inherited)
+    _JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip()
+    if (
+        not _JWT_SECRET_KEY
+        or len(_JWT_SECRET_KEY) < 32
+    ):
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be at least 32 characters and set explicitly. "
+            "Inheriting from SECRET_KEY is forbidden."
+        )
+    JWT_SECRET_KEY = _JWT_SECRET_KEY
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=2)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_ERROR_MESSAGE_KEY = "error"
