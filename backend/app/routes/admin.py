@@ -8,6 +8,7 @@ import traceback
 import random
 import time
 from collections import defaultdict
+from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -386,7 +387,10 @@ def admin_adjust_balance(user_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
-    amount = float(data.get("amount", 0))
+    try:
+        amount = Decimal(str(data.get("amount") or 0))
+    except Exception:
+        return jsonify({"error": "المبلغ غير صالح"}), 400
     note = data.get("note", "")
 
     if abs(amount) > 1_000_000:
