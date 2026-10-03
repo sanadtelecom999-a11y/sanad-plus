@@ -47,19 +47,6 @@ ALLOWED_MIME_TYPES = {
 # ════════════════════════════════════════════════════════════
 # Helpers
 # ════════════════════════════════════════════════════════════
-def _aware(dt):
-    """يحوّل naive datetime إلى aware UTC."""
-    if dt is None:
-        return None
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
-def _utcnow():
-    return datetime.now(timezone.utc)
-
-
 def _d(v):
     if v is None:
         return Decimal('0.0000')

@@ -96,4 +96,3 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL", "")
 
     # ─── Admin OTP ───
-    ADMIN_OTP_STRICT_IP = os.getenv("ADMIN_OTP_STRICT_IP", "false").lower() == "true"
