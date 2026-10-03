@@ -31,13 +31,26 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          set -o pipefail
+          if [ -z "$DATABASE_URL" ]; then
+            echo "ERROR: DATABASE_URL secret is empty"
+            exit 1
+          fi
+          echo "Starting pg_dump..."
           pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > backup.sql.gz
-          ls -lh backup.sql.gz
+          SIZE=$(stat -c%s backup.sql.gz)
+          echo "backup.sql.gz size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "ERROR: dump too small ($SIZE bytes) - DATABASE_URL likely wrong"
+            exit 1
+          fi
 
       - name: Verify gzip integrity
         run: |
+          set -o pipefail
           gzip -t backup.sql.gz
-          echo "✅ gzip OK"
+          SIZE=$(stat -c%s backup.sql.gz)
+          echo "gzip integrity OK, size: $SIZE bytes"
 
       - name: Encrypt backup
         env:
