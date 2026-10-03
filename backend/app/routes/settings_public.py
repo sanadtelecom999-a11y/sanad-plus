@@ -1,6 +1,7 @@
 # ============================================================
 # 🌐 Public Settings + Health Check — v18.3.6
 # ============================================================
+import os
 import time
 from flask import jsonify
 from sqlalchemy import text
@@ -65,6 +66,7 @@ def health_check():
         "status": "ok",
         "timestamp": int(time.time()),
         "version": "v18.4.14",
+        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown")[:7],
         "checks": {}
     }
     degraded = False
