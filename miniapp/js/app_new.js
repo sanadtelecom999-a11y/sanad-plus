@@ -50,6 +50,16 @@ function escapeAttr(str) {
 window.escapeHtml = escapeHtml;
 window.escapeAttr = escapeAttr;
 
+// 🆕 P1#3: CSS url() escaping — HTML entities alone don't protect CSS context
+function safeCssUrl(url) {
+    if (!url) return '';
+    return encodeURI(String(url))
+        .replace(/'/g, '%27')
+        .replace(/\)/g, '%29')
+        .replace(/\(/g, '%28');
+}
+window.safeCssUrl = safeCssUrl;
+
 // ════════════════════════════════════════════════════════════
 // VIP Levels
 // ════════════════════════════════════════════════════════════
@@ -142,7 +152,7 @@ function renderRecentlyViewed() {
     container.style.display = 'block';
     list.innerHTML = products.map(prod => `
         <div class="recently-viewed-item" onclick="openPurchaseModal(${prod.id})">
-            <div class="recently-viewed-image" style="background-image:url('${escapeAttr(prod.image || '')}');">
+            <div class="recently-viewed-image" style="background-image:url('${safeCssUrl(prod.image || '')}');">
                 ${prod.image ? '' : '📦'}
             </div>
             <div class="recently-viewed-name">${escapeHtml(prod.name)}</div>
@@ -770,7 +780,7 @@ function renderProductCard(prod) {
             <button class="favorite-btn ${fav ? 'active' : ''}" onclick="toggleFavorite(${prod.id}, event)">
                 <span class="material-icons">${fav ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <div class="product-image" style="background-image:url('${escapeAttr(prod.image || '')}');${outOfStock ? 'opacity:0.5;' : ''}">
+            <div class="product-image" style="background-image:url('${safeCssUrl(prod.image || '')}');${outOfStock ? 'opacity:0.5;' : ''}">
                 ${prod.image ? '' : '📦'}
                 <div class="product-badges">
                     ${isBundle ? `<span class="badge-bundle">${prod.bundles.length} باقات</span>` : ''}
