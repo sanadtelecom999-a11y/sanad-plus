@@ -1,14 +1,16 @@
 # ============================================================
-# 🔒 Database Backup — v18.2
+# 🔒 Database Backup — v18.4.17
 # ============================================================
-# ⚠️ مهم: لا رفع Artifact — البيانات الحساسة لا تُخزّن على GitHub
-# الحماية الحقيقية: Neon PITR (6 ساعات) + Neon Snapshot يدوي
+# • Daily at 2 AM UTC
+# • pg_dump → gzip → openssl encrypt → upload artifact
+# • Encrypted blob is useless without BACKUP_PASSPHRASE
+# • Retention: 90 days (GitHub default)
 # ============================================================
 name: Database Backup
 
 on:
   schedule:
-    - cron: '0 2 * * *'      # يومياً 2 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -32,49 +34,56 @@ jobs:
           pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > backup.sql.gz
           ls -lh backup.sql.gz
 
-      - name: Verify Integrity
+      - name: Verify gzip integrity
         run: |
           gzip -t backup.sql.gz
-          SIZE=$(du -h backup.sql.gz | cut -f1)
-          echo "✅ Backup created and verified — Size: $SIZE"
+          echo "✅ gzip OK"
 
-      # ⚠️ v18.2: لا رفع Artifact
-      # السبب: البيانات (مستخدمون، أرصدة، KYC، إثباتات دفع) حساسة
-      # البديل: Neon PITR + Snapshot يدوي، أو R2/S3 لاحقاً
-
-      # ═══════════════════════════════════════════════════════
-      # (اختياري — فعّله لاحقاً عند إعداد R2)
-      # ═══════════════════════════════════════════════════════
-      # - name: Upload to Cloudflare R2
-      #   env:
-      #     R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      #     R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
-      #     R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
-      #     R2_BUCKET: sanad-backups
-      #   run: |
-      #     pip install boto3
-      #     python -c "
-      #     import boto3, os
-      #     from datetime import datetime
-      #     s3 = boto3.client(
-      #         's3',
-      #         endpoint_url=os.environ['R2_ENDPOINT'],
-      #         aws_access_key_id=os.environ['R2_ACCESS_KEY'],
-      #         aws_secret_access_key=os.environ['R2_SECRET_KEY'],
-      #     )
-      #     key = f'backup-{datetime.utcnow().strftime(\"%Y%m%d_%H%M%S\")}.sql.gz'
-      #     s3.upload_file('backup.sql.gz', os.environ['R2_BUCKET'], key)
-      #     print(f'Uploaded: {key}')
-      #     "
-
-      - name: Notify Success
-        if: success()
+      - name: Encrypt backup
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
-          echo "✅ Backup workflow completed successfully at $(date -u)"
-          echo "   Note: Backup file is not uploaded (security policy)"
+          if [ -z "$PASSPHRASE" ]; then
+            echo "❌ BACKUP_PASSPHRASE secret missing"
+            exit 1
+          fi
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 \
+            -in backup.sql.gz \
+            -out backup.sql.gz.enc \
+            -pass pass:"$PASSPHRASE"
+          ls -lh backup.sql.gz.enc
+          echo "✅ Encrypted"
 
-      - name: Notify Failure
+      - name: Prepare artifact name
+        id: artifact
+        run: |
+          DATE=$(date -u +%Y%m%d_%H%M%S)
+          echo "name=sanad-backup-${DATE}" >> $GITHUB_OUTPUT
+
+      - name: Upload encrypted artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: backup.sql.gz.enc
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Summary
+        run: |
+          SIZE=$(du -h backup.sql.gz.enc | cut -f1)
+          echo "### ✅ Backup complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** ${{ steps.artifact.outputs.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Size (encrypted):** $SIZE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Retention:** 90 days" >> $GITHUB_STEP_SUMMARY
+          echo "- **To restore:** download artifact, then run:" >> $GITHUB_STEP_SUMMARY
+          echo '  ```' >> $GITHUB_STEP_SUMMARY
+          echo '  openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -in backup.sql.gz.enc -out backup.sql.gz -pass pass:$PASSPHRASE' >> $GITHUB_STEP_SUMMARY
+          echo '  gunzip -c backup.sql.gz | psql $TARGET_DATABASE_URL' >> $GITHUB_STEP_SUMMARY
+          echo '  ```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
         if: failure()
         run: |
-          echo "❌ Backup workflow FAILED at $(date -u)"
+          echo "❌ Backup FAILED at $(date -u)"
           exit 1
