@@ -543,6 +543,7 @@ def _process_referral_inline(user, order):
             completed_at=datetime.now(timezone.utc),
         )
         db.session.add(referral)
+        db.session.flush()  # BUG-3 fix: assign id before Transaction.reference_id
     else:
         if referral.status == 'completed':
             return
