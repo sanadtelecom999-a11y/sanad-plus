@@ -76,23 +76,44 @@ def cleanup_expired_otp_sessions():
         print(f"cleanup expired sessions: {e}")
 
 
-_login_attempts = defaultdict(list)
+# v18.4.20: Fixed memory leak + DoS hardening
+# - Regular dict (not defaultdict) — no auto-recreation
+# - Hard cap LOGIN_RATE_MAX_KEYS — DoS mitigation
+# - Evict oldest 25% instead of nuking all (prevents rate-limit bypass)
+_login_attempts = {}
 LOGIN_RATE_WINDOW = 300
 LOGIN_RATE_MAX = 5
+LOGIN_RATE_MAX_KEYS = 10_000
 
 
 def check_login_rate_limit(ip: str) -> bool:
     now = time.time()
-    _login_attempts[ip] = [
-        t for t in _login_attempts[ip]
-        if now - t < LOGIN_RATE_WINDOW
-    ]
-    if not _login_attempts[ip]:
-        _login_attempts.pop(ip, None)
-        _login_attempts[ip] = []
-    if len(_login_attempts[ip]) >= LOGIN_RATE_MAX:
+
+    # 1. Clean expired entries for this IP
+    if ip in _login_attempts:
+        _login_attempts[ip] = [
+            t for t in _login_attempts[ip]
+            if now - t < LOGIN_RATE_WINDOW
+        ]
+        if not _login_attempts[ip]:
+            del _login_attempts[ip]
+
+    # 2. Hard cap: evict oldest 25% if exceeded
+    if len(_login_attempts) > LOGIN_RATE_MAX_KEYS:
+        items = sorted(
+            _login_attempts.items(),
+            key=lambda x: max(x[1]) if x[1] else 0,
+        )
+        evict_count = len(items) // 4
+        for k, _ in items[:evict_count]:
+            del _login_attempts[k]
+        print(f"⚠️ _login_attempts evicted {evict_count} oldest entries")
+
+    # 3. Rate check
+    if len(_login_attempts.get(ip, [])) >= LOGIN_RATE_MAX:
         return False
-    _login_attempts[ip].append(now)
+
+    _login_attempts.setdefault(ip, []).append(now)
     return True
 
 
