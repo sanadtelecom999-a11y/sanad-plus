@@ -1201,7 +1201,9 @@ Anchor المرجعي: `9f89bf5` (v18.4.14).
 - ✅ لا ضرر وظيفي (البوت الجديد يستلم polling).
 - 🟡 noise في Sentry مع كل deploy.
 
-**Fix مُقترح (P2):** Suppression للـ Conflict في `error_handler` + تأخير بدء polling في البوت الجديد.
+**تحديث 2026-10-04:** الحماية **موجودة فعلًا** في `error_handler` (bot/bot.py ~سطر 427):
+`if "Conflict" in error_str: logger.warning(...); return` — لا Sentry capture، لا إشعارات.
+الـ noise المرصود في logs `2026-10-04 01:04:12` لم يأتِ من `error_handler`، ويحتاج تحققًا من Sentry dashboard (P2-7).
 
 **المصدر:** Render logs 2026-10-04 01:04:12.
 
