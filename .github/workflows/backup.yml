@@ -36,12 +36,21 @@ jobs:
             echo "ERROR: DATABASE_URL secret is empty"
             exit 1
           fi
+          # Use PostgreSQL 18 client (matches Neon server 18.6)
+          PG_DUMP=/usr/lib/postgresql/18/bin/pg_dump
+          if [ ! -x "$PG_DUMP" ]; then
+            echo "ERROR: pg_dump 18 not found at $PG_DUMP"
+            echo "Available versions:"
+            ls /usr/lib/postgresql/ 2>/dev/null || echo "(none)"
+            exit 1
+          fi
+          "$PG_DUMP" --version
           echo "Starting pg_dump..."
-          pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > backup.sql.gz
+          "$PG_DUMP" "$DATABASE_URL" --no-owner --no-privileges | gzip > backup.sql.gz
           SIZE=$(stat -c%s backup.sql.gz)
           echo "backup.sql.gz size: $SIZE bytes"
           if [ "$SIZE" -lt 1000 ]; then
-            echo "ERROR: dump too small ($SIZE bytes) - DATABASE_URL likely wrong"
+            echo "ERROR: dump too small ($SIZE bytes)"
             exit 1
           fi
 
