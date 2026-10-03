@@ -116,9 +116,9 @@ def health_check():
         if hb is None:
             result["checks"]["bot"] = {
                 "status": "unavailable",
-                "note": "no heartbeat found"
+                "note": "no heartbeat found (non-critical)"
             }
-            degraded = True
+            # ⚠️ Bot is non-critical — service still healthy
         else:
             try:
                 hb_ts = int(hb)
@@ -137,15 +137,15 @@ def health_check():
                     "status": "stale",
                     "last_heartbeat": hb_ts,
                     "age_seconds": age,
-                    "note": "heartbeat older than 120s"
+                    "note": "heartbeat older than 120s (non-critical)"
                 }
-                degraded = True
+                # ⚠️ Bot is non-critical — service still healthy
     except Exception as e:
         result["checks"]["bot"] = {
             "status": "error",
             "error": str(e)[:150]
         }
-        degraded = True
+        # ⚠️ Bot is non-critical — service still healthy
 
     # --------------------------------------------------------
     # النتيجة النهائية
