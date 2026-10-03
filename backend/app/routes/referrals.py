@@ -46,7 +46,8 @@ def get_user_referrals():
     }), 200
 
 
-@main.route("/api/user/apply-referral", methods=["POST"])
+@main.route("/api/referrals/apply", methods=["POST"])       # BUG-1 alias
+@main.route("/api/user/apply-referral", methods=["POST"])   # canonical
 @jwt_required()
 def apply_referral():
     user = get_current_user()
