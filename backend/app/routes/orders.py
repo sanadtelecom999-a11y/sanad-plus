@@ -24,6 +24,7 @@ import json
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+from sqlalchemy.exc import IntegrityError
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import (
@@ -480,6 +481,20 @@ def create_order():
             'status': order.status,
             'balance_after': _f(locked_user.balance),
         }), 201
+
+    except IntegrityError as e:
+        # ═══ Race: another request with same idempotency_key won ═══
+        db.session.rollback()
+        existing = Order.query.filter_by(idempotency_key=idempotency_key).first()
+        if existing:
+            return jsonify({
+                "order_number": existing.order_number,
+                "total_price": _f(existing.total_price),
+                "status": existing.status,
+                "idempotent": True,
+            }), 200
+        print(f"❌ create_order IntegrityError (unexpected): {e}")
+        return jsonify({'error': 'فشل إنشاء الطلب', 'code': 'INTERNAL_ERROR'}), 500
 
     except Exception as e:
         db.session.rollback()

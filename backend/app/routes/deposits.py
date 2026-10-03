@@ -18,6 +18,7 @@ import uuid
 import base64
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+from sqlalchemy.exc import IntegrityError
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.base import (
@@ -329,6 +330,22 @@ def create_deposit():
             'amount': _f(amount_d),
             'fee': _f(fee_amount),
         }), 201
+
+    except IntegrityError as e:
+        # ═══ Race: another request with same idempotency_key won ═══
+        db.session.rollback()
+        if idempotency_key:
+            existing = Deposit.query.filter_by(idempotency_key=idempotency_key).first()
+            if existing:
+                return jsonify({
+                    "transaction_id": existing.transaction_id,
+                    "status": existing.status,
+                    "amount": _f(existing.amount),
+                    "fee": _f(existing.fee) if existing.fee else 0.0,
+                    "idempotent": True,
+                }), 200
+        print(f"❌ create_deposit IntegrityError (unexpected): {e}")
+        return jsonify({'error': 'فشل إنشاء الإيداع', 'code': 'INTERNAL_ERROR'}), 500
 
     except Exception as e:
         db.session.rollback()
