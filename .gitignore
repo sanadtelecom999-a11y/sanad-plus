@@ -152,3 +152,22 @@ backend/migrations/*.log
 docs/FULL_SOURCE.md
 FULL_SOURCE.md
 backend/instance/
+
+# === Audit artifacts (never commit) ===
+audit_*.txt
+audit_*.csv
+routes_now.txt
+dump_all.sh
+APPLY_PLAN.md
+check_schema.py
+docs/SANAD_PLUS_REFERENCE_v18.4
+
+# === Audit artifacts (never commit) ===
+audit_*.txt
+audit_*.csv
+audit_git_history.txt
+routes_now.txt
+dump_all.sh
+APPLY_PLAN.md
+check_schema.py
+docs/SANAD_PLUS_REFERENCE_v18.4
