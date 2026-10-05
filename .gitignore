@@ -175,3 +175,8 @@ docs/SANAD_PLUS_REFERENCE_v18.4
 # Malformed filenames (Windows UTF-8)
 SANAD PLUS/
 342*/
+# Broader patterns for malformed Unicode names
+/SANAD PLUS/
+/SANAD*
+/342*/
+docs/SANAD_PLUS_REFERENCE*
