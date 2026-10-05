@@ -65,7 +65,7 @@ def health_check():
     result = {
         "status": "ok",
         "timestamp": int(time.time()),
-        "version": "v18.4.14",
+        "version": "v18.5.0",
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown")[:7],
         "checks": {}
     }
