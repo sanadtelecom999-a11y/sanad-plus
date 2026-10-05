@@ -171,3 +171,7 @@ dump_all.sh
 APPLY_PLAN.md
 check_schema.py
 docs/SANAD_PLUS_REFERENCE_v18.4
+
+# Malformed filenames (Windows UTF-8)
+SANAD PLUS/
+342*/
