@@ -1,17 +1,15 @@
 # ============================================================
 # 🤖 Telegram Bot — Entry Point (Standalone Process)
 # ============================================================
-# يعمل كعملية Python مستقلة لتوفير:
-#   - Main thread حقيقي (مطلوب لـ asyncio)
-#   - Main interpreter (مطلوب لـ signal handling)
-#   - 🆕 v18: Sentry monitoring
-#
-# يُستدعى من run.py عبر subprocess.Popen()
+# - Main thread (مطلوب لـ asyncio)
+# - Main interpreter (مطلوب لـ signal handling)
+# - 🆕 v18: Sentry monitoring
 # ============================================================
+
 import os
+import re
 import sys
 
-# إضافة project root و backend/ إلى sys.path
 _here = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.dirname(_here)
 
@@ -20,13 +18,41 @@ if _root not in sys.path:
 if _here not in sys.path:
     sys.path.insert(0, _here)
 
-
 # ============================================================
 # 🛡️ v18: Sentry init BEFORE any bot imports
 # ============================================================
 try:
     import sentry_sdk
     from sentry_sdk.integrations.threading import ThreadingIntegration
+
+    # --- Redaction: منع تسريب BOT_TOKEN في Sentry (AUD-M-005) ---
+    _BOT_TOKEN_PATTERN = re.compile(r"bot\d+:[A-Za-z0-9_-]+")
+
+    def _sentry_redact(value):
+        """Redact BOT_TOKEN-like strings from a value."""
+        if isinstance(value, str):
+            return _BOT_TOKEN_PATTERN.sub("bot***REDACTED***", value)
+        return value
+
+    def _sentry_before_send(event, hint):
+        """Redact sensitive data before sending events to Sentry."""
+        if "exception" in event:
+            for val in event["exception"].get("values", []):
+                if "value" in val:
+                    val["value"] = _sentry_redact(val["value"])
+        if "extra" in event:
+            for k, v in list(event["extra"].items()):
+                event["extra"][k] = _sentry_redact(v)
+        return event
+
+    def _sentry_before_breadcrumb(breadcrumb, hint):
+        """Redact sensitive data from breadcrumbs."""
+        if "message" in breadcrumb:
+            breadcrumb["message"] = _sentry_redact(breadcrumb["message"])
+        if "data" in breadcrumb:
+            for k, v in list(breadcrumb["data"].items()):
+                breadcrumb["data"][k] = _sentry_redact(v)
+        return breadcrumb
 
     sentry_sdk.init(
         dsn=os.getenv("SENTRY_DSN", ""),
@@ -36,11 +62,12 @@ try:
         send_default_pii=False,
         environment="bot",
         release=os.getenv("RELEASE_VERSION", "v18"),
+        before_send=_sentry_before_send,
+        before_breadcrumb=_sentry_before_breadcrumb,
     )
-    print("✅ Sentry initialized (bot process)")
+    print("🛡️ Sentry initialized (bot process)")
 except Exception as e:
     print(f"⚠️ Sentry init failed: {e}")
-
 
 if __name__ == "__main__":
     try:

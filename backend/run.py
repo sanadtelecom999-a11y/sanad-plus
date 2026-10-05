@@ -2,6 +2,7 @@
 # 🛡️ Sentry
 # ============================================================
 import os
+import re
 import sys
 import time
 import atexit
@@ -11,6 +12,45 @@ import subprocess
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
+# --- Redaction: منع تسريب BOT_TOKEN في Sentry (AUD-M-005) ---
+_BOT_TOKEN_PATTERN = re.compile(r"bot\d+:[A-Za-z0-9_-]+")
+
+
+def _sentry_redact(value):
+    """Redact BOT_TOKEN-like strings from a value."""
+    if isinstance(value, str):
+        return _BOT_TOKEN_PATTERN.sub("bot***REDACTED***", value)
+    return value
+
+
+def _sentry_before_send(event, hint):
+    """Redact sensitive data before sending events to Sentry."""
+    if "exception" in event:
+        for val in event["exception"].get("values", []):
+            if "value" in val:
+                val["value"] = _sentry_redact(val["value"])
+    if "request" in event:
+        if "url" in event["request"]:
+            event["request"]["url"] = _sentry_redact(event["request"]["url"])
+        if "headers" in event["request"]:
+            for k, v in list(event["request"]["headers"].items()):
+                event["request"]["headers"][k] = _sentry_redact(v)
+    if "extra" in event:
+        for k, v in list(event["extra"].items()):
+            event["extra"][k] = _sentry_redact(v)
+    return event
+
+
+def _sentry_before_breadcrumb(breadcrumb, hint):
+    """Redact sensitive data from breadcrumbs."""
+    if "message" in breadcrumb:
+        breadcrumb["message"] = _sentry_redact(breadcrumb["message"])
+    if "data" in breadcrumb:
+        for k, v in list(breadcrumb["data"].items()):
+            breadcrumb["data"][k] = _sentry_redact(v)
+    return breadcrumb
+
+
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN", ""),
     integrations=[FlaskIntegration()],
@@ -19,6 +59,8 @@ sentry_sdk.init(
     send_default_pii=False,
     environment=os.getenv("SENTRY_ENV", "production"),
     release=os.getenv("RELEASE_VERSION", "v18"),
+    before_send=_sentry_before_send,
+    before_breadcrumb=_sentry_before_breadcrumb,
 )
 
 # ============================================================

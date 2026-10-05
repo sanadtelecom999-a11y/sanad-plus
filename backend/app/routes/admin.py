@@ -7,6 +7,7 @@ import uuid
 import traceback
 import random
 import time
+import sentry_sdk
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
@@ -127,6 +128,10 @@ def handle_errors(f):
             tb = traceback.format_exc()
             print(f"Error in {f.__name__}: {e}")
             print(tb)
+            try:
+                sentry_sdk.capture_exception(e)
+            except Exception:
+                pass
             return jsonify({"error": f"خطأ داخلي: {str(e)}", "function": f.__name__}), 500
     return wrapper
 

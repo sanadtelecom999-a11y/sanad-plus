@@ -67,7 +67,11 @@ def health_check():
         "timestamp": int(time.time()),
         "version": "v18.5.0",
         "commit": os.getenv("RENDER_GIT_COMMIT", "unknown")[:7],
-        "checks": {}
+        "checks": {
+            "sentry": {
+                "enabled": bool(os.getenv("SENTRY_DSN", "").strip())
+            }
+        }
     }
     degraded = False
 
