@@ -64,8 +64,30 @@ def extract_user_from_init_data(init_data: str):
 
 
 def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
+    # HIGH-1 fix: race-safe user creation
+    from sqlalchemy.exc import IntegrityError
+    
     user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
+    if user:
+        changed = False
+        if first_name and user.first_name != first_name:
+            user.first_name = first_name
+            changed = True
+        if last_name is not None and user.last_name != last_name:
+            user.last_name = last_name
+            changed = True
+        if username is not None and user.username != username:
+            user.username = username
+            changed = True
+        if changed:
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                user = User.query.filter_by(telegram_id=telegram_id).first()
+        return user
+
+    try:
         user = User(
             telegram_id=telegram_id,
             first_name=first_name,
@@ -81,20 +103,10 @@ def get_or_create_user(telegram_id, first_name="", last_name="", username=""):
         )
         db.session.add(user)
         db.session.commit()
-    else:
-        changed = False
-        if first_name and user.first_name != first_name:
-            user.first_name = first_name
-            changed = True
-        if last_name is not None and user.last_name != last_name:
-            user.last_name = last_name
-            changed = True
-        if username is not None and user.username != username:
-            user.username = username
-            changed = True
-        if changed:
-            db.session.commit()
-    return user
+        return user
+    except IntegrityError:
+        db.session.rollback()
+        return User.query.filter_by(telegram_id=telegram_id).first()
 
 
 def user_to_dict(user):
