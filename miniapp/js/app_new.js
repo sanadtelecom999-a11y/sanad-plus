@@ -2308,6 +2308,26 @@ function navigateTo(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const target = document.getElementById(pageId);
     if (target) target.classList.add('active');
+// ════════════════════════════════════════════════════════════
+// P0-1 FIX: Back button + hide bottom nav on sub-pages
+// ════════════════════════════════════════════════════════════
+const bottomNav = document.querySelector('.bottom-nav');
+const subPages = ['page-products', 'page-kyc', 'page-faq', 'page-favorites'];
+const isSubPage = subPages.includes(pageId);
+
+if (bottomNav) {
+    bottomNav.style.display = isSubPage ? 'none' : '';
+}
+
+if (window.Telegram?.WebApp?.BackButton) {
+    if (isSubPage) {
+        Telegram.WebApp.BackButton.show();
+        Telegram.WebApp.BackButton.onClick(() => navigateTo('page-home'));
+    } else {
+        Telegram.WebApp.BackButton.hide();
+    }
+}
+// ════════════════════════════════════════════════════════════
 
     document.querySelectorAll('.nav-item').forEach(item =>
         item.classList.toggle('active', item.getAttribute('data-page') === pageId)
