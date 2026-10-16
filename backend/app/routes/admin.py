@@ -376,7 +376,7 @@ def admin_set_negative_balance(user_id):
     if max_neg > 1_000_000:
         return jsonify({"error": "الحد الأقصى هو $1,000,000"}), 400
 
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
@@ -400,7 +400,7 @@ def admin_toggle_kyc(user_id):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     new_status = data.get("status")
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
@@ -475,7 +475,7 @@ def admin_adjust_balance(user_id):
 def admin_ban_user(user_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.is_banned = not user.is_banned
@@ -495,7 +495,7 @@ def admin_set_vip(user_id):
     vip_level = int(data.get("vip_level", 0))
     if vip_level < 0 or vip_level > 7:
         return jsonify({"error": "المستوى بين 0 و 7"}), 400
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.vip_level = vip_level
@@ -589,7 +589,7 @@ def admin_set_general_discount(user_id):
     if percent < 0 or percent > 100:
         return jsonify({"error": "النسبة بين 0 و 100"}), 400
 
-    user = User.query.get(user_id)
+    user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
