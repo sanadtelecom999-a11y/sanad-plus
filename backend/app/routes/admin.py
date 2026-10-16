@@ -146,7 +146,12 @@ def verify_admin_password(password):
 
 def log_admin_activity(action):
     try:
-        activity = AdminActivity(admin_id=None, action=action, created_at=datetime.now(timezone.utc))
+        try:
+            from flask_jwt_extended import get_jwt
+            admin_id = get_jwt().get("telegram_id")
+        except Exception:
+            admin_id = None
+        activity = AdminActivity(admin_id=admin_id, action=action, created_at=datetime.now(timezone.utc))
         db.session.add(activity)
         db.session.flush()
     except Exception:
@@ -285,7 +290,12 @@ def admin_verify_otp():
     db.session.delete(session)
     db.session.commit()
 
-    token = create_access_token(identity="admin")
+    admin_ids = get_admin_ids()
+    admin_telegram_id = admin_ids[0] if admin_ids else None
+    token = create_access_token(
+        identity="admin",
+        additional_claims={"telegram_id": admin_telegram_id},
+    )
     log_admin_activity("تسجيل دخول الأدمن (مع OTP)")
     try:
         db.session.commit()
