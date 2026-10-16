@@ -1570,15 +1570,33 @@ def admin_approve_deposit(deposit_id):
 
         user.balance = round(user.balance, 2)
 
+        # HIGH-4 fix: فصل الإيداع عن الرسوم في ledger
+        balance_after_deposit = round(balance_before + dep_amount, 2)
+
         db.session.add(Transaction(
             user_id=user.id, type="deposit", amount=dep_amount,
-            balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
+            balance_after=balance_after_deposit,
+            reference_type="deposit", reference_id=deposit.id,
         ))
         log_financial(
             user=user, action="deposit_approved", amount=dep_amount,
-            balance_before=balance_before, balance_after=user.balance,
+            balance_before=balance_before, balance_after=balance_after_deposit,
             ref_type="deposit", ref_id=deposit.id,
         )
+
+        if deposit_fee > 0:
+            db.session.add(Transaction(
+                user_id=user.id, type="fee", amount=-deposit_fee,
+                balance_after=user.balance,
+                reference_type="deposit_fee", reference_id=deposit.id,
+            ))
+            log_financial(
+                user=user, action="deposit_fee", amount=-deposit_fee,
+                balance_before=balance_after_deposit, balance_after=user.balance,
+                ref_type="deposit", ref_id=deposit.id,
+                note=f"رسوم إيداع {deposit.method or ''}".strip(),
+            )
+
         db.session.add(Notification(
             user_id=user.id, title="إيداع مقبول",
             message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
