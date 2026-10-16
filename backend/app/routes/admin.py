@@ -1762,16 +1762,40 @@ def admin_send_notification():
     message = data.get("message", "")
     ntype = data.get("type", "info")
 
+    if not message.strip():
+        return jsonify({"error": "نص الإشعار مطلوب"}), 400
+
     if target == "all":
-        for u in User.query.all():
-            db.session.add(Notification(user_id=u.id, title=title, message=message, type=ntype))
+        # HIGH-2 fix: chunked bulk insert
+        BATCH = 500
+        user_ids = [row[0] for row in db.session.query(User.id).all()]
+        for i in range(0, len(user_ids), BATCH):
+            batch = user_ids[i:i + BATCH]
+            db.session.bulk_insert_mappings(
+                Notification,
+                [{"user_id": uid, "title": title, "message": message, "type": ntype}
+                 for uid in batch]
+            )
+            db.session.commit()
+        count = len(user_ids)
     else:
         uid = data.get("user_id")
-        if uid:
-            db.session.add(Notification(user_id=uid, title=title, message=message, type=ntype))
+        if not uid:
+            return jsonify({"error": "user_id مطلوب"}), 400
+        try:
+            uid = int(uid)
+        except (ValueError, TypeError):
+            return jsonify({"error": "user_id غير صالح"}), 400
+        user = User.query.get(uid)
+        if not user:
+            return jsonify({"error": "المستخدم غير موجود"}), 404
+        db.session.add(Notification(user_id=uid, title=title, message=message, type=ntype))
+        db.session.commit()
+        count = 1
 
+    log_admin_activity(f"إرسال إشعار لـ{count} مستخدم")
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({"success": True, "count": count})
 
 
 # ============================================================
