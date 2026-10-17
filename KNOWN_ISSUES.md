@@ -35,6 +35,7 @@
 | HIGH-2 | Broadcast DoS | chunked insert | d8a3d3f |
 | HIGH-3 | Missing locks | with_for_update | 7578923 |
 | HIGH-4 | Deposit fee ledger | split transactions | da00721 |
+| CRIT-4 | Backup passphrase مفقود | Restore drill + passphrase جديدة | 29bfac2 |
 
 ---
 
