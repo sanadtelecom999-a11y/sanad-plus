@@ -3725,6 +3725,16 @@ function loadSettings() {
     if (supportUrlEl) supportUrlEl.value = currentSettings.support_url || 'https://t.me/SANADST';
     if (sypRateEl) sypRateEl.value = currentSettings.syp_rate || '132';
 
+    const bannersEl = document.getElementById('bannersInput');
+    if (bannersEl) {
+        try {
+            const b = JSON.parse(currentSettings.banners || '[]');
+            bannersEl.value = Array.isArray(b) ? b.join('\n') : '';
+        } catch (e) {
+            bannersEl.value = '';
+        }
+    }
+
     updateSypPreview();
 
     if (sypRateEl && !sypRateEl.dataset.listenerAttached) {
@@ -3754,11 +3764,19 @@ async function saveSettings() {
 
     if (sypRate <= 0) { showToast('سعر الصرف غير صحيح', 'warning'); return; }
 
+    const bannersEl = document.getElementById('bannersInput');
+    let bannersJson = '[]';
+    if (bannersEl) {
+        const urls = bannersEl.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+        bannersJson = JSON.stringify(urls);
+    }
+
     try {
         await saveAdminSettings({
             store_name: storeName,
             support_url: supportUrl,
             syp_rate: sypRate.toString(),
+            banners: bannersJson,
         });
         currentSettings.store_name = storeName;
         currentSettings.support_url = supportUrl;
