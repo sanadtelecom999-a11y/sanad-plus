@@ -53,5 +53,6 @@ jobs:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test"
           JWT_SECRET_KEY: "ci-test-jwt-secret-key-that-is-long-enough-0987654321"
           SECRET_KEY: "ci-test-secret-key-that-is-long-enough-1234567890"
+          ADMIN_PASSWORD_HASH: "pbkdf2:sha256:600000$dummy$dummyhash"
         run: |
           pytest backend/tests/ -v --maxfail=1
