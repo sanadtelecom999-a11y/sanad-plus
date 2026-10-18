@@ -1,34 +1,58 @@
 name: CI
+
 on:
   pull_request:
     branches: [develop, main]
   push:
     branches: [develop]
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sanad_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Python 3.13.12
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13.12'
           cache: 'pip'
-          cache-dependency-path: 'backend/requirements.txt'
-      - run: |
+          cache-dependency-path: 'backend/requirements-lock.txt'
+      
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements-lock.txt
           pip install pytest
-      - run: python -m compileall backend/ -q
-      - env:
+      
+      - name: Compile check (syntax)
+        run: python -m compileall backend/ -q
+      
+      - name: Run tests
+        env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "sqlite:///:memory:"
-          JWT_SECRET_KEY: "test-secret-key-for-ci-only"
-          SECRET_KEY: "test-flask-secret-ci"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          JWT_SECRET_KEY: "ci-test-jwt-secret-key-that-is-long-enough-0987654321"
+          SECRET_KEY: "ci-test-secret-key-that-is-long-enough-1234567890"
+          ADMIN_PASSWORD_HASH: "pbkdf2:sha256:600000$dummy$dummyhash"
         run: |
-          if [ -d backend/tests ] && [ "$(ls -A backend/tests/*.py 2>/dev/null)" ]; then
-            pytest backend/tests/ -v --maxfail=1
-          else
-            echo "::warning::No tests found yet — compile check passed."
-          fi
+          pytest backend/tests/ -v --maxfail=1
