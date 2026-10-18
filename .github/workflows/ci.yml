@@ -35,9 +35,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements-lock.txt
+          pip install pytest-cov
       - name: Compile check
         run: python -m compileall backend/ -q
-      - name: Run tests
+      - name: Run tests with coverage
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
@@ -46,7 +47,7 @@ jobs:
           SECRET_KEY: "ci-test-secret-key-32-chars-minimum-xxxxxx"
           ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhashfortests"
           TELEGRAM_ADMIN_IDS: "123456789"
-        run: pytest backend/tests/ -v --maxfail=1
+        run: pytest backend/tests/ -v --maxfail=1 --cov=backend/app --cov-report=term-missing
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -58,5 +59,5 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install
-      - name: Run Vitest
-        run: npm run test
+      - name: Run Vitest with coverage
+        run: npm run test:coverage
