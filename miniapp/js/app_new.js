@@ -2550,6 +2550,7 @@ if (document.readyState === 'loading') {
 }
 // --- Render Banners ---
 function renderBanners(bannersJson) {
+    console.log('BANNER_DEBUG: received', bannersJson);
     const wrapper = document.getElementById('bannersWrapper');
     const container = document.getElementById('bannersContainer');
     if (!wrapper || !container) return;
