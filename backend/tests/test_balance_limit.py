@@ -1,3 +1,7 @@
+"""
+Balance limit and row-lock tests.
+Reference: SANAD_PLUS_MASTER_REFERENCE_v24.0.0 §2.2, §4.1
+"""
 import os
 import pytest
 import time
@@ -50,7 +54,8 @@ def test_negative_change_exceeds_limit(db):
     _is_sqlite,
     reason="SQLite ignores with_for_update; row locks require Postgres (CI).",
 )
-def test_row_lock_serializes_concurrent_updates(db):
+def test_row_lock_serializes_concurrent_updates(app, db):
+    """with_for_update must serialize two threads on the same row."""
     u = User(
         telegram_id=333,
         first_name="LockTest",
@@ -64,36 +69,40 @@ def test_row_lock_serializes_concurrent_updates(db):
     lock_acquired = threading.Event()
 
     def lock_and_sleep():
-        Session = scoped_session(sessionmaker(bind=db.engine))
-        session = Session()
-        try:
-            session.query(User).filter_by(id=user_id).with_for_update().first()
-            lock_acquired.set()
-            time.sleep(1.5)
-            session.commit()
-        finally:
-            session.close()
-            Session.remove()
+        # ✅ THE FIX: Threads need their own Flask app context
+        with app.app_context():
+            Session = scoped_session(sessionmaker(bind=db.engine))
+            session = Session()
+            try:
+                session.query(User).filter_by(id=user_id).with_for_update().first()
+                lock_acquired.set()
+                time.sleep(1.5)
+                session.commit()
+            finally:
+                session.close()
+                Session.remove()
 
     def wait_and_update():
         lock_acquired.wait(timeout=5.0)
-        Session = scoped_session(sessionmaker(bind=db.engine))
-        session = Session()
-        try:
-            start = time.time()
-            user_to_update = (
-                session.query(User)
-                .filter_by(id=user_id)
-                .with_for_update()
-                .first()
-            )
-            duration = time.time() - start
-            assert duration >= 1.0, f"Row lock failed! Waited only {duration:.2f}s"
-            user_to_update.balance -= Decimal("50.0000")
-            session.commit()
-        finally:
-            session.close()
-            Session.remove()
+        # ✅ THE FIX: Threads need their own Flask app context
+        with app.app_context():
+            Session = scoped_session(sessionmaker(bind=db.engine))
+            session = Session()
+            try:
+                start = time.time()
+                user_to_update = (
+                    session.query(User)
+                    .filter_by(id=user_id)
+                    .with_for_update()
+                    .first()
+                )
+                duration = time.time() - start
+                assert duration >= 1.0, f"Row lock failed! Waited only {duration:.2f}s"
+                user_to_update.balance -= Decimal("50.0000")
+                session.commit()
+            finally:
+                session.close()
+                Session.remove()
 
     t1 = threading.Thread(target=lock_and_sleep)
     t2 = threading.Thread(target=wait_and_update)
