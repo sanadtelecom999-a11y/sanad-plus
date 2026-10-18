@@ -618,7 +618,7 @@ def cancel_order(order_id):
                 "code": "ORDER_NOT_CANCELLABLE",
                 "status": order.status,
             }), 400
-        if not order.can_cancel_until or order.can_cancel_until < datetime.now(timezone.utc):
+        if not order.can_cancel_until or order.can_cancel_until.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
             return jsonify({
                 "error": "انتهى وقت الإلغاء",
                 "code": "ORDER_TIME_EXPIRED",
