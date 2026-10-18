@@ -1,4 +1,5 @@
 import pytest
+pytestmark = pytest.mark.skip(reason="Integration test against DB. Run manually.")
 # ============================================================
 # 🧪 Parity Test — v18.3.7
 # ============================================================
