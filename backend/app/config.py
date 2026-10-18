@@ -69,27 +69,4 @@ class Config:
     _is_local = any(h in _db_url for h in ("localhost", "127.0.0.1", "::1", "db:", "postgres:"))
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {"sslmode": "require"} if not _is_local else {}
-    } if not ("localhost" in os.getenv("DATABASE_URL", "") or "127.0.0.1" in os.getenv("DATABASE_URL", "")) else {}
-},
     }
-
-    # ─── Bot / URLs ───
-    BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-    BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
-    MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app")
-    ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.app")
-    BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
-
-    # ─── CORS ───
-    _origins = os.getenv("ALLOWED_ORIGINS", "").strip()
-    ALLOWED_ORIGINS = [o.strip() for o in _origins.split(",") if o.strip()]
-    if not ALLOWED_ORIGINS:
-        ALLOWED_ORIGINS = [
-            "https://sanad-plus.vercel.app",
-            "https://sanad-plus-admi.vercel.app",
-        ]
-
-    # ─── Redis ───
-    REDIS_URL = os.getenv("REDIS_URL", "")
-
-    # ─── Admin OTP ───
