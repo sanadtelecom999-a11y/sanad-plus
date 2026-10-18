@@ -41,7 +41,7 @@ jobs:
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test"
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test"
           JWT_SECRET_KEY: "ci-test-jwt-key-32-chars-minimum-yyyyyy"
           SECRET_KEY: "ci-test-secret-key-32-chars-minimum-xxxxxx"
           ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhashfortests"
