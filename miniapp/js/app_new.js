@@ -2428,6 +2428,22 @@ async function loadInitialData() {
     if (results[0].status === 'fulfilled' && results[0].value) {
         publicSettings = { ...publicSettings, ...results[0].value };
         USD_TO_SYP = parseFloat(publicSettings.syp_rate) || 132;
+
+        // --- Currency Toggle Logic ---
+        const sypEnabled = publicSettings.syp_enabled !== '0';
+        const currencyBtn = document.querySelector('[onclick*="toggleCurrency"]');
+        
+        if (!sypEnabled) {
+            // إجبار المستخدم على الدولار وإخفاء الزر
+            currentCurrency = 'USD';
+            localStorage.setItem('currency', 'USD');
+            if (currencyBtn) currencyBtn.style.display = 'none';
+            if (typeof updateCurrencyLabel === 'function') updateCurrencyLabel();
+        } else {
+            // إظهار الزر
+            if (currencyBtn) currencyBtn.style.display = '';
+        }
+        
         if (typeof renderBanners === 'function') renderBanners(publicSettings.banners);
     }
     categoriesData = results[1].status === 'fulfilled' ? results[1].value : [];
