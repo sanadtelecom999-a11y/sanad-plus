@@ -1,0 +1,16 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main # ينشر فقط عند الدمج في الفرع الرئيسي
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        run: |
+          echo "Triggering deployment on Render..."
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
+          echo "✅ Deployment triggered successfully."
