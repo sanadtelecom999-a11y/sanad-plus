@@ -437,6 +437,16 @@ def admin_adjust_balance(user_id):
     user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
+# ✅ حارس الحد المالي (مكتشف بواسطة Integration Tests)
+new_balance = user.balance + amount
+# إذا لم يكن مسموحاً له بالسالب، الحد الأدنى هو 0. وإلا فهو max_negative_balance
+min_allowed = user.max_negative_balance if getattr(user, 'allow_negative_balance', False) else Decimal("0.0000")
+
+if new_balance < min_allowed:
+    return jsonify({
+        "error": "الرصيد سيصبح أقل من الحد الأدنى المسموح",
+        "code": "BALANCE_LIMIT_EXCEEDED"
+    }), 400
 
     balance_before = user.balance
     user.balance = round(user.balance + amount, 2)
