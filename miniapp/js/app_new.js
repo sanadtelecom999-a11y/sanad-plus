@@ -18,7 +18,7 @@ let kycStatus = 'none';
 let notificationsData = [];
 let selectedMethodForDeposit = null;
 let cancelTimers = {};
-let publicSettings = { syp_rate: 132, store_name: 'SANAD+', support_url: 'https://t.me/SANADST' };
+let publicSettings = { syp_rate: 132, store_name: 'SANAD+', support_url: 'https://t.me/SANADST', banners: '[]' };
 
 const BOT_USERNAME = 'Sa3pls1_bot';
 let USD_TO_SYP = 132;
@@ -2428,6 +2428,7 @@ async function loadInitialData() {
     if (results[0].status === 'fulfilled' && results[0].value) {
         publicSettings = { ...publicSettings, ...results[0].value };
         USD_TO_SYP = parseFloat(publicSettings.syp_rate) || 132;
+        if (typeof renderBanners === 'function') renderBanners(publicSettings.banners);
     }
     categoriesData = results[1].status === 'fulfilled' ? results[1].value : [];
     productsData = results[2].status === 'fulfilled' ? results[2].value : [];
@@ -2546,4 +2547,34 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
     initApp();
+}
+// --- Render Banners ---
+function renderBanners(bannersJson) {
+    const wrapper = document.getElementById('bannersWrapper');
+    const container = document.getElementById('bannersContainer');
+    if (!wrapper || !container) return;
+
+    try {
+        let banners = [];
+        if (typeof bannersJson === 'string') {
+            banners = JSON.parse(bannersJson || '[]');
+        } else if (Array.isArray(bannersJson)) {
+            banners = bannersJson;
+        }
+
+        if (!Array.isArray(banners) || banners.length === 0) {
+            wrapper.style.display = 'none';
+            return;
+        }
+
+        container.innerHTML = banners.map(url => {
+            const safeUrl = typeof escapeAttr === 'function' ? escapeAttr(url) : url;
+            return `<div class="banner-item"><img src="${safeUrl}" alt="Banner" onerror="this.parentElement.style.display='none'"></div>`;
+        }).join('');
+        
+        wrapper.style.display = 'block';
+    } catch (e) {
+        console.warn('Failed to render banners:', e);
+        wrapper.style.display = 'none';
+    }
 }
