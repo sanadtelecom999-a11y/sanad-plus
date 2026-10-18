@@ -65,7 +65,6 @@ def test_create_order_deducts_balance(client, user_headers, test_user, test_prod
         },
         headers=user_headers
     )
-    # ✅ نقبل 201 (Created) أو 200 (OK)
     assert response.status_code in [200, 201], f"API Error: {response.get_json()}"
     
     db.session.refresh(test_user)
@@ -83,7 +82,6 @@ def test_create_order_idempotency(client, user_headers, test_user, test_product,
     assert res1.status_code in [200, 201], f"API Error: {res1.get_json()}"
     
     res2 = client.post("/api/orders/create", json=payload, headers=user_headers)
-    # الطلب المكرر قد يرجع 200 أو 201 أو 409 (Conflict)
     assert res2.status_code in [200, 201, 409], f"API Error: {res2.get_json()}"
     
     db.session.refresh(test_user)
@@ -102,7 +100,11 @@ def test_cancel_order_refunds_balance(client, user_headers, test_user, test_prod
         headers=user_headers
     )
     assert res.status_code in [200, 201], f"API Error: {res.get_json()}"
-    order_id = res.get_json()["order_id"]
+    
+    # ✅ الحل: جلب رقم الطلب من قاعدة البيانات مباشرة بدلاً من استجابة الـ API
+    order = Order.query.filter_by(user_id=test_user.id).order_by(Order.id.desc()).first()
+    assert order is not None, "Order was not created in DB"
+    order_id = order.id
     
     res_cancel = client.post(f"/api/orders/{order_id}/cancel", headers=user_headers)
     assert res_cancel.status_code == 200, f"Cancel Error: {res_cancel.get_json()}"
