@@ -60,7 +60,7 @@ def test_create_order_deducts_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "player_id": "Player123",  # ✅ تم التعديل هنا
+            "player_id": "123456789",  # ✅ أصبحت أرقاماً فقط
             "idempotency_key": "unique-key-123"
         },
         headers=user_headers
@@ -75,7 +75,7 @@ def test_create_order_idempotency(client, user_headers, test_user, test_product,
     payload = {
         "product_id": test_product.id,
         "quantity": 1,
-        "player_id": "Player123", # ✅ تم التعديل هنا
+        "player_id": "123456789", # ✅ أصبحت أرقاماً فقط
         "idempotency_key": "unique-key-456"
     }
     res1 = client.post("/api/orders/create", json=payload, headers=user_headers)
@@ -94,7 +94,7 @@ def test_cancel_order_refunds_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "player_id": "Player123", # ✅ تم التعديل هنا
+            "player_id": "123456789", # ✅ أصبحت أرقاماً فقط
             "idempotency_key": "unique-key-789"
         },
         headers=user_headers
