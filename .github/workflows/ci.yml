@@ -46,6 +46,30 @@ jobs:
       - name: Compile check (syntax)
         run: python -m compileall backend/ -q
       
+      - name: Verify Migrations
+        env:
+          FLASK_ENV: testing
+          SKIP_BOT: "1"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          SECRET_KEY: "ci-secret-key-12345678901234567890"
+          JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
+          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
+        run: |
+          cd backend
+          alembic upgrade head
+
+      - name: Verify Migrations
+        env:
+          FLASK_ENV: testing
+          SKIP_BOT: "1"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          SECRET_KEY: "ci-secret-key-12345678901234567890"
+          JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
+          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
+        run: |
+          cd backend
+          alembic upgrade head
+
       - name: Run tests
         env:
           FLASK_ENV: testing

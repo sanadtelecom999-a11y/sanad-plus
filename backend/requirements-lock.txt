@@ -1,3 +1,4 @@
+alembic==1.20.0
 anyio==4.15.1
 blinker==1.9.0
 boolean.py==5.0
@@ -6,6 +7,7 @@ certifi==2026.7.22
 charset-normalizer==3.5.2
 click==8.5.0
 cloudinary==1.40.0
+colorama==0.4.6
 cyclonedx-python-lib==11.12.0
 defusedxml==0.7.1
 Deprecated==3.0.0
@@ -20,10 +22,12 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.20
+iniconfig==2.3.1
 itsdangerous==2.2.0
 Jinja2==3.1.6
 license-expression==30.4.4
 limits==5.8.0
+Mako==1.4.3
 markdown-it-py==4.2.0
 MarkupSafe==3.0.4
 mdurl==0.1.2
@@ -35,11 +39,13 @@ pip-requirements-parser==32.0.1
 pip_api==0.0.35
 pip_audit==2.10.1
 platformdirs==4.13.3
+pluggy==1.7.0
 psycopg2-binary==2.9.10
 py-serializable==2.1.0
 Pygments==2.21.0
 PyJWT==2.15.1
 pyparsing==3.3.3
+pytest==9.1.1
 python-dotenv==1.2.2
 python-telegram-bot==22.6
 redis==5.0.1
