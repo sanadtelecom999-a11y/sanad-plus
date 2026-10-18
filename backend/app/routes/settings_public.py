@@ -29,7 +29,7 @@ def get_public_settings():
         return jsonify(cached)
 
     # 💾 قراءة من DB
-    PUBLIC_KEYS = ["syp_rate", "store_name", "support_url"]
+    PUBLIC_KEYS = ["syp_rate", "store_name", "support_url", "banners"]
     settings = Setting.query.filter(Setting.key.in_(PUBLIC_KEYS)).all()
     result = {s.key: s.value for s in settings}
 
@@ -40,6 +40,8 @@ def get_public_settings():
         result["store_name"] = "SANAD+"
     if "support_url" not in result:
         result["support_url"] = "https://t.me/SANADST"
+    if "banners" not in result:
+        result["banners"] = "[]"
 
     # 💾 احفظ في Cache
     cache_set(key_settings_public(), result, ttl=TTL_SETTINGS)
