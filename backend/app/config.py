@@ -67,8 +67,7 @@ class Config:
     # ─── Database ───
     SQLALCHEMY_DATABASE_URI = _get_database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    _db_url = os.getenv("DATABASE_URL", "")
-    _is_local = any(h in _db_url for h in ("localhost", "127.0.0.1", "::1", "db:", "postgres:"))
+    _is_local = any(h in os.getenv("DATABASE_URL", "") for h in ("localhost", "127.0.0.1", "::1", "db:", "postgres:"))
 
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
