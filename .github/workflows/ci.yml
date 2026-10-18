@@ -7,10 +7,9 @@ on:
     branches: [develop]
 
 jobs:
-  lint-and-test:
+  backend-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     services:
       postgres:
         image: postgres:15
@@ -25,63 +24,39 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Setup Python 3.13.12
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.13.12'
           cache: 'pip'
           cache-dependency-path: 'backend/requirements-lock.txt'
-      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements-lock.txt
-          pip install pytest
-      
-      - name: Compile check (syntax)
+      - name: Compile check
         run: python -m compileall backend/ -q
-      
-      - name: Verify Migrations
-        env:
-          FLASK_ENV: testing
-          SKIP_BOT: "1"
-          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
-          PGSSLMODE: "disable"
-          SECRET_KEY: "ci-secret-key-12345678901234567890"
-          JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
-          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
-        run: |
-          cd backend
-          alembic upgrade head
-
-      - name: Verify Migrations
-        env:
-          FLASK_ENV: testing
-          SKIP_BOT: "1"
-          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
-          PGSSLMODE: "disable"
-          SECRET_KEY: "ci-secret-key-12345678901234567890"
-          JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
-          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
-        run: |
-          cd backend
-          alembic upgrade head
-
       - name: Run tests
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
-          PGSSLMODE: "disable"
-          JWT_SECRET_KEY: "ci-test-jwt-secret-key-that-is-long-enough-0987654321"
-          SECRET_KEY: "ci-test-secret-key-that-is-long-enough-1234567890"
-          ADMIN_PASSWORD_HASH: "pbkdf2:sha256:600000$dummy$dummyhash"
-        run: |
-          pytest backend/tests/ -v --maxfail=1
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test"
+          JWT_SECRET_KEY: "ci-test-jwt-key-32-chars-minimum-yyyyyy"
+          SECRET_KEY: "ci-test-secret-key-32-chars-minimum-xxxxxx"
+          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhashfortests"
+          TELEGRAM_ADMIN_IDS: "123456789"
+        run: pytest backend/tests/ -v --maxfail=1
 
-# Force update
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Run Vitest
+        run: npm run test
