@@ -66,14 +66,8 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _get_database_url()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,
-        "pool_recycle": 300,
-        "pool_size": 5,
-        "max_overflow": 10,
-        "connect_args": {
-            "sslmode": "require",
-            "connect_timeout": 10,
-        },
+    "connect_args": {"sslmode": "require"} if not ("localhost" in os.getenv("DATABASE_URL", "") or "127.0.0.1" in os.getenv("DATABASE_URL", "")) else {}
+},
     }
 
     # ─── Bot / URLs ───
