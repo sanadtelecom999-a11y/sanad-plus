@@ -14,13 +14,12 @@ def clean_db(db):
 
 @pytest.fixture()
 def test_user(db):
-    # ✅ أضفنا الحقول التي قد يشترطها الـ API (مثل التوثيق)
     u = User(
         telegram_id=999,
         first_name="OrderTest",
         balance=Decimal("50.0000"),
         max_negative_balance=Decimal("0.0000"),
-        is_verified=True,  # مهم جداً
+        is_verified=True,
         is_banned=False,
     )
     db.session.add(u)
@@ -61,12 +60,11 @@ def test_create_order_deducts_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "custom_input": "Player123",
+            "player_id": "Player123",  # ✅ تم التعديل هنا
             "idempotency_key": "unique-key-123"
         },
         headers=user_headers
     )
-    # ✅ سيظهر لنا رسالة الخطأ الحقيقية إذا فشل
     assert response.status_code == 200, f"API Error: {response.get_json()}"
     
     db.session.refresh(test_user)
@@ -77,7 +75,7 @@ def test_create_order_idempotency(client, user_headers, test_user, test_product,
     payload = {
         "product_id": test_product.id,
         "quantity": 1,
-        "custom_input": "Player123",
+        "player_id": "Player123", # ✅ تم التعديل هنا
         "idempotency_key": "unique-key-456"
     }
     res1 = client.post("/api/orders/create", json=payload, headers=user_headers)
@@ -96,7 +94,7 @@ def test_cancel_order_refunds_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "custom_input": "Player123",
+            "player_id": "Player123", # ✅ تم التعديل هنا
             "idempotency_key": "unique-key-789"
         },
         headers=user_headers
