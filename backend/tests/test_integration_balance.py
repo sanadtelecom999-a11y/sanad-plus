@@ -9,10 +9,11 @@ from app.extensions import db
 from flask_jwt_extended import create_access_token
 
 
-# ✅ هذا هو "المنظف": يمسح أي مستخدمين قدامى قبل كل اختبار
 @pytest.fixture(autouse=True)
 def clean_db(db):
-    db.session.query(User).delete()
+    # ✅ حل احترافي: مسح جميع الجداول بالترتيب العكسي لتجنب أخطاء Foreign Keys
+    for table in reversed(db.metadata.sorted_tables):
+        db.session.execute(table.delete())
     db.session.commit()
 
 
