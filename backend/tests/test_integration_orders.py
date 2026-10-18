@@ -14,11 +14,14 @@ def clean_db(db):
 
 @pytest.fixture()
 def test_user(db):
+    # ✅ أضفنا الحقول التي قد يشترطها الـ API (مثل التوثيق)
     u = User(
         telegram_id=999,
         first_name="OrderTest",
         balance=Decimal("50.0000"),
         max_negative_balance=Decimal("0.0000"),
+        is_verified=True,  # مهم جداً
+        is_banned=False,
     )
     db.session.add(u)
     db.session.commit()
@@ -26,7 +29,7 @@ def test_user(db):
 
 
 @pytest.fixture()
-def user_headers(app, test_user):  # ✅ نأخذ الـ ID الحقيقي من المستخدم الذي تم إنشاؤه
+def user_headers(app, test_user):
     with app.app_context():
         token = create_access_token(
             identity=str(test_user.id), 
@@ -63,7 +66,9 @@ def test_create_order_deducts_balance(client, user_headers, test_user, test_prod
         },
         headers=user_headers
     )
-    assert response.status_code == 200
+    # ✅ سيظهر لنا رسالة الخطأ الحقيقية إذا فشل
+    assert response.status_code == 200, f"API Error: {response.get_json()}"
+    
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("40.0000")
 
@@ -76,10 +81,10 @@ def test_create_order_idempotency(client, user_headers, test_user, test_product,
         "idempotency_key": "unique-key-456"
     }
     res1 = client.post("/api/orders/create", json=payload, headers=user_headers)
-    assert res1.status_code == 200
+    assert res1.status_code == 200, f"API Error: {res1.get_json()}"
     
     res2 = client.post("/api/orders/create", json=payload, headers=user_headers)
-    assert res2.status_code in [200, 409]
+    assert res2.status_code in [200, 409], f"API Error: {res2.get_json()}"
     
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("40.0000")
@@ -96,11 +101,11 @@ def test_cancel_order_refunds_balance(client, user_headers, test_user, test_prod
         },
         headers=user_headers
     )
-    assert res.status_code == 200
+    assert res.status_code == 200, f"API Error: {res.get_json()}"
     order_id = res.get_json()["order_id"]
     
     res_cancel = client.post(f"/api/orders/{order_id}/cancel", headers=user_headers)
-    assert res_cancel.status_code == 200
+    assert res_cancel.status_code == 200, f"Cancel Error: {res_cancel.get_json()}"
     
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("50.0000")
