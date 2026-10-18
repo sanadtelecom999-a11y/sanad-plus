@@ -65,7 +65,7 @@ def _get_user():
     if not ident:
         return None
     try:
-        return User.query.get(int(ident))
+        return db.session.get(User, int(ident))
     except (ValueError, TypeError):
         return None
 
