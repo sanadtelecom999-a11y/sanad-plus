@@ -3725,6 +3725,11 @@ function loadSettings() {
     if (supportUrlEl) supportUrlEl.value = currentSettings.support_url || 'https://t.me/SANADST';
     if (sypRateEl) sypRateEl.value = currentSettings.syp_rate || '132';
 
+    const sypEnabledEl = document.getElementById('sypEnabledCheckbox');
+    if (sypEnabledEl) {
+        sypEnabledEl.checked = (currentSettings.syp_enabled !== '0');
+    }
+
     const bannersEl = document.getElementById('bannersInput');
     if (bannersEl) {
         try {
@@ -3771,12 +3776,15 @@ async function saveSettings() {
         bannersJson = JSON.stringify(urls);
     }
 
+    const sypEnabled = document.getElementById('sypEnabledCheckbox')?.checked ? '1' : '0';
+
     try {
         await saveAdminSettings({
             store_name: storeName,
             support_url: supportUrl,
             syp_rate: sypRate.toString(),
             banners: bannersJson,
+            syp_enabled: sypEnabled,
         });
         currentSettings.store_name = storeName;
         currentSettings.support_url = supportUrl;
