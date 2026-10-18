@@ -50,7 +50,7 @@ jobs:
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
           SECRET_KEY: "ci-secret-key-12345678901234567890"
           JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
           ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
@@ -62,7 +62,7 @@ jobs:
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
           SECRET_KEY: "ci-secret-key-12345678901234567890"
           JWT_SECRET_KEY: "ci-jwt-secret-key-123456789012345"
           ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhash"
@@ -74,7 +74,7 @@ jobs:
         env:
           FLASK_ENV: testing
           SKIP_BOT: "1"
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
+          DATABASE_URL: "postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test?sslmode=disable"
           JWT_SECRET_KEY: "ci-test-jwt-secret-key-that-is-long-enough-0987654321"
           SECRET_KEY: "ci-test-secret-key-that-is-long-enough-1234567890"
           ADMIN_PASSWORD_HASH: "pbkdf2:sha256:600000$dummy$dummyhash"
