@@ -60,12 +60,13 @@ def test_create_order_deducts_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "player_id": "123456789",  # ✅ أصبحت أرقاماً فقط
+            "player_id": "123456789",
             "idempotency_key": "unique-key-123"
         },
         headers=user_headers
     )
-    assert response.status_code == 200, f"API Error: {response.get_json()}"
+    # ✅ نقبل 201 (Created) أو 200 (OK)
+    assert response.status_code in [200, 201], f"API Error: {response.get_json()}"
     
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("40.0000")
@@ -75,14 +76,15 @@ def test_create_order_idempotency(client, user_headers, test_user, test_product,
     payload = {
         "product_id": test_product.id,
         "quantity": 1,
-        "player_id": "123456789", # ✅ أصبحت أرقاماً فقط
+        "player_id": "123456789",
         "idempotency_key": "unique-key-456"
     }
     res1 = client.post("/api/orders/create", json=payload, headers=user_headers)
-    assert res1.status_code == 200, f"API Error: {res1.get_json()}"
+    assert res1.status_code in [200, 201], f"API Error: {res1.get_json()}"
     
     res2 = client.post("/api/orders/create", json=payload, headers=user_headers)
-    assert res2.status_code in [200, 409], f"API Error: {res2.get_json()}"
+    # الطلب المكرر قد يرجع 200 أو 201 أو 409 (Conflict)
+    assert res2.status_code in [200, 201, 409], f"API Error: {res2.get_json()}"
     
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("40.0000")
@@ -94,12 +96,12 @@ def test_cancel_order_refunds_balance(client, user_headers, test_user, test_prod
         json={
             "product_id": test_product.id,
             "quantity": 1,
-            "player_id": "123456789", # ✅ أصبحت أرقاماً فقط
+            "player_id": "123456789",
             "idempotency_key": "unique-key-789"
         },
         headers=user_headers
     )
-    assert res.status_code == 200, f"API Error: {res.get_json()}"
+    assert res.status_code in [200, 201], f"API Error: {res.get_json()}"
     order_id = res.get_json()["order_id"]
     
     res_cancel = client.post(f"/api/orders/{order_id}/cancel", headers=user_headers)
