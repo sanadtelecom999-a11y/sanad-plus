@@ -51,7 +51,7 @@ jobs:
           FLASK_ENV: testing
           SKIP_BOT: "1"
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/sanad_test"
-          JWT_SECRET_KEY: "test-secret-key-for-ci-only"
-          SECRET_KEY: "test-flask-secret-ci"
+          JWT_SECRET_KEY: "ci-test-jwt-secret-key-that-is-long-enough-0987654321"
+          SECRET_KEY: "ci-test-secret-key-that-is-long-enough-1234567890"
         run: |
           pytest backend/tests/ -v --maxfail=1
