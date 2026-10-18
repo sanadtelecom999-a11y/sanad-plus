@@ -376,7 +376,7 @@ def admin_set_negative_balance(user_id):
     if max_neg > 1_000_000:
         return jsonify({"error": "الحد الأقصى هو $1,000,000"}), 400
 
-    user = User.query.filter_by(id=user_id).with_for_update().first()
+    user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
@@ -400,7 +400,7 @@ def admin_toggle_kyc(user_id):
         return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     new_status = data.get("status")
-    user = User.query.filter_by(id=user_id).with_for_update().first()
+    user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
@@ -437,17 +437,16 @@ def admin_adjust_balance(user_id):
     user = User.query.filter_by(id=user_id).with_for_update().first()
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
-# ✅ حارس الحد المالي (مكتشف بواسطة Integration Tests)
-new_balance = user.balance + amount
-# إذا لم يكن مسموحاً له بالسالب، الحد الأدنى هو 0. وإلا فهو max_negative_balance
-min_allowed = user.max_negative_balance if getattr(user, 'allow_negative_balance', False) else Decimal("0.0000")
+    # ✅ حارس الحد المالي (مكتشف بواسطة Integration Tests)
+    new_balance = user.balance + amount
+    # إذا لم يكن مسموحاً له بالسالب، الحد الأدنى هو 0. وإلا فهو max_negative_balance
+    min_allowed = user.max_negative_balance if getattr(user, 'allow_negative_balance', False) else Decimal("0.0000")
 
-if new_balance < min_allowed:
-    return jsonify({
-        "error": "الرصيد سيصبح أقل من الحد الأدنى المسموح",
-        "code": "BALANCE_LIMIT_EXCEEDED"
-    }), 400
-
+    if new_balance < min_allowed:
+        return jsonify({
+            "error": "الرصيد سيصبح أقل من الحد الأدنى المسموح",
+            "code": "BALANCE_LIMIT_EXCEEDED"
+        }), 400
     balance_before = user.balance
     user.balance = round(user.balance + amount, 2)
 
@@ -485,7 +484,7 @@ if new_balance < min_allowed:
 def admin_ban_user(user_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    user = User.query.filter_by(id=user_id).with_for_update().first()
+    user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.is_banned = not user.is_banned
@@ -505,7 +504,7 @@ def admin_set_vip(user_id):
     vip_level = int(data.get("vip_level", 0))
     if vip_level < 0 or vip_level > 7:
         return jsonify({"error": "المستوى بين 0 و 7"}), 400
-    user = User.query.filter_by(id=user_id).with_for_update().first()
+    user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
     user.vip_level = vip_level
@@ -599,7 +598,7 @@ def admin_set_general_discount(user_id):
     if percent < 0 or percent > 100:
         return jsonify({"error": "النسبة بين 0 و 100"}), 400
 
-    user = User.query.filter_by(id=user_id).with_for_update().first()
+    user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "مستخدم غير موجود"}), 404
 
@@ -1580,33 +1579,15 @@ def admin_approve_deposit(deposit_id):
 
         user.balance = round(user.balance, 2)
 
-        # HIGH-4 fix: فصل الإيداع عن الرسوم في ledger
-        balance_after_deposit = round(balance_before + dep_amount, 2)
-
         db.session.add(Transaction(
             user_id=user.id, type="deposit", amount=dep_amount,
-            balance_after=balance_after_deposit,
-            reference_type="deposit", reference_id=deposit.id,
+            balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
         ))
         log_financial(
             user=user, action="deposit_approved", amount=dep_amount,
-            balance_before=balance_before, balance_after=balance_after_deposit,
+            balance_before=balance_before, balance_after=user.balance,
             ref_type="deposit", ref_id=deposit.id,
         )
-
-        if deposit_fee > 0:
-            db.session.add(Transaction(
-                user_id=user.id, type="fee", amount=-deposit_fee,
-                balance_after=user.balance,
-                reference_type="deposit_fee", reference_id=deposit.id,
-            ))
-            log_financial(
-                user=user, action="deposit_fee", amount=-deposit_fee,
-                balance_before=balance_after_deposit, balance_after=user.balance,
-                ref_type="deposit", ref_id=deposit.id,
-                note=f"رسوم إيداع {deposit.method or ''}".strip(),
-            )
-
         db.session.add(Notification(
             user_id=user.id, title="إيداع مقبول",
             message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
@@ -1790,40 +1771,16 @@ def admin_send_notification():
     message = data.get("message", "")
     ntype = data.get("type", "info")
 
-    if not message.strip():
-        return jsonify({"error": "نص الإشعار مطلوب"}), 400
-
     if target == "all":
-        # HIGH-2 fix: chunked bulk insert
-        BATCH = 500
-        user_ids = [row[0] for row in db.session.query(User.id).all()]
-        for i in range(0, len(user_ids), BATCH):
-            batch = user_ids[i:i + BATCH]
-            db.session.bulk_insert_mappings(
-                Notification,
-                [{"user_id": uid, "title": title, "message": message, "type": ntype}
-                 for uid in batch]
-            )
-            db.session.commit()
-        count = len(user_ids)
+        for u in User.query.all():
+            db.session.add(Notification(user_id=u.id, title=title, message=message, type=ntype))
     else:
         uid = data.get("user_id")
-        if not uid:
-            return jsonify({"error": "user_id مطلوب"}), 400
-        try:
-            uid = int(uid)
-        except (ValueError, TypeError):
-            return jsonify({"error": "user_id غير صالح"}), 400
-        user = User.query.get(uid)
-        if not user:
-            return jsonify({"error": "المستخدم غير موجود"}), 404
-        db.session.add(Notification(user_id=uid, title=title, message=message, type=ntype))
-        db.session.commit()
-        count = 1
+        if uid:
+            db.session.add(Notification(user_id=uid, title=title, message=message, type=ntype))
 
-    log_admin_activity(f"إرسال إشعار لـ{count} مستخدم")
     db.session.commit()
-    return jsonify({"success": True, "count": count})
+    return jsonify({"success": True})
 
 
 # ============================================================
