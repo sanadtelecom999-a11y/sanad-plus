@@ -66,3 +66,51 @@ jobs:
           cd miniapp
           npm run test:coverage
 
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sanad_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Backend Deps
+        run: pip install -r backend/requirements-lock.txt
+      - name: Start Backend Server
+        env:
+          FLASK_ENV: testing
+          SKIP_BOT: '1'
+          DATABASE_URL: 'postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test'
+          JWT_SECRET_KEY: 'ci-e2e-jwt-key-32-chars-minimum-yyyy'
+          SECRET_KEY: 'ci-e2e-secret-key-32-chars-minimum-xxxx'
+          ADMIN_PASSWORD_HASH: 'pbkdf2:sha256:600000/usr/bin/bash000000000000000000000000000000000000000000000000000000000000000'
+        run: |
+          python backend/run.py > backend.log 2>&1 &
+          sleep 5
+      - name: Install Frontend Deps & Playwright
+        run: |
+          cd miniapp
+          npm install
+          npx playwright install --with-deps chromium
+      - name: Run E2E tests
+        run: |
+          cd miniapp
+          npx playwright test
