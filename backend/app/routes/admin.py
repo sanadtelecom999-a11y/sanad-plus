@@ -40,6 +40,8 @@ from ..services.cache_service import (
 from .. import limiter
 from .. import get_real_ip
 from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
+from app.services.admin_service import adjust_user_balance, AdminServiceError
+
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
@@ -420,63 +422,18 @@ def admin_toggle_kyc(user_id):
 @jwt_required()
 @handle_errors
 def admin_adjust_balance(user_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    data = request.get_json() or {}
-    try:
-        amount = Decimal(str(data.get("amount") or 0))
-    except Exception:
-        return jsonify({"error": "المبلغ غير صالح"}), 400
+    data = request.get_json()
+    amount = Decimal(str(data.get("amount") or 0))
     note = data.get("note", "")
 
-    if abs(amount) > 1_000_000:
-        return jsonify({"error": "المبلغ كبير جداً (الحد الأقصى 1,000,000$)"}), 400
-    if amount == 0:
-        return jsonify({"error": "المبلغ لا يمكن أن يكون صفراً"}), 400
-
-    user = User.query.filter_by(id=user_id).with_for_update().first()
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
-    # ✅ حارس الحد المالي (مكتشف بواسطة Integration Tests)
-    new_balance = user.balance + amount
-    # إذا لم يكن مسموحاً له بالسالب، الحد الأدنى هو 0. وإلا فهو max_negative_balance
-    min_allowed = user.max_negative_balance if getattr(user, 'allow_negative_balance', False) else Decimal("0.0000")
-
-    if new_balance < min_allowed:
+    try:
+        user = adjust_user_balance(user_id, amount, note)
         return jsonify({
-            "error": "الرصيد سيصبح أقل من الحد الأدنى المسموح",
-            "code": "BALANCE_LIMIT_EXCEEDED"
-        }), 400
-    balance_before = user.balance
-    user.balance = round(user.balance + amount, 2)
-
-    txn = Transaction(
-        user_id=user.id, type="adjustment", amount=amount,
-        balance_after=user.balance, reference_type="admin_adjustment", reference_id=user.id,
-    )
-    db.session.add(txn)
-
-    log_financial(
-        user=user, action="admin_adjustment", amount=amount,
-        balance_before=balance_before, balance_after=user.balance,
-        ref_type="admin_adjustment", ref_id=user.id, note=note,
-    )
-
-    notif = Notification(
-        user_id=user.id, title="تعديل الرصيد",
-        message=f"تم تعديل رصيدك بمقدار {amount:.2f}$" + (f" ({note})" if note else ""),
-        type="info",
-    )
-    db.session.add(notif)
-    log_admin_activity(f"تعديل رصيد المستخدم {user.telegram_id}: {amount:.2f}$")
-    db.session.commit()
-
-    from ..services.telegram_service import send_admin_balance_adjustment
-    send_admin_balance_adjustment(user, amount, note)
-    notify_admins(f"تعديل رصيد {user.telegram_id}: {amount:.2f}$")
-
-    return jsonify({"balance": user.balance})
-
+            "balance": float(user.balance),
+            "message": "�� ����� ������ �����"
+        }), 200
+    except AdminServiceError as e:
+        return jsonify({"error": e.message, "code": e.code}), 400
 
 @main.route("/admin/api/users/<int:user_id>/ban", methods=["POST"])
 @jwt_required()
