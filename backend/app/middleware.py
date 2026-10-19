@@ -1,6 +1,6 @@
 import os
 from flask import jsonify, request
-from app.extensions import db, cache
+from app.extensions import db
 
 def setup_middlewares(app):
     @app.before_request
@@ -11,4 +11,8 @@ def setup_middlewares(app):
 
     @app.route('/api/health', methods=['GET'])
     def health_check():
-        return jsonify({"status": "ok"}), 200
+        try:
+            db.session.execute(db.text('SELECT 1'))
+            return jsonify({"status": "ok", "db": "connected"}), 200
+        except Exception:
+            return jsonify({"status": "error", "db": "disconnected"}), 503
