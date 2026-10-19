@@ -43,6 +43,7 @@ from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
 from app.services.admin_service import adjust_user_balance, AdminServiceError
 
 
+from app.middleware.admin import admin_required
 from app.services.admin_auth_service import (
     OTP_TTL_SECONDS, OTP_MAX_ATTEMPTS, get_admin_ids,
     generate_otp_code, cleanup_expired_otp_sessions, check_login_rate_limit
@@ -366,11 +367,9 @@ def admin_get_users():
 
 
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
-@jwt_required()
+@admin_required
 @handle_errors
 def admin_set_negative_balance(user_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     allow = bool(data.get("allow", False))
     max_neg = float(data.get("max_negative", 0))
