@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('MiniApp Smoke Test', () => {
-  test('should load the homepage and display categories', async ({ page }) => {
-    // افتراض أن الصفحة الرئيسية متاحة على /
-    await page.goto('/');
+test.describe('Backend Smoke Test', () => {
+  test('should return 200 OK from health endpoint', async ({ request }) => {
+    // نستخدم request بدلاً من page لأننا نختبر الـ API وليس الواجهة الرسومية
+    const response = await request.get('/api/health');
     
-    // التحقق من وجود عنصر يدل على تحميل الصفحة (مثلاً شعار أو عنوان)
-    // (سنعدل هذا الـ Selector لاحقاً ليطابق الواجهة الفعلية)
-    await expect(page).toHaveTitle(/SANAD|سنad/i); 
+    // التحقق من أن السيرفر استجاب بنجاح
+    expect(response.ok()).toBeTruthy();
+    
+    const body = await response.json();
+    expect(body.status).toBe('ok');
+    expect(body.db).toBe('connected');
   });
 });
