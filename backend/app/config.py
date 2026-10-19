@@ -11,35 +11,13 @@ class Config:
     # 1. Database
     # ──────────────────────────────────────────────────────────
     _DB_URL = os.getenv("DATABASE_URL", "").strip()
-
-    # Detect PostgreSQL vs SQLite by URL prefix (dialect), not host string.
-    _IS_POSTGRES = _DB_URL.startswith(("postgresql+psycopg2://", "postgresql+psycopg2://"))
-
-    _LOCAL_HOST_MARKERS = (
-        "localhost", "127.0.0.1", "::1", "db:", "postgres:", "testserver",
-    )
-    _IS_LOCAL_DB = False
-    for _m in _LOCAL_HOST_MARKERS:
-        if _m in _DB_URL:
-            _IS_LOCAL_DB = True
-            break
-
-    # SSL only for remote Postgres (Neon, RDS, etc.)
-    _USE_SSL = _IS_POSTGRES and not _IS_LOCAL_DB
-
-    if _IS_POSTGRES:
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            "connect_args": {"sslmode": "require"} if _USE_SSL else {},
-            "pool_size": int(os.getenv("DB_POOL_SIZE", "5")),
-            "max_overflow": int(os.getenv("DB_MAX_OVERFLOW", "10")),
-            "pool_pre_ping": True,
-            "pool_recycle": 300,
-        }
+    
+    if _DB_URL.startswith("postgresql://"):
+        SQLALCHEMY_DATABASE_URI = _DB_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    elif _DB_URL.startswith("postgres://"):
+        SQLALCHEMY_DATABASE_URI = _DB_URL.replace("postgres://", "postgresql+psycopg2://", 1)
     else:
-        # SQLite (local tests only) - no pool, no sslmode, no pre_ping.
-        SQLALCHEMY_ENGINE_OPTIONS = {}
-
-    SQLALCHEMY_DATABASE_URI = _DB_URL
+        SQLALCHEMY_DATABASE_URI = _DB_URL
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # ──────────────────────────────────────────────────────────
