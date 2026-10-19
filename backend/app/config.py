@@ -13,7 +13,7 @@ class Config:
     _DB_URL = os.getenv("DATABASE_URL", "").strip()
 
     # Detect PostgreSQL vs SQLite by URL prefix (dialect), not host string.
-    _IS_POSTGRES = _DB_URL.startswith(("postgresql://", "postgres://"))
+    _IS_POSTGRES = _DB_URL.startswith(("postgresql+psycopg2://", "postgresql+psycopg2://"))
 
     _LOCAL_HOST_MARKERS = (
         "localhost", "127.0.0.1", "::1", "db:", "postgres:", "testserver",
