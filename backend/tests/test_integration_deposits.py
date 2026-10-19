@@ -91,3 +91,17 @@ def test_double_approve_deposit_prevented(client, admin_headers, test_user, pend
     # الرصيد يجب أن يظل 50 فقط
     db.session.refresh(test_user)
     assert test_user.balance == Decimal("50.0000")
+
+def test_double_approve_deposit_prevented(client, admin_headers, test_user, pending_deposit, db):
+    """محاولة اعتماد نفس الإيداع مرتين يجب أن تفشل ولا تضيف رصيداً مضاعفاً."""
+    # المرة الأولى
+    res1 = client.post(f"/admin/api/deposits/{pending_deposit.id}/approve", headers=admin_headers)
+    assert res1.status_code == 200
+    
+    # المرة الثانية (محاولة الغش)
+    res2 = client.post(f"/admin/api/deposits/{pending_deposit.id}/approve", headers=admin_headers)
+    assert res2.status_code == 400, f"Security flaw! Double approval allowed: {res2.get_json()}"
+    
+    # الرصيد يجب أن يظل 50 فقط
+    db.session.refresh(test_user)
+    assert test_user.balance == Decimal("50.0000")

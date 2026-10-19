@@ -57,3 +57,13 @@ def test_bot_auth_missing_token(client, bot_headers):
         json={"telegram_id": 123456, "first_name": "BotUser"}
     )
     assert response.status_code in [401, 403], "Security Flaw: Missing bot token accepted!"
+
+def test_bot_auth_invalid_token(client, app):
+    """توكن خاطئ يجب أن يُرفض (401 أو 403)."""
+    app.config['BOT_API_SECRET'] = 'test-secret-bot-token'
+    response = client.post(
+        "/api/bot/auth",
+        json={"telegram_id": 123456, "first_name": "BotUser"},
+        headers={"X-Bot-Token": "WRONG-TOKEN"}
+    )
+    assert response.status_code in [401, 403], "Security Flaw: Invalid bot token accepted!"
