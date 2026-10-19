@@ -58,21 +58,54 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd miniapp
+          npm install
       - name: Run Vitest with coverage
-        run: npm run test:coverage
+        run: |
+          cd miniapp
+          npm run test:coverage
 
   e2e-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.12'
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Install dependencies
-        run: cd miniapp && npm install
-      - name: Install Playwright Browsers
-        run: cd miniapp && npx playwright install --with-deps chromium
+      
+      # 1. تثبيت متطلبات الباك اند
+      - name: Install Backend Deps
+        run: |
+          pip install -r backend/requirements-lock.txt
+      
+      # 2. تشغيل الباك اند في الخلفية
+      - name: Start Backend Server
+        env:
+          FLASK_ENV: development
+          SKIP_BOT: "1"
+          DATABASE_URL: "sqlite:///:memory:" # نستخدم SQLite سريعاً للاختبار
+          JWT_SECRET_KEY: "ci-test-jwt-key-32-chars-minimum-yyyyyy"
+          SECRET_KEY: "ci-test-secret-key-32-chars-minimum-xxxxxx"
+          ADMIN_PASSWORD_HASH: "scrypt:32768:8:1$dummyhashfortests"
+        run: |
+          python backend/run.py > backend.log 2>&1 &
+          sleep 5 # الانتظار حتى يقلع السيرفر
+          
+      # 3. تثبيت متطلبات الواجهة وتشغيل Playwright
+      - name: Install Frontend Deps & Playwright
+        run: |
+          cd miniapp
+          npm install
+          npx playwright install --with-deps chromium
+          
+      # 4. تشغيل اختبار E2E
       - name: Run E2E tests
-        run: cd miniapp && npm run test:e2e
+        run: |
+          cd miniapp
+          npm run test:e2e
