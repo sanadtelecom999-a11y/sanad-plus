@@ -43,6 +43,11 @@ from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
 from app.services.admin_service import adjust_user_balance, AdminServiceError
 
 
+from app.services.admin_auth_service import (
+    OTP_TTL_SECONDS, OTP_MAX_ATTEMPTS, get_admin_ids,
+    generate_otp_code, cleanup_expired_otp_sessions, check_login_rate_limit
+)
+
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 if not ADMIN_PASSWORD_HASH:
@@ -52,9 +57,6 @@ if not ADMIN_PASSWORD_HASH:
 # ============================================================
 # Helpers
 # ============================================================
-OTP_TTL_SECONDS = 300
-OTP_MAX_ATTEMPTS = 3
-
 
 def get_admin_ids():
     admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "")
