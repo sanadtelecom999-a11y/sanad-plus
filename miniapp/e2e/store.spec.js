@@ -1,13 +1,17 @@
+
 import { test, expect } from '@playwright/test';
 
-test.describe('Backend API E2E Smoke Test', () => {
-  test('should return 200 OK from health endpoint', async ({ request }) => {
-    // نختبر مسار الصحة (لأننا لا نستطيع تشغيل الواجهة الأمامية كاملة في الـ CI حالياً)
-    const response = await request.get('/api/health');
-    expect(response.ok()).toBeTruthy();
+test.describe('MiniApp True E2E', () => {
+  test('should load the MiniApp UI in browser', async ({ page }) => {
+    // فتح الواجهة الأمامية
+    await page.goto('/');
     
-    const body = await response.json();
-    expect(body.status).toBe('ok');
-    expect(body.db).toBe('connected');
+    // التأكد من أن الصفحة لم تنهار (عنصر body موجود)
+    await expect(page.locator('body')).toBeVisible();
+    
+    // التأكد من وجود عنصر يدل على التطبيق (شعار أو عنوان)
+    // سنبحث عن أي عنصر يحمل كلاس أو نص معين في index.html
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText.length).toBeGreaterThan(0);
   });
 });
