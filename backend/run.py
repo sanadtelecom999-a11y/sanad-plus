@@ -177,6 +177,7 @@ def _start_bot_subprocess():
 
 
 def _stop_bot_subprocess():
+    global _shutdown_event
     """إيقاف نظيف للبوت"""
     global _bot_process
 
