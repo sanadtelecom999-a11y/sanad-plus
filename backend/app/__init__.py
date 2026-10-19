@@ -1,5 +1,4 @@
-from app.middleware import setup_middlewares
-from app.middleware import setup_middlewares
+from .middleware import setup_middlewares
 # ============================================================
 # 🚀 SANAD PLUS⁺ — App Initialization (v17.1)
 # ============================================================
@@ -204,5 +203,4 @@ def create_app():
             return DefaultJSONProvider.default(o)
 
     app.json = _SanadJSONProvider(app)
-    setup_middlewares(app)
     return app
