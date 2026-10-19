@@ -9,3 +9,4 @@ from . import admin_kyc
 from . import admin_deposits
 from . import admin_users
 from . import admin_products
+from . import admin_settings
