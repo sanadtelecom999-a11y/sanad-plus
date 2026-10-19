@@ -42,8 +42,7 @@ from .. import get_real_ip
 from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
 from app.services.admin_service import adjust_user_balance, AdminServiceError
 
-
-from app.middleware.admin import admin_required
+from app.middleware import admin_required
 from app.services.admin_auth_service import (
     OTP_TTL_SECONDS, OTP_MAX_ATTEMPTS, get_admin_ids,
     generate_otp_code, cleanup_expired_otp_sessions, check_login_rate_limit
@@ -53,7 +52,6 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 if not ADMIN_PASSWORD_HASH:
     raise RuntimeError("ADMIN_PASSWORD_HASH إلزامي")
-
 
 # ============================================================
 # Helpers
@@ -66,10 +64,8 @@ def get_admin_ids():
     except ValueError:
         return []
 
-
 def generate_otp_code():
     return str(random.randint(100000, 999999))
-
 
 def cleanup_expired_otp_sessions():
     try:
@@ -81,7 +77,6 @@ def cleanup_expired_otp_sessions():
         db.session.rollback()
         print(f"cleanup expired sessions: {e}")
 
-
 # v18.4.20: Fixed memory leak + DoS hardening
 # - Regular dict (not defaultdict) — no auto-recreation
 # - Hard cap LOGIN_RATE_MAX_KEYS — DoS mitigation
@@ -90,7 +85,6 @@ _login_attempts = {}
 LOGIN_RATE_WINDOW = 300
 LOGIN_RATE_MAX = 5
 LOGIN_RATE_MAX_KEYS = 10_000
-
 
 def check_login_rate_limit(ip: str) -> bool:
     now = time.time()
@@ -122,7 +116,6 @@ def check_login_rate_limit(ip: str) -> bool:
     _login_attempts.setdefault(ip, []).append(now)
     return True
 
-
 def handle_errors(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -140,14 +133,11 @@ def handle_errors(f):
             return jsonify({"error": f"خطأ داخلي: {str(e)}", "function": f.__name__}), 500
     return wrapper
 
-
 def is_admin_user(identity):
     return identity == "admin"
 
-
 def verify_admin_password(password):
     return check_password_hash(ADMIN_PASSWORD_HASH, password)
-
 
 def log_admin_activity(action):
     try:
@@ -162,7 +152,6 @@ def log_admin_activity(action):
     except Exception:
         db.session.rollback()
 
-
 def get_arabic_status(status):
     status_map = {
         "pending": "قيد المعالجة", "review": "قيد المراجعة", "processing": "قيد التنفيذ",
@@ -171,13 +160,11 @@ def get_arabic_status(status):
     }
     return status_map.get(status, status)
 
-
 def serialize_bundle(b):
     return {
         "id": b.id, "product_id": b.product_id, "name": b.name,
         "quantity": b.quantity, "price_usd": b.price_usd, "is_active": b.is_active,
     }
-
 
 def _normalize_image(image_data, folder="sanad/uncategorized"):
     if not image_data or not isinstance(image_data, str):
@@ -191,7 +178,6 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
         print(f"⚠️ Cloudinary upload failed — keeping base64 for {folder}")
         return image_data
     return image_data
-
 
 # ============================================================
 # Authentication (OTP DB)
@@ -258,7 +244,6 @@ def admin_login():
         "message": "تم إرسال رمز التحقق إلى تيليجرام"
     }), 200
 
-
 @main.route("/admin/verify-otp", methods=["POST"])
 @limiter.limit("10 per 5 minutes")
 @handle_errors
@@ -309,7 +294,6 @@ def admin_verify_otp():
 
     return jsonify({"token": token}), 200
 
-
 # ============================================================
 # 🆕 v17.1: Logout-All
 # ============================================================
@@ -329,7 +313,6 @@ def admin_logout_all():
             db.session.rollback()
         return jsonify({"success": True, "message": "تم إبطال كل الجلسات"})
     return jsonify({"error": "فشل إبطال الجلسات"}), 500
-
 
 # ============================================================
 # Users — 🆕 v18.1: cached list
@@ -365,7 +348,6 @@ def admin_get_users():
     cache_set(key_admin_list("users"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
 
-
 @main.route("/admin/api/users/<int:user_id>/negative-balance", methods=["POST"])
 @admin_required
 @handle_errors
@@ -393,31 +375,6 @@ def admin_set_negative_balance(user_id):
         "allow_negative_balance": user.allow_negative_balance,
         "max_negative_balance": user.max_negative_balance,
     })
-
-
-@main.route("/admin/api/users/<int:user_id>/kyc", methods=["POST"])
-@jwt_required()
-@handle_errors
-def admin_toggle_kyc(user_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    data = request.get_json() or {}
-    new_status = data.get("status")
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "مستخدم غير موجود"}), 404
-
-    if new_status == "verified":
-        user.kyc_status = "verified"
-        user.is_verified = True
-    elif new_status == "unverified":
-        user.kyc_status = "unverified"
-        user.is_verified = False
-
-    log_admin_activity(f"تغيير توثيق المستخدم {user.telegram_id}")
-    db.session.commit()
-    return jsonify({"kyc_status": user.kyc_status, "is_verified": user.is_verified})
-
 
 @main.route("/admin/api/users/<int:user_id>/balance", methods=["POST"])
 @jwt_required()
@@ -451,7 +408,6 @@ def admin_ban_user(user_id):
     notify_admins(f"حظر {user.telegram_id}: {user.is_banned}")
     return jsonify({"is_banned": user.is_banned})
 
-
 @main.route("/admin/api/users/<int:user_id>/vip", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -469,7 +425,6 @@ def admin_set_vip(user_id):
     log_admin_activity(f"VIP{vip_level} للمستخدم {user.telegram_id}")
     db.session.commit()
     return jsonify({"vip_level": user.vip_level})
-
 
 @main.route("/admin/api/users/<int:user_id>", methods=["GET"])
 @jwt_required()
@@ -508,7 +463,6 @@ def admin_user_detail(user_id):
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
     })
 
-
 # ============================================================
 # 🆕 v17: DISCOUNTS
 # ============================================================
@@ -540,7 +494,6 @@ def admin_get_user_discounts(user_id):
         "product_discounts": result,
     })
 
-
 @main.route("/admin/api/users/<int:user_id>/discounts/general", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -565,7 +518,6 @@ def admin_set_general_discount(user_id):
     db.session.commit()
 
     return jsonify({"general_discount": user.general_discount})
-
 
 @main.route("/admin/api/users/<int:user_id>/discounts/product", methods=["POST"])
 @jwt_required()
@@ -609,7 +561,6 @@ def admin_set_product_discount(user_id):
 
     return jsonify({"success": True})
 
-
 @main.route("/admin/api/users/<int:user_id>/discounts/<int:discount_id>", methods=["DELETE"])
 @jwt_required()
 @handle_errors
@@ -628,7 +579,6 @@ def admin_delete_product_discount(user_id, discount_id):
     db.session.commit()
 
     return jsonify({"success": True})
-
 
 # ============================================================
 # Categories — 🆕 v18.1: cached + eager
@@ -669,7 +619,6 @@ def admin_categories():
     db.session.commit()
     return jsonify({"id": cat.id}), 201
 
-
 @main.route("/admin/api/categories/<int:cat_id>", methods=["DELETE"])
 @jwt_required()
 @handle_errors
@@ -692,7 +641,6 @@ def admin_delete_category(cat_id):
     db.session.commit()
     return jsonify({"success": True, "message": f"تم أرشفة القسم و{len(products)} منتج"})
 
-
 @main.route("/admin/api/categories/<int:cat_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -710,7 +658,6 @@ def admin_restore_category(cat_id):
         product.deleted_at = None
     db.session.commit()
     return jsonify({"success": True, "message": f"تم استرجاع القسم و{len(products)} منتج"})
-
 
 # ============================================================
 # Products — 🆕 v18.1: cached + eager bundles
@@ -806,7 +753,6 @@ def admin_products():
     db.session.commit()
     return jsonify({"id": product.id}), 201
 
-
 @main.route("/admin/api/products/<int:product_id>", methods=["GET", "PUT", "DELETE"])
 @jwt_required()
 @handle_errors
@@ -879,7 +825,6 @@ def admin_product_actions(product_id):
     db.session.commit()
     return jsonify({"success": True, "message": "تم أرشفة المنتج"})
 
-
 @main.route("/admin/api/products/<int:product_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -896,7 +841,6 @@ def admin_restore_product(product_id):
         product.category.deleted_at = None
     db.session.commit()
     return jsonify({"success": True, "message": "تم استرجاع المنتج"})
-
 
 # ============================================================
 # Bundles
@@ -931,7 +875,6 @@ def admin_bundles(product_id):
     db.session.commit()
     return jsonify(serialize_bundle(bundle)), 201
 
-
 @main.route("/admin/api/products/<int:product_id>/bundles/<int:bundle_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 @handle_errors
@@ -963,7 +906,6 @@ def admin_bundle_actions(product_id, bundle_id):
     db.session.commit()
     return jsonify({"success": True})
 
-
 # ============================================================
 # 💳 Payment Methods — v18.3.6
 def _serialize_payment_method(m):
@@ -982,7 +924,6 @@ def _serialize_payment_method(m):
         "requires_kyc": m.requires_kyc,
         "is_active": m.is_active,
     }
-
 
 def _validate_payment_method_data(data, current=None):
     try:
@@ -1004,7 +945,6 @@ def _validate_payment_method_data(data, current=None):
         return None, "نسبة الرسوم يجب أن تكون 100% أو أقل"
 
     return {"min_amount": min_amt, "max_amount": max_amt, "fee": fee_val, "fee_type": fee_type}, None
-
 
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
@@ -1045,7 +985,6 @@ def admin_payment_methods():
     log_admin_activity(f"إضافة طريقة دفع: {method.name}")
     db.session.commit()
     return jsonify({"id": method.id}), 201
-
 
 @main.route("/admin/api/payment-methods/<int:method_id>", methods=["PUT", "DELETE"])
 @jwt_required()
@@ -1090,7 +1029,6 @@ def admin_payment_method_actions(method_id):
     log_admin_activity(f"تعديل طريقة دفع: {method.name}")
     db.session.commit()
     return jsonify({"success": True, "id": method.id})
-
 
 # Orders — 🆕 v18.1: joinedload + cached
 # ============================================================
@@ -1138,7 +1076,6 @@ def admin_orders():
     cache_set(key_admin_list("orders"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
 
-
 @main.route("/admin/api/orders/<int:order_id>", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1161,7 +1098,6 @@ def admin_order_detail(order_id):
         "delivery_data": order.delivery_data,
         "created_at": order.created_at.isoformat() if order.created_at else None,
     })
-
 
 @main.route("/admin/api/orders/<int:order_id>/full", methods=["GET"])
 @jwt_required()
@@ -1219,7 +1155,6 @@ def admin_order_full_detail(order_id):
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "updated_at": order.updated_at.isoformat() if order.updated_at else None,
     })
-
 
 @main.route("/admin/api/orders/<int:order_id>/status", methods=["POST"])
 @jwt_required()
@@ -1315,7 +1250,6 @@ def admin_update_order_status(order_id):
     notify_admins(f"طلب {order.order_number} -> {get_arabic_status(new_status)}")
     return jsonify({"status": order.status})
 
-
 @main.route("/admin/api/orders/bulk-status", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -1409,7 +1343,6 @@ def admin_bulk_order_status():
         "failed": failed,
     })
 
-
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1445,7 +1378,6 @@ def admin_deposits():
 
     cache_set(key_admin_list("deposits"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
-
 
 @main.route("/admin/api/deposits/<int:deposit_id>", methods=["GET"])
 @jwt_required()
@@ -1489,7 +1421,6 @@ def admin_deposit_detail(deposit_id):
         "reviewed_at": deposit.reviewed_at.isoformat() if deposit.reviewed_at else None,
         "created_at": deposit.created_at.isoformat() if deposit.created_at else None,
     })
-
 
 @main.route("/admin/api/deposits/<int:deposit_id>/approve", methods=["POST"])
 @jwt_required()
@@ -1560,7 +1491,6 @@ def admin_approve_deposit(deposit_id):
     notify_admins(f"إيداع {deposit.id}: {deposit.amount:.2f}$")
     return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
 
-
 @main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -1600,119 +1530,9 @@ def admin_reject_deposit(deposit_id):
     notify_admins(f"رفض إيداع {deposit.id}: {deposit.amount:.2f}$")
     return jsonify({"status": deposit.status})
 
-
 # ============================================================
 # KYC — 🆕 v18.1: joinedload + cached
 # ============================================================
-@main.route("/admin/api/kyc", methods=["GET"])
-@jwt_required()
-@handle_errors
-def admin_kyc():
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-
-    cached = cache_get(key_admin_list("kyc"))
-    if cached is not None:
-        return jsonify(cached)
-
-    kycs = (
-        KYCRequest.query
-        .filter(KYCRequest.status == 'pending')
-        .options(joinedload(KYCRequest.user))
-        .order_by(KYCRequest.submitted_at.desc())
-        .all()
-    )
-
-    result = [{
-        "id": k.id, "user_id": k.user_id, "full_name": k.full_name,
-        "phone": k.phone, "address": k.address,
-        "selfie_image": get_signed_url(k.selfie_image, expires_in=1800) if k.selfie_image else None,
-        "status": k.status,
-        "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
-    } for k in kycs]
-
-    cache_set(key_admin_list("kyc"), result, ttl=TTL_ADMIN_LISTS)
-    return jsonify(result)
-
-
-@main.route("/admin/api/kyc/<int:kyc_id>/approve", methods=["POST"])
-@jwt_required()
-@handle_errors
-def admin_approve_kyc(kyc_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    kyc = KYCRequest.query.filter_by(id=kyc_id).with_for_update().first()
-    if not kyc:
-        return jsonify({"error": "طلب غير موجود"}), 404
-
-    if kyc.status != "pending":
-        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
-
-    kyc.status = "approved"
-    kyc.reviewed_at = datetime.now(timezone.utc)
-    user = User.query.filter_by(id=kyc.user_id).with_for_update().first()
-    if user:
-        user.kyc_status = "verified"
-        user.is_verified = True
-        db.session.add(Notification(
-            user_id=user.id, title="تم توثيق حسابك",
-            message="تم قبول طلب التوثيق", type="success",
-        ))
-
-    log_admin_activity(f"قبول KYC للمستخدم {kyc.user_id}")
-    db.session.commit()
-
-    invalidate_admin("kyc")
-
-    if user:
-        send_kyc_approved(user)
-
-    notify_admins(f"KYC {kyc.user_id}")
-    return jsonify({"status": "approved"})
-
-
-@main.route("/admin/api/kyc/<int:kyc_id>/reject", methods=["POST"])
-@jwt_required()
-@handle_errors
-def admin_reject_kyc(kyc_id):
-    if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
-    kyc = KYCRequest.query.filter_by(id=kyc_id).with_for_update().first()
-    if not kyc:
-        return jsonify({"error": "طلب غير موجود"}), 404
-
-    data = request.get_json() or {}
-    reason = data.get("reason", "")
-
-    if kyc.status != "pending":
-        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
-
-    kyc.status = "rejected"
-    kyc.reviewed_at = datetime.now(timezone.utc)
-    if reason:
-        kyc.admin_note = reason
-
-    user = User.query.filter_by(id=kyc.user_id).with_for_update().first()
-    if user:
-        user.kyc_status = "unverified"
-        user.is_verified = False
-        db.session.add(Notification(
-            user_id=user.id, title="رفض التوثيق",
-            message="تم رفض طلب التوثيق" + (f" - {reason}" if reason else ""),
-            type="warning",
-        ))
-
-    log_admin_activity(f"رفض KYC للمستخدم {kyc.user_id}")
-    db.session.commit()
-
-    invalidate_admin("kyc")
-
-    if user:
-        send_kyc_rejected(user, reason)
-
-    notify_admins(f"رفض KYC {kyc.user_id}")
-    return jsonify({"status": "rejected"})
-
 
 # ============================================================
 # Notifications
@@ -1739,7 +1559,6 @@ def admin_send_notification():
 
     db.session.commit()
     return jsonify({"success": True})
-
 
 # ============================================================
 # Service Requests — 🆕 v18.1: joinedload + cached
@@ -1773,7 +1592,6 @@ def admin_service_requests():
     cache_set(key_admin_list("service-requests"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
 
-
 @main.route("/admin/api/service-requests/<int:req_id>", methods=["PUT"])
 @jwt_required()
 @handle_errors
@@ -1791,7 +1609,6 @@ def admin_update_service_request(req_id):
     invalidate_admin("service-requests")
 
     return jsonify({"success": True})
-
 
 # ============================================================
 # Settings — 🆕 v18.1: invalidates public cache
@@ -1816,7 +1633,6 @@ def admin_settings():
     invalidate_settings()
 
     return jsonify({"success": True})
-
 
 # ============================================================
 # Coupons — 🆕 v18.1: cached
@@ -1876,7 +1692,6 @@ def admin_coupons():
 
     return jsonify({"id": coupon.id}), 201
 
-
 @main.route("/admin/api/coupons/<int:coupon_id>", methods=["PUT", "DELETE"])
 @jwt_required()
 @handle_errors
@@ -1908,7 +1723,6 @@ def admin_coupon_actions(coupon_id):
     invalidate_admin("coupons")
 
     return jsonify({"success": True})
-
 
 # ============================================================
 # Referrals, Activities, Audit — 🆕 v18.1: joinedload
@@ -1951,7 +1765,6 @@ def admin_referrals():
     cache_set(key_admin_list("referrals"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
 
-
 @main.route("/admin/api/activities", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1963,7 +1776,6 @@ def admin_activities():
         "id": a.id, "admin_id": a.admin_id, "action": a.action,
         "created_at": a.created_at.isoformat() if a.created_at else None,
     } for a in acts])
-
 
 @main.route("/admin/api/audit-log", methods=["GET"])
 @jwt_required()
@@ -1987,7 +1799,6 @@ def admin_audit_log():
         "admin_id": l.admin_id, "ip_address": l.ip_address, "note": l.note,
         "created_at": l.created_at.isoformat() if l.created_at else None,
     } for l in logs])
-
 
 # ============================================================
 # 🆕 v16: ARCHIVE — 🆕 v18.1: joinedload
@@ -2029,7 +1840,6 @@ def admin_archive_orders():
         })
     return jsonify(result)
 
-
 @main.route("/admin/api/archive/deposits", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -2061,7 +1871,6 @@ def admin_archive_deposits():
         })
     return jsonify(result)
 
-
 @main.route("/admin/api/archive/kyc", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -2086,7 +1895,6 @@ def admin_archive_kyc():
         "submitted_at": k.submitted_at.isoformat() if k.submitted_at else None,
     } for k in kycs])
 
-
 @main.route("/admin/api/archive/services", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -2110,7 +1918,6 @@ def admin_archive_services():
         "created_at": r.created_at.isoformat() if r.created_at else None,
     } for r in reqs])
 
-
 @main.route("/admin/api/archive/counts", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -2131,7 +1938,6 @@ def admin_archive_counts():
             ServiceRequest.status.in_(['completed', 'rejected', 'cancelled'])
         ).count(),
     })
-
 
 # ============================================================
 # 🆕 v16: RESTORE
@@ -2161,7 +1967,6 @@ def admin_restore_order(order_id):
 
     return jsonify({"success": True, "status": order.status})
 
-
 @main.route("/admin/api/deposits/<int:deposit_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -2184,7 +1989,6 @@ def admin_restore_deposit(deposit_id):
     invalidate_admin("deposits")
 
     return jsonify({"success": True, "status": deposit.status})
-
 
 @main.route("/admin/api/kyc/<int:kyc_id>/restore", methods=["POST"])
 @jwt_required()
@@ -2213,7 +2017,6 @@ def admin_restore_kyc(kyc_id):
     invalidate_admin("kyc")
 
     return jsonify({"success": True, "status": kyc.status})
-
 
 @main.route("/admin/api/services/<int:req_id>/restore", methods=["POST"])
 @jwt_required()
