@@ -6,6 +6,7 @@ from ..services.admin_service import adjust_user_balance, AdminServiceError
 from ..services.telegram_service import notify_admins
 from ..services.cache_service import invalidate_admin
 from . import main
+from app.middleware import admin_required
 from .admin_utils import is_admin_user, handle_errors
 from .admin import log_admin_activity, get_arabic_status
 from flask_jwt_extended import jwt_required, get_jwt_identity
