@@ -202,4 +202,5 @@ def create_app():
             return DefaultJSONProvider.default(o)
 
     app.json = _SanadJSONProvider(app)
+    setup_middlewares(app)
     return app
