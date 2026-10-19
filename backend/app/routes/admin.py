@@ -430,7 +430,7 @@ def admin_adjust_balance(user_id):
         user = adjust_user_balance(user_id, amount, note)
         return jsonify({
             "balance": float(user.balance),
-            "message": "Êã ÊÚÏíá ÇáÑÕíÏ ÈäÌÇÍ"
+            "message": "ØªÙ… ØªØ¹Ø¯ÙŠÙ„ Ø§Ù„Ø±ØµÙŠØ¯ Ø¨Ù†Ø¬Ø§Ø­"
         }), 200
     except AdminServiceError as e:
         return jsonify({"error": e.message, "code": e.code}), 400
