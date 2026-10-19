@@ -8,3 +8,4 @@ from . import coupons, referrals, settings_public
 from . import admin_kyc
 from . import admin_deposits
 from . import admin_users
+from . import admin_products
