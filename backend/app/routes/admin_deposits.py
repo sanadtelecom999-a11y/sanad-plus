@@ -1,14 +1,16 @@
 """Admin Deposits Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
-from ..models.base import User, Deposit, Notification, AdminActivity, log_financial, FinancialAuditLog
-from ..services.telegram_service import send_deposit_approved, send_deposit_rejected
-from ..services.cache_service import invalidate_admin
+from ..models.base import User, Deposit, Notification, AdminActivity, log_financial, FinancialAuditLog, Transaction, Setting
+from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
+from ..services.cache_service import invalidate_admin, cache_delete, key_admin_list
 from . import main
 from .admin_utils import is_admin_user, handle_errors
+from .admin import log_admin_activity, get_arabic_status
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from datetime import datetime, timezone
+from .. import get_real_ip
 
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
