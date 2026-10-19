@@ -176,6 +176,8 @@ def _start_bot_subprocess():
         return None
 
 
+_shutdown_event = threading.Event()
+
 def _stop_bot_subprocess():
     global _shutdown_event
     """إيقاف نظيف للبوت"""
