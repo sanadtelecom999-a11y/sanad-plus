@@ -61,3 +61,18 @@ jobs:
         run: npm install
       - name: Run Vitest with coverage
         run: npm run test:coverage
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: cd miniapp && npm install
+      - name: Install Playwright Browsers
+        run: cd miniapp && npx playwright install --with-deps chromium
+      - name: Run E2E tests
+        run: cd miniapp && npm run test:e2e
