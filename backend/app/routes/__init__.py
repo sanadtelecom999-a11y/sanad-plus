@@ -11,3 +11,4 @@ from . import admin_users
 from . import admin_products
 from . import admin_settings
 from . import admin_archive
+from . import webhooks
