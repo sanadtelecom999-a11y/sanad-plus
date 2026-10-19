@@ -182,6 +182,7 @@ def _normalize_image(image_data, folder="sanad/uncategorized"):
 # ============================================================
 # Authentication (OTP DB)
 # ============================================================
+
 @main.route("/admin/login", methods=["POST"])
 @limiter.limit("5 per 5 minutes")
 @handle_errors
@@ -297,6 +298,7 @@ def admin_verify_otp():
 # ============================================================
 # 🆕 v17.1: Logout-All
 # ============================================================
+
 @main.route("/admin/api/logout-all", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -317,6 +319,7 @@ def admin_logout_all():
 # ============================================================
 # Users — 🆕 v18.1: cached list
 # ============================================================
+
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -466,6 +469,7 @@ def admin_user_detail(user_id):
 # ============================================================
 # 🆕 v17: DISCOUNTS
 # ============================================================
+
 @main.route("/admin/api/users/<int:user_id>/discounts", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -583,6 +587,7 @@ def admin_delete_product_discount(user_id, discount_id):
 # ============================================================
 # Categories — 🆕 v18.1: cached + eager
 # ============================================================
+
 @main.route("/admin/api/categories", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
@@ -662,6 +667,7 @@ def admin_restore_category(cat_id):
 # ============================================================
 # Products — 🆕 v18.1: cached + eager bundles
 # ============================================================
+
 @main.route("/admin/api/products", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
@@ -845,6 +851,7 @@ def admin_restore_product(product_id):
 # ============================================================
 # Bundles
 # ============================================================
+
 @main.route("/admin/api/products/<int:product_id>/bundles", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
@@ -1032,6 +1039,7 @@ def admin_payment_method_actions(method_id):
 
 # Orders — 🆕 v18.1: joinedload + cached
 # ============================================================
+
 @main.route("/admin/api/orders", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1343,13 +1351,6 @@ def admin_bulk_order_status():
         "failed": failed,
     })
 
-# ============================================================
-# KYC — 🆕 v18.1: joinedload + cached
-# ============================================================
-
-# ============================================================
-# Notifications
-# ============================================================
 @main.route("/admin/api/notifications", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -1376,6 +1377,7 @@ def admin_send_notification():
 # ============================================================
 # Service Requests — 🆕 v18.1: joinedload + cached
 # ============================================================
+
 @main.route("/admin/api/service-requests", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1426,6 +1428,7 @@ def admin_update_service_request(req_id):
 # ============================================================
 # Settings — 🆕 v18.1: invalidates public cache
 # ============================================================
+
 @main.route("/admin/api/settings", methods=["GET", "PUT"])
 @jwt_required()
 @handle_errors
@@ -1450,6 +1453,7 @@ def admin_settings():
 # ============================================================
 # Coupons — 🆕 v18.1: cached
 # ============================================================
+
 @main.route("/admin/api/coupons", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
@@ -1540,6 +1544,7 @@ def admin_coupon_actions(coupon_id):
 # ============================================================
 # Referrals, Activities, Audit — 🆕 v18.1: joinedload
 # ============================================================
+
 @main.route("/admin/api/referrals", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1616,6 +1621,7 @@ def admin_audit_log():
 # ============================================================
 # 🆕 v16: ARCHIVE — 🆕 v18.1: joinedload
 # ============================================================
+
 @main.route("/admin/api/archive/orders", methods=["GET"])
 @jwt_required()
 @handle_errors
@@ -1755,6 +1761,7 @@ def admin_archive_counts():
 # ============================================================
 # 🆕 v16: RESTORE
 # ============================================================
+
 @main.route("/admin/api/orders/<int:order_id>/restore", methods=["POST"])
 @jwt_required()
 @handle_errors
@@ -1856,6 +1863,7 @@ def admin_restore_service(req_id):
 # ============================================================
 # 🆕 v18.3.8: Admin Inbox
 # ============================================================
+
 @main.route("/admin/api/inbox", methods=["GET"])
 @jwt_required()
 @handle_errors
