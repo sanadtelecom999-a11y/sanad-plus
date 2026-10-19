@@ -58,6 +58,11 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd miniapp
+          npm install
       - name: Run Vitest with coverage
-        run: npm run test:coverage
+        run: |
+          cd miniapp
+          npm run test:coverage
+
