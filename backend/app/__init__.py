@@ -1,3 +1,4 @@
+from app.middleware import setup_middlewares
 # ============================================================
 # 🚀 SANAD PLUS⁺ — App Initialization (v17.1)
 # ============================================================
