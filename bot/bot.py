@@ -263,6 +263,9 @@ async def post_shutdown(application: Application):
 # ============ /start ============
 # ============================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if os.getenv("MAINTENANCE_MODE") == "1":
+        await update.message.reply_text("🛠️ المتجر تحت الصيانة حالياً. سنعود قريباً جداً!")
+        return
     if not update.message or not update.effective_user:
         return
     user_id = update.effective_user.id
