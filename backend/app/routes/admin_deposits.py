@@ -1,4 +1,4 @@
-"""Admin Deposits Routes - Extracted manually for safety"""
+"""Admin Deposits Routes"""
 from flask import request, jsonify
 from ..extensions import db
 from ..models.base import User, Deposit, Notification, AdminActivity, log_financial
@@ -11,7 +11,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from datetime import datetime, timezone
 from app.models.base import FinancialAuditLog
-
 
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
@@ -199,11 +198,3 @@ def admin_reject_deposit(deposit_id):
 
     notify_admins(f"رفض إيداع {deposit.id}: {deposit.amount:.2f}$")
     return jsonify({"status": deposit.status})
-
-# ============================================================
-# KYC — 🆕 v18.1: joinedload + cached
-# ============================================================
-
-# ============================================================
-# Notifications
-# ============================================================
