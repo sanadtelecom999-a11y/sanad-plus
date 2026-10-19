@@ -6,3 +6,4 @@ main = Blueprint("main", __name__)
 from . import auth, user, categories, products, orders, deposits, payment_methods, admin
 from . import coupons, referrals, settings_public
 from . import admin_kyc
+from . import admin_deposits
