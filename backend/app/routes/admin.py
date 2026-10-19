@@ -42,7 +42,7 @@ from .. import get_real_ip
 from .auth import cleanup_expired_blacklist, revoke_all_admin_sessions
 from app.services.admin_service import adjust_user_balance, AdminServiceError
 
-from app.middleware.admin import admin_required
+from app.middleware import admin_required
 from app.services.admin_auth_service import (
     OTP_TTL_SECONDS, OTP_MAX_ATTEMPTS, get_admin_ids,
     generate_otp_code, cleanup_expired_otp_sessions, check_login_rate_limit
