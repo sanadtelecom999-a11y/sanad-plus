@@ -24,6 +24,7 @@ from ..models.base import (
 )
 from ..extensions import db
 from . import main
+from .admin_utils import handle_errors, is_admin_user
 from ..services.telegram_service import (
     send_telegram_notification, notify_admins,
     send_deposit_approved, send_deposit_rejected,
@@ -57,84 +58,11 @@ if not ADMIN_PASSWORD_HASH:
 # Helpers
 # ============================================================
 
-def get_admin_ids():
-    admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "")
-    try:
-        return [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
-    except ValueError:
-        return []
 
-def generate_otp_code():
-    return str(random.randint(100000, 999999))
 
-def cleanup_expired_otp_sessions():
-    try:
-        AdminOTPSession.query.filter(
-            AdminOTPSession.expires_at < datetime.now(timezone.utc)
-        ).delete()
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        print(f"cleanup expired sessions: {e}")
 
-# v18.4.20: Fixed memory leak + DoS hardening
-# - Regular dict (not defaultdict) — no auto-recreation
-# - Hard cap LOGIN_RATE_MAX_KEYS — DoS mitigation
-# - Evict oldest 25% instead of nuking all (prevents rate-limit bypass)
-_login_attempts = {}
-LOGIN_RATE_WINDOW = 300
-LOGIN_RATE_MAX = 5
-LOGIN_RATE_MAX_KEYS = 10_000
 
-def check_login_rate_limit(ip: str) -> bool:
-    now = time.time()
 
-    # 1. Clean expired entries for this IP
-    if ip in _login_attempts:
-        _login_attempts[ip] = [
-            t for t in _login_attempts[ip]
-            if now - t < LOGIN_RATE_WINDOW
-        ]
-        if not _login_attempts[ip]:
-            del _login_attempts[ip]
-
-    # 2. Hard cap: evict oldest 25% if exceeded
-    if len(_login_attempts) > LOGIN_RATE_MAX_KEYS:
-        items = sorted(
-            _login_attempts.items(),
-            key=lambda x: max(x[1]) if x[1] else 0,
-        )
-        evict_count = len(items) // 4
-        for k, _ in items[:evict_count]:
-            del _login_attempts[k]
-        print(f"⚠️ _login_attempts evicted {evict_count} oldest entries")
-
-    # 3. Rate check
-    if len(_login_attempts.get(ip, [])) >= LOGIN_RATE_MAX:
-        return False
-
-    _login_attempts.setdefault(ip, []).append(now)
-    return True
-
-def handle_errors(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except Exception as e:
-            db.session.rollback()
-            tb = traceback.format_exc()
-            print(f"Error in {f.__name__}: {e}")
-            print(tb)
-            try:
-                sentry_sdk.capture_exception(e)
-            except Exception:
-                pass
-            return jsonify({"error": f"خطأ داخلي: {str(e)}", "function": f.__name__}), 500
-    return wrapper
-
-def is_admin_user(identity):
-    return identity == "admin"
 
 def verify_admin_password(password):
     return check_password_hash(ADMIN_PASSWORD_HASH, password)
