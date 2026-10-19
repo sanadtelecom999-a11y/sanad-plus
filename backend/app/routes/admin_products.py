@@ -5,7 +5,8 @@ from ..models.base import User, Category, Product, ProductBundle, AdminActivity,
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
 from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin
 from . import main
-from .admin_utils import is_admin_user, handle_errors, admin_required
+from .admin_utils import is_admin_user, handle_errors
+from app.middleware import admin_required
 from .admin import log_admin_activity, get_arabic_status, serialize_bundle, _normalize_image
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
