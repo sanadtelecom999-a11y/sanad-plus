@@ -1,0 +1,15 @@
+{
+  "name": "sanad-plus-miniapp-tests",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "jsdom": "^24.0.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@playwright/test": "^1.44.0"
+  }
+}
