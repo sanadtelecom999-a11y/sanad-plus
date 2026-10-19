@@ -84,6 +84,16 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -99,6 +109,7 @@ jobs:
           FLASK_ENV: testing
           SKIP_BOT: '1'
           DATABASE_URL: 'postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test'
+          REDIS_URL: 'redis://localhost:6379/0'
           JWT_SECRET_KEY: 'ci-e2e-jwt-key-32-chars-minimum-yyyy'
           SECRET_KEY: 'ci-e2e-secret-key-32-chars-minimum-xxxx'
           ADMIN_PASSWORD_HASH: 'pbkdf2:sha256:600000/usr/bin/bash000000000000000000000000000000000000000000000000000000000000000'
