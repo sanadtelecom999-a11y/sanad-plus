@@ -104,18 +104,6 @@ jobs:
           node-version: '20'
       - name: Install Backend Deps
         run: pip install -r backend/requirements-lock.txt
-      - name: Start Backend Server
-        env:
-          FLASK_ENV: testing
-          SKIP_BOT: '1'
-          DATABASE_URL: 'postgresql+psycopg2://postgres:postgres@localhost:5432/sanad_test'
-          REDIS_URL: 'redis://localhost:6379/0'
-          JWT_SECRET_KEY: 'ci-e2e-jwt-key-32-chars-minimum-yyyy'
-          SECRET_KEY: 'ci-e2e-secret-key-32-chars-minimum-xxxx'
-          ADMIN_PASSWORD_HASH: 'pbkdf2:sha256:600000/usr/bin/bash000000000000000000000000000000000000000000000000000000000000000'
-        run: |
-          python backend/run.py > backend.log 2>&1 &
-          sleep 5
       - name: Install Frontend Deps & Playwright
         run: |
           cd miniapp
