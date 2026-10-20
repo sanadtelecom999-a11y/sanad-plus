@@ -3396,6 +3396,8 @@ async function approveDepositHandler(depositId) {
 }
 
 async function rejectDepositHandler(depositId) {
+    const btn = event ? event.target : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري...'; }
     const confirmed = await showConfirm({
         title: 'رفض الإيداع',
         message: 'هل أنت متأكد من رفض هذا الإيداع؟',

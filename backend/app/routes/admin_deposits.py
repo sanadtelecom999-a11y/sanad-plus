@@ -1,5 +1,7 @@
 """Admin Deposits Routes - Extracted from admin.py"""
+import logging
 from flask import request, jsonify
+logger = logging.getLogger(__name__)
 from ..extensions import db
 from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
 from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
@@ -119,6 +121,10 @@ def admin_approve_deposit(deposit_id):
     paid_debt = 0.0
     added_amount = net_amount
 
+    if not user:
+        db.session.rollback()
+        return jsonify({"error": "المستخدم صاحب الإيداع غير موجود. تم إلغاء العملية."}), 404
+
     if user:
         balance_before = round(user.balance, 2)
         current = round(user.balance, 2)
@@ -152,10 +158,21 @@ def admin_approve_deposit(deposit_id):
             user_id=user.id, title="إيداع مقبول",
             message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
         ))
-        send_deposit_approved(user, dep_amount, paid_debt, added_amount)
 
     log_admin_activity(f"قبول إيداع {deposit.id}")
-    db.session.commit()
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Commit failed for deposit {deposit.id}: {e}")
+        return jsonify({"error": "فشل حفظ الرصيد في قاعدة البيانات"}), 500
+
+    if user:
+        try:
+            send_deposit_approved(user, dep_amount, paid_debt, added_amount)
+        except Exception as e:
+            logger.warning(f"Telegram notify failed for deposit {deposit.id}: {e}")
 
     invalidate_admin("deposits")
 
