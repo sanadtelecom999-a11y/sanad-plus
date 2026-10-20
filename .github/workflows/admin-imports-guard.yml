@@ -1,0 +1,31 @@
+name: Admin Imports Guard
+
+on:
+  pull_request:
+    paths:
+      - 'backend/app/routes/admin_*.py'
+  push:
+    branches: [main, develop]
+
+jobs:
+  check-imports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify all admin files have required imports
+        run: |
+          FAIL=0
+          for file in backend/app/routes/admin_*.py; do
+            HEADER=$(head -n 40 "$file")
+            for symbol in key_admin_list Setting joinedload get_signed_url Decimal; do
+              if grep -q "$symbol" "$file" && ! echo "$HEADER" | grep -q "$symbol"; then
+                echo "❌ $file uses '$symbol' but doesn't import it in header"
+                FAIL=1
+              fi
+            done
+          done
+          if [ $FAIL -eq 1 ]; then
+            echo "::error::Missing imports detected. Run 'python ensure_imports.py' locally."
+            exit 1
+          fi
+          echo "✅ All admin files have required imports"
