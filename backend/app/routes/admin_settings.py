@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from ..extensions import db
 from ..models.base import Setting, PaymentMethod, Coupon, CouponUsage, Referral, AdminActivity
-from ..services.cache_service import invalidate_settings, invalidate_payment_methods, invalidate_admin
+from ..services.cache_service import invalidate_settings, invalidate_payment_methods, invalidate_admin, cache_get
 from ..services.telegram_service import notify_admins
 from . import main
 from .admin_utils import is_admin_user, handle_errors
@@ -11,6 +11,17 @@ from .admin import log_admin_activity, get_arabic_status
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from datetime import datetime, timezone
+
+
+def _serialize_payment_method(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "is_active": m.is_active,
+        "min_amount": float(m.min_amount) if m.min_amount else None,
+        "max_amount": float(m.max_amount) if m.max_amount else None,
+        "fee": float(m.fee) if m.fee else 0.0
+    }
 
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()

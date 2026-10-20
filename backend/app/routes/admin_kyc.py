@@ -4,7 +4,7 @@ from ..extensions import db
 from ..models.base import User, KYCRequest, Notification, AdminActivity, log_financial
 from ..services.telegram_service import send_kyc_approved, send_kyc_rejected
 from ..services.cloudinary_service import get_signed_url
-from ..services.cache_service import invalidate_admin
+from ..services.cache_service import invalidate_admin, cache_get
 from . import main
 from .admin import is_admin_user, handle_errors
 from flask_jwt_extended import jwt_required, get_jwt_identity

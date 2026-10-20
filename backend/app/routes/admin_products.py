@@ -3,7 +3,7 @@ from flask import request, jsonify
 from ..extensions import db
 from ..models.base import User, Category, Product, ProductBundle, AdminActivity, Notification
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
-from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin
+from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get
 from . import main
 from .admin_utils import is_admin_user, handle_errors
 from app.middleware import admin_required

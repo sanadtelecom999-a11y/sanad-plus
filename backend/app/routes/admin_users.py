@@ -4,7 +4,7 @@ from ..extensions import db
 from ..models.base import User, UserProductDiscount, Transaction, AdminActivity, FinancialAuditLog, Coupon, CouponUsage, Referral, log_financial
 from ..services.admin_service import adjust_user_balance, AdminServiceError
 from ..services.telegram_service import notify_admins
-from ..services.cache_service import invalidate_admin
+from ..services.cache_service import invalidate_admin, cache_get
 from . import main
 from app.middleware import admin_required
 from .admin_utils import is_admin_user, handle_errors
