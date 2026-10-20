@@ -340,10 +340,25 @@
         <div class="modal-content">
             <span class="close-modal" onclick="closeSupport()">&times;</span>
             <h3>الدعم الفني</h3>
-            <p>اكتب مشكلتك وسنرد عليك في أقرب وقت.</p>
-            <textarea id="supportMessage" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
-            <button class="btn-primary" onclick="submitSupportTicket()" id="submitTicketBtn">إرسال</button>
-            <p id="supportStatusMsg" style="margin-top: 10px; font-size: 14px;"></p>
+            
+            <div class="support-tabs">
+                <button class="tab-btn active" id="tabBtnNew" onclick="switchSupportTab('new')">إرسال تذكرة</button>
+                <button class="tab-btn" id="tabBtnHistory" onclick="switchSupportTab('history')">تذاكري</button>
+            </div>
+
+            <!-- تبويب إرسال تذكرة -->
+            <div id="supportTabNew" class="tab-content active">
+                <textarea id="supportMessage" rows="3" placeholder="اكتب مشكلتك وسنرد عليك في أقرب وقت..."></textarea>
+                <button class="btn-primary" onclick="submitSupportTicket()" id="submitTicketBtn">إرسال</button>
+                <p id="supportStatusMsg" style="margin-top: 10px; font-size: 14px;"></p>
+            </div>
+
+            <!-- تبويب تذاكري السابقة -->
+            <div id="supportTabHistory" class="tab-content" style="display: none;">
+                <div id="supportTicketsList" style="max-height: 50vh; overflow-y: auto;">
+                    <p style="text-align: center; color: #888;">جاري التحميل...</p>
+                </div>
+            </div>
         </div>
     </div>
     

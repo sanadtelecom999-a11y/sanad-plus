@@ -2172,6 +2172,64 @@ function openSupport() {
     document.getElementById('supportModal').style.display = 'flex';
     document.getElementById('supportMessage').value = '';
     document.getElementById('supportStatusMsg').textContent = '';
+    switchSupportTab('new');
+    loadSupportHistory(); // تحميل السجل في الخلفية
+}
+
+function switchSupportTab(tab) {
+    if (tab === 'new') {
+        document.getElementById('tabBtnNew').classList.add('active');
+        document.getElementById('tabBtnHistory').classList.remove('active');
+        document.getElementById('supportTabNew').classList.add('active');
+        document.getElementById('supportTabHistory').classList.remove('active');
+    } else {
+        document.getElementById('tabBtnHistory').classList.add('active');
+        document.getElementById('tabBtnNew').classList.remove('active');
+        document.getElementById('supportTabHistory').classList.add('active');
+        document.getElementById('supportTabNew').classList.remove('active');
+        loadSupportHistory();
+    }
+}
+
+async function loadSupportHistory() {
+    const listEl = document.getElementById('supportTicketsList');
+    listEl.innerHTML = '<p style="text-align: center; color: #888;">جاري التحميل...</p>';
+    
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+        const response = await fetch('/api/support', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch');
+        
+        const tickets = await response.json();
+        
+        if (tickets.length === 0) {
+            listEl.innerHTML = '<p style="text-align: center; color: #888;">لا توجد تذاكر سابقة.</p>';
+            return;
+        }
+        
+        let html = '';
+        tickets.forEach(t => {
+            const statusClass = t.status === 'answered' ? 'answered' : 'open';
+            const statusText = t.status === 'answered' ? 'تم الرد' : 'قيد المراجعة';
+            
+            html += `
+                <div class="ticket-card">
+                    <div><strong>رسالتك:</strong> ${t.message}</div>
+                    <div style="margin-top: 8px; font-size: 12px; color: #888;">
+                        <span class="status ${statusClass}">${statusText}</span>
+                        ${new Date(t.date).toLocaleDateString('ar-EG')}
+                    </div>
+                    ${t.reply ? `<div class="ticket-reply"><strong>رد الإدارة:</strong> ${t.reply}</div>` : ''}
+                </div>
+            `;
+        });
+        listEl.innerHTML = html;
+    } catch (err) {
+        listEl.innerHTML = '<p style="text-align: center; color: red;">خطأ في تحميل التذاكر.</p>';
+    }
 }
 
 function closeSupport() {
