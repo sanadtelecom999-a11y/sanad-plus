@@ -12,6 +12,17 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from datetime import datetime, timezone
 
+
+def _serialize_payment_method(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "is_active": m.is_active,
+        "min_amount": float(m.min_amount) if m.min_amount else None,
+        "max_amount": float(m.max_amount) if m.max_amount else None,
+        "fee": float(m.fee) if m.fee else 0.0
+    }
+
 @main.route("/admin/api/payment-methods", methods=["GET", "POST"])
 @jwt_required()
 @handle_errors
