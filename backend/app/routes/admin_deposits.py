@@ -11,6 +11,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
 from datetime import datetime, timezone
 from .. import get_real_ip
+from ..services.cloudinary_service import upload_base64_image, get_signed_url
+
 
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
