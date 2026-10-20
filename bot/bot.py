@@ -45,7 +45,7 @@ except ImportError:
 # ============================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TELEGRAM_ADMIN_IDS_STR = os.getenv("TELEGRAM_ADMIN_IDS", "")
-MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app/?v=3")
+MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app/?v=3?v=2")
 ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.app")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
 BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")

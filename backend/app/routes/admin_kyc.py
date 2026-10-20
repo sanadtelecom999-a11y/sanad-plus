@@ -1,7 +1,7 @@
 """Admin KYC Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
-from ..models.base import User, KYCRequest, Notification, AdminActivity, log_financial
+from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
 from ..services.telegram_service import send_kyc_approved, send_kyc_rejected
 from ..services.cloudinary_service import get_signed_url
 from ..services.cache_service import invalidate_admin, cache_get

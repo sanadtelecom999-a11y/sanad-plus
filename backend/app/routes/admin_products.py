@@ -1,7 +1,7 @@
 """Admin Products & Categories Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
-from ..models.base import User, Category, Product, ProductBundle, AdminActivity, Notification
+from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
 from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get
 from . import main
