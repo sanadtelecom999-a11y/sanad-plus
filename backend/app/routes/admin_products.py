@@ -376,3 +376,4 @@ def _validate_payment_method_data(data, current=None):
         return None, "نسبة الرسوم يجب أن تكون 100% أو أقل"
 
     return {"min_amount": min_amt, "max_amount": max_amt, "fee": fee_val, "fee_type": fee_type}, None
+# Force rebuild 1792537506
