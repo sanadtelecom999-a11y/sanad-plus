@@ -1,9 +1,23 @@
+from sqlalchemy.orm import joinedload, selectinload
+from decimal import Decimal
+from datetime import datetime, timezone, timedelta
+from ..models.base import (
+    User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod,
+    KYCRequest, Notification, Setting, AdminActivity, ServiceRequest,
+    Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, log_financial,
+    AdminOTPSession, UserProductDiscount
+)
+from ..services.cache_service import (
+    cache_get, cache_set, cache_delete,
+    key_admin_list, TTL_ADMIN_LISTS,
+    invalidate_admin, invalidate_categories, invalidate_products,
+    invalidate_payment_methods, invalidate_settings,
+)
+
 """Admin Deposits Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
-from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
 from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
-from ..services.cache_service import invalidate_admin, cache_delete, key_admin_list, cache_get
 from . import main
 from .admin_utils import is_admin_user, handle_errors
 from .admin import log_admin_activity, get_arabic_status
