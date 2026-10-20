@@ -2197,7 +2197,7 @@ async function loadSupportHistory() {
     
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-        const response = await fetch('/api/support', {
+        const response = await fetch('https://sanad-plus-backend.onrender.com/api/support', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2253,7 +2253,7 @@ async function submitSupportTicket() {
     try {
         // استخدام دالة apiFetch إذا كانت موجودة، أو fetch العادية
         const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-        const response = await fetch('/api/support', {
+        const response = await fetch('https://sanad-plus-backend.onrender.com/api/support', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
