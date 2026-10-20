@@ -3211,8 +3211,8 @@ function renderDeposits(deposits) {
                     <span class="material-icons" style="font-size:14px;">visibility</span> تفاصيل
                 </button>
                 ${d.status === 'pending' ? `
-                    <button class="btn-success btn-sm" onclick="approveDepositHandler(${d.id})">قبول</button>
-                    <button class="btn-danger btn-sm" onclick="rejectDepositHandler(${d.id})">رفض</button>
+                    <button class="btn-success btn-sm" onclick="approveDepositHandler(${d.id}, this)">قبول</button>
+                    <button class="btn-danger btn-sm" onclick="rejectDepositHandler(${d.id}, this)">رفض</button>
                 ` : ''}
             </td>
         </tr>
@@ -3395,7 +3395,8 @@ async function approveDepositHandler(depositId) {
     }
 }
 
-async function rejectDepositHandler(depositId) {
+async function rejectDepositHandler(depositId, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'جاري...'; }
     const confirmed = await showConfirm({
         title: 'رفض الإيداع',
         message: 'هل أنت متأكد من رفض هذا الإيداع؟',
