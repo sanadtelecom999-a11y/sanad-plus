@@ -3425,3 +3425,50 @@ input:checked + .toggle-slider:before {
     cursor: pointer;
     font-weight: bold;
 }
+
+/* Support Tabs & History Styles */
+.support-tabs {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #666;
+    font-weight: bold;
+}
+.tab-btn.active {
+    color: var(--primary-color, #007bff);
+    border-bottom: 2px solid var(--primary-color, #007bff);
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.ticket-card {
+    background: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    text-align: right;
+}
+.ticket-card .status {
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-right: 8px;
+}
+.status.open { background: #ffeeba; color: #856404; }
+.status.answered { background: #d4edda; color: #155724; }
+.ticket-reply {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #ccc;
+    font-size: 13px;
+    color: #0056b3;
+}
