@@ -10,6 +10,8 @@ from .admin import log_admin_activity, get_arabic_status
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from ..services.cloudinary_service import upload_base64_image, get_signed_url
+
 
 @main.route("/admin/api/notifications", methods=["POST"])
 @jwt_required()
