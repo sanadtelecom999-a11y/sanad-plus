@@ -1,3 +1,4 @@
+from sqlalchemy.orm import selectinload, joinedload
 """Admin Products & Categories Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
