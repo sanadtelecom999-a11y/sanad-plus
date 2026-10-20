@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from ..extensions import db
 from ..models.base import AdminActivity, FinancialAuditLog, Order, Deposit, KYCRequest, ServiceRequest, Notification, User, Transaction
-from ..services.cache_service import invalidate_admin
+from ..services.cache_service import invalidate_admin, cache_get
 from . import main
 from .admin_utils import is_admin_user, handle_errors
 from app.middleware import admin_required

@@ -2,7 +2,7 @@
 from flask import request, jsonify
 from ..extensions import db
 from ..models.base import Setting, PaymentMethod, Coupon, CouponUsage, Referral, AdminActivity
-from ..services.cache_service import invalidate_settings, invalidate_payment_methods, invalidate_admin
+from ..services.cache_service import invalidate_settings, invalidate_payment_methods, invalidate_admin, cache_get
 from ..services.telegram_service import notify_admins
 from . import main
 from .admin_utils import is_admin_user, handle_errors
