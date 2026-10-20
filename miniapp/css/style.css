@@ -3376,3 +3376,52 @@ input:checked + .toggle-slider:before {
     object-fit: cover;
     display: block;
 }
+
+/* Support Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    direction: rtl;
+}
+.modal-content {
+    background: var(--card-bg, #fff);
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.close-modal {
+    position: absolute;
+    top: 10px; left: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #888;
+}
+.modal-content h3 { margin-top: 0; color: var(--text-color, #333); }
+.modal-content textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-family: inherit;
+    resize: none;
+    box-sizing: border-box;
+}
+.modal-content .btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary-color, #007bff);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}

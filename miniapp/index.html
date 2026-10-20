@@ -334,5 +334,18 @@
 <script src="js/api.js?v=22"></script>
 <script src="js/app_new.js?v=22"></script>
 
+
+    <!-- Support Modal -->
+    <div id="supportModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeSupport()">&times;</span>
+            <h3>الدعم الفني</h3>
+            <p>اكتب مشكلتك وسنرد عليك في أقرب وقت.</p>
+            <textarea id="supportMessage" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
+            <button class="btn-primary" onclick="submitSupportTicket()" id="submitTicketBtn">إرسال</button>
+            <p id="supportStatusMsg" style="margin-top: 10px; font-size: 14px;"></p>
+        </div>
+    </div>
+    
 </body>
 </html>

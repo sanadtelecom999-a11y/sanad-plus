@@ -2169,7 +2169,59 @@ function toggleFAQ(index) {
 // Support & Notifications
 // ════════════════════════════════════════════════════════════
 function openSupport() {
-    window.open(publicSettings?.support_url || 'https://t.me/SANADST', '_blank');
+    document.getElementById('supportModal').style.display = 'flex';
+    document.getElementById('supportMessage').value = '';
+    document.getElementById('supportStatusMsg').textContent = '';
+}
+
+function closeSupport() {
+    document.getElementById('supportModal').style.display = 'none';
+}
+
+async function submitSupportTicket() {
+    const msg = document.getElementById('supportMessage').value.trim();
+    const statusEl = document.getElementById('supportStatusMsg');
+    const btn = document.getElementById('submitTicketBtn');
+    
+    if (!msg) {
+        statusEl.style.color = 'red';
+        statusEl.textContent = 'الرجاء كتابة رسالتك أولاً.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'جاري الإرسال...';
+    
+    try {
+        // استخدام دالة apiFetch إذا كانت موجودة، أو fetch العادية
+        const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+        const response = await fetch('/api/support', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ message: msg })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            statusEl.style.color = 'green';
+            statusEl.textContent = '✅ تم إرسال رسالتك بنجاح. سنرد عليك قريباً.';
+            document.getElementById('supportMessage').value = '';
+            setTimeout(closeSupport, 3000);
+        } else {
+            statusEl.style.color = 'red';
+            statusEl.textContent = data.error || 'حدث خطأ أثناء الإرسال.';
+        }
+    } catch (err) {
+        statusEl.style.color = 'red';
+        statusEl.textContent = 'خطأ في الاتصال بالسيرفر.';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'إرسال';
+    }
 }
 
 async function openNotificationsPage() {
