@@ -34,83 +34,107 @@ def admin_approve_deposit(deposit_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
-    # 1. جلب الإيداع مع قفل
-    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
-    if not deposit:
-        return jsonify({"error": "إيداع غير موجود"}), 404
-    if deposit.status != "pending":
-        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+    from flask import current_app
+    from decimal import Decimal
+    from datetime import datetime, timezone
+    from ..extensions import db
+    from ..models.base import Deposit, User, Transaction, FinancialAuditLog
+    from ..services.cache_service import cache_delete, key_admin_list, invalidate_admin
+    from ..services.telegram_service import send_deposit_approved
 
-    # 2. جلب المستخدم مع قفل والتحقق من وجوده
-    user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
-    if not user:
-        db.session.rollback()
-        return jsonify({"error": "المستخدم صاحب الإيداع غير موجود"}), 404
+    try:
+        # 1. جلب الإيداع مع قفل
+        deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
+        if not deposit:
+            return jsonify({"error": "إيداع غير موجود", "code": "NOT_FOUND"}), 404
 
-    # 3. الحسابات المالية
-    deposit_fee = round(deposit.fee or 0, 2)
-    dep_amount = round(deposit.amount, 2)
-    net_amount = round(dep_amount - deposit_fee, 2)
-    if net_amount < 0:
-        net_amount = 0.0
+        # 2. Idempotency
+        if deposit.status != "pending":
+            return jsonify({"error": f"تمت معالجته مسبقاً (status={deposit.status})", "code": "ALREADY_PROCESSED"}), 400
 
-    balance_before = round(user.balance, 2)
-    current = round(user.balance, 2)
-    paid_debt = 0.0
-    added_amount = net_amount
+        # 3. جلب المستخدم مع قفل
+        user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
+        if not user:
+            db.session.rollback()
+            current_app.logger.error(f"APPROVE FAILED: user {deposit.user_id} not found")
+            return jsonify({"error": "المستخدم غير موجود", "code": "USER_NOT_FOUND"}), 404
 
-    if current < 0:
-        debt = abs(current)
-        if net_amount >= debt:
-            paid_debt = round(debt, 2)
-            added_amount = round(net_amount - debt, 2)
-            user.balance = added_amount
-        else:
-            paid_debt = net_amount
-            added_amount = 0.0
-            user.balance = round(current + net_amount, 2)
-    else:
-        user.balance = round(current + net_amount, 2)
+        # 4. الحسابات المالية الدقيقة (Decimal)
+        deposit_fee = Decimal(str(deposit.fee or 0)).quantize(Decimal("0.01"))
+        dep_amount = Decimal(str(deposit.amount)).quantize(Decimal("0.01"))
+        net_amount = max(dep_amount - deposit_fee, Decimal("0.00"))
+
+        balance_before = Decimal(str(user.balance or 0)).quantize(Decimal("0.01"))
+        current = balance_before
+        paid_debt = Decimal("0.00")
         added_amount = net_amount
 
-    # 4. تحديث حالة الإيداع
-    deposit.status = "approved"
-    deposit.reviewed_at = datetime.now(timezone.utc)
+        if current < 0:
+            debt = abs(current)
+            if net_amount >= debt:
+                paid_debt = debt
+                added_amount = net_amount - debt
+                user.balance = added_amount
+            else:
+                paid_debt = net_amount
+                added_amount = Decimal("0.00")
+                user.balance = current + net_amount
+        else:
+            user.balance = current + net_amount
 
-    # 5. تسجيل العمليات
-    db.session.add(Transaction(
-        user_id=user.id, type="deposit", amount=dep_amount,
-        balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
-    ))
-    log_financial(
-        user=user, action="deposit_approved", amount=dep_amount,
-        balance_before=balance_before, balance_after=user.balance,
-        ref_type="deposit", ref_id=deposit.id,
-    )
-    db.session.add(Notification(
-        user_id=user.id, title="إيداع مقبول",
-        message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
-    ))
-    log_admin_activity(f"قبول إيداع {deposit.id}")
+        # 5. تحديث الحالة والسجلات
+        deposit.status = "approved"
+        deposit.reviewed_at = datetime.now(timezone.utc)
 
-    # 6. الحفظ في قاعدة البيانات (الخطوة الأهم)
-    try:
-        db.session.commit()
+        db.session.add(Transaction(
+            user_id=user.id, type="deposit", amount=dep_amount,
+            balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
+        ))
+        
+        db.session.add(FinancialAuditLog(
+            user_id=user.id, action="deposit_approved", amount=dep_amount,
+            balance_before=balance_before, balance_after=user.balance, ref_type="deposit", ref_id=deposit.id
+        ))
+
+        # 6. الحفظ الصاخب
+        current_app.logger.info(f"🚨 BEFORE COMMIT: deposit={deposit.id}, balance={balance_before} -> {user.balance}")
+        try:
+            db.session.commit()
+            current_app.logger.info(f"✅ AFTER COMMIT SUCCESS: deposit={deposit.id}, balance={user.balance}")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"❌ COMMIT FAILED: {str(e)}", exc_info=True)
+            return jsonify({"error": "فشل الحفظ في DB", "details": str(e)}), 500
+
+        # 7. التحديث من قاعدة البيانات (لضمان دقة الـ JSON)
+        db.session.refresh(user)
+        actual_balance = Decimal(str(user.balance)).quantize(Decimal("0.01"))
+        current_app.logger.info(f"🔍 REFRESHED FROM DB: actual_balance={actual_balance}")
+
+        # 8. مسح الكاش
+        try:
+            cache_delete(f"user:{user.id}")
+            cache_delete(key_admin_list("users"))
+            invalidate_admin(user.id)
+        except Exception as e:
+            current_app.logger.warning(f"Cache error: {e}")
+
+        # 9. الإشعار (بعد الحفظ)
+        try:
+            send_deposit_approved(user, float(dep_amount), float(paid_debt), float(added_amount))
+        except Exception as e:
+            current_app.logger.warning(f"Telegram error: {e}")
+
+        return jsonify({
+            "status": "approved", "deposit_id": deposit.id,
+            "paid_debt": float(paid_debt), "added": float(added_amount),
+            "balance_before": float(balance_before), "new_balance": float(actual_balance)
+        }), 200
+
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Commit failed for deposit {deposit.id}: {e}")
-        return jsonify({"error": "فشل حفظ الرصيد في قاعدة البيانات"}), 500
-
-    # 7. إرسال الإشعار فقط بعد نجاح الحفظ بنسبة 100%
-    try:
-        send_deposit_approved(user, dep_amount, paid_debt, added_amount)
-    except Exception as e:
-        logger.warning(f"Telegram notify failed for deposit {deposit.id}: {e}")
-
-    invalidate_admin("deposits")
-    notify_admins(f"إيداع {deposit.id}: {deposit.amount:.2f}$")
-
-    return jsonify({"status": "approved", "paid_debt": paid_debt, "added": added_amount, "new_balance": user.balance}), 200
+        current_app.logger.error(f"UNHANDLED ERROR: {str(e)}", exc_info=True)
+        return jsonify({"error": "خطأ غير متوقع", "code": "INTERNAL_ERROR"}), 500
 
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
