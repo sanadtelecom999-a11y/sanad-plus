@@ -4489,7 +4489,8 @@ async function quickRejectOrder(orderId) {
         const token = getAdminToken();
         if (!token) { showToast('انتهت الجلسة', 'error'); return; }
 
-        const res = await fetch(`${API_BASE}/admin/api/orders/${orderId}/status`, {
+        // استخدام الرابط المباشر بدلاً من API_BASE
+        const res = await fetch(`https://sanad-plus-backend.onrender.com/admin/api/orders/${orderId}/status`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'failed' })
@@ -4522,7 +4523,8 @@ async function rejectDepositHandler(depositId) {
             return;
         }
 
-        const res = await fetch(`${API_BASE}/admin/api/deposits/${depositId}/reject`, {
+        // استخدام الرابط المباشر بدلاً من API_BASE
+        const res = await fetch(`https://sanad-plus-backend.onrender.com/admin/api/deposits/${depositId}/reject`, {
             method: 'POST',
             headers: { 
                 'Authorization': `Bearer ${token}`, 
@@ -4538,13 +4540,11 @@ async function rejectDepositHandler(depositId) {
 
         if (res.ok) {
             showToast('تم رفض الإيداع بنجاح', 'success');
-            // إزالة البطاقة من الشاشة فوراً
             const btn = document.querySelector(`button[onclick="rejectDepositHandler(${depositId})"]`);
             if (btn) {
                 const card = btn.closest('.card') || btn.closest('.deposit-card') || btn.closest('.order-card') || btn.parentElement.parentElement;
                 if (card) card.remove();
             }
-            // تحديث الإحصائيات
             if (typeof loadAllData === 'function') loadAllData();
         } else {
             showToast(data.error || 'فشل رفض الإيداع من السيرفر', 'error');
