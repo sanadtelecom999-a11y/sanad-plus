@@ -3145,7 +3145,8 @@ async function viewOrderDetails(orderId) {
                             <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
                         ` : ''}
                         ${order.status === 'processing' ? `
-                            <button class="btn-success" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
+                            <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})">رفض</button>
+                        <button class="btn-success" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
                             <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
                         ` : ''}
                     ` : `
@@ -4601,6 +4602,25 @@ async function rejectOrder(orderId) {
         } else {
             const data = await res.json();
             showToast(data.error || 'فشل الرفض', 'error');
+        }
+    } catch (e) {
+        showToast('خطأ في الاتصال', 'error');
+    }
+}
+
+
+async function quickRejectOrder(orderId) {
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟')) return;
+    try {
+        const res = await fetch(`${API_BASE}/admin/api/orders/${orderId}/reject`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+        });
+        if (res.ok) {
+            showToast('تم رفض الطلب بنجاح', 'success');
+            loadOrders();
+        } else {
+            showToast('فشل الرفض', 'error');
         }
     } catch (e) {
         showToast('خطأ في الاتصال', 'error');
