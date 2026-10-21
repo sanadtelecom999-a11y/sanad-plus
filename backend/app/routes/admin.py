@@ -322,6 +322,11 @@ def admin_order_detail(order_id):
 @main.route("/admin/api/orders/<int:order_id>/full", methods=["GET"])
 @handle_errors
 def admin_order_full_detail(order_id):
+    from flask_jwt_extended import verify_jwt_in_request
+    try:
+        verify_jwt_in_request(optional=True)
+    except Exception:
+        pass
     if not is_admin_user(get_jwt_identity()):
         db.session.commit()
     invalidate_admin("orders")

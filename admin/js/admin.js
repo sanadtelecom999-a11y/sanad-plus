@@ -3146,6 +3146,7 @@ async function viewOrderDetails(orderId) {
                         ` : ''}
                         ${order.status === 'processing' ? `
                             <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})">رفض</button>
+                        <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})" style="margin-left:5px;">رفض</button>
                         <button class="btn-success" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
                             <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
                         ` : ''}
