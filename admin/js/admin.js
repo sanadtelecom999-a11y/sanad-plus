@@ -4500,27 +4500,37 @@ async function quickRejectOrder(orderId) {
 
 async function rejectDepositHandler(depositId) {
     if (!confirm('هل أنت متأكد من رفض هذا الإيداع؟')) return;
+    
+    console.log('Sending reject request for deposit:', depositId);
+    
     try {
+        // إرسال الطلب الفعلي إلى السيرفر (Render)
         const res = await fetch(`${API_BASE}/admin/api/deposits/${depositId}/reject`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' },
+            headers: { 
+                'Authorization': `Bearer ${getAdminToken()}`, 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({ reason: 'رفض من لوحة التحكم' })
         });
+        
+        const data = await res.json().catch(() => ({}));
+        
         if (res.ok) {
             showToast('تم رفض الإيداع بنجاح', 'success');
-            // إخفاء العنصر من الشاشة فوراً بدلاً من انتظار إعادة التحميل
+            // إزالة البطاقة من الشاشة فوراً بعد نجاح السيرفر
             const btn = document.querySelector(`button[onclick="rejectDepositHandler(${depositId})"]`);
             if (btn) {
                 const card = btn.closest('.card') || btn.closest('.deposit-card') || btn.closest('.order-card') || btn.parentElement.parentElement;
                 if (card) card.remove();
             }
-            // تحديث البيانات لضمان بقاء الإحصائيات صحيحة
+            // تحديث الإحصائيات
             if (typeof loadAllData === 'function') loadAllData();
         } else {
-            const err = await res.json().catch(() => ({}));
-            showToast(err.error || 'فشل الرفض', 'error');
+            showToast(data.error || 'فشل رفض الإيداع من السيرفر', 'error');
         }
     } catch (e) {
-        showToast('خطأ في الاتصال', 'error');
+        console.error('Reject Error:', e);
+        showToast('خطأ في الاتصال بالسيرفر', 'error');
     }
 }
