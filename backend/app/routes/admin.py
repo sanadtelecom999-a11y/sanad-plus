@@ -317,8 +317,9 @@ def admin_order_detail(order_id):
         "created_at": order.created_at.isoformat() if order.created_at else None,
     })
 
+@jwt_required(optional=True)
+@handle_errors
 @main.route("/admin/api/orders/<int:order_id>/full", methods=["GET"])
-@jwt_required()
 @handle_errors
 def admin_order_full_detail(order_id):
     if not is_admin_user(get_jwt_identity()):
