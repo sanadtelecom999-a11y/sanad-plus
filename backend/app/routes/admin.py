@@ -335,15 +335,17 @@ def admin_order_full_detail(order_id):
     product = Product.query.get(order.product_id)
     user = User.query.get(order.user_id)
     
+    # نعيد البيانات بشكل مسطح (Flat) كما تتوقعها الواجهة لتفادي خطأ toLocaleString
     return jsonify({
-        "order": {
-            "id": order.id, "status": order.status,
-            "status_arabic": get_arabic_status(order.status),
-            "delivery_data": order.delivery_data,
-            "created_at": order.created_at.isoformat() if order.created_at else None
-        },
-        "product": {"name": product.name if product else "محذوف"},
-        "user": {"first_name": user.first_name if user else "محذوف", "telegram_id": user.telegram_id if user else ""}
+        "id": order.id,
+        "status": order.status,
+        "status_arabic": get_arabic_status(order.status),
+        "delivery_data": order.delivery_data,
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "total_price": float(order.total_price) if order.total_price else 0.0,
+        "product_name": product.name if product else "محذوف",
+        "user_name": user.first_name if user else "محذوف",
+        "user_telegram": user.telegram_id if user else ""
     }), 200
 @main.route("/admin/api/orders/<int:order_id>/status", methods=["POST", "OPTIONS"])
 @jwt_required(optional=True)
