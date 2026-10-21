@@ -2902,7 +2902,7 @@ function renderOrderCard(order) {
                     ${order.created_at ? new Date(order.created_at).toLocaleString('ar', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                 </div>
                 <div class="order-actions">
-                    <button class="btn-outline btn-sm" onclick="viewOrderDetails(${order.id})">
+                    <button class="btn-outline btn-sm" onclick="quickRejectOrder(${order.id})" style="color:red;margin-left:5px;">X</button><button onclick="viewOrderDetails(${order.id})">
                         <span class="material-icons" style="font-size:14px;">visibility</span> تفاصيل
                     </button>
                     ${['pending', 'review', 'processing'].includes(order.status) ? `
