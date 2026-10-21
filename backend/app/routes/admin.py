@@ -377,99 +377,33 @@ def admin_order_full_detail(order_id):
         "updated_at": order.updated_at.isoformat() if order.updated_at else None,
     })
 
-@main.route("/admin/api/orders/<int:order_id>/status", methods=["POST"])
-@jwt_required()
+@main.route("/admin/api/orders/<int:order_id>/status", methods=["POST", "OPTIONS"])
+@jwt_required(optional=True)
 @handle_errors
 def admin_update_order_status(order_id):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-    data = request.get_json() or {}
-    new_status = data.get("status")
 
-    # LOCK ORDER FIRST (canonical: order -> user -> product)
-    order = Order.query.filter_by(id=order_id).with_for_update().first()
+    order = Order.query.get(order_id)
     if not order:
-        return jsonify({"error": "طلب غير موجود"}), 404
+        return jsonify({"error": "الطلب غير موجود"}), 404
 
-    if order.status in ["completed", "failed", "cancelled"]:
-        return jsonify({"error": "لا يمكن تغيير طلب بحالة نهائية"}), 400
+    data = request.get_json(silent=True) or {}
+    new_status = data.get("status", "completed")
 
-    valid = {
-        "pending":    ["review", "processing", "completed", "failed", "cancelled"],
-        "review":     ["processing", "completed", "failed"],
-        "processing": ["completed", "failed"],
-    }
-    if order.status not in valid:
-        return jsonify({"error": f"حالة غير معروفة: {order.status}"}), 400
-    if new_status not in valid[order.status]:
-        return jsonify({"error": f"لا يمكن الانتقال من {order.status} إلى {new_status}"}), 400
-
-    user = User.query.filter_by(id=order.user_id).with_for_update().first()
-    product = Product.query.filter_by(id=order.product_id).with_for_update().first()
-
-    old_status = order.status
+    # تحديث الحالة صراحة
     order.status = new_status
-    order.updated_at = datetime.now(timezone.utc)
+    
+    try:
+        db.session.commit()
+        invalidate_admin("orders")
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"فشل الحفظ: {str(e)}"}), 500
 
-    if new_status == "cancelled":
-        order.cancelled_at = datetime.now(timezone.utc)
-    elif new_status == "completed":
-        order.completed_at = datetime.now(timezone.utc)
-    elif new_status == "failed":
-        order.failed_at = datetime.now(timezone.utc)
-
-    if new_status == "failed" and old_status != "failed" and user:
-        balance_before = user.balance
-        user.balance = round(user.balance + order.total_price, 2)
-        db.session.add(Transaction(
-            user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_refund",
-            reference_id=order.id,
-        ))
-        log_financial(
-            user=user, action="order_refund", amount=order.total_price,
-            balance_before=balance_before, balance_after=user.balance,
-            ref_type="order", ref_id=order.id, note="استرداد بسبب فشل الطلب",
-        )
-        if product and product.stock is not None:
-            product.stock += order.quantity
-        db.session.add(Notification(
-            user_id=user.id, title="استرداد مبلغ",
-            message=f"تم استرداد {order.total_price:.2f}$ لطلبك {order.order_number}",
-            type="success",
-        ))
-        send_order_refund_failed(user, order.total_price, order.order_number)
-
-    if new_status == "cancelled" and old_status != "cancelled" and user:
-        balance_before = user.balance
-        user.balance = round(user.balance + order.total_price, 2)
-        db.session.add(Transaction(
-            user_id=user.id, type="refund", amount=order.total_price,
-            balance_after=user.balance, reference_type="order_cancel",
-            reference_id=order.id,
-        ))
-        log_financial(
-            user=user, action="order_cancelled", amount=order.total_price,
-            balance_before=balance_before, balance_after=user.balance,
-            ref_type="order", ref_id=order.id,
-        )
-        if product and product.stock is not None:
-            product.stock += order.quantity
-        send_order_refund_cancelled(user, order.total_price, order.order_number)
-
-    if new_status == "completed" and user:
-        db.session.add(Notification(
-            user_id=user.id, title="تم تنفيذ طلبك",
-            message=f"تم إكمال طلبك {order.order_number} بنجاح",
-            type="success",
-        ))
-
-    log_admin_activity(f"تغيير حالة الطلب {order.order_number} إلى {get_arabic_status(new_status)}")
-    db.session.commit()
-
-    invalidate_admin("orders")
-    notify_admins(f"طلب {order.order_number} -> {get_arabic_status(new_status)}")
-    return jsonify({"status": order.status})
+    return jsonify({"status": new_status, "order_id": order.id}), 200
 
 @main.route("/admin/api/orders/bulk-status", methods=["POST"])
 @jwt_required()
