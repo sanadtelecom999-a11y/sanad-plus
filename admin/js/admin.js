@@ -4586,3 +4586,23 @@ window.setInboxFilter = setInboxFilter;
 window.playInboxSound = playInboxSound;
 
 console.log('✅ v18.4 Inbox v2 loaded');
+
+
+async function rejectOrder(orderId) {
+    if (!confirm('هل أنت متأكد من رفض هذا الطلب؟')) return;
+    try {
+        const res = await fetch(`${API_BASE}/admin/api/orders/${orderId}/reject`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+        });
+        if (res.ok) {
+            showToast('تم رفض الطلب بنجاح', 'success');
+            loadOrders(); // إعادة تحميل الجدول
+        } else {
+            const data = await res.json();
+            showToast(data.error || 'فشل الرفض', 'error');
+        }
+    } catch (e) {
+        showToast('خطأ في الاتصال', 'error');
+    }
+}

@@ -562,3 +562,32 @@ def admin_bulk_order_status():
         "success_ids": success,
         "failed": failed,
     })
+
+@main.route("/admin/api/orders/<int:order_id>/reject", methods=["POST", "OPTIONS"])
+@jwt_required(optional=True)
+@handle_errors
+def admin_reject_order(order_id):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+        
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"error": "الطلب غير موجود"}), 404
+    if order.status != "pending":
+        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+
+    order.status = "rejected"
+    # إضافة ملاحظة الرفض إذا وجدت
+    try:
+        data = request.get_json(silent=True) or {}
+        reason = data.get("reason", "مرفوض من الإدارة")
+        if hasattr(order, 'admin_note'):
+            order.admin_note = reason
+    except:
+        pass
+        
+    db.session.commit()
+    invalidate_admin("orders")
+    return jsonify({"status": "rejected", "order_id": order.id}), 200
