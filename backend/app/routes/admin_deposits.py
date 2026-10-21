@@ -260,3 +260,4 @@ def admin_reject_deposit(deposit_id):
         logger.warning(f"Telegram notify failed for reject {deposit.id}: {e}")
 
     return jsonify({"status": "rejected"}), 200
+# Force rebuild to fix logger flush
