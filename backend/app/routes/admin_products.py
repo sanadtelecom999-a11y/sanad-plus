@@ -1,16 +1,16 @@
-from sqlalchemy.orm import selectinload, joinedload
-"""Admin Products & Categories Routes - Extracted from admin.py"""
 from flask import request, jsonify
 from ..extensions import db
 from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
+from sqlalchemy.orm import selectinload, joinedload
 from ..services.cloudinary_service import upload_base64_image, get_signed_url
-from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get, key_admin_list, TTL_ADMIN_LISTS
+from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get, cache_set, key_admin_list, TTL_ADMIN_LISTS
 from . import main
 from .admin_utils import is_admin_user, handle_errors
 from app.middleware import admin_required
 from .admin import log_admin_activity, get_arabic_status, serialize_bundle, _normalize_image
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from decimal import Decimal
+from datetime import datetime, timezone
 
 @main.route("/admin/api/categories", methods=["GET", "POST"])
 @jwt_required()
