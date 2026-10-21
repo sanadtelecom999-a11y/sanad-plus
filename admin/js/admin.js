@@ -4497,3 +4497,30 @@ async function quickRejectOrder(orderId) {
         showToast('خطأ في الاتصال', 'error');
     }
 }
+
+async function rejectDepositHandler(depositId) {
+    if (!confirm('هل أنت متأكد من رفض هذا الإيداع؟')) return;
+    try {
+        const res = await fetch(`${API_BASE}/admin/api/deposits/${depositId}/reject`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${getAdminToken()}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'رفض من لوحة التحكم' })
+        });
+        if (res.ok) {
+            showToast('تم رفض الإيداع بنجاح', 'success');
+            // إخفاء العنصر من الشاشة فوراً بدلاً من انتظار إعادة التحميل
+            const btn = document.querySelector(`button[onclick="rejectDepositHandler(${depositId})"]`);
+            if (btn) {
+                const card = btn.closest('.card') || btn.closest('.deposit-card') || btn.closest('.order-card') || btn.parentElement.parentElement;
+                if (card) card.remove();
+            }
+            // تحديث البيانات لضمان بقاء الإحصائيات صحيحة
+            if (typeof loadAllData === 'function') loadAllData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.error || 'فشل الرفض', 'error');
+        }
+    } catch (e) {
+        showToast('خطأ في الاتصال', 'error');
+    }
+}
