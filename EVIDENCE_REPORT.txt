@@ -1,0 +1,399 @@
+SANAD PLUS+ — Evidence Collection
+Date: 2026-10-20T15:28:27.676475
+CWD: C:\Projects\sanad-plus
+
+======================================================================
+>>> D1a: git fetch
+$ git fetch origin 2>&1
+----------------------------------------------------------------------
+[no output]
+[exit: 0]
+
+======================================================================
+>>> D1b: من دفع 55ca32d
+$ git log origin/main -1 --format="Commit: %H%nAuthor: %an <%ae>%nDate: %cd%nSubject: %s%n%nBody:%n%b"
+----------------------------------------------------------------------
+Commit: 55ca32d712697605caf917a21e348058bc0a3f5e
+Author: sanadtelecom999-a11y <sanadtelecom999@gmail.com>
+Date: C:\Projects\sanad-plusnSubject: hotfix: comprehensive admin imports + CI guard to prevent regression (#59)
+
+Body:
+* hotfix(admin): comprehensive imports restoration + CI guard
+
+- Ensures all admin files have required imports (models, cache, cloudinary, sqlalchemy)
+- Adds CI check that fails if imports are missing in header
+- Fixes NameError: key_admin_list, Setting, joinedload, get_signed_url
+
+* fix(admin): add missing key_admin_list import + fix bot URL
+
+* fix(admin): add missing TTL_ADMIN_LISTS import to admin_users
+[exit: 0]
+
+======================================================================
+>>> D1c: الملفات المتغيرة في 55ca32d
+$ git show origin/main --stat
+----------------------------------------------------------------------
+commit 55ca32d712697605caf917a21e348058bc0a3f5e
+Author: sanadtelecom999-a11y <sanadtelecom999@gmail.com>
+Date:   Tue Oct 20 15:14:15 2026 -0700
+
+    hotfix: comprehensive admin imports + CI guard to prevent regression (#59)
+    
+    * hotfix(admin): comprehensive imports restoration + CI guard
+    
+    - Ensures all admin files have required imports (models, cache, cloudinary, sqlalchemy)
+    - Adds CI check that fails if imports are missing in header
+    - Fixes NameError: key_admin_list, Setting, joinedload, get_signed_url
+    
+    * fix(admin): add missing key_admin_list import + fix bot URL
+    
+    * fix(admin): add missing TTL_ADMIN_LISTS import to admin_users
+
+ .github/workflows/admin-imports-guard.yml | 31 +++++++++++++++++++++++++++++++
+ backend/app/routes/admin_archive.py       | 19 ++++++++++++++++---
+ backend/app/routes/admin_deposits.py      | 19 ++++++++++++++++---
+ backend/app/routes/admin_kyc.py           | 19 ++++++++++++++++---
+ backend/app/routes/admin_products.py      |  2 +-
+ backend/app/routes/admin_settings.py      | 18 ++++++++++++++++--
+ backend/app/routes/admin_users.py         |  3 ++-
+ bot/bot.py                                |  2 +-
+ 8 files changed, 99 insertions(+), 14 deletions(-)
+[exit: 0]
+
+======================================================================
+>>> D1d: هل الملفات المالية تأثرت؟
+$ git show origin/main -- backend/app/routes/admin_deposits.py backend/app/routes/admin_users.py backend/app/routes/admin_orders.py backend/app/routes/admin_products.py
+----------------------------------------------------------------------
+commit 55ca32d712697605caf917a21e348058bc0a3f5e
+Author: sanadtelecom999-a11y <sanadtelecom999@gmail.com>
+Date:   Tue Oct 20 15:14:15 2026 -0700
+
+    hotfix: comprehensive admin imports + CI guard to prevent regression (#59)
+    
+    * hotfix(admin): comprehensive imports restoration + CI guard
+    
+    - Ensures all admin files have required imports (models, cache, cloudinary, sqlalchemy)
+    - Adds CI check that fails if imports are missing in header
+    - Fixes NameError: key_admin_list, Setting, joinedload, get_signed_url
+    
+    * fix(admin): add missing key_admin_list import + fix bot URL
+    
+    * fix(admin): add missing TTL_ADMIN_LISTS import to admin_users
+
+diff --git a/backend/app/routes/admin_deposits.py b/backend/app/routes/admin_deposits.py
+index 29b295b..080e0f8 100644
+--- a/backend/app/routes/admin_deposits.py
++++ b/backend/app/routes/admin_deposits.py
+@@ -1,9 +1,23 @@
++from sqlalchemy.orm import joinedload, selectinload
++from decimal import Decimal
++from datetime import datetime, timezone, timedelta
++from ..models.base import (
++    User, Category, Product, ProductBundle, Order, Deposit, PaymentMethod,
++    KYCRequest, Notification, Setting, AdminActivity, ServiceRequest,
++    Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, log_financial,
++    AdminOTPSession, UserProductDiscount
++)
++from ..services.cache_service import (
++    cache_get, cache_set, cache_delete, key_admin_list, TTL_ADMIN_LISTS,
++    invalidate_admin, invalidate_categories, invalidate_products,
++    invalidate_payment_methods, invalidate_settings,
++)
++from ..services.cloudinary_service import get_signed_url, upload_base64_image
++
+ """Admin Deposits Routes - Extracted from admin.py"""
+ from flask import request, jsonify
+ from ..extensions import db
+-from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
+ from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
+-from ..services.cache_service import invalidate_admin, cache_delete, key_admin_list, cache_get
+ from . import main
+ from .admin_utils import is_admin_user, handle_errors
+ from .admin import log_admin_activity, get_arabic_status
+@@ -11,7 +25,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
+ from decimal import Decimal
+ from datetime import datetime, timezone
+ from .. import get_real_ip
+-from ..services.cloudinary_service import upload_base64_image, get_signed_url
+ 
+ 
+ @main.route("/admin/api/deposits", methods=["GET"])
+diff --git a/backend/app/routes/admin_products.py b/backend/app/routes/admin_products.py
+index 4d299fc..3e0c978 100644
+--- a/backend/app/routes/admin_products.py
++++ b/backend/app/routes/admin_products.py
+@@ -3,7 +3,7 @@ from flask import request, jsonify
+ from ..extensions import db
+ from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
+ from ..services.cloudinary_service import upload_base64_image, get_signed_url
+-from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get
++from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get, key_admin_list, TTL_ADMIN_LISTS
+ from . import main
+ from .admin_utils import is_admin_user, handle_errors
+ from app.middleware import admin_required
+diff --git a/backend/app/routes/admin_users.py b/backend/app/routes/admin_users.py
+index 34c5b0d..0fc9606 100644
+--- a/backend/app/routes/admin_users.py
++++ b/backend/app/routes/admin_users.py
+@@ -4,7 +4,6 @@ from ..extensions import db
+ from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
+ from ..services.admin_service import adjust_user_balance, AdminServiceError
+ from ..services.telegram_service import notify_admins
+-from ..services.cache_service import invalidate_admin, cache_get
+ from . import main
+ from app.middleware import admin_required
+ from .admin_utils import is_admin_user, handle_errors
+@@ -12,6 +11,8 @@ from .admin import log_admin_activity, get_arabic_status
+ from flask_jwt_extended import jwt_required, get_jwt_identity
+ from decimal import Decimal
+ from datetime import datetime, timezone
++from ..services.cache_service import cache_get, cache_set, cache_delete, key_admin_list, TTL_ADMIN_LISTS, invalidate_admin
++
+ 
+ @main.route("/admin/api/users", methods=["GET"])
+ @jwt_required()
+[exit: 0]
+
+======================================================================
+>>> D2a: admin_approve_deposit كاملة
+$ sed -n "/def admin_approve_deposit/,/^@main.route/p" backend/app/routes/admin_deposits.py
+----------------------------------------------------------------------
+def admin_approve_deposit(deposit_id):
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
+    if not deposit:
+        return jsonify({"error": "إيداع غير موجود"}), 404
+    if deposit.status != "pending":
+        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+
+    deposit.status = "approved"
+    deposit.reviewed_at = datetime.now(timezone.utc)
+    user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
+
+    # 🆕 v18.3.6: اخصم الرسوم أولاً
+    deposit_fee = round(deposit.fee or 0, 2)
+    dep_amount = round(deposit.amount, 2)
+    net_amount = round(dep_amount - deposit_fee, 2)
+    if net_amount < 0:
+        net_amount = 0.0
+
+    paid_debt = 0.0
+    added_amount = net_amount
+
+    if user:
+        balance_before = round(user.balance, 2)
+        current = round(user.balance, 2)
+
+        if current < 0:
+            debt = abs(current)
+            if net_amount >= debt:
+                paid_debt = round(debt, 2)
+                added_amount = round(net_amount - debt, 2)
+                user.balance = added_amount
+            else:
+                paid_debt = net_amount
+                added_amount = 0.0
+                user.balance = round(current + net_amount, 2)
+        else:
+            user.balance = round(current + net_amount, 2)
+            added_amount = net_amount
+
+        user.balance = round(user.balance, 2)
+
+        db.session.add(Transaction(
+            user_id=user.id, type="deposit", amount=dep_amount,
+            balance_after=user.balance, reference_type="deposit", reference_id=deposit.id,
+        ))
+        log_financial(
+            user=user, action="deposit_approved", amount=dep_amount,
+            balance_before=balance_before, balance_after=user.balance,
+            ref_type="deposit", ref_id=deposit.id,
+        )
+        db.session.add(Notification(
+            user_id=user.id, title="إيداع مقبول",
+            message=f"تم قبول إيداعك بقيمة {dep_amount:.2f}$", type="success",
+        ))
+        send_deposit_approved(user, dep_amount, paid_debt, added_amount)
+
+    log_admin_activity(f"قبول إيداع {deposit.id}")
+    db.session.commit()
+
+    invalidate_admin("deposits")
+
+    notify_admins(f"إيداع {deposit.id}: {deposit.amount:.2f}$")
+    return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
+
+@main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST"])
+[exit: 0]
+
+======================================================================
+>>> D2b: خريطة الأسطر الحرجة
+$ sed -n "/def admin_approve_deposit/,/^@main.route/p" backend/app/routes/admin_deposits.py | grep -nE "commit|send_telegram|send_deposit|return|else|rollback|except|with_for_update"
+----------------------------------------------------------------------
+3:        return jsonify({"error": "غير مصرح"}), 403
+4:    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
+6:        return jsonify({"error": "إيداع غير موجود"}), 404
+8:        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+12:    user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
+34:            else:
+38:        else:
+57:        send_deposit_approved(user, dep_amount, paid_debt, added_amount)
+60:    db.session.commit()
+65:    return jsonify({"status": deposit.status, "paid_debt": paid_debt, "added": added_amount})
+[exit: 0]
+
+======================================================================
+>>> D2c: اسم دالة الإشعار الفعلي
+$ grep -nE "send_deposit_approved|send_deposit_rejected|send_telegram_notification" backend/app/services/telegram_service.py backend/app/routes/admin_deposits.py
+----------------------------------------------------------------------
+backend/app/services/telegram_service.py:8:def send_telegram_notification(chat_id, message):
+backend/app/services/telegram_service.py:35:        send_telegram_notification(admin_id, message)
+backend/app/services/telegram_service.py:42:def send_deposit_approved(user, amount, paid_debt=0.0, added=0.0):
+backend/app/services/telegram_service.py:49:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:53:def send_deposit_rejected(user, amount, reason=None):
+backend/app/services/telegram_service.py:57:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:63:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:71:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:77:    send_telegram_notification(referrer.telegram_id, msg)
+backend/app/services/telegram_service.py:86:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:92:    send_telegram_notification(user.telegram_id, msg)
+backend/app/services/telegram_service.py:98:    send_telegram_notification(user.telegram_id, msg)
+backend/app/routes/admin_deposits.py:5:from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
+backend/app/routes/admin_deposits.py:155:        send_deposit_approved(user, dep_amount, paid_debt, added_amount)
+backend/app/routes/admin_deposits.py:199:        send_deposit_rejected(user, deposit.amount, reason)
+[exit: 0]
+
+======================================================================
+>>> D3a: مواقع دوال الاعتماد/الرفض
+$ grep -nE "approveDeposit|rejectDeposit|approveOrder|rejectOrder|approve_deposit" admin/js/admin.js | head -30
+----------------------------------------------------------------------
+3214:                    <button class="btn-success btn-sm" onclick="approveDepositHandler(${d.id})">قبول</button>
+3215:                    <button class="btn-danger btn-sm" onclick="rejectDepositHandler(${d.id})">رفض</button>
+3351:                        <button class="btn-success" onclick="closeModal(); approveDepositHandler(${d.id})">
+3355:                        <button class="btn-danger" onclick="closeModal(); rejectDepositHandler(${d.id})">
+3376:async function approveDepositHandler(depositId) {
+3385:        const result = await approveDeposit(depositId);
+3398:async function rejectDepositHandler(depositId) {
+3407:        await rejectDeposit(depositId);
+4318:        await approveDeposit(id);
+4337:        await rejectDeposit(id);
+4532:        await approveDeposit(id);
+[exit: 0]
+
+======================================================================
+>>> D3b: هل يوجد btn.disabled في admin.js
+$ grep -n "disabled" admin/js/admin.js | head -20
+----------------------------------------------------------------------
+681:    if (btn) { btn.disabled = true; btn.innerHTML = 'جارٍ التحقق...'; }
+693:            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">login</span> تسجيل الدخول'; }
+697:        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">login</span> تسجيل الدخول'; }
+749:    if (btn) { btn.disabled = true; btn.innerHTML = 'جارٍ التحقق...'; }
+765:            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">check_circle</span> تأكيد الدخول'; }
+769:        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-icons">check_circle</span> تأكيد الدخول'; }
+1742:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+1751:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+2054:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+2078:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+2289:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+2298:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
+2595:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+2604:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+2618:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+2627:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ التعديلات'; }
+3529:    if (btn) { btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'; }
+3538:        if (btn) { btn.disabled = false; btn.textContent = 'حفظ'; }
+[exit: 0]
+
+======================================================================
+>>> D4a: آخر 3 commits على origin/main
+$ git log origin/main --oneline -3
+----------------------------------------------------------------------
+55ca32d hotfix: comprehensive admin imports + CI guard to prevent regression (#59)
+fa87f3c Fix/admin final bugs (#58)
+31a1141 hotfix: force rewrite admin imports to resolve all NameErrors (#57)
+[exit: 0]
+
+======================================================================
+>>> D4b: آخر commits على hotfix
+$ git log origin/hotfix/comprehensive-imports --oneline -5 2>&1 || echo "no hotfix branch"
+----------------------------------------------------------------------
+fb0ddca fix(admin): add missing TTL_ADMIN_LISTS import to admin_users
+1957cbe fix(admin): add missing key_admin_list import + fix bot URL
+18d44b1 hotfix(admin): comprehensive imports restoration + CI guard
+fa87f3c Fix/admin final bugs (#58)
+31a1141 hotfix: force rewrite admin imports to resolve all NameErrors (#57)
+[exit: 0]
+
+======================================================================
+>>> D4c: commits في hotfix غير موجودة في main
+$ git log origin/main..origin/hotfix/comprehensive-imports --oneline 2>&1
+----------------------------------------------------------------------
+fb0ddca fix(admin): add missing TTL_ADMIN_LISTS import to admin_users
+1957cbe fix(admin): add missing key_admin_list import + fix bot URL
+18d44b1 hotfix(admin): comprehensive imports restoration + CI guard
+[exit: 0]
+
+======================================================================
+>>> D5a: الفرع الحالي
+$ git branch --show-current
+----------------------------------------------------------------------
+develop
+[exit: 0]
+
+======================================================================
+>>> D5b: تغييرات غير محفوظة
+$ git status --short
+----------------------------------------------------------------------
+[no output]
+[exit: 0]
+
+======================================================================
+>>> D5c: هل logger معرّف في admin_deposits.py
+$ grep -nE "^import logging|^logger|getLogger" backend/app/routes/admin_deposits.py
+----------------------------------------------------------------------
+[no output]
+[exit: 1]
+
+======================================================================
+>>> D6a: imports في admin_products.py
+$ grep -nE "^from|^import" backend/app/routes/admin_products.py | head -30
+----------------------------------------------------------------------
+2:from flask import request, jsonify
+3:from ..extensions import db
+4:from ..models.base import User, Order, Product, Category, Deposit, PaymentMethod, KYCRequest, Notification, ServiceRequest, Transaction, Coupon, CouponUsage, Referral, FinancialAuditLog, AdminActivity, ProductBundle, UserProductDiscount, AdminOTPSession, log_financial
+5:from ..services.cloudinary_service import upload_base64_image, get_signed_url
+6:from ..services.cache_service import invalidate_categories, invalidate_products, invalidate_admin, cache_get
+7:from . import main
+8:from .admin_utils import is_admin_user, handle_errors
+9:from app.middleware import admin_required
+10:from .admin import log_admin_activity, get_arabic_status, serialize_bundle, _normalize_image
+11:from flask_jwt_extended import jwt_required, get_jwt_identity
+12:from decimal import Decimal
+[exit: 0]
+
+======================================================================
+>>> D6b: هل الاستيرادات الحرجة موجودة
+$ grep -nE "key_admin_list|TTL_ADMIN_LISTS|Setting|joinedload" backend/app/routes/admin_products.py backend/app/routes/admin_settings.py backend/app/routes/admin_deposits.py | head -30
+----------------------------------------------------------------------
+backend/app/routes/admin_products.py:23:        cached = cache_get(key_admin_list("categories"))
+backend/app/routes/admin_products.py:33:        cache_set(key_admin_list("categories"), result, ttl=TTL_ADMIN_LISTS)
+backend/app/routes/admin_products.py:103:        cached = cache_get(key_admin_list("products"))
+backend/app/routes/admin_products.py:132:        cache_set(key_admin_list("products"), result, ttl=TTL_ADMIN_LISTS)
+backend/app/routes/admin_settings.py:1:"""Admin Settings, Payment, Coupons & Referrals Routes"""
+backend/app/routes/admin_settings.py:110:# Orders — 🆕 v18.1: joinedload + cached
+backend/app/routes/admin_settings.py:120:        return jsonify({s.key: s.value for s in Setting.query.all()})
+backend/app/routes/admin_settings.py:124:        s = Setting.query.filter_by(key=key).first()
+backend/app/routes/admin_settings.py:126:        else: db.session.add(Setting(key=key, value=str(value)))
+backend/app/routes/admin_settings.py:146:        cached = cache_get(key_admin_list("coupons"))
+backend/app/routes/admin_settings.py:160:        cache_set(key_admin_list("coupons"), result, ttl=TTL_ADMIN_LISTS)
+backend/app/routes/admin_settings.py:226:# Referrals, Activities, Audit — 🆕 v18.1: joinedload
+backend/app/routes/admin_settings.py:236:    cached = cache_get(key_admin_list("referrals"))
+backend/app/routes/admin_settings.py:242:        .options(joinedload(Referral.referrer), joinedload(Referral.referred_user))
+backend/app/routes/admin_settings.py:264:    cache_set(key_admin_list("referrals"), result, ttl=TTL_ADMIN_LISTS)
+backend/app/routes/admin_deposits.py:6:from ..services.cache_service import invalidate_admin, cache_delete, key_admin_list, cache_get
+backend/app/routes/admin_deposits.py:24:    cached = cache_get(key_admin_list("deposits"))
+backend/app/routes/admin_deposits.py:31:        .options(joinedload(Deposit.user))
+backend/app/routes/admin_deposits.py:50:    cache_set(key_admin_list("deposits"), result, ttl=TTL_ADMIN_LISTS)
+backend/app/routes/admin_deposits.py:205:# KYC — 🆕 v18.1: joinedload + cached
+[exit: 0]
