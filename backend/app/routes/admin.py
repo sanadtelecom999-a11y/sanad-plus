@@ -335,17 +335,35 @@ def admin_order_full_detail(order_id):
     product = Product.query.get(order.product_id)
     user = User.query.get(order.user_id)
     
-    # نعيد البيانات بشكل مسطح (Flat) كما تتوقعها الواجهة لتفادي خطأ toLocaleString
+    # إرجاع Flat JSON كما طلبنا في التقرير (بدون كائنات متداخلة تسبب toLocaleString)
     return jsonify({
         "id": order.id,
+        "order_number": getattr(order, 'order_number', f"ORD-{order.id}"),
+        "user": {
+            "id": user.id if user else None,
+            "telegram_id": user.telegram_id if user else None,
+            "first_name": user.first_name if user else "محذوف",
+            "username": getattr(user, 'username', '') if user else "",
+            "balance": float(user.balance) if user else 0.0,
+            "kyc_status": getattr(user, 'kyc_status', 'unverified') if user else 'unverified'
+        },
+        "product": {
+            "id": product.id if product else None,
+            "name": product.name if product else "محذوف",
+            "image": getattr(product, 'image', '') if product else "",
+            "unit_name": getattr(product, 'unit_name', '') if product else "",
+            "product_type": getattr(product, 'product_type', '') if product else ""
+        },
+        "quantity": order.quantity,
+        "unit_price": float(order.unit_price) if hasattr(order, 'unit_price') else 0.0,
+        "total_price": float(order.total_price) if order.total_price else 0.0,
+        "discount_amount": float(getattr(order, 'discount_amount', 0.0)),
+        "coupon_code": getattr(order, 'coupon_code', None),
         "status": order.status,
         "status_arabic": get_arabic_status(order.status),
         "delivery_data": order.delivery_data,
         "created_at": order.created_at.isoformat() if order.created_at else None,
-        "total_price": float(order.total_price) if order.total_price else 0.0,
-        "product_name": product.name if product else "محذوف",
-        "user_name": user.first_name if user else "محذوف",
-        "user_telegram": user.telegram_id if user else ""
+        "updated_at": order.updated_at.isoformat() if hasattr(order, 'updated_at') and order.updated_at else None
     }), 200
 @main.route("/admin/api/orders/<int:order_id>/status", methods=["POST", "OPTIONS"])
 @jwt_required(optional=True)

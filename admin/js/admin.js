@@ -3007,161 +3007,28 @@ async function bulkChangeStatus(newStatus) {
 // ============================================================
 async function viewOrderDetails(orderId) {
     try {
-        showToast('جارٍ تحميل التفاصيل...', 'info', 1500);
-        const order = await fetchAdminOrderFull(orderId);
-
-        const statusColors = {
-            pending: 'pending', review: 'review', processing: 'processing',
-            completed: 'completed', failed: 'failed', cancelled: 'cancelled'
-        };
-
-        let deliveryHtml = '';
-        if (order.delivery_data && Object.keys(order.delivery_data).length > 0) {
-            const items = [];
-            if (order.delivery_data.player_id) items.push({ icon: 'person_pin', label: 'ID اللاعب', value: order.delivery_data.player_id });
-            if (order.delivery_data.account_id) items.push({ icon: 'badge', label: 'ID الحساب', value: order.delivery_data.account_id });
-            if (order.delivery_data.phone) items.push({ icon: 'phone', label: 'رقم الهاتف', value: order.delivery_data.phone });
-            if (order.delivery_data.bundle_name) items.push({ icon: 'redeem', label: 'الباقة', value: order.delivery_data.bundle_name });
-            if (order.delivery_data.syp_amount) items.push({ icon: 'payments', label: 'المبلغ بالليرة', value: `${order.delivery_data.syp_amount.toLocaleString('ar')} ل.س` });
-            if (order.delivery_data.syp_rate) items.push({ icon: 'trending_up', label: 'سعر الصرف', value: `${order.delivery_data.syp_rate} ل.س/$` });
-
-            if (items.length) {
-                deliveryHtml = `
-                    <div class="order-detail-section">
-                        <div class="section-title-mini">
-                            <span class="material-icons" style="font-size:16px;">info</span>
-                            بيانات التسليم
-                        </div>
-                        ${items.map(item => `
-                            <div class="detail-row">
-                                <span class="detail-label">
-                                    <span class="material-icons" style="font-size:14px;color:var(--primary);">${item.icon}</span>
-                                    ${item.label}
-                                </span>
-                                <span class="detail-value ltr" onclick="copyToClipboard('${item.value}')" style="cursor:pointer;">${item.value}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            }
-        }
-
-        const body = `
-            <div class="order-detail-modal">
-                <div class="order-detail-header">
-                    <div>
-                        <div class="order-detail-number ltr" onclick="copyToClipboard('${order.order_number}')" style="cursor:pointer;">${order.order_number}</div>
-                        <div class="order-detail-date">${order.created_at ? new Date(order.created_at).toLocaleString('ar') : ''}</div>
-                    </div>
-                    <span class="status-badge ${statusColors[order.status]}">${order.status_arabic}</span>
-                </div>
-
-                <div class="order-detail-section highlight">
-                    <div class="section-title-mini">
-                        <span class="material-icons" style="font-size:16px;">person</span>
-                        العميل
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">الاسم</span>
-                        <span class="detail-value">${order.user?.first_name || 'مستخدم'} ${order.user?.last_name || ''}</span>
-                    </div>
-                    ${order.user?.username ? `
-                    <div class="detail-row">
-                        <span class="detail-label">Username</span>
-                        <span class="detail-value ltr">@${order.user.username}</span>
-                    </div>
-                    ` : ''}
-                    <div class="detail-row">
-                        <span class="detail-label">Telegram ID</span>
-                        <span class="detail-value ltr" onclick="copyToClipboard('${order.user?.telegram_id}')" style="cursor:pointer;">${order.user?.telegram_id || '-'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">رصيد العميل</span>
-                        <span class="detail-value ltr" style="color:${order.user?.balance < 0 ? 'var(--error)' : 'var(--success)'};font-weight:800;">
-                            ${parseFloat(order.user?.balance || 0).toFixed(2)}$
-                        </span>
-                    </div>
-                    <button class="btn-outline btn-sm" style="width:100%;margin-top:8px;" onclick="closeModal(); goToUserFromSearch(${order.user?.id})">
-                        <span class="material-icons" style="font-size:14px;">visibility</span>
-                        عرض ملف العميل
-                    </button>
-                </div>
-
-                <div class="order-detail-section">
-                    <div class="section-title-mini">
-                        <span class="material-icons" style="font-size:16px;">inventory_2</span>
-                        المنتج
-                    </div>
-                    <div class="product-detail-row">
-                        ${order.product?.image ? `<img src="${order.product.image}" class="product-thumb" alt="">` : '<div class="product-thumb placeholder">📦</div>'}
-                        <div style="flex:1;">
-                            <div style="font-weight:700;">${order.product?.name || '-'}</div>
-                            <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;">
-                                ${order.product?.product_type === 'topup' ? 'رصيد سوري' : order.product?.product_type === 'bundle' ? 'باقة' : 'منتج كمية'}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">الكمية</span>
-                        <span class="detail-value">${order.quantity.toLocaleString('ar')} ${order.product?.unit_name || 'قطعة'}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">سعر الوحدة</span>
-                        <span class="detail-value ltr">${parseFloat(order.unit_price).toFixed(4)}$</span>
-                    </div>
-                    ${order.discount_amount > 0 ? `
-                    <div class="detail-row">
-                        <span class="detail-label">الخصم</span>
-                        <span class="detail-value ltr" style="color:var(--success);">-${parseFloat(order.discount_amount).toFixed(2)}$</span>
-                    </div>
-                    ` : ''}
-                    ${order.coupon_code ? `
-                    <div class="detail-row">
-                        <span class="detail-label">كود الخصم</span>
-                        <span class="detail-value ltr">${order.coupon_code}</span>
-                    </div>
-                    ` : ''}
-                    <div class="detail-row total-row">
-                        <span class="detail-label" style="font-weight:800;">الإجمالي</span>
-                        <span class="detail-value ltr" style="font-weight:900;color:var(--primary);font-size:1.1rem;">
-                            ${parseFloat(order.total_price).toFixed(2)}$
-                        </span>
-                    </div>
-                </div>
-
-                ${deliveryHtml}
-
-                <div class="order-detail-actions">
-                    ${['pending', 'review', 'processing'].includes(order.status) ? `
-                        <div style="grid-column: 1 / -1; margin-bottom: 8px;">
-                            <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">تغيير الحالة</label>
-                        </div>
-                        ${order.status === 'pending' ? `
-                            <button class="btn-primary" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'review')">قيد المراجعة</button>
-                            <button class="btn-outline" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'cancelled')">إلغاء</button>
-                        ` : ''}
-                        ${order.status === 'review' ? `
-                            <button class="btn-primary" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'processing')">بدء التنفيذ</button>
-                            <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
-                        ` : ''}
-                        ${order.status === 'processing' ? `
-                            <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})">رفض</button>
-                        <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})" style="margin-left:5px;">رفض</button>
-                        <button class="btn-danger" onclick="closeModal(); quickRejectOrder(${order.id})">رفض</button>
-                        <button class="btn-success" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'completed')">إكمال</button>
-                            <button class="btn-danger" onclick="closeModal(); quickChangeOrderStatus(${order.id}, 'failed')">فشل</button>
-                        ` : ''}
-                    ` : `
-                        <div style="grid-column:1/-1;text-align:center;padding:12px;background:var(--background);border-radius:10px;font-size:0.85rem;color:var(--text-secondary);">
-                            حالة الطلب نهائية — لا يمكن التغيير
-                        </div>
-                    `}
-                </div>
+        const res = await fetch(`${API_BASE}/admin/api/orders/${orderId}/full`, {
+            headers: { 'Authorization': `Bearer ${getAdminToken()}` }
+        });
+        if (!res.ok) throw new Error('فشل تحميل التفاصيل');
+        const data = await res.json();
+        
+        // نستخدم الحقول المسطحة التي أرسلها الباك اند
+        const html = `
+            <div style="text-align:right; direction:rtl;">
+                <h3>تفاصيل الطلب ${data.order_number}</h3>
+                <p><strong>المنتج:</strong> ${data.product.name}</p>
+                <p><strong>الكمية:</strong> ${data.quantity}</p>
+                <p><strong>السعر:</strong> ${data.total_price.toLocaleString()} $</p>
+                <p><strong>الحالة:</strong> ${data.status_arabic}</p>
+                <p><strong>المستخدم:</strong> ${data.user.first_name} (${data.user.telegram_id})</p>
+                <p><strong>بيانات التسليم:</strong> ${JSON.stringify(data.delivery_data)}</p>
+                <p><strong>التاريخ:</strong> ${new Date(data.created_at).toLocaleString('ar-EG')}</p>
             </div>
         `;
-        openModal('', body);
-    } catch (error) {
-        showToast(`فشل تحميل التفاصيل: ${error.message}`, 'error');
+        showModal(html); // بافتراض أن لديك دالة showModal
+    } catch (e) {
+        showToast(e.message, 'error');
     }
 }
 
@@ -3412,6 +3279,7 @@ async function rejectDepositHandler(depositId, btn) {
         await loadAllData();
         renderDeposits(depositsData);
         showToast('تم رفض الإيداع', 'warning');
+        loadAllData();
     } catch (error) {
         showToast(`فشل رفض الإيداع: ${error.message}`, 'error');
     }
@@ -4340,6 +4208,7 @@ async function inboxRejectDeposit(id) {
     try {
         await rejectDeposit(id);
         showToast('تم رفض الإيداع', 'warning');
+        loadAllData();
         await loadInbox();
         if (typeof loadAllData === 'function') await loadAllData();
     } catch (err) {
