@@ -297,7 +297,9 @@ def admin_orders():
 @handle_errors
 def admin_order_detail(order_id):
     if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
+        db.session.commit()
+    invalidate_admin("orders")
+    return jsonify({"error": "غير مصرح"}), 403
     order = Order.query.get(order_id)
     if not order:
         return jsonify({"error": "طلب غير موجود"}), 404
@@ -320,7 +322,9 @@ def admin_order_detail(order_id):
 @handle_errors
 def admin_order_full_detail(order_id):
     if not is_admin_user(get_jwt_identity()):
-        return jsonify({"error": "غير مصرح"}), 403
+        db.session.commit()
+    invalidate_admin("orders")
+    return jsonify({"error": "غير مصرح"}), 403
 
     order = Order.query.get(order_id)
     if not order:
