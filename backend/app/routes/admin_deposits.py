@@ -192,3 +192,47 @@ def admin_deposit_detail(deposit_id):
         "created_at": deposit.created_at.isoformat() if deposit.created_at else None,
     })
 
+
+
+@main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST", "OPTIONS"])
+@jwt_required(optional=True)
+@handle_errors
+def admin_reject_deposit(deposit_id):
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+        
+    deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
+    if not deposit:
+        return jsonify({"error": "إيداع غير موجود"}), 404
+    if deposit.status != "pending":
+        return jsonify({"error": "تمت معالجته مسبقاً"}), 400
+
+    try:
+        data = request.get_json() or {}
+        reason = data.get("reason", "تم الرفض من قبل الإدارة")
+    except:
+        reason = "تم الرفض من قبل الإدارة"
+
+    deposit.status = "rejected"
+    deposit.reviewed_at = datetime.now(timezone.utc)
+    log_admin_activity(f"رفض إيداع {deposit.id}")
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Commit failed for reject {deposit.id}: {e}")
+        return jsonify({"error": "فشل حفظ الحالة"}), 500
+
+    invalidate_admin("deposits")
+
+    try:
+        user = User.query.get(deposit.user_id)
+        if user:
+            send_deposit_rejected(user, deposit.amount, reason)
+    except Exception as e:
+        logger.warning(f"Telegram notify failed for reject {deposit.id}: {e}")
+
+    return jsonify({"status": "rejected"}), 200
