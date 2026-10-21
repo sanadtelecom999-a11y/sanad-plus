@@ -319,69 +319,32 @@ def admin_order_detail(order_id):
 
 @jwt_required(optional=True)
 @handle_errors
-@main.route("/admin/api/orders/<int:order_id>/full", methods=["GET"])
+@main.route("/admin/api/orders/<int:order_id>/full", methods=["GET", "OPTIONS"])
+@jwt_required(optional=True)
 @handle_errors
 def admin_order_full_detail(order_id):
-    from flask_jwt_extended import verify_jwt_in_request
-    try:
-        verify_jwt_in_request(optional=True)
-    except Exception:
-        pass
+    if request.method == "OPTIONS":
+        return jsonify({}), 200
     if not is_admin_user(get_jwt_identity()):
-        db.session.commit()
-    invalidate_admin("orders")
-    return jsonify({"error": "غير مصرح"}), 403
-
+        return jsonify({"error": "غير مصرح"}), 403
+        
     order = Order.query.get(order_id)
     if not order:
-        return jsonify({"error": "طلب غير موجود"}), 404
-
+        return jsonify({"error": "الطلب غير موجود"}), 404
+        
     product = Product.query.get(order.product_id)
     user = User.query.get(order.user_id)
-
-    delivery = {}
-    if order.delivery_data:
-        try:
-            delivery = json.loads(order.delivery_data)
-        except Exception:
-            delivery = {"raw": order.delivery_data}
-
+    
     return jsonify({
-        "id": order.id,
-        "order_number": order.order_number,
-        "user": {
-            "id": user.id if user else None,
-            "telegram_id": user.telegram_id if user else None,
-            "first_name": user.first_name if user else None,
-            "last_name": user.last_name if user else None,
-            "username": user.username if user else None,
-            "balance": float(user.balance) if user and user.balance is not None else 0.0,
-            "kyc_status": user.kyc_status if user else None,
-        } if user else None,
-        "product": {
-            "id": product.id if product else None,
-            "name": product.name if product else "منتج محذوف",
-            "image": product.image if product else None,
-            "product_type": product.product_type if product else None,
-            "unit_name": product.unit_name if product else "قطعة",
-            "input_type": product.input_type if product else None,
-        } if product else None,
-        "quantity": order.quantity,
-        "unit_price": order.unit_price,
-        "total_price": order.total_price,
-        "discount_amount": order.discount_amount or 0,
-        "coupon_code": order.coupon_code,
-        "status": order.status,
-        "status_arabic": get_arabic_status(order.status),
-        "delivery_data": delivery,
-        "can_cancel_until": order.can_cancel_until.isoformat() if order.can_cancel_until else None,
-        "cancelled_at": order.cancelled_at.isoformat() if order.cancelled_at else None,
-        "completed_at": order.completed_at.isoformat() if order.completed_at else None,
-        "failed_at": order.failed_at.isoformat() if order.failed_at else None,
-        "created_at": order.created_at.isoformat() if order.created_at else None,
-        "updated_at": order.updated_at.isoformat() if order.updated_at else None,
-    })
-
+        "order": {
+            "id": order.id, "status": order.status,
+            "status_arabic": get_arabic_status(order.status),
+            "delivery_data": order.delivery_data,
+            "created_at": order.created_at.isoformat() if order.created_at else None
+        },
+        "product": {"name": product.name if product else "محذوف"},
+        "user": {"first_name": user.first_name if user else "محذوف", "telegram_id": user.telegram_id if user else ""}
+    }), 200
 @main.route("/admin/api/orders/<int:order_id>/status", methods=["POST", "OPTIONS"])
 @jwt_required(optional=True)
 @handle_errors
