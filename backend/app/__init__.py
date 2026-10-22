@@ -1,3 +1,5 @@
+from flask_cors import CORS
+# Strict CORS for Production only
 from .middleware import setup_middlewares
 # ============================================================
 # 🚀 SANAD PLUS⁺ — App Initialization (v17.1)
@@ -60,12 +62,12 @@ limiter = Limiter(
 
 def create_app():
     app = Flask(__name__)
+CORS(app, resources={r"/admin/api/*": {"origins": "https://sanad-plus-admi.vercel.app"}, r"/api/*": {"origins": "*"}})
     app.config.from_object(Config)
 
     # ============================================================
     # 🌐 CORS
     # ============================================================
-    CORS(
         app,
         resources={
             r"/api/*": {"origins": Config.ALLOWED_ORIGINS},
