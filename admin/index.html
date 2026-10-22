@@ -341,6 +341,7 @@
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             if (btn) btn.classList.add('active');
             const titles = { dashboard: 'لوحة التحكم', inbox: 'الإرساليات', orders: 'الطلبات', deposits: 'الإيداعات', kyc: 'التوثيق', products: 'المنتجات', categories: 'الأقسام', users: 'المستخدمون', archive: 'الأرشيف', audit: 'التدقيق المالي', settings: 'الإعدادات' };
+            const titles = { dashboard: 'لوحة التحكم', inbox: 'الإرساليات', orders: 'الطلبات', deposits: 'الإيداعات', kyc: 'التوثيق', products: 'المنتجات', categories: 'الأقسام', users: 'المستخدمون', archive: 'الأرشيف', audit: 'التدقيق المالي', settings: 'الإعدادات' };
             document.getElementById('topbarTitle').innerText = titles[sec] || 'الإدارة';
 
             if (sec === 'dashboard') updateDashboard();
