@@ -8,6 +8,34 @@ let categoriesData = [];
 let userOrders = [];
 let userDeposits = [];
 
+// دالة تنسيق التاريخ (أرقام إنجليزية)
+function formatDate(dateStr) {
+    if (!dateStr) return 'غير محدد';
+    const d = new Date(dateStr);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${year}/${month}/${day} ${hours}:${minutes}`;
+}
+
+// دالة تنظيف بيانات الاستلام
+function cleanDeliveryData(data) {
+    if (!data) return 'غير محدد';
+    // إذا كانت البيانات قديمة ومخزنة كـ JSON
+    if (typeof data === 'string' && data.startsWith('{')) {
+        try {
+            const parsed = JSON.parse(data);
+            // نبحث عن أي حقل يحتوي على ID أو رقم أو رابط
+            return parsed.player_id || parsed.phone || parsed.link || parsed.account_id || parsed.id || data;
+        } catch (e) {
+            return data;
+        }
+    }
+    return data;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (!tgUser) { showToast("يرجى فتح التطبيق من داخل تليجرام"); return; }
     document.getElementById('greetingText').innerText = `مرحباً، ${tgUser.first_name} 👋`;
@@ -43,7 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-// وظيفة النسخ الذكية
 function copyToClipboard(text, btnElement) {
     navigator.clipboard.writeText(text).then(() => {
         const originalHtml = btnElement.innerHTML;
@@ -87,6 +114,8 @@ function openOrderDetails(id) {
     if(!order) return;
 
     let statusColor = order.status === 'completed' ? 'primary' : (order.status === 'failed' || order.status === 'rejected' ? 'danger' : 'warning');
+    let cleanData = cleanDeliveryData(order.delivery_data);
+    let formattedDate = formatDate(order.created_at);
     
     // شريط الحالة (Timeline)
     let timelineHtml = `
@@ -121,11 +150,11 @@ function openOrderDetails(id) {
         </div>
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
             <span class="text-slate-400">بيانات الاستلام</span>
-            <span class="font-mono font-bold text-accent" dir="ltr">${order.delivery_data}</span>
+            <span class="font-mono font-bold text-accent" dir="ltr">${cleanData}</span>
         </div>
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
             <span class="text-slate-400">التاريخ</span>
-            <span class="text-slate-300" dir="ltr">${new Date(order.created_at).toLocaleString('ar-EG')}</span>
+            <span class="text-slate-300" dir="ltr">${formattedDate}</span>
         </div>
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
             <span class="text-slate-400">الإجمالي</span>
@@ -168,6 +197,7 @@ function openDepositDetails(id) {
     if(!dep) return;
 
     let statusColor = dep.status === 'approved' ? 'primary' : (dep.status === 'rejected' ? 'danger' : 'warning');
+    let formattedDate = formatDate(dep.created_at);
     
     document.getElementById('depositDetailsBody').innerHTML = `
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
@@ -185,7 +215,7 @@ function openDepositDetails(id) {
         </div>
         ${dep.proof_image ? `<div class="bg-dark p-4 rounded-xl border border-slate-800 mb-4"><span class="text-slate-400 block mb-2">إثبات التحويل</span><img src="${dep.proof_image}" class="w-full rounded-lg object-contain max-h-48 bg-black cursor-pointer" onclick="window.open('${dep.proof_image}', '_blank')"></div>` : ''}
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
-            <span class="text-slate-400">التاريخ</span><span class="text-slate-300" dir="ltr">${new Date(dep.created_at).toLocaleString('ar-EG')}</span>
+            <span class="text-slate-400">التاريخ</span><span class="text-slate-300" dir="ltr">${formattedDate}</span>
         </div>
         <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
             <span class="text-slate-400">المبلغ</span><span class="font-bold text-primary text-lg" dir="ltr">$${dep.amount.toFixed(2)}</span>
@@ -198,7 +228,7 @@ function openDepositDetails(id) {
     lucide.createIcons();
 }
 
-// ... (باقي الدوال المساعدة مثل fetchProducts, updateUserUI, submitKYC, إلخ موجودة في الملف السابق ويمكنك إبقاءها كما هي)
+// الدوال المساعدة الأخرى
 async function fetchProducts() {
     document.getElementById('homeCategories').innerHTML = '<div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الأقسام...</div>';
     try {
