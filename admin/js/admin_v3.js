@@ -54,27 +54,39 @@ function renderDeposits() {
     if (!container) return;
     
     container.innerHTML = '';
-    if (AppState.deposits.length === 0) {
-        container.innerHTML = '<p class="text-center">لا توجد إيداعات معلقة</p>';
+    if (!AppState.deposits || AppState.deposits.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center; color:var(--text-muted);"><i class="fas fa-check-circle fa-3x" style="color:var(--success); margin-bottom:10px;"></i><br>لا توجد إيداعات معلقة</div>';
         return;
     }
 
     AppState.deposits.forEach(deposit => {
-        // بناء البطاقة برمجياً باستخدام State
         const card = document.createElement('div');
-        card.className = 'deposit-card card';
+        card.className = 'card';
         card.id = `deposit-${deposit.id}`;
         
+        // تصميم البطاقة الجديد
         card.innerHTML = `
-            <div class="card-body">
-                <h5>${deposit.transaction_id || 'DEP-' + deposit.id}</h5>
-                <p>المبلغ: $${deposit.amount}</p>
-                <p>المستخدم: ${deposit.user?.first_name || 'غير معروف'}</p>
-                <div class="actions mt-3">
-                    <button class="btn btn-success" onclick="approveDeposit(${deposit.id})">قبول</button>
-                    <button class="btn btn-danger" onclick="rejectDeposit(${deposit.id})">رفض</button>
-                    <button class="btn btn-info" onclick="viewDeposit(${deposit.id})">تفاصيل</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <div>
+                    <span class="badge badge-pending">معلق</span>
+                    <strong style="margin-right:10px;">${deposit.transaction_id || 'DEP-' + deposit.id}</strong>
                 </div>
+                <strong style="color:var(--success); font-size:18px;">$${deposit.amount}</strong>
+            </div>
+            <div style="margin-bottom:15px; color:var(--text-muted); font-size:14px;">
+                <i class="fas fa-user"></i> ${deposit.user?.first_name || 'غير معروف'} <br>
+                <i class="fas fa-clock"></i> ${new Date(deposit.created_at).toLocaleString('ar-EG')}
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-success" style="flex:1;" onclick="approveDeposit(${deposit.id})">
+                    <i class="fas fa-check"></i> قبول
+                </button>
+                <button class="btn btn-danger" style="flex:1;" onclick="rejectDeposit(${deposit.id})">
+                    <i class="fas fa-times"></i> رفض
+                </button>
+                <button class="btn btn-outline" style="flex:0.5;" onclick="viewDeposit(${deposit.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
             </div>
         `;
         container.appendChild(card);
