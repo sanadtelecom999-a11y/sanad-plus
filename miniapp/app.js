@@ -1,3 +1,11 @@
+// Initialize Telegram WebApp
+const tg = window.Telegram?.WebApp;
+if (tg) {
+    tg.ready();
+    tg.expand();
+    tg.setHeaderColor("#000000");
+}
+
 // ==========================================
 // SANAD PLUS+ MiniApp (Full Logic V6 - Multi-Currency)
 // ==========================================
