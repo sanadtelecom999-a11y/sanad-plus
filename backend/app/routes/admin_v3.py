@@ -15,7 +15,7 @@ from app.services.admin_service import adjust_user_balance
 @main.route("/admin/api/products", methods=["GET"])
 @jwt_required()
 @handle_errors
-def admin_get_products():
+def admin_get_products_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     products = Product.query.all()
     result = [{
@@ -31,7 +31,7 @@ def admin_get_products():
 @main.route("/admin/api/products", methods=["POST"])
 @jwt_required()
 @handle_errors
-def admin_create_product():
+def admin_create_product_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     
@@ -59,7 +59,7 @@ def admin_create_product():
 @main.route("/admin/api/deposits", methods=["GET"])
 @jwt_required()
 @handle_errors
-def admin_get_deposits():
+def admin_get_deposits_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     deposits = Deposit.query.filter_by(status='pending').order_by(Deposit.created_at.desc()).all()
     result = [{
@@ -75,7 +75,7 @@ def admin_get_deposits():
 @main.route("/admin/api/deposits/<int:id>/<action>", methods=["POST"])
 @jwt_required()
 @handle_errors
-def admin_handle_deposit(id, action):
+def admin_handle_deposit_v3(id, action):
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     deposit = Deposit.query.get(id)
     if not deposit: return jsonify({"error": "غير موجود"}), 404
@@ -94,7 +94,7 @@ def admin_handle_deposit(id, action):
 @main.route("/admin/api/users", methods=["GET"])
 @jwt_required()
 @handle_errors
-def admin_get_users():
+def admin_get_users_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     users = User.query.all()
     result = [{
@@ -109,7 +109,7 @@ def admin_get_users():
 @main.route("/admin/api/users/<int:id>/balance", methods=["POST"])
 @jwt_required()
 @handle_errors
-def admin_edit_balance(id):
+def admin_edit_balance_v3(id):
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     data = request.get_json() or {}
     new_balance = float(data.get("balance", 0))
@@ -125,7 +125,7 @@ def admin_edit_balance(id):
 @main.route("/admin/api/audit", methods=["GET"])
 @jwt_required()
 @handle_errors
-def admin_get_audit():
+def admin_get_audit_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     logs = FinancialAuditLog.query.order_by(FinancialAuditLog.id.desc()).limit(100).all()
     result = [{
@@ -141,7 +141,7 @@ def admin_get_audit():
 @main.route("/admin/api/settings", methods=["GET", "PUT"])
 @jwt_required()
 @handle_errors
-def admin_settings():
+def admin_settings_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     
     if request.method == "PUT":
