@@ -1,12 +1,29 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timezone
-from ..models.base import User, Product, Category, Deposit, FinancialAuditLog, Setting
+from ..models.base import User, Product, Category, Deposit, FinancialAuditLog, Setting, Order
 from ..extensions import db
 from . import main
 from .admin_utils import handle_errors, is_admin_user
 from ..services.cloudinary_service import upload_base64_image
 from app.services.admin_service import adjust_user_balance, AdminServiceError
+
+# ================== 0. الإحصائيات ==================
+@main.route("/admin/api/stats", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_get_stats():
+    if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
+    # جلب أرقام حقيقية
+    total_users = User.query.count()
+    total_orders = Order.query.count()
+    pending_deposits = Deposit.query.filter_by(status='pending').count()
+    
+    return jsonify({
+        "total_users": total_users,
+        "total_orders": total_orders,
+        "pending_deposits": pending_deposits
+    })
 
 # ================== 1. المنتجات ==================
 @main.route("/admin/api/products", methods=["GET"])
@@ -37,11 +54,14 @@ def admin_create_product_v3():
         uploaded_url = upload_base64_image(image_url, folder="sanad/products")
         if uploaded_url: image_url = uploaded_url
 
+    # تأكيد حفظ السعر
+    price_val = float(data.get("price", 0))
+    
     new_product = Product(
         name=data.get("name"),
         category_id=data.get("category_id"),
         image=image_url,
-        base_price=float(data.get("price", 0)),
+        base_price=price_val,
         product_type=data.get("pricing_type", "fixed"),
         base_quantity=int(data.get("base_qty", 0)),
         input_type=data.get("input_type", "id")
@@ -135,7 +155,6 @@ def admin_edit_balance_v3(id):
     user = User.query.get(id)
     if not user: return jsonify({"error": "غير موجود"}), 404
     
-    # حساب الفرق لتسجيله في التدقيق
     difference = new_balance - float(user.balance)
     try:
         adjust_user_balance(user.id, difference, "تعديل رصيد يدوي بواسطة الأدمن", "manual", user.id)

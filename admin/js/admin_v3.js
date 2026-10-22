@@ -1,11 +1,10 @@
 // ==========================================
-// SANAD PLUS+ Admin Panel v3 (Real API)
+// SANAD PLUS+ Admin Panel v3 (Fixed Loading)
 // ==========================================
 
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
 
-// ================= Image Preview =================
 function previewImage(input, previewId) {
     const preview = document.getElementById(previewId);
     if (input.files && input.files[0]) {
@@ -17,7 +16,6 @@ function previewImage(input, previewId) {
     }
 }
 
-// ================= API Call Helper =================
 async function apiCall(endpoint, method = 'GET', body = null) {
     const headers = { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
     const config = { method, headers };
@@ -27,14 +25,23 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         if (res.status === 401) { handleLogout(); return null; }
         return await res.json();
     } catch (error) { 
-        Swal.fire({ icon: 'error', title: 'خطأ في الاتصال', text: 'تعذر الاتصال بالسيرفر', background: '#1e293b', color: '#fff' });
+        console.error("API Error:", error);
         return null; 
     }
 }
 
-// ================= Modals =================
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ================= Dashboard Stats =================
+async function loadDashboardStats() {
+    const data = await apiCall('/admin/api/stats');
+    if (data) {
+        document.getElementById('statOrders').innerText = data.total_orders;
+        document.getElementById('statUsers').innerText = data.total_users;
+        // يمكن إضافة باقي الإحصائيات هنا
+    }
+}
 
 // ================= Products =================
 function togglePricingFields() {
@@ -85,27 +92,31 @@ async function saveProduct() {
         image: imageBase64
     };
 
+    // تأكيد إرسال السعر
     if (data.pricing_type === 'fixed') {
-        data.price = parseFloat(document.getElementById('prodFixedPrice').value);
+        data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0;
     } else {
-        data.base_qty = parseFloat(document.getElementById('prodBaseQty').value);
-        data.price = parseFloat(document.getElementById('prodBasePrice').value);
+        data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0;
+        data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0;
     }
 
     const res = await apiCall('/admin/api/products', 'POST', data);
     if (res && res.success) {
         Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
         closeModal('addProductModal'); 
+        loadProducts(); // تحديث الجدول
+    } else {
+        Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل الحفظ، تأكد من البيانات', background: '#1e293b', color: '#fff'});
     }
 }
 
 async function loadProducts() {
     const data = await apiCall('/admin/api/products');
-    if(data) {
+    if(data && data.products) {
         document.getElementById('productsTableBody').innerHTML = data.products.map(p => `
             <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
                 <td class="font-bold text-white">${p.name}</td>
-                <td class="text-primary">${p.pricing_type === 'dynamic' ? 'ديناميكي' : `$${p.price}`}</td>
+                <td class="text-primary">${p.pricing_type === 'dynamic' ? 'ديناميكي' : `$${p.price.toFixed(2)}`}</td>
                 <td>${p.category_id}</td>
                 <td>${p.pricing_type === 'dynamic' ? 'كمية' : 'ثابت'}</td>
                 <td><button onclick="deleteProduct(${p.id}, '${p.name}')" class="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg">حذف</button></td>
@@ -135,12 +146,13 @@ async function saveCategory() {
     if (res && res.success) {
         Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
         closeModal('addCategoryModal'); 
+        loadCategories(); // تحديث
     }
 }
 
 async function loadCategories() {
     const data = await apiCall('/admin/api/categories');
-    if(data) {
+    if(data && data.categories) {
         document.getElementById('categoriesContainer').innerHTML = data.categories.map(c => `
             <div class="glass bento-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative">
                 <button onclick="deleteCategory(${c.id}, '${c.name}')" class="absolute top-2 right-2 text-red-500 hover:text-red-400"><i data-lucide="x" size="18"></i></button>
@@ -155,7 +167,7 @@ async function loadCategories() {
 // ================= Users & Balance =================
 async function loadUsers() {
     const data = await apiCall('/admin/api/users');
-    if (data) {
+    if (data && data.users) {
         document.getElementById('usersTableBody').innerHTML = data.users.map(user => `
             <tr class="hover:bg-slate-800/30 transition">
                 <td><div class="font-bold text-white">${user.first_name}</div><div class="text-xs text-slate-400 font-mono">${user.telegram_id}</div></td>
@@ -219,10 +231,23 @@ function switchSection(sectionId, btnElement) {
         btnElement.classList.remove('text-slate-400'); btnElement.classList.add('bg-slate-700/50', 'text-white');
     }
 
+    // تحميل البيانات عند الانتقال
+    if (sectionId === 'dashboard') loadDashboardStats();
     if (sectionId === 'users') loadUsers();
     if (sectionId === 'products') loadProducts();
     if (sectionId === 'categories') loadCategories();
 }
 
+// دالة تحميل كل شيء عند بدء التشغيل
+async function loadAllData() {
+    loadDashboardStats();
+}
+
 function handleLogout() { localStorage.removeItem('admin_token'); localStorage.removeItem('token'); location.reload(); }
-window.onload = () => { if (!getToken()) { document.getElementById('loginScreen').style.display = 'flex'; } else { document.getElementById('loginScreen').style.display = 'none'; switchSection('dashboard', document.querySelector('.nav-btn')); } };
+window.onload = () => { 
+    if (!getToken()) { document.getElementById('loginScreen').style.display = 'flex'; } 
+    else { 
+        document.getElementById('loginScreen').style.display = 'none'; 
+        switchSection('dashboard', document.querySelector('.nav-btn')); 
+    } 
+};
