@@ -135,6 +135,78 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Admin Panel v3 Loaded (State Management Active)');
     // يمكن استدعاء الدوال هنا بناءً على الصفحة الحالية
     if (document.getElementById('depositsContainer')) {
-        loadDeposits();
+        switchSection('dashboard', null); // Start at dashboard
     }
 });
+
+
+// Navigation Logic
+function switchSection(sectionId, btnElement) {
+    // إخفاء كل الأقسام
+    document.querySelectorAll('.content-section').forEach(sec => sec.style.display = 'none');
+    
+    // إظهار القسم المطلوب
+    const target = document.getElementById('section-' + sectionId);
+    if (target) target.style.display = 'block';
+
+    // تحديث العناوين والأزرار النشطة
+    const titles = {
+        'dashboard': 'الرئيسية', 'deposits': 'الإيداعات', 'orders': 'الطلبات',
+        'kyc': 'التوثيق', 'users': 'المستخدمين', 'products': 'المنتجات', 'settings': 'الإعدادات'
+    };
+    document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
+
+    if (btnElement) {
+        document.querySelectorAll('.sidebar .nav-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+    }
+
+    // جلب البيانات عند فتح القسم
+    if (sectionId === 'deposits') switchSection('dashboard', null); // Start at dashboard
+    if (sectionId === 'orders') loadOrders();
+}
+
+// Fetch Orders
+async function loadOrders() {
+    const container = document.getElementById('ordersContainer');
+    container.innerHTML = '<p style="text-align:center; color: var(--text-muted);">جاري تحميل الطلبات...</p>';
+    const data = await apiCall('/admin/api/orders');
+    if (data) {
+        AppState.orders = data.orders || data;
+        renderOrders();
+    }
+}
+
+function renderOrders() {
+    const container = document.getElementById('ordersContainer');
+    container.innerHTML = '';
+    if (!AppState.orders || AppState.orders.length === 0) {
+        container.innerHTML = '<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات حالياً</div>';
+        return;
+    }
+
+    AppState.orders.forEach(order => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <strong style="color:var(--primary);">${order.order_number || 'ORD-' + order.id}</strong>
+                <strong>$${order.total_price}</strong>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn btn-success" style="flex:1;" onclick="updateOrderStatus(${order.id}, 'completed')"><i class="fas fa-check"></i> إكمال</button>
+                <button class="btn btn-danger" style="flex:1;" onclick="updateOrderStatus(${order.id}, 'failed')"><i class="fas fa-times"></i> رفض</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function updateOrderStatus(id, status) {
+    if (!confirm('هل أنت متأكد؟')) return;
+    const res = await apiCall(`/admin/api/orders/${id}/status`, 'POST', { status });
+    if (res) {
+        showToast('تم تحديث حالة الطلب بنجاح', 'success');
+        loadOrders();
+    }
+}

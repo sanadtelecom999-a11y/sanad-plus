@@ -7,44 +7,114 @@
     <title>SANAD PLUS+ | لوحة التحكم</title>
     <link rel="stylesheet" href="css/admin_v3.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        // قتل أي Service Worker قديم
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) { registration.unregister(); }
+            });
+        }
+    </script>
 </head>
 <body>
 
 <div class="dashboard-container">
     <!-- Sidebar (Desktop) -->
     <aside class="sidebar">
-        <h2 style="text-align:center; color:var(--primary);">SANAD+</h2>
-        <nav style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
-            <a href="#" class="btn btn-outline" style="justify-content: flex-start;"><i class="fas fa-home"></i> الرئيسية</a>
-            <a href="#" class="btn btn-outline" style="justify-content: flex-start; border-color: var(--primary); color: var(--primary);"><i class="fas fa-inbox"></i> الإرساليات</a>
-            <a href="#" class="btn btn-outline" style="justify-content: flex-start;"><i class="fas fa-shopping-bag"></i> الطلبات</a>
-            <a href="#" class="btn btn-outline" style="justify-content: flex-start;"><i class="fas fa-users"></i> المستخدمين</a>
+        <h2 style="text-align:center; color:var(--primary); margin-bottom: 30px;">SANAD+</h2>
+        <nav style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn btn-outline nav-btn active" onclick="switchSection('dashboard', this)"><i class="fas fa-home"></i> الرئيسية</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('deposits', this)"><i class="fas fa-money-bill-wave"></i> الإيداعات</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('orders', this)"><i class="fas fa-shopping-bag"></i> الطلبات</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('kyc', this)"><i class="fas fa-id-card"></i> التوثيق</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('users', this)"><i class="fas fa-users"></i> المستخدمين</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('products', this)"><i class="fas fa-box"></i> المنتجات</button>
+            <button class="btn btn-outline nav-btn" onclick="switchSection('settings', this)"><i class="fas fa-cog"></i> الإعدادات</button>
         </nav>
     </aside>
 
     <!-- Main Content -->
     <main class="main-content">
         <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="font-size: 24px; margin: 0;">الإرساليات</h1>
+            <h1 id="page-title" style="font-size: 24px; margin: 0;">الرئيسية</h1>
             <div style="background: var(--bg-card); padding: 10px; border-radius: 50%;"><i class="fas fa-bell"></i></div>
         </header>
 
-        <!-- Deposits Container -->
-        <div id="depositsContainer">
-            <p style="text-align:center; color: var(--text-muted);">جاري تحميل البيانات...</p>
-        </div>
+        <!-- Section: Dashboard -->
+        <section id="section-dashboard" class="content-section">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                <div class="card" style="text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 14px;">إيداعات اليوم</h3>
+                    <p style="font-size: 24px; font-weight: bold; color: var(--warning); margin: 10px 0;">0 $</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 14px;">طلبات اليوم</h3>
+                    <p style="font-size: 24px; font-weight: bold; color: var(--primary); margin: 10px 0;">0</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <h3 style="color: var(--text-muted); font-size: 14px;">طلبات التوثيق</h3>
+                    <p style="font-size: 24px; font-weight: bold; color: var(--success); margin: 10px 0;">0</p>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 20px; text-align: center; padding: 40px;">
+                <i class="fas fa-chart-line fa-3x" style="color: var(--text-muted);"></i>
+                <p style="margin-top: 10px; color: var(--text-muted);">الرسوم البيانية ستتوفر قريباً</p>
+            </div>
+        </section>
+
+        <!-- Section: Deposits -->
+        <section id="section-deposits" class="content-section" style="display:none;">
+            <div id="depositsContainer">
+                <p style="text-align:center; color: var(--text-muted);">جاري تحميل الإيداعات...</p>
+            </div>
+        </section>
+
+        <!-- Section: Orders -->
+        <section id="section-orders" class="content-section" style="display:none;">
+            <div id="ordersContainer">
+                <p style="text-align:center; color: var(--text-muted);">جاري تحميل الطلبات...</p>
+            </div>
+        </section>
+
+        <!-- Section: Users -->
+        <section id="section-users" class="content-section" style="display:none;">
+            <div class="card">
+                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إدارة المستخدمين هنا.</p>
+            </div>
+        </section>
+
+        <!-- Section: KYC -->
+        <section id="section-kyc" class="content-section" style="display:none;">
+            <div class="card">
+                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة طلبات التوثيق هنا.</p>
+            </div>
+        </section>
+        
+        <!-- Section: Products -->
+        <section id="section-products" class="content-section" style="display:none;">
+            <div class="card">
+                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إدارة المنتجات هنا.</p>
+            </div>
+        </section>
+
+        <!-- Section: Settings -->
+        <section id="section-settings" class="content-section" style="display:none;">
+            <div class="card">
+                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إعدادات المتجر هنا.</p>
+            </div>
+        </section>
+
     </main>
 </div>
 
 <!-- Bottom Nav (Mobile) -->
 <nav class="bottom-nav">
-    <a href="#"><i class="fas fa-home fa-lg"></i> الرئيسية</a>
-    <a href="#" class="active"><i class="fas fa-inbox fa-lg"></i> الإرساليات</a>
-    <a href="#"><i class="fas fa-shopping-bag fa-lg"></i> الطلبات</a>
-    <a href="#"><i class="fas fa-bars fa-lg"></i> المزيد</a>
+    <a href="#" class="active" onclick="switchSection('dashboard', null); return false;"><i class="fas fa-home fa-lg"></i> الرئيسية</a>
+    <a href="#" onclick="switchSection('deposits', null); return false;"><i class="fas fa-money-bill-wave fa-lg"></i> الإيداعات</a>
+    <a href="#" onclick="switchSection('orders', null); return false;"><i class="fas fa-shopping-bag fa-lg"></i> الطلبات</a>
+    <a href="#" onclick="switchSection('users', null); return false;"><i class="fas fa-users fa-lg"></i> المزيد</a>
 </nav>
 
-<!-- Scripts -->
-<script src="js/admin_v3.js?v=2"></script>
+<script src="js/admin_v3.js?v=3"></script>
 </body>
 </html>
