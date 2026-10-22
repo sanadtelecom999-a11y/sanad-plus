@@ -4,25 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SANAD PLUS+ | لوحة التحكم</title>
-    <!-- Tailwind CSS للتصميم -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SweetAlert2 للنوافذ المنبثقة -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: {
-                        dark: '#0f172a',
-                        card: '#1e293b',
-                        primary: '#10b981',
-                        danger: '#ef4444',
-                        accent: '#38bdf8'
-                    },
+                    colors: { dark: '#0f172a', card: '#1e293b', primary: '#10b981', danger: '#ef4444', accent: '#38bdf8' },
                     fontFamily: { sans: ['Cairo', 'sans-serif'] }
                 }
             }
@@ -34,8 +24,8 @@
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
         .bento-card { transition: transform 0.2s, box-shadow 0.2s; }
         .bento-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
-        /* إخفاء شاشة الدخول افتراضياً */
         #loginScreen { display: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="min-h-screen flex">
@@ -50,27 +40,42 @@
         </div>
     </div>
 
-    <!-- القائمة الجانبية -->
-    <aside class="w-24 md:w-64 glass border-l border-slate-700/50 flex flex-col items-center py-6 z-10">
-        <div class="text-accent font-bold text-2xl mb-10 hidden md:block">SANAD+</div>
-        <nav class="flex flex-col gap-4 w-full px-2 md:px-4">
+    <!-- القائمة الجانبية (تمت إضافة كل الأقسام) -->
+    <aside class="w-24 md:w-64 glass border-l border-slate-700/50 flex flex-col items-center py-6 z-10 h-screen sticky top-0 overflow-y-auto scrollbar-hide">
+        <div class="text-accent font-bold text-2xl mb-10 hidden md:block tracking-wider">SANAD+</div>
+        <nav class="flex flex-col gap-2 w-full px-2 md:px-4">
             <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
-                <i data-lucide="layout-dashboard"></i> <span class="hidden md:block">الرئيسية</span>
+                <i data-lucide="layout-dashboard"></i> <span class="hidden md:block font-bold">الرئيسية</span>
             </button>
             <button onclick="switchSection('deposits', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
-                <i data-lucide="inbox"></i> <span class="hidden md:block">الإيداعات</span>
+                <i data-lucide="inbox"></i> <span class="hidden md:block font-bold">الإيداعات</span>
             </button>
             <button onclick="switchSection('orders', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
-                <i data-lucide="shopping-cart"></i> <span class="hidden md:block">الطلبات</span>
+                <i data-lucide="shopping-cart"></i> <span class="hidden md:block font-bold">الطلبات</span>
             </button>
-            <button onclick="handleLogout()" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/20 text-red-400 mt-auto transition">
-                <i data-lucide="log-out"></i> <span class="hidden md:block">خروج</span>
+            <button onclick="switchSection('users', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
+                <i data-lucide="users"></i> <span class="hidden md:block font-bold">المستخدمين</span>
+            </button>
+            <button onclick="switchSection('kyc', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
+                <i data-lucide="shield-check"></i> <span class="hidden md:block font-bold">التوثيق (KYC)</span>
+            </button>
+            <button onclick="switchSection('products', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
+                <i data-lucide="package"></i> <span class="hidden md:block font-bold">المنتجات</span>
+            </button>
+            <button onclick="switchSection('categories', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
+                <i data-lucide="layers"></i> <span class="hidden md:block font-bold">الأقسام</span>
+            </button>
+            <button onclick="switchSection('settings', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition">
+                <i data-lucide="settings"></i> <span class="hidden md:block font-bold">الإعدادات</span>
+            </button>
+            <button onclick="handleLogout()" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-red-500/20 text-red-400 mt-4 transition">
+                <i data-lucide="log-out"></i> <span class="hidden md:block font-bold">خروج</span>
             </button>
         </nav>
     </aside>
 
     <!-- المحتوى الرئيسي -->
-    <main class="flex-1 p-6 md:p-10 overflow-y-auto relative">
+    <main class="flex-1 p-6 md:p-10 overflow-y-auto h-screen">
         <header class="flex justify-between items-center mb-8">
             <h2 id="page-title" class="text-3xl font-bold text-white">الرئيسية</h2>
             <div class="flex items-center gap-4">
@@ -78,62 +83,32 @@
             </div>
         </header>
 
-        <!-- قسم الرئيسية (Bento Grid) -->
         <section id="section-dashboard" class="content-section block">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- كرت إحصائي كبير -->
                 <div class="glass bento-card rounded-3xl p-6 md:col-span-2 flex flex-col justify-between relative overflow-hidden">
                     <div class="absolute -top-10 -left-10 w-40 h-40 bg-accent/20 rounded-full blur-3xl"></div>
-                    <div>
-                        <h3 class="text-slate-400 mb-2">إجمالي الإيداعات المعلقة</h3>
-                        <div class="text-5xl font-bold text-white" id="totalPendingDeposits">0</div>
-                    </div>
-                    <div class="mt-4 flex gap-4 text-sm">
-                        <span class="flex items-center gap-1 text-primary"><i data-lucide="trending-up" size="16"></i> +12% هذا الأسبوع</span>
-                    </div>
+                    <div><h3 class="text-slate-400 mb-2">إجمالي الإيداعات المعلقة</h3><div class="text-5xl font-bold text-white" id="totalPendingDeposits">0</div></div>
+                    <div class="mt-4 flex gap-4 text-sm"><span class="flex items-center gap-1 text-primary"><i data-lucide="trending-up" size="16"></i> محدث تلقائياً</span></div>
                 </div>
-                
-                <!-- كرت إحصائي صغير -->
                 <div class="glass bento-card rounded-3xl p-6 flex flex-col justify-center items-center text-center">
-                    <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4 text-primary">
-                        <i data-lucide="check-circle" size="32"></i>
-                    </div>
-                    <h3 class="text-slate-400 mb-1">طلبات جديدة</h3>
-                    <div class="text-4xl font-bold text-white" id="totalPendingOrders">0</div>
-                </div>
-
-                <!-- كرت الترحيب -->
-                <div class="glass bento-card rounded-3xl p-6 md:col-span-3 flex items-center gap-4 bg-gradient-to-r from-slate-800 to-slate-900">
-                    <div class="p-3 bg-accent/20 rounded-2xl text-accent"><i data-lucide="shield-check" size="28"></i></div>
-                    <div>
-                        <h3 class="font-bold text-lg">مرحباً بك في لوحة التحكم v3</h3>
-                        <p class="text-slate-400 text-sm">النظام محمي، التصميم جديد، وجاهز لإدارة متجرك.</p>
-                    </div>
+                    <div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4 text-primary"><i data-lucide="check-circle" size="32"></i></div>
+                    <h3 class="text-slate-400 mb-1">طلبات جديدة</h3><div class="text-4xl font-bold text-white" id="totalPendingOrders">0</div>
                 </div>
             </div>
         </section>
 
-        <!-- قسم الإيداعات -->
-        <section id="section-deposits" class="content-section hidden">
-            <div id="depositsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- سيتم حقن البطاقات هنا -->
-            </div>
-        </section>
-
-        <!-- قسم الطلبات -->
-        <section id="section-orders" class="content-section hidden">
-            <div id="ordersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- سيتم حقن البطاقات هنا -->
-            </div>
-        </section>
+        <section id="section-deposits" class="content-section hidden"><div id="depositsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></section>
+        <section id="section-orders" class="content-section hidden"><div id="ordersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div></section>
+        
+        <!-- أقسام قيد التطوير -->
+        <section id="section-users" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم المستخدمين قيد التطوير في Sprint v3.1</div></section>
+        <section id="section-kyc" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم التوثيق قيد التطوير في Sprint v3.1</div></section>
+        <section id="section-products" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم المنتجات قيد التطوير في Sprint v3.1</div></section>
+        <section id="section-categories" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأقسام قيد التطوير في Sprint v3.1</div></section>
+        <section id="section-settings" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الإعدادات قيد التطوير في Sprint v3.1</div></section>
 
     </main>
-
-    <!-- ربط الملفات -->
     <script src="js/admin_v3.js"></script>
-    <script>
-        // تشغيل الأيقونات
-        lucide.createIcons();
-    </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
