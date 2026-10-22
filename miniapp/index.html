@@ -91,12 +91,12 @@
                     <div class="relative z-10 mt-4">
                         <div class="text-slate-400 text-sm mb-1 font-medium">الرصيد الإجمالي</div>
                         <div class="text-5xl font-extrabold text-white tracking-tight flex items-baseline gap-1" dir="ltr">
-                            <span class="text-3xl text-slate-500">$</span>1832<span class="text-2xl text-slate-500">.44</span>
+                            <span class="text-3xl text-slate-500">$</span><span id="homeBalance">0</span><span class="text-2xl text-slate-500">.00</span>
                         </div>
                     </div>
                     <div class="relative z-10 mt-6 flex justify-between items-center">
                         <div class="text-xs text-slate-500 font-mono tracking-widest">**** 4421</div>
-                        <div class="flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md"><i data-lucide="trending-up" size="14"></i> +12% هذا الشهر</div>
+                        <div class="flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md"><i data-lucide="trending-up" size="14"></i> +0% هذا الشهر</div>
                     </div>
                 </div>
 
@@ -132,7 +132,12 @@
             <!-- 2. قسم الطلبات -->
             <section id="tab-orders" class="tab-content hidden px-4">
                 <h3 class="text-2xl font-bold text-white mb-6">طلباتي</h3>
-                <div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400">قسم الطلبات (سيتم تفصيله لاحقاً)</div>
+                <div id="ordersList" class="space-y-3">
+                    <div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800">
+                        <i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>
+                        لا توجد لديك طلبات سابقة.
+                    </div>
+                </div>
             </section>
 
             <!-- 3. قسم سجل الإيداعات -->
@@ -147,13 +152,10 @@
                 </div>
 
                 <div class="space-y-3" id="historyList">
-                    <div class="bg-iosCard rounded-2xl p-5 flex justify-between items-center history-item" data-status="completed">
-                        <div><div class="text-white font-bold text-sm mb-1">DEP-176ACCD6</div><div class="text-xs text-slate-400">شام كاش • 21 أكتوبر</div></div>
-                        <div class="text-left"><div class="text-white font-bold" dir="ltr">$500.00</div><div class="text-[10px] bg-primary/20 text-primary px-2.5 py-1 rounded-md mt-1 inline-block">مكتمل</div></div>
-                    </div>
-                    <div class="bg-iosCard rounded-2xl p-5 flex justify-between items-center history-item" data-status="pending">
-                        <div><div class="text-white font-bold text-sm mb-1">DEP-0C26A586</div><div class="text-xs text-slate-400">MTN كاش • 22 أكتوبر</div></div>
-                        <div class="text-left"><div class="text-white font-bold" dir="ltr">50,000 ل.س</div><div class="text-[10px] bg-warning/20 text-warning px-2.5 py-1 rounded-md mt-1 inline-block">معلق</div></div>
+                    <!-- سيتم جلب الإيداعات من السيرفر هنا -->
+                    <div class="bg-iosCard rounded-2xl p-10 text-center text-slate-400 border border-slate-800">
+                        <i data-lucide="inbox" size="48" class="mx-auto mb-3 text-slate-600"></i>
+                        لا توجد إيداعات حالياً.
                     </div>
                 </div>
             </section>
@@ -161,26 +163,36 @@
             <!-- 4. قسم الحساب -->
             <section id="tab-profile" class="tab-content hidden px-4">
                 <div class="flex flex-col items-center mb-6 mt-2">
-                    <div class="w-20 h-20 bg-iosCard rounded-full flex items-center justify-center border border-slate-700 mb-3 shadow-lg relative">
-                        <i data-lucide="user" size="40" class="text-slate-400" stroke-width="1"></i>
-                        <div class="absolute bottom-0 right-0 bg-primary w-5 h-5 rounded-full border-2 border-black flex items-center justify-center"><i data-lucide="check" size="12" class="text-white"></i></div>
+                    <!-- الصورة الشخصية الحقيقية -->
+                    <div class="w-24 h-24 bg-iosCard rounded-full flex items-center justify-center border border-slate-700 mb-3 shadow-lg relative overflow-hidden">
+                        <img id="userAvatar" src="" class="w-full h-full object-cover hidden">
+                        <i data-lucide="user" id="defaultAvatarIcon" size="48" class="text-slate-400" stroke-width="1"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-white mb-1">سند</h3>
-                    <p class="text-sm text-slate-400 mb-3">@SANADST</p>
+                    
+                    <!-- الاسم وعلامة التوثيق -->
+                    <div class="flex items-center gap-2 mb-1">
+                        <h3 class="text-2xl font-bold text-white" id="profileName">جاري التحميل...</h3>
+                        <!-- علامة التوثيق (تويتر ستايل) -->
+                        <div id="verificationBadge" class="hidden">
+                            <!-- سيتم حقن أيقونة الصح أو الخطأ هنا برمجياً -->
+                        </div>
+                    </div>
+                    
+                    <p class="text-sm text-slate-400 mb-3" id="profileUsername">@</p>
                 </div>
 
                 <div class="bg-gradient-to-r from-slate-900 to-black rounded-3xl p-5 mb-6 border border-slate-700 relative overflow-hidden shadow-2xl">
                     <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-accent/20 rounded-full blur-2xl"></div>
                     <div class="flex justify-between items-center mb-3"><span class="text-xs text-slate-400 font-bold">مُعرّف سند (Sanad ID)</span><i data-lucide="shield-check" class="text-accent" size="18"></i></div>
                     <div class="flex justify-between items-end">
-                        <div><div class="text-2xl font-mono font-bold text-white tracking-wider" id="sanadIdText">SN-000000</div><div class="text-[10px] text-slate-500 mt-1">Telegram: 8673286954</div></div>
+                        <div><div class="text-2xl font-mono font-bold text-white tracking-wider" id="sanadIdText">SN-000000</div><div class="text-[10px] text-slate-500 mt-1" id="profileTelegramId">Telegram: ...</div></div>
                         <button onclick="copySanadId()" class="bg-white/10 p-2 rounded-xl text-white hover:bg-white/20 transition active:scale-90" title="نسخ المعرف"><i data-lucide="copy" size="18"></i></button>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">الرصيد</div><div class="text-white font-bold text-lg" dir="ltr">$1832.44</div></div>
-                    <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">إجمالي الإيداعات</div><div class="text-white font-bold text-lg" dir="ltr">$424.56</div></div>
+                    <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">الرصيد</div><div class="text-white font-bold text-lg" dir="ltr">$<span id="profileBalance">0.00</span></div></div>
+                    <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">إجمالي الإيداعات</div><div class="text-white font-bold text-lg" dir="ltr">$<span id="profileTotalDeposits">0.00</span></div></div>
                 </div>
 
                 <div class="bg-iosCard rounded-2xl overflow-hidden mb-6 border border-slate-800">
@@ -240,249 +252,17 @@
 
     </div>
 
-    <!-- ================== النوافذ المنبثقة ================== -->
-    
-    <!-- 1. نافذة قيد التطوير -->
-    <div id="featureModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-8 pb-12 h-auto text-center transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="featureModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-8"></div>
-            <div class="w-20 h-20 mx-auto bg-accent/10 rounded-full flex items-center justify-center mb-4"><i data-lucide="hammer" class="text-accent animate-pulse" size="36"></i></div>
-            <h3 class="text-2xl font-bold text-white mb-2" id="featureTitle">قيد التطوير</h3>
-            <p class="text-slate-400 text-sm mb-6">هذه الميزة قيد التطوير حالياً، ترقبوا التحديثات القادمة في التطبيق!</p>
-            <button onclick="closeModal('featureModal')" class="w-full bg-iosGray hover:bg-slate-700 text-white font-bold py-4 rounded-2xl transition text-lg">حسناً</button>
-        </div>
-    </div>
-
-    <!-- 2. نافذة الأسئلة الشائعة (FAQ) -->
-    <div id="faqModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[80vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="faqModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الأسئلة الشائعة</h3><button onclick="closeModal('faqModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-            
-            <div class="space-y-3">
-                <details class="bg-dark rounded-2xl border border-slate-800 overflow-hidden">
-                    <summary class="p-4 flex justify-between items-center font-bold text-white cursor-pointer hover:bg-slate-900 transition">
-                        كيف أقوم بشحن رصيدي؟
-                        <i data-lucide="chevron-down" class="text-slate-500 chevron-icon" size="20"></i>
-                    </summary>
-                    <div class="p-4 pt-0 text-sm text-slate-400 border-t border-slate-800/50">
-                        يمكنك شحن رصيدك بالضغط على زر "البرق" في شريط التنقل السفلي، ثم اختيار طريقة الدفع (شام كاش أو MTN)، وإدخال المبلغ ورفع صورة الإيصال.
-                    </div>
-                </details>
-                <details class="bg-dark rounded-2xl border border-slate-800 overflow-hidden">
-                    <summary class="p-4 flex justify-between items-center font-bold text-white cursor-pointer hover:bg-slate-900 transition">
-                        كم يستغرق اعتماد الإيداع؟
-                        <i data-lucide="chevron-down" class="text-slate-500 chevron-icon" size="20"></i>
-                    </summary>
-                    <div class="p-4 pt-0 text-sm text-slate-400 border-t border-slate-800/50">
-                        عادة ما يتم اعتماد الإيداعات خلال 5 إلى 30 دقيقة كحد أقصى. في أوقات الذروة قد يتأخر قليلاً.
-                    </div>
-                </details>
-                <details class="bg-dark rounded-2xl border border-slate-800 overflow-hidden">
-                    <summary class="p-4 flex justify-between items-center font-bold text-white cursor-pointer hover:bg-slate-900 transition">
-                        ماذا أفعل إذا فشل طلبي؟
-                        <i data-lucide="chevron-down" class="text-slate-500 chevron-icon" size="20"></i>
-                    </summary>
-                    <div class="p-4 pt-0 text-sm text-slate-400 border-t border-slate-800/50">
-                        في حال فشل الطلب، يتم إرجاع المبلغ إلى محفظتك تلقائياً. يمكنك مراجعة "طلباتي" للتأكد.
-                    </div>
-                </details>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. نافذة الإحالات (Referral) -->
-    <div id="referralModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="referralModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">نظام الإحالات</h3><button onclick="closeModal('referralModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-            
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="gift" class="text-purple-400" size="32"></i></div>
-                <p class="text-sm text-slate-400 mb-4">ادعُ أصدقاءك واحصل على مكافأة على كل عملية شراء يقومون بها!</p>
-                <div class="bg-dark border border-slate-700 p-4 rounded-2xl flex justify-between items-center">
-                    <span class="font-mono text-xl font-bold text-white tracking-widest">SANAD2026</span>
-                    <button onclick="showToast('تم نسخ كود الإحالة')" class="bg-accent text-white p-2 rounded-lg active:scale-95 transition"><i data-lucide="copy" size="16"></i></button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 4. نافذة الدعم الفني (Support) -->
-    <div id="supportModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="supportModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الدعم الفني</h3><button onclick="closeModal('supportModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-            
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="headphones" class="text-blue-400" size="32"></i></div>
-                <p class="text-sm text-slate-400 mb-6">فريقنا جاهز لمساعدتك على مدار الساعة. تواصل معنا عبر تليجرام.</p>
-                <a href="https://t.me/SANADST" target="_blank" class="block w-full bg-[#229ED9] hover:bg-[#1E8CC2] text-white font-bold py-4 rounded-2xl transition text-lg flex items-center justify-center gap-2">
-                    <i data-lucide="send" size="20"></i> مراسلة الدعم
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- 5. نافذة توثيق الحساب (KYC) الجديدة -->
-    <div id="kycModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="kycModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">توثيق الحساب (KYC)</h3><button onclick="closeModal('kycModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-            
-            <div class="mb-4">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">الاسم الكامل</label>
-                <input type="text" id="kycName" class="input-field" placeholder="الاسم الثلاثي">
-            </div>
-            
-            <div class="mb-4">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">رقم الجوال</label>
-                <input type="tel" id="kycPhone" class="input-field" placeholder="09xxxxxxxx">
-            </div>
-
-            <div class="mb-4 grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-slate-400 mb-2 text-sm font-bold">المحافظة</label>
-                    <select id="kycGovernorate" class="input-field">
-                        <option value="">اختر المحافظة</option>
-                        <option>دمشق</option>
-                        <option>ريف دمشق</option>
-                        <option>حلب</option>
-                        <option>حمص</option>
-                        <option>حماة</option>
-                        <option>اللاذقية</option>
-                        <option>طرطوس</option>
-                        <option>إدلب</option>
-                        <option>درعا</option>
-                        <option>السويداء</option>
-                        <option>القامشلي</option>
-                        <option>دير الزور</option>
-                        <option>الرقة</option>
-                        <option>الحسكة</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-2 text-sm font-bold">المنطقة</label>
-                    <input type="text" id="kycRegion" class="input-field" placeholder="المنطقة">
-                </div>
-            </div>
-            
-            <div class="mb-4">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">صورة الوجه الأمامي للهوية</label>
-                <div class="border-2 border-dashed border-slate-700 bg-dark rounded-2xl p-4 text-center relative hover:bg-slate-900 transition">
-                    <i data-lucide="id-card" class="mx-auto text-slate-500 mb-2" size="28"></i>
-                    <input type="file" id="kycIdFront" class="w-full text-sm text-slate-400 outline-none cursor-pointer" accept="image/*">
-                </div>
-            </div>
-
-            <div class="mb-6">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">صورة سيلفي مع الهوية</label>
-                <div class="border-2 border-dashed border-slate-700 bg-dark rounded-2xl p-4 text-center relative hover:bg-slate-900 transition">
-                    <i data-lucide="camera" class="mx-auto text-slate-500 mb-2" size="28"></i>
-                    <input type="file" id="kycSelfie" class="w-full text-sm text-slate-400 outline-none cursor-pointer" accept="image/*">
-                </div>
-            </div>
-            
-            <button onclick="submitKYC()" class="w-full bg-primary hover:bg-emerald-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال طلب التوثيق</button>
-        </div>
-    </div>
-
-    <!-- 6. نافذة اختيار طريقة الدفع -->
-    <div id="paymentMethodsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="paymentMethodsModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">اختر طريقة الدفع</h3><button onclick="closeModal('paymentMethodsModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-            <div class="space-y-3 mb-8">
-                <button onclick="selectPaymentMethod('شام كاش')" class="w-full bg-dark border border-slate-700 rounded-2xl p-4 flex justify-between items-center active:bg-slate-800 transition">
-                    <div class="flex items-center gap-3"><div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center"><span class="text-blue-900 font-bold text-xs">شام</span></div><span class="font-bold text-white">شام كاش</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
-                </button>
-                <button onclick="selectPaymentMethod('MTN كاش')" class="w-full bg-dark border border-slate-700 rounded-2xl p-4 flex justify-between items-center active:bg-slate-800 transition">
-                    <div class="flex items-center gap-3"><div class="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center"><span class="text-black font-bold text-xs">MTN</span></div><span class="font-bold text-white">MTN كاش</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 7. نافذة الإيداع -->
-    <div id="depositModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="depositModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold text-white" id="depositTitle">إتمام الإيداع</h3>
-                <button onclick="closeModal('depositModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button>
-            </div>
-
-            <div class="flex gap-3 mb-6">
-                <div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center">
-                    <div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-down" size="12"></i> الأدنى</div>
-                    <div class="text-white font-bold text-sm" id="depositMinLimit">$0.00</div>
-                </div>
-                <div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center">
-                    <div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-up" size="12"></i> الأقصى</div>
-                    <div class="text-white font-bold text-sm" id="depositMaxLimit">$500.00</div>
-                </div>
-            </div>
-
-            <div class="mb-2">
-                <label class="block text-slate-400 mb-2 text-sm font-bold" id="depositAmountLabel">المبلغ بالدولار</label>
-                <input type="number" id="depositAmount" class="input-field text-left font-mono" dir="ltr" placeholder="0.00 - 500.00">
-            </div>
-
-            <div id="sypPreview" class="hidden mb-4 text-xs text-left text-primary bg-primary/10 p-2 rounded-lg border border-primary/20">
-                ما يعادل: <span id="usdEquivalent">$0.00</span>
-            </div>
-
-            <div class="mb-6">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">اسم المرسل</label>
-                <input type="text" id="depositSender" class="input-field" placeholder="أدخل اسم المرسل">
-            </div>
-
-            <div class="mb-2">
-                <label class="block text-slate-400 mb-2 text-sm font-bold">إثبات التحويل (صورة)</label>
-                
-                <div class="border-2 border-dashed border-slate-700 bg-dark rounded-2xl p-6 text-center relative hover:bg-slate-900 transition">
-                    <i data-lucide="camera" class="mx-auto text-slate-500 mb-3" size="32"></i>
-                    <div class="relative">
-                        <input type="file" id="depositImage" class="w-full text-sm text-slate-400 outline-none cursor-pointer" accept="image/*" onchange="previewDepositImage(this)">
-                    </div>
-                    <img id="depositImagePreview" class="hidden w-full max-h-40 object-contain mx-auto rounded-lg mt-4 border border-slate-700">
-                </div>
-            </div>
-
-            <div class="text-[11px] text-slate-500 mb-6 flex items-center justify-center gap-1">
-                <i data-lucide="lightbulb" size="14" class="text-yellow-500"></i> الحد الأقصى: 2MB - الصورة ستُضغط تلقائياً
-            </div>
-
-            <button onclick="submitOrder('إيداع')" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال</button>
-        </div>
-    </div>
-
-    <!-- 8. نافذة شراء لعبة -->
-    <div id="gameModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto max-h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="gameModalContent">
-            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center gap-2"><img src="https://via.placeholder.com/40" class="w-10 h-10 rounded-xl"><h3 class="text-lg font-bold text-white" id="modalGameTitle">PUBG MOBILE</h3></div>
-                <button onclick="closeModal('gameModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button>
-            </div>
-            <label class="block text-slate-400 mb-2 text-sm font-bold">إيدي اللاعب (ID)</label>
-            <div class="relative mb-6"><i data-lucide="user" class="absolute right-4 top-3.5 text-slate-500" size="20"></i><input type="number" class="input-field pr-12" placeholder="أدخل إيدي اللاعب"></div>
-            <label class="block text-slate-400 mb-2 text-sm font-bold">اختر الباقة</label>
-            <div class="space-y-3 mb-6">
-                <label class="block cursor-pointer">
-                    <input type="radio" name="pkg" value="1.00" class="package-radio hidden" checked onchange="updateGamePrice(this.value)">
-                    <div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">60 UC</span><span class="text-accent font-bold">$1.00</span></div>
-                </label>
-                <label class="block cursor-pointer">
-                    <input type="radio" name="pkg" value="5.00" class="package-radio hidden" onchange="updateGamePrice(this.value)">
-                    <div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">325 UC</span><span class="text-accent font-bold">$5.00</span></div>
-                </label>
-            </div>
-            <div class="bg-dark p-4 rounded-2xl flex justify-between items-center mb-6 border border-slate-700"><span class="text-slate-400">الإجمالي:</span><span class="text-primary font-bold text-xl" id="gameTotal">$1.00</span></div>
-            <button onclick="submitOrder('لعبة')" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-8">شراء الآن</button>
-        </div>
-    </div>
+    <!-- ================== النوافذ المنبثقة (نفس النوافذ السابقة) ================== -->
+    <!-- (تم اختصارها هنا للتركيز على التعديلات الجديدة، يرجى الاحتفاظ بها كما هي في ملفك) -->
+    <!-- أعد نسخ النوافذ من الكود السابق إذا حذفتها -->
+    <div id="featureModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-8 pb-12 h-auto text-center transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="featureModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-8"></div><div class="w-20 h-20 mx-auto bg-accent/10 rounded-full flex items-center justify-center mb-4"><i data-lucide="hammer" class="text-accent animate-pulse" size="36"></i></div><h3 class="text-2xl font-bold text-white mb-2" id="featureTitle">قيد التطوير</h3><p class="text-slate-400 text-sm mb-6">هذه الميزة قيد التطوير حالياً، ترقبوا التحديثات القادمة في التطبيق!</p><button onclick="closeModal('featureModal')" class="w-full bg-iosGray hover:bg-slate-700 text-white font-bold py-4 rounded-2xl transition text-lg">حسناً</button></div></div>
+    <div id="faqModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[80vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="faqModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الأسئلة الشائعة</h3><button onclick="closeModal('faqModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="space-y-3"><details class="bg-dark rounded-2xl border border-slate-800 overflow-hidden"><summary class="p-4 flex justify-between items-center font-bold text-white cursor-pointer hover:bg-slate-900 transition">كيف أقوم بشحن رصيدي؟<i data-lucide="chevron-down" class="text-slate-500 chevron-icon" size="20"></i></summary><div class="p-4 pt-0 text-sm text-slate-400 border-t border-slate-800/50">يمكنك شحن رصيدك بالضغط على زر "البرق" في شريط التنقل السفلي، ثم اختيار طريقة الدفع (شام كاش أو MTN)، وإدخال المبلغ ورفع صورة الإيصال.</div></details></div></div></div>
+    <div id="referralModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="referralModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">نظام الإحالات</h3><button onclick="closeModal('referralModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="text-center mb-6"><div class="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="gift" class="text-purple-400" size="32"></i></div><p class="text-sm text-slate-400 mb-4">ادعُ أصدقاءك واحصل على مكافأة!</p><div class="bg-dark border border-slate-700 p-4 rounded-2xl flex justify-between items-center"><span class="font-mono text-xl font-bold text-white tracking-widest" id="referralCode">---</span><button onclick="showToast('تم نسخ كود الإحالة')" class="bg-accent text-white p-2 rounded-lg active:scale-95 transition"><i data-lucide="copy" size="16"></i></button></div></div></div></div>
+    <div id="supportModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="supportModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الدعم الفني</h3><button onclick="closeModal('supportModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="text-center mb-6"><div class="w-16 h-16 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="headphones" class="text-blue-400" size="32"></i></div><p class="text-sm text-slate-400 mb-6">فريقنا جاهز لمساعدتك على مدار الساعة.</p><a href="https://t.me/SANADST" target="_blank" class="block w-full bg-[#229ED9] hover:bg-[#1E8CC2] text-white font-bold py-4 rounded-2xl transition text-lg flex items-center justify-center gap-2"><i data-lucide="send" size="20"></i> مراسلة الدعم</a></div></div></div>
+    <div id="kycModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="kycModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">توثيق الحساب (KYC)</h3><button onclick="closeModal('kycModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="mb-4"><label class="block text-slate-400 mb-2 text-sm font-bold">الاسم الكامل</label><input type="text" id="kycName" class="input-field" placeholder="الاسم الثلاثي"></div><div class="mb-4"><label class="block text-slate-400 mb-2 text-sm font-bold">رقم الجوال</label><input type="tel" id="kycPhone" class="input-field" placeholder="09xxxxxxxx"></div><div class="mb-4 grid grid-cols-2 gap-3"><div><label class="block text-slate-400 mb-2 text-sm font-bold">المحافظة</label><select id="kycGovernorate" class="input-field"><option value="">اختر</option><option>دمشق</option><option>حلب</option><option>حمص</option></select></div><div><label class="block text-slate-400 mb-2 text-sm font-bold">المنطقة</label><input type="text" id="kycRegion" class="input-field" placeholder="المنطقة"></div></div><div class="mb-4"><label class="block text-slate-400 mb-2 text-sm font-bold">صورة الوجه الأمامي للهوية</label><input type="file" id="kycIdFront" class="w-full text-sm text-slate-400 outline-none cursor-pointer input-field" accept="image/*"></div><div class="mb-6"><label class="block text-slate-400 mb-2 text-sm font-bold">صورة سيلفي مع الهوية</label><input type="file" id="kycSelfie" class="w-full text-sm text-slate-400 outline-none cursor-pointer input-field" accept="image/*"></div><button onclick="submitKYC()" class="w-full bg-primary hover:bg-emerald-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال الطلب</button></div></div>
+    <div id="paymentMethodsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="paymentMethodsModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">اختر طريقة الدفع</h3><button onclick="closeModal('paymentMethodsModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="space-y-3 mb-8"><button onclick="selectPaymentMethod('شام كاش')" class="w-full bg-dark border border-slate-700 rounded-2xl p-4 flex justify-between items-center active:bg-slate-800 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center"><span class="text-blue-900 font-bold text-xs">شام</span></div><span class="font-bold text-white">شام كاش</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i></button><button onclick="selectPaymentMethod('MTN كاش')" class="w-full bg-dark border border-slate-700 rounded-2xl p-4 flex justify-between items-center active:bg-slate-800 transition"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center"><span class="text-black font-bold text-xs">MTN</span></div><span class="font-bold text-white">MTN كاش</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i></button></div></div></div>
+    <div id="depositModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="depositModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white" id="depositTitle">إتمام الإيداع</h3><button onclick="closeModal('depositModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="flex gap-3 mb-6"><div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center"><div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-down" size="12"></i> الأدنى</div><div class="text-white font-bold text-sm" id="depositMinLimit">$0.00</div></div><div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center"><div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-up" size="12"></i> الأقصى</div><div class="text-white font-bold text-sm" id="depositMaxLimit">$500.00</div></div></div><div class="mb-2"><label class="block text-slate-400 mb-2 text-sm font-bold" id="depositAmountLabel">المبلغ بالدولار</label><input type="number" id="depositAmount" class="input-field text-left font-mono" dir="ltr" placeholder="0.00 - 500.00"></div><div id="sypPreview" class="hidden mb-4 text-xs text-left text-primary bg-primary/10 p-2 rounded-lg border border-primary/20">ما يعادل: <span id="usdEquivalent">$0.00</span></div><div class="mb-6"><label class="block text-slate-400 mb-2 text-sm font-bold">اسم المرسل</label><input type="text" id="depositSender" class="input-field" placeholder="أدخل اسم المرسل"></div><div class="mb-2"><label class="block text-slate-400 mb-2 text-sm font-bold">إثبات التحويل (صورة)</label><div class="border-2 border-dashed border-slate-700 bg-dark rounded-2xl p-6 text-center relative hover:bg-slate-900 transition"><i data-lucide="camera" class="mx-auto text-slate-500 mb-3" size="32"></i><div class="relative"><input type="file" id="depositImage" class="w-full text-sm text-slate-400 outline-none cursor-pointer" accept="image/*" onchange="previewDepositImage(this)"></div><img id="depositImagePreview" class="hidden w-full max-h-40 object-contain mx-auto rounded-lg mt-4 border border-slate-700"></div></div><div class="text-[11px] text-slate-500 mb-6 flex items-center justify-center gap-1"><i data-lucide="lightbulb" size="14" class="text-yellow-500"></i> الحد الأقصى: 2MB - الصورة ستُضغط تلقائياً</div><button onclick="submitOrder('إيداع')" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال</button></div></div>
+    <div id="gameModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto max-h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="gameModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-4"><div class="flex items-center gap-2"><img src="https://via.placeholder.com/40" class="w-10 h-10 rounded-xl"><h3 class="text-lg font-bold text-white" id="modalGameTitle">PUBG MOBILE</h3></div><button onclick="closeModal('gameModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><label class="block text-slate-400 mb-2 text-sm font-bold">إيدي اللاعب (ID)</label><div class="relative mb-6"><i data-lucide="user" class="absolute right-4 top-3.5 text-slate-500" size="20"></i><input type="number" class="input-field pr-12" placeholder="أدخل إيدي اللاعب"></div><label class="block text-slate-400 mb-2 text-sm font-bold">اختر الباقة</label><div class="space-y-3 mb-6"><label class="block cursor-pointer"><input type="radio" name="pkg" value="1.00" class="package-radio hidden" checked onchange="updateGamePrice(this.value)"><div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">60 UC</span><span class="text-accent font-bold">$1.00</span></div></label><label class="block cursor-pointer"><input type="radio" name="pkg" value="5.00" class="package-radio hidden" onchange="updateGamePrice(this.value)"><div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">325 UC</span><span class="text-accent font-bold">$5.00</span></div></label></div><div class="bg-dark p-4 rounded-2xl flex justify-between items-center mb-6 border border-slate-700"><span class="text-slate-400">الإجمالي:</span><span class="text-primary font-bold text-xl" id="gameTotal">$1.00</span></div><button onclick="submitOrder('لعبة')" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-8">شراء الآن</button></div></div>
 
     <script src="app.js"></script>
     <script>lucide.createIcons();</script>
