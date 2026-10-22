@@ -30,19 +30,35 @@ def api_miniapp_init():
         if kyc_req:
             kyc_name = kyc_req.full_name
 
-    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
+    # جلب الطلبات مع التفاصيل الكاملة
+    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
     orders_list = []
     for o in orders:
         prod = Product.query.get(o.product_id)
         orders_list.append({
-            "id": o.id, "order_number": o.order_number, "product_name": prod.name if prod else "منتج محذوف",
-            "total_price": float(o.total_price), "status": o.status, "created_at": o.created_at.isoformat()
+            "id": o.id, 
+            "order_number": o.order_number, 
+            "product_name": prod.name if prod else "منتج محذوف",
+            "product_image": getattr(prod, 'image', None) if prod else None,
+            "quantity": o.quantity,
+            "unit_price": float(o.unit_price),
+            "total_price": float(o.total_price),
+            "delivery_data": o.delivery_data,
+            "status": o.status, 
+            "created_at": o.created_at.isoformat() if o.created_at else None
         })
 
-    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).limit(10).all()
+    # جلب الإيداعات مع التفاصيل الكاملة
+    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).all()
     deposits_list = [{
-        "id": d.id, "transaction_id": d.transaction_id, "amount": float(d.amount),
-        "method": d.method, "status": d.status, "created_at": d.created_at.isoformat()
+        "id": d.id, 
+        "transaction_id": d.transaction_id, 
+        "amount": float(d.amount),
+        "method": d.method, 
+        "sender_name": d.sender_name,
+        "proof_image": d.proof_image,
+        "status": d.status, 
+        "created_at": d.created_at.isoformat() if d.created_at else None
     } for d in deposits]
         
     return jsonify({
@@ -55,6 +71,7 @@ def api_miniapp_init():
         "deposits": deposits_list
     })
 
+# ... (باقي الدوال كما هي: products, deposit, order, kyc) ...
 @main.route("/api/miniapp/products", methods=["GET"])
 def api_get_products():
     categories = Category.query.all()
@@ -62,18 +79,11 @@ def api_get_products():
     for cat in categories:
         products = Product.query.filter_by(category_id=cat.id).all()
         result.append({
-            "id": cat.id,
-            "name": cat.name,
-            "image": getattr(cat, 'image_url', None),
+            "id": cat.id, "name": cat.name, "image": getattr(cat, 'image_url', None),
             "products": [{
-                "id": p.id,
-                "name": p.name,
-                # إصلاح الخطأ هنا: استخدام base_price بدلاً من price
-                "price": float(getattr(p, 'base_price', 0) or 0),
-                "image": getattr(p, 'image', None),
-                "product_type": getattr(p, 'product_type', 'fixed'),
-                "base_quantity": getattr(p, 'base_quantity', 0),
-                "base_price": float(getattr(p, 'base_price', 0) or 0),
+                "id": p.id, "name": p.name, "price": float(getattr(p, 'base_price', 0) or 0),
+                "image": getattr(p, 'image', None), "product_type": getattr(p, 'product_type', 'fixed'),
+                "base_quantity": getattr(p, 'base_quantity', 0), "base_price": float(getattr(p, 'base_price', 0) or 0),
                 "input_type": getattr(p, 'input_type', 'id')
             } for p in products]
         })
@@ -91,10 +101,9 @@ def api_create_deposit():
         image_url = upload_base64_image(receipt_base64, folder="sanad/deposits")
         
     new_deposit = Deposit(
-        user_id=user.id, amount=float(data.get("amount")),
-        method=data.get("method"), sender_name=data.get("sender_name"),
-        proof_image=image_url, transaction_id=f"DEP-{uuid.uuid4().hex[:8].upper()}",
-        status="pending"
+        user_id=user.id, amount=float(data.get("amount")), method=data.get("method"), 
+        sender_name=data.get("sender_name"), proof_image=image_url, 
+        transaction_id=f"DEP-{uuid.uuid4().hex[:8].upper()}", status="pending"
     )
     db.session.add(new_deposit)
     db.session.commit()
@@ -105,18 +114,14 @@ def api_create_order():
     data = request.get_json() or {}
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
     product = Product.query.get(data.get("product_id"))
-    
     if not user or not product: return jsonify({"error": "بيانات غير صحيحة"}), 400
         
-    # إصلاح حساب السعر هنا أيضاً
-    total_price = float(getattr(product, 'base_price', 0) or 0)
     qty = data.get("quantity", 1)
-    
+    total_price = float(getattr(product, 'base_price', 0) or 0)
     if getattr(product, 'product_type', 'fixed') == 'quantity' and product.base_quantity > 0:
         total_price = (float(getattr(product, 'base_price', 0) or 0) / product.base_quantity) * qty
         
-    if user.balance < total_price: 
-        return jsonify({"error": "رصيدك غير كافٍ"}), 400
+    if user.balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
         
     user.balance -= total_price
     new_order = Order(
@@ -133,17 +138,10 @@ def api_submit_kyc():
     data = request.get_json() or {}
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
     if not user: return jsonify({"error": "User not found"}), 404
-        
-    if getattr(user, 'kyc_status', '') == 'verified':
-        return jsonify({"error": "حسابك موثق بالفعل"}), 400
+    if getattr(user, 'kyc_status', '') == 'verified': return jsonify({"error": "حسابك موثق بالفعل"}), 400
 
-    front_img = None
-    if data.get("id_front") and data.get("id_front").startswith("data:image/"):
-        front_img = upload_base64_image(data.get("id_front"), folder="sanad/kyc")
-        
-    selfie_img = None
-    if data.get("selfie") and data.get("selfie").startswith("data:image/"):
-        selfie_img = upload_base64_image(data.get("selfie"), folder="sanad/kyc")
+    front_img = upload_base64_image(data.get("id_front"), folder="sanad/kyc") if data.get("id_front") else None
+    selfie_img = upload_base64_image(data.get("selfie"), folder="sanad/kyc") if data.get("selfie") else None
 
     new_kyc = KYCRequest(
         user_id=user.id, full_name=data.get("full_name"), phone=data.get("phone"),
@@ -153,4 +151,4 @@ def api_submit_kyc():
     user.kyc_status = 'pending'
     db.session.add(new_kyc)
     db.session.commit()
-    return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح، سيتم مراجعته قريباً"})
+    return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح"})

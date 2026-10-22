@@ -5,7 +5,9 @@ const API_URL = 'https://sanad-plus-backend.onrender.com';
 const tgUser = tg?.initDataUnsafe?.user;
 let currentUser = null;
 let categoriesData = [];
-let currentOrderContext = { product: null, price: 0, qty: 1 };
+let userOrders = [];
+let userDeposits = [];
+let currentOrderContext = { product: null, price: 0 };
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!tgUser) { showToast("يرجى فتح التطبيق من داخل تليجرام"); return; }
@@ -22,7 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     try {
-        // طلب البيانات الأساسية
         const res = await fetch(`${API_URL}/api/miniapp/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -31,18 +32,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         if (data.user) {
             currentUser = data.user;
+            userOrders = data.orders || [];
+            userDeposits = data.deposits || [];
             updateUserUI(data.user);
-            renderOrders(data.orders);
-            renderDeposits(data.deposits);
+            renderOrders('all');
+            renderDeposits('all');
         }
         
-        // طلب المنتجات مع إعادة المحاولة (لأن Render قد يكون نائماً)
         fetchProducts();
-        
     } catch (err) {
-        console.error(err);
         showToast("تعذر الاتصال بالسيرفر، يرجى إعادة تحديث الصفحة");
-        document.getElementById('homeCategories').innerHTML = `<div class="col-span-full text-center text-slate-400 py-4">تعذر التحميل. <button onclick="fetchProducts()" class="text-accent underline font-bold">إعادة المحاولة</button></div>`;
+        document.getElementById('homeCategories').innerHTML = `<div class="col-span-full text-center text-slate-400 py-4">تعذر التحميل. <button onclick="window.location.reload()" class="text-accent underline font-bold">إعادة المحاولة</button></div>`;
     }
 });
 
@@ -76,6 +76,161 @@ function updateVerificationBadge(status) {
     }
 }
 
+// ================= Orders Logic =================
+function renderOrders(statusFilter = 'all') {
+    const list = document.getElementById('ordersList');
+    let filtered = userOrders;
+    
+    if (statusFilter !== 'all') {
+        filtered = userOrders.filter(o => o.status === statusFilter);
+    }
+
+    if(filtered.length === 0) {
+        list.innerHTML = `<div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد طلبات تطابق البحث.</div>`;
+    } else {
+        list.innerHTML = filtered.map(o => {
+            let statusColor = o.status === 'completed' ? 'primary' : (o.status === 'failed' || o.status === 'rejected' ? 'danger' : 'warning');
+            return `
+            <div onclick="openOrderDetails(${o.id})" class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800 bento-card cursor-pointer">
+                <div class="flex items-center gap-3">
+                    <img src="${o.product_image || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover">
+                    <div>
+                        <div class="text-white font-bold text-sm mb-1">${o.product_name}</div>
+                        <div class="text-xs text-slate-400">${o.order_number}</div>
+                    </div>
+                </div>
+                <div class="text-left">
+                    <div class="text-white font-bold" dir="ltr">$${o.total_price.toFixed(2)}</div>
+                    <div class="text-[10px] bg-${statusColor}/20 text-${statusColor} px-2 py-0.5 rounded-full mt-1">${o.status}</div>
+                </div>
+            </div>
+        `}).join('');
+    }
+    lucide.createIcons();
+}
+
+function filterOrders(btn, status) {
+    document.querySelectorAll('#ordersFilters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderOrders(status);
+}
+
+function openOrderDetails(id) {
+    const order = userOrders.find(o => o.id === id);
+    if(!order) return;
+
+    let statusColor = order.status === 'completed' ? 'primary' : (order.status === 'failed' || order.status === 'rejected' ? 'danger' : 'warning');
+    
+    document.getElementById('orderDetailsBody').innerHTML = `
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">رقم الطلب</span>
+            <span class="font-mono font-bold text-white">${order.order_number}</span>
+        </div>
+        <div class="flex items-center gap-3 bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <img src="${order.product_image || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-lg">
+            <div>
+                <div class="font-bold text-white">${order.product_name}</div>
+                <div class="text-xs text-slate-400">الكمية: ${order.quantity}</div>
+            </div>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">بيانات الاستلام</span>
+            <span class="font-mono font-bold text-accent" dir="ltr">${order.delivery_data}</span>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">التاريخ</span>
+            <span class="text-slate-300" dir="ltr">${new Date(order.created_at).toLocaleString('ar-EG')}</span>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">الإجمالي</span>
+            <span class="font-bold text-primary text-lg" dir="ltr">$${order.total_price.toFixed(2)}</span>
+        </div>
+        <div class="flex justify-between items-center bg-${statusColor}/10 p-4 rounded-xl border border-${statusColor}/30">
+            <span class="text-slate-400">حالة الطلب</span>
+            <span class="font-bold text-${statusColor} uppercase">${order.status}</span>
+        </div>
+    `;
+    openModal('orderDetailsModal');
+}
+
+// ================= Deposits Logic =================
+function renderDeposits(statusFilter = 'all') {
+    const list = document.getElementById('historyList');
+    let filtered = userDeposits;
+    
+    if (statusFilter !== 'all') {
+        filtered = userDeposits.filter(d => d.status === statusFilter);
+    }
+
+    if(filtered.length === 0) {
+        list.innerHTML = `<div class="bg-iosCard rounded-2xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="inbox" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد إيداعات تطابق البحث.</div>`;
+    } else {
+        list.innerHTML = filtered.map(d => {
+            let statusColor = d.status === 'approved' ? 'primary' : (d.status === 'rejected' ? 'danger' : 'warning');
+            return `
+            <div onclick="openDepositDetails(${d.id})" class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800 bento-card cursor-pointer">
+                <div>
+                    <div class="text-white font-bold text-sm mb-1">${d.transaction_id}</div>
+                    <div class="text-xs text-slate-400">${d.method}</div>
+                </div>
+                <div class="text-left">
+                    <div class="text-white font-bold" dir="ltr">$${d.amount.toFixed(2)}</div>
+                    <div class="text-[10px] bg-${statusColor}/20 text-${statusColor} px-2 py-0.5 rounded-full mt-1">${d.status}</div>
+                </div>
+            </div>
+        `}).join('');
+    }
+    lucide.createIcons();
+}
+
+function filterDeposits(btn, status) {
+    document.querySelectorAll('#historyFilters .filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderDeposits(status);
+}
+
+function openDepositDetails(id) {
+    const dep = userDeposits.find(d => d.id === id);
+    if(!dep) return;
+
+    let statusColor = dep.status === 'approved' ? 'primary' : (dep.status === 'rejected' ? 'danger' : 'warning');
+    
+    document.getElementById('depositDetailsBody').innerHTML = `
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">رقم العملية</span>
+            <span class="font-mono font-bold text-white">${dep.transaction_id}</span>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">الطريقة</span>
+            <span class="font-bold text-white">${dep.method}</span>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">اسم المرسل</span>
+            <span class="font-bold text-white">${dep.sender_name}</span>
+        </div>
+        ${dep.proof_image ? `
+        <div class="bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400 block mb-2">إثبات التحويل</span>
+            <img src="${dep.proof_image}" class="w-full rounded-lg object-contain max-h-48 bg-black cursor-pointer" onclick="window.open('${dep.proof_image}', '_blank')">
+        </div>
+        ` : ''}
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">التاريخ</span>
+            <span class="text-slate-300" dir="ltr">${new Date(dep.created_at).toLocaleString('ar-EG')}</span>
+        </div>
+        <div class="flex justify-between items-center bg-dark p-4 rounded-xl border border-slate-800 mb-4">
+            <span class="text-slate-400">المبلغ</span>
+            <span class="font-bold text-primary text-lg" dir="ltr">$${dep.amount.toFixed(2)}</span>
+        </div>
+        <div class="flex justify-between items-center bg-${statusColor}/10 p-4 rounded-xl border border-${statusColor}/30">
+            <span class="text-slate-400">الحالة</span>
+            <span class="font-bold text-${statusColor} uppercase">${dep.status}</span>
+        </div>
+    `;
+    openModal('depositDetailsModal');
+}
+
+// ================= Utility Functions =================
 function openKycModal() {
     if (currentUser && currentUser.kyc_status === 'verified') {
         document.getElementById('kycForm').classList.add('hidden');
@@ -242,36 +397,6 @@ function openProductModal(productId) {
     `;
     document.getElementById('gameTotal').innerText = `$${product.price.toFixed(2)}`;
     openModal('gameModal');
-}
-
-function renderOrders(orders) {
-    const list = document.getElementById('ordersList');
-    if(!orders || orders.length === 0) {
-        list.innerHTML = `<div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد لديك طلبات سابقة.</div>`;
-    } else {
-        list.innerHTML = orders.map(o => `
-            <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
-                <div><div class="text-white font-bold text-sm mb-1">${o.order_number}</div><div class="text-xs text-slate-400">${o.product_name}</div></div>
-                <div class="text-left"><div class="text-white font-bold" dir="ltr">$${o.total_price}</div><div class="text-[10px] px-2 py-0.5 rounded-full mt-1 ${o.status==='completed'?'bg-primary/20 text-primary':(o.status==='failed'?'bg-danger/20 text-danger':'bg-warning/20 text-warning')}">${o.status}</div></div>
-            </div>
-        `).join('');
-    }
-    lucide.createIcons();
-}
-
-function renderDeposits(deposits) {
-    const list = document.getElementById('historyList');
-    if(!deposits || deposits.length === 0) {
-        list.innerHTML = `<div class="bg-iosCard rounded-2xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="inbox" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد إيداعات حالياً.</div>`;
-    } else {
-        list.innerHTML = deposits.map(d => `
-            <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
-                <div><div class="text-white font-bold text-sm mb-1">${d.transaction_id}</div><div class="text-xs text-slate-400">${d.method}</div></div>
-                <div class="text-left"><div class="text-white font-bold" dir="ltr">$${d.amount}</div><div class="text-[10px] px-2 py-0.5 rounded-full mt-1 ${d.status==='approved'?'bg-primary/20 text-primary':(d.status==='rejected'?'bg-danger/20 text-danger':'bg-warning/20 text-warning')}">${d.status}</div></div>
-            </div>
-        `).join('');
-    }
-    lucide.createIcons();
 }
 
 function switchTab(tabId, btnElement) {

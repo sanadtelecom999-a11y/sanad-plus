@@ -54,58 +54,55 @@
 
         <main class="flex-1 overflow-y-auto pb-28 pt-20 scrollbar-hide relative">
             
-            <!-- 1. قسم الرئيسية -->
+            <!-- 1. الرئيسية -->
             <section id="tab-home" class="tab-content block px-4">
                 <div class="mb-5 px-1"><h2 class="text-2xl font-bold text-white" id="greetingText">مرحباً بك 👋</h2></div>
-
                 <div class="bg-gradient-to-br from-[#1e293b] via-[#0f172a] to-[#000000] rounded-[2rem] p-6 mb-8 relative overflow-hidden card-glow border border-slate-700/50">
                     <div class="absolute -top-6 -right-6 w-32 h-32 bg-accent/20 rounded-full blur-3xl"></div>
                     <div class="absolute top-4 left-4 float-icon"><div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 backdrop-blur-md"><span class="text-2xl font-bold text-accent">$</span></div></div>
-                    
                     <div class="relative z-10 mt-4">
                         <div class="text-slate-400 text-sm mb-1 font-medium">الرصيد الإجمالي</div>
-                        <!-- تم إصلاح تنسيق الرصيد هنا -->
-                        <div class="text-5xl font-extrabold text-white tracking-tight" dir="ltr" id="homeBalanceWrapper">
-                            $0.00
-                        </div>
+                        <div class="text-5xl font-extrabold text-white tracking-tight" dir="ltr" id="homeBalanceWrapper">$0.00</div>
                     </div>
                     <div class="relative z-10 mt-6 flex justify-between items-center">
                         <div class="text-xs text-slate-500 font-mono tracking-widest">**** 4421</div>
                         <div class="flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md"><i data-lucide="trending-up" size="14"></i> +0% هذا الشهر</div>
                     </div>
                 </div>
-
                 <div class="relative mb-6">
                     <i data-lucide="search" class="absolute right-4 top-3.5 text-slate-400" size="20" stroke-width="1.5"></i>
-                    <input type="text" id="searchInput" placeholder="ابحث عن منتج..." class="w-full bg-iosCard text-white placeholder-slate-500 rounded-2xl py-3 pr-12 pl-4 outline-none border border-transparent focus:border-accent transition-all" style="box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+                    <input type="text" placeholder="ابحث عن منتج..." class="w-full bg-iosCard text-white placeholder-slate-500 rounded-2xl py-3 pr-12 pl-4 outline-none border border-transparent focus:border-accent transition-all">
                 </div>
-
                 <button class="w-full bg-iosCard text-accent font-bold py-4 rounded-2xl mb-8 flex items-center justify-center gap-2 bento-card border border-slate-800">
                     <i data-lucide="plus-circle" size="20" stroke-width="2"></i> طلب خدمة غير موجودة
                 </button>
-
                 <div class="grid grid-cols-2 gap-4" id="homeCategories">
-                    <!-- سيتم ملؤها من السيرفر -->
                     <div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الأقسام...</div>
                 </div>
             </section>
 
-            <!-- 2. قسم الطلبات -->
+            <!-- 2. قسم الطلبات (مع الفلترة) -->
             <section id="tab-orders" class="tab-content hidden px-4">
-                <h3 class="text-2xl font-bold text-white mb-6">طلباتي</h3>
-                <div id="ordersList" class="space-y-3">
-                    <!-- سيتم ملؤها من السيرفر -->
+                <h3 class="text-2xl font-bold text-white mb-4">طلباتي</h3>
+                <div class="flex gap-2 overflow-x-auto pb-4 scrollbar-hide mb-2" id="ordersFilters">
+                    <button onclick="filterOrders(this, 'all')" class="filter-btn active px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">الكل</button>
+                    <button onclick="filterOrders(this, 'completed')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">مكتمل</button>
+                    <button onclick="filterOrders(this, 'pending')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">معلق</button>
+                    <button onclick="filterOrders(this, 'failed')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">مرفوض</button>
                 </div>
+                <div id="ordersList" class="space-y-3"></div>
             </section>
 
-            <!-- 3. قسم سجل الإيداعات -->
+            <!-- 3. قسم الإيداعات (مع الفلترة) -->
             <section id="tab-history" class="tab-content hidden px-4">
-                <h3 class="text-2xl font-bold text-white mb-2">سجل الإيداعات</h3>
-                <p class="text-sm text-slate-400 mb-6">عمليات شحن الرصيد السابقة</p>
-                
-                <div class="space-y-3" id="historyList">
-                    <!-- سيتم ملؤها من السيرفر -->
+                <h3 class="text-2xl font-bold text-white mb-4">سجل الإيداعات</h3>
+                <div class="flex gap-2 overflow-x-auto pb-4 scrollbar-hide mb-2" id="historyFilters">
+                    <button onclick="filterDeposits(this, 'all')" class="filter-btn active px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">الكل</button>
+                    <button onclick="filterDeposits(this, 'approved')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">مكتمل</button>
+                    <button onclick="filterDeposits(this, 'pending')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">معلق</button>
+                    <button onclick="filterDeposits(this, 'rejected')" class="filter-btn px-4 py-1.5 rounded-full font-bold text-sm whitespace-nowrap transition">مرفوض</button>
                 </div>
+                <div class="space-y-3" id="historyList"></div>
             </section>
 
             <!-- 4. قسم الحساب -->
@@ -115,15 +112,12 @@
                         <img id="userAvatar" src="" class="w-full h-full object-cover hidden">
                         <i data-lucide="user" id="defaultAvatarIcon" size="48" class="text-slate-400" stroke-width="1"></i>
                     </div>
-                    
                     <div class="flex items-center gap-2 mb-1">
                         <h3 class="text-2xl font-bold text-white" id="profileName">جاري التحميل...</h3>
                         <div id="verificationBadge" class="hidden"></div>
                     </div>
-                    
                     <p class="text-sm text-slate-400 mb-3" id="profileUsername">@</p>
                 </div>
-
                 <div class="bg-gradient-to-r from-slate-900 to-black rounded-3xl p-5 mb-6 border border-slate-700 relative overflow-hidden shadow-2xl">
                     <div class="absolute -right-10 -bottom-10 w-32 h-32 bg-accent/20 rounded-full blur-2xl"></div>
                     <div class="flex justify-between items-center mb-3"><span class="text-xs text-slate-400 font-bold">مُعرّف سند (Sanad ID)</span><i data-lucide="shield-check" class="text-accent" size="18"></i></div>
@@ -132,12 +126,10 @@
                         <button onclick="copySanadId()" class="bg-white/10 p-2 rounded-xl text-white hover:bg-white/20 transition active:scale-90" title="نسخ المعرف"><i data-lucide="copy" size="18"></i></button>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3 mb-6">
                     <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">الرصيد</div><div class="text-white font-bold text-lg" dir="ltr" id="profileBalance">$0.00</div></div>
                     <div class="bg-iosCard rounded-2xl p-4 flex flex-col items-center justify-center border border-slate-800"><div class="text-slate-400 text-xs mb-1">إجمالي الإيداعات</div><div class="text-white font-bold text-lg" dir="ltr" id="profileTotalDeposits">$0.00</div></div>
                 </div>
-
                 <div class="bg-iosCard rounded-2xl overflow-hidden mb-6 border border-slate-800">
                     <button onclick="openKycModal()" class="w-full flex items-center justify-between p-4 border-b border-slate-800 active:bg-slate-800/50 transition">
                         <div class="flex items-center gap-3"><i data-lucide="shield" class="text-accent" size="20"></i><span class="font-bold text-white text-sm">توثيق الحساب (KYC)</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
@@ -146,7 +138,6 @@
                         <div class="flex items-center gap-3"><i data-lucide="heart" class="text-danger" size="20"></i><span class="font-bold text-white text-sm">المفضلة</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
                     </button>
                 </div>
-
                 <div class="bg-iosCard rounded-2xl overflow-hidden mb-6 border border-slate-800">
                     <button onclick="openModal('referralModal')" class="w-full flex items-center justify-between p-4 border-b border-slate-800 active:bg-slate-800/50 transition">
                         <div class="flex items-center gap-3"><i data-lucide="gift" class="text-purple-400" size="20"></i><span class="font-bold text-white text-sm">الإحالات</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
@@ -158,7 +149,6 @@
                         <div class="flex items-center gap-3"><i data-lucide="headphones" class="text-slate-300" size="20"></i><span class="font-bold text-white text-sm">الدعم الفني</span></div><i data-lucide="chevron-left" class="text-slate-500" size="20"></i>
                     </button>
                 </div>
-
                 <div class="bg-iosCard rounded-2xl overflow-hidden mb-6 border border-slate-800">
                     <div class="w-full flex items-center justify-between p-4">
                         <div class="flex items-center gap-3"><i data-lucide="moon" class="text-yellow-400" size="20"></i><span class="font-bold text-white text-sm">الوضع الليلي</span></div>
@@ -168,7 +158,6 @@
                         </div>
                     </div>
                 </div>
-                
                 <button onclick="handleLogout()" class="w-full bg-iosCard text-danger font-bold py-4 rounded-2xl mb-8 border border-slate-800 active:bg-slate-800/50 transition">تسجيل الخروج</button>
             </section>
         </main>
@@ -193,17 +182,11 @@
 
     <!-- ================== النوافذ المنبثقة ================== -->
     <div id="featureModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-8 pb-12 h-auto text-center transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="featureModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-8"></div><div class="w-20 h-20 mx-auto bg-accent/10 rounded-full flex items-center justify-center mb-4"><i data-lucide="hammer" class="text-accent animate-pulse" size="36"></i></div><h3 class="text-2xl font-bold text-white mb-2" id="featureTitle">قيد التطوير</h3><p class="text-slate-400 text-sm mb-6">هذه الميزة قيد التطوير حالياً.</p><button onclick="closeModal('featureModal')" class="w-full bg-iosGray hover:bg-slate-700 text-white font-bold py-4 rounded-2xl transition text-lg">حسناً</button></div></div>
-    
     <div id="faqModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[80vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="faqModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الأسئلة الشائعة</h3><button onclick="closeModal('faqModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="space-y-3"><details class="bg-dark rounded-2xl border border-slate-800 overflow-hidden"><summary class="p-4 flex justify-between items-center font-bold text-white cursor-pointer hover:bg-slate-900 transition">كيف أقوم بشحن رصيدي؟<i data-lucide="chevron-down" class="text-slate-500 chevron-icon" size="20"></i></summary><div class="p-4 pt-0 text-sm text-slate-400 border-t border-slate-800/50">يمكنك شحن رصيدك بالضغط على زر "البرق" في شريط التنقل السفلي، ثم اختيار طريقة الدفع.</div></details></div></div></div>
-    
     <div id="referralModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="referralModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">نظام الإحالات</h3><button onclick="closeModal('referralModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="text-center mb-6"><div class="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="gift" class="text-purple-400" size="32"></i></div><p class="text-sm text-slate-400 mb-4">ادعُ أصدقاءك واحصل على مكافأة!</p><div class="bg-dark border border-slate-700 p-4 rounded-2xl flex justify-between items-center"><span class="font-mono text-xl font-bold text-white tracking-widest" id="referralCode">---</span><button onclick="showToast('تم نسخ كود الإحالة')" class="bg-accent text-white p-2 rounded-lg active:scale-95 transition"><i data-lucide="copy" size="16"></i></button></div></div></div></div>
-    
     <div id="supportModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="supportModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">الدعم الفني</h3><button onclick="closeModal('supportModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="text-center mb-6"><div class="w-16 h-16 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-3"><i data-lucide="headphones" class="text-blue-400" size="32"></i></div><p class="text-sm text-slate-400 mb-6">فريقنا جاهز لمساعدتك على مدار الساعة.</p><a href="https://t.me/SANADST" target="_blank" class="block w-full bg-[#229ED9] hover:bg-[#1E8CC2] text-white font-bold py-4 rounded-2xl transition text-lg flex items-center justify-center gap-2"><i data-lucide="send" size="20"></i> مراسلة الدعم</a></div></div></div>
     
-    <!-- نافذة KYC -->
     <div id="kycModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="kycModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white">توثيق الحساب (KYC)</h3><button onclick="closeModal('kycModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div>
-        
-        <!-- واجهة التوثيق (تظهر إذا كان غير موثق) -->
         <div id="kycForm">
             <div class="mb-4"><label class="block text-slate-400 mb-2 text-sm font-bold">الاسم الكامل</label><input type="text" id="kycName" class="input-field" placeholder="الاسم الثلاثي"></div>
             <div class="mb-4"><label class="block text-slate-400 mb-2 text-sm font-bold">رقم الجوال</label><input type="tel" id="kycPhone" class="input-field" placeholder="09xxxxxxxx"></div>
@@ -212,12 +195,8 @@
             <div class="mb-6"><label class="block text-slate-400 mb-2 text-sm font-bold">صورة سيلفي مع الهوية</label><input type="file" id="kycSelfie" class="w-full text-sm text-slate-400 outline-none cursor-pointer input-field" accept="image/*"></div>
             <button onclick="submitKYC()" class="w-full bg-primary hover:bg-emerald-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال الطلب</button>
         </div>
-
-        <!-- واجهة الحساب الموثق -->
         <div id="kycVerifiedView" class="hidden text-center py-10">
-            <div class="w-24 h-24 mx-auto bg-primary/20 rounded-full flex items-center justify-center mb-6">
-                <i data-lucide="badge-check" class="text-primary" size="48"></i>
-            </div>
+            <div class="w-24 h-24 mx-auto bg-primary/20 rounded-full flex items-center justify-center mb-6"><i data-lucide="badge-check" class="text-primary" size="48"></i></div>
             <h3 class="text-2xl font-bold text-white mb-2">حسابك موثق بالفعل</h3>
             <p class="text-slate-400 mb-6">مرحباً بك، <span id="kycVerifiedName" class="font-bold text-white text-lg block mt-2"></span></p>
         </div>
@@ -228,6 +207,29 @@
     <div id="depositModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="depositModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold text-white" id="depositTitle">إتمام الإيداع</h3><button onclick="closeModal('depositModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><div class="flex gap-3 mb-6"><div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center"><div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-down" size="12"></i> الأدنى</div><div class="text-white font-bold text-sm" id="depositMinLimit">$0.00</div></div><div class="flex-1 bg-dark border border-slate-800 rounded-xl p-3 text-center"><div class="text-[10px] text-slate-400 mb-1 flex items-center justify-center gap-1"><i data-lucide="arrow-up" size="12"></i> الأقصى</div><div class="text-white font-bold text-sm" id="depositMaxLimit">$500.00</div></div></div><div class="mb-2"><label class="block text-slate-400 mb-2 text-sm font-bold" id="depositAmountLabel">المبلغ بالدولار</label><input type="number" id="depositAmount" class="input-field text-left font-mono" dir="ltr" placeholder="0.00 - 500.00"></div><div class="mb-6"><label class="block text-slate-400 mb-2 text-sm font-bold">اسم المرسل</label><input type="text" id="depositSender" class="input-field" placeholder="أدخل اسم المرسل"></div><div class="mb-2"><label class="block text-slate-400 mb-2 text-sm font-bold">إثبات التحويل (صورة)</label><div class="border-2 border-dashed border-slate-700 bg-dark rounded-2xl p-6 text-center relative hover:bg-slate-900 transition"><i data-lucide="camera" class="mx-auto text-slate-500 mb-3" size="32"></i><div class="relative"><input type="file" id="depositImage" class="w-full text-sm text-slate-400 outline-none cursor-pointer" accept="image/*" onchange="previewDepositImage(this)"></div><img id="depositImagePreview" class="hidden w-full max-h-40 object-contain mx-auto rounded-lg mt-4 border border-slate-700"></div></div><div class="text-[11px] text-slate-500 mb-6 flex items-center justify-center gap-1"><i data-lucide="lightbulb" size="14" class="text-yellow-500"></i> الحد الأقصى: 2MB</div><button onclick="submitDeposit()" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-4">إرسال</button></div></div>
     
     <div id="gameModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity"><div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto max-h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700" id="gameModalContent"><div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div><div class="flex justify-between items-center mb-4"><div class="flex items-center gap-2"><img src="https://via.placeholder.com/40" class="w-10 h-10 rounded-xl" id="modalGameImg"><h3 class="text-lg font-bold text-white" id="modalGameTitle">PUBG MOBILE</h3></div><button onclick="closeModal('gameModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button></div><label class="block text-slate-400 mb-2 text-sm font-bold">إيدي اللاعب (ID)</label><div class="relative mb-6"><i data-lucide="user" class="absolute right-4 top-3.5 text-slate-500" size="20"></i><input type="number" class="input-field pr-12" placeholder="أدخل إيدي اللاعب" id="gameInputField"></div><div class="space-y-3 mb-6" id="gamePackagesList"></div><div class="bg-dark p-4 rounded-2xl flex justify-between items-center mb-6 border border-slate-700"><span class="text-slate-400">الإجمالي:</span><span class="text-primary font-bold text-xl" id="gameTotal">$1.00</span></div><button onclick="submitGameOrder()" class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-4 rounded-2xl transition text-lg mb-8">شراء الآن</button></div></div>
+
+    <!-- نوافذ التفاصيل الجديدة -->
+    <div id="orderDetailsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto max-h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="orderDetailsModalContent">
+            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white">تفاصيل الطلب</h3>
+                <button onclick="closeModal('orderDetailsModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button>
+            </div>
+            <div id="orderDetailsBody" class="space-y-4 text-sm text-slate-300"></div>
+        </div>
+    </div>
+
+    <div id="depositDetailsModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-end justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-iosCard w-full max-w-md rounded-t-[2rem] p-6 h-auto max-h-[90vh] overflow-y-auto transition-transform transform translate-y-full shadow-2xl border-t border-slate-700 scrollbar-hide" id="depositDetailsModalContent">
+            <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-6"></div>
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-white">تفاصيل الإيداع</h3>
+                <button onclick="closeModal('depositDetailsModal')" class="text-slate-400 bg-iosGray p-2 rounded-full"><i data-lucide="x" size="20"></i></button>
+            </div>
+            <div id="depositDetailsBody" class="space-y-4 text-sm text-slate-300"></div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
     <script>lucide.createIcons();</script>
