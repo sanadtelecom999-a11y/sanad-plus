@@ -8,10 +8,7 @@ let categoriesData = [];
 let currentOrderContext = { product: null, price: 0, qty: 1 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-    if (!tgUser) {
-        showToast("يرجى فتح التطبيق من داخل تليجرام");
-        return;
-    }
+    if (!tgUser) { showToast("يرجى فتح التطبيق من داخل تليجرام"); return; }
 
     document.getElementById('greetingText').innerText = `مرحباً، ${tgUser.first_name} 👋`;
     document.getElementById('profileName').innerText = tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
@@ -19,20 +16,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('profileTelegramId').innerText = `Telegram: ${tgUser.id}`;
     
     if (tgUser.photo_url) {
-        const avatarImg = document.getElementById('userAvatar');
-        avatarImg.src = tgUser.photo_url;
-        avatarImg.classList.remove('hidden');
+        document.getElementById('userAvatar').src = tgUser.photo_url;
+        document.getElementById('userAvatar').classList.remove('hidden');
         document.getElementById('defaultAvatarIcon').classList.add('hidden');
     }
 
-    // جلب البيانات الأساسية
     try {
+        // طلب البيانات الأساسية
         const res = await fetch(`${API_URL}/api/miniapp/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ telegram_id: tgUser.id, first_name: tgUser.first_name, username: tgUser.username })
         });
-        
         const data = await res.json();
         if (data.user) {
             currentUser = data.user;
@@ -40,27 +35,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderOrders(data.orders);
             renderDeposits(data.deposits);
         }
-
-        // جلب المنتجات
-        const prodRes = await fetch(`${API_URL}/api/miniapp/products`);
-        const prodData = await prodRes.json();
-        categoriesData = prodData.categories;
-        renderHomeCategories(categoriesData);
+        
+        // طلب المنتجات مع إعادة المحاولة (لأن Render قد يكون نائماً)
+        fetchProducts();
         
     } catch (err) {
         console.error(err);
         showToast("تعذر الاتصال بالسيرفر، يرجى إعادة تحديث الصفحة");
+        document.getElementById('homeCategories').innerHTML = `<div class="col-span-full text-center text-slate-400 py-4">تعذر التحميل. <button onclick="fetchProducts()" class="text-accent underline font-bold">إعادة المحاولة</button></div>`;
     }
 });
 
+async function fetchProducts() {
+    document.getElementById('homeCategories').innerHTML = '<div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الأقسام...</div>';
+    try {
+        const prodRes = await fetch(`${API_URL}/api/miniapp/products`);
+        const prodData = await prodRes.json();
+        categoriesData = prodData.categories;
+        renderHomeCategories(categoriesData);
+    } catch (err) {
+        document.getElementById('homeCategories').innerHTML = `<div class="col-span-full text-center text-slate-400 py-4">تعذر تحميل الأقسام. <button onclick="fetchProducts()" class="text-accent underline font-bold">إعادة المحاولة</button></div>`;
+    }
+}
+
 function updateUserUI(user) {
-    // إصلاح مشكلة تنسيق الرصيد
     document.getElementById('homeBalanceWrapper').innerHTML = `<span class="text-3xl text-slate-500">$</span>${user.balance.toFixed(2)}`;
     document.getElementById('profileBalance').innerText = `$${user.balance.toFixed(2)}`;
-    
-    const sanadId = "SN-" + user.id.toString().padStart(6, '0');
-    document.getElementById('sanadIdText').innerText = sanadId;
-
+    document.getElementById('sanadIdText').innerText = "SN-" + user.id.toString().padStart(6, '0');
     updateVerificationBadge(user.kyc_status);
 }
 
@@ -87,12 +88,115 @@ function openKycModal() {
     openModal('kycModal');
 }
 
+async function submitKYC() {
+    const name = document.getElementById('kycName').value;
+    const phone = document.getElementById('kycPhone').value;
+    const gov = document.getElementById('kycGovernorate').value;
+    const region = document.getElementById('kycRegion').value;
+    const idFront = document.getElementById('kycIdFront').files[0];
+    const selfie = document.getElementById('kycSelfie').files[0];
+
+    if (!name || !phone || !gov || !region || !idFront || !selfie) {
+        return showToast("يرجى تعبئة جميع الحقول ورفع الصور");
+    }
+
+    Swal.fire({ title: 'جاري رفع الطلب...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+
+    const readFile = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+    });
+
+    const frontBase64 = await readFile(idFront);
+    const selfieBase64 = await readFile(selfie);
+
+    try {
+        const res = await fetch(`${API_URL}/api/miniapp/kyc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telegram_id: tgUser.id, full_name: name, phone: phone,
+                governorate: gov, region: region, id_front: frontBase64, selfie: selfieBase64
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'تم الإرسال', text: data.message, background: '#1c1c1e', color: '#fff' });
+            closeModal('kycModal');
+            currentUser.kyc_status = 'pending';
+            updateVerificationBadge('pending');
+        } else {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+        }
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1c1c1e', color: '#fff' });
+    }
+}
+
+async function submitDeposit() {
+    const amount = document.getElementById('depositAmount').value;
+    const sender = document.getElementById('depositSender').value;
+    const file = document.getElementById('depositImage').files[0];
+    
+    if (!amount || !sender || !file) return showToast("يرجى إكمال جميع البيانات");
+
+    Swal.fire({ title: 'جاري رفع الإيصال...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        try {
+            const res = await fetch(`${API_URL}/api/miniapp/deposit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    telegram_id: tgUser.id, amount: parseFloat(amount),
+                    method: document.getElementById('depositTitle').innerText.replace('إتمام الإيداع - ', ''),
+                    sender_name: sender, receipt_image: reader.result
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: 'تم الإرسال', text: data.message, background: '#1c1c1e', color: '#fff' });
+                closeModal('depositModal');
+            } else {
+                Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+            }
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: 'فشل الاتصال', background: '#1c1c1e', color: '#fff' });
+        }
+    };
+}
+
+async function submitGameOrder() {
+    const playerId = document.getElementById('gameInputField').value;
+    if(!playerId) return showToast("يرجى إدخال البيانات المطلوبة");
+    Swal.fire({ title: 'جاري الشراء...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+    try {
+        const res = await fetch(`${API_URL}/api/miniapp/order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: tgUser.id, product_id: currentOrderContext.product.id, quantity: 1, delivery_data: playerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'تم الشراء', text: 'تم إرسال طلبك بنجاح!', background: '#1c1c1e', color: '#fff' });
+            closeModal('gameModal');
+            currentUser.balance = data.new_balance;
+            updateUserUI(currentUser);
+        } else {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+        }
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1c1c1e', color: '#fff' });
+    }
+}
+
 function renderHomeCategories(categories) {
     const grid = document.getElementById('homeCategories');
-    if(categories.length === 0) {
-        grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4">لا توجد أقسام حالياً</div>';
-        return;
-    }
+    if(!categories || categories.length === 0) { grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4">لا توجد أقسام حالياً</div>'; return; }
     grid.innerHTML = categories.map(cat => `
         <div onclick="openCategory(${cat.id})" class="bg-iosCard rounded-3xl p-4 flex flex-col items-center justify-center text-center cursor-pointer bento-card border border-slate-800">
             <img src="${cat.image || 'https://via.placeholder.com/64'}" alt="${cat.name}" class="w-16 h-16 mb-2 object-cover rounded-xl shadow-lg">
@@ -104,10 +208,8 @@ function renderHomeCategories(categories) {
 function openCategory(categoryId) {
     const category = categoriesData.find(c => c.id === categoryId);
     if(!category) return;
-
     document.getElementById('categoryTitle').innerText = category.name;
     const grid = document.getElementById('categoryProductsGrid');
-    
     if(category.products.length === 0) {
         grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-10">لا توجد منتجات في هذا القسم حالياً</div>';
     } else {
@@ -131,79 +233,47 @@ function openProductModal(productId) {
         if (product) break;
     }
     if (!product) return;
-
     currentOrderContext.product = product;
-    currentOrderContext.price = product.price;
-    
     document.getElementById('modalGameTitle').innerText = product.name;
     if(product.image) document.getElementById('modalGameImg').src = product.image;
     document.getElementById('gameInputField').placeholder = product.input_type === 'phone' ? 'رقم الهاتف' : 'ايدي الحساب';
     document.getElementById('gamePackagesList').innerHTML = `
-        <label class="block cursor-pointer">
-            <input type="radio" name="pkg" value="${product.price}" class="package-radio hidden" checked onchange="updateGamePrice(this.value)">
-            <div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">${product.name}</span><span class="text-accent font-bold">$${product.price.toFixed(2)}</span></div>
-        </label>
+        <label class="block cursor-pointer"><input type="radio" name="pkg" value="${product.price}" class="package-radio hidden" checked onchange="updateGamePrice(this.value)"><div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">${product.name}</span><span class="text-accent font-bold">$${product.price.toFixed(2)}</span></div></label>
     `;
     document.getElementById('gameTotal').innerText = `$${product.price.toFixed(2)}`;
     openModal('gameModal');
-}
-
-async function submitGameOrder() {
-    const playerId = document.getElementById('gameInputField').value;
-    if(!playerId) return showToast("يرجى إدخال البيانات المطلوبة");
-
-    Swal.fire({ title: 'جاري الشراء...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
-
-    try {
-        const res = await fetch(`${API_URL}/api/miniapp/order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id: tgUser.id, product_id: currentOrderContext.product.id, quantity: 1, delivery_data: playerId })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            Swal.fire({ icon: 'success', title: 'تم الشراء', text: 'تم إرسال طلبك بنجاح!', background: '#1c1c1e', color: '#fff' });
-            closeModal('gameModal');
-            currentUser.balance = data.new_balance;
-            updateUserUI(currentUser);
-        } else {
-            Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
-        }
-    } catch (err) {
-        Swal.fire({ icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1c1c1e', color: '#fff' });
-    }
 }
 
 function renderOrders(orders) {
     const list = document.getElementById('ordersList');
     if(!orders || orders.length === 0) {
         list.innerHTML = `<div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد لديك طلبات سابقة.</div>`;
-        lucide.createIcons(); return;
+    } else {
+        list.innerHTML = orders.map(o => `
+            <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
+                <div><div class="text-white font-bold text-sm mb-1">${o.order_number}</div><div class="text-xs text-slate-400">${o.product_name}</div></div>
+                <div class="text-left"><div class="text-white font-bold" dir="ltr">$${o.total_price}</div><div class="text-[10px] px-2 py-0.5 rounded-full mt-1 ${o.status==='completed'?'bg-primary/20 text-primary':(o.status==='failed'?'bg-danger/20 text-danger':'bg-warning/20 text-warning')}">${o.status}</div></div>
+            </div>
+        `).join('');
     }
-    list.innerHTML = orders.map(o => `
-        <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
-            <div><div class="text-white font-bold text-sm mb-1">${o.order_number}</div><div class="text-xs text-slate-400">${o.product_name}</div></div>
-            <div class="text-left"><div class="text-white font-bold" dir="ltr">$${o.total_price}</div><div class="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full mt-1">${o.status}</div></div>
-        </div>
-    `).join('');
+    lucide.createIcons();
 }
 
 function renderDeposits(deposits) {
     const list = document.getElementById('historyList');
     if(!deposits || deposits.length === 0) {
         list.innerHTML = `<div class="bg-iosCard rounded-2xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="inbox" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد إيداعات حالياً.</div>`;
-        lucide.createIcons(); return;
+    } else {
+        list.innerHTML = deposits.map(d => `
+            <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
+                <div><div class="text-white font-bold text-sm mb-1">${d.transaction_id}</div><div class="text-xs text-slate-400">${d.method}</div></div>
+                <div class="text-left"><div class="text-white font-bold" dir="ltr">$${d.amount}</div><div class="text-[10px] px-2 py-0.5 rounded-full mt-1 ${d.status==='approved'?'bg-primary/20 text-primary':(d.status==='rejected'?'bg-danger/20 text-danger':'bg-warning/20 text-warning')}">${d.status}</div></div>
+            </div>
+        `).join('');
     }
-    list.innerHTML = deposits.map(d => `
-        <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
-            <div><div class="text-white font-bold text-sm mb-1">${d.transaction_id}</div><div class="text-xs text-slate-400">${d.method}</div></div>
-            <div class="text-left"><div class="text-white font-bold" dir="ltr">$${d.amount}</div><div class="text-[10px] bg-${d.status==='approved'?'primary':(d.status==='rejected'?'danger':'warning')}/20 text-${d.status==='approved'?'primary':(d.status==='rejected'?'danger':'warning')} px-2 py-0.5 rounded-full mt-1">${d.status}</div></div>
-        </div>
-    `).join('');
+    lucide.createIcons();
 }
 
-// دوال مساعدة للواجهة
 function switchTab(tabId, btnElement) {
     document.querySelectorAll('.tab-content').forEach(tab => { tab.classList.add('hidden'); tab.classList.remove('block'); });
     document.getElementById('tab-' + tabId)?.classList.replace('hidden', 'block');
@@ -221,5 +291,3 @@ function openFeatureModal(featureName) { document.getElementById('featureTitle')
 function handleLogout() { if(tg) tg.close(); }
 function copySanadId() { navigator.clipboard.writeText(document.getElementById('sanadIdText').innerText).then(() => showToast('تم نسخ المعرف')); }
 function updateGamePrice(price) { document.getElementById('gameTotal').innerText = `$${parseFloat(price).toFixed(2)}`; }
-async function submitDeposit() { showToast("هذه الميزة ستُربط بالسيرفر في التحديث القادم"); }
-function submitKYC() { showToast("هذه الميزة ستُربط بالسيرفر في التحديث القادم"); }

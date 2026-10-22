@@ -129,3 +129,38 @@ def api_create_order():
     db.session.add(new_order)
     db.session.commit()
     return jsonify({"success": True, "message": "تم إرسال الطلب بنجاح", "new_balance": float(user.balance)})
+
+@main.route("/api/miniapp/kyc", methods=["POST"])
+def api_submit_kyc():
+    from ..models.base import KYCRequest
+    data = request.get_json() or {}
+    telegram_id = data.get("telegram_id")
+    user = User.query.filter_by(telegram_id=telegram_id).first()
+    if not user: return jsonify({"error": "User not found"}), 404
+        
+    if getattr(user, 'kyc_status', '') == 'verified':
+        return jsonify({"error": "حسابك موثق بالفعل"}), 400
+
+    front_img = None
+    if data.get("id_front") and data.get("id_front").startswith("data:image/"):
+        front_img = upload_base64_image(data.get("id_front"), folder="sanad/kyc")
+        
+    selfie_img = None
+    if data.get("selfie") and data.get("selfie").startswith("data:image/"):
+        selfie_img = upload_base64_image(data.get("selfie"), folder="sanad/kyc")
+
+    new_kyc = KYCRequest(
+        user_id=user.id,
+        full_name=data.get("full_name"),
+        phone=data.get("phone"),
+        governorate=data.get("governorate"),
+        region=data.get("region"),
+        id_front_image=front_img,
+        selfie_image=selfie_img,
+        status="pending"
+    )
+    user.kyc_status = 'pending' # تحديث حالة المستخدم إلى قيد المراجعة
+    db.session.add(new_kyc)
+    db.session.commit()
+    
+    return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح، سيتم مراجعته قريباً"})
