@@ -4557,16 +4557,16 @@ async function rejectDepositHandler(depositId) {
 async function inboxRejectDeposit(depositId) {
     if (!confirm('هل أنت متأكد من رفض هذا الإيداع؟')) return;
     
-    console.log(`[DEBUG] Triggering INBOX reject for deposit: ${depositId}`);
+    console.log(`[RADICAL DEBUG] Rejecting deposit: ${depositId}`);
     
     try {
         const token = getAdminToken();
         if (!token) {
-            showToast('انتهت الجلسة، يرجى تسجيل الدخول مجدداً', 'error');
+            alert('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
+            window.location.reload();
             return;
         }
 
-        // استخدام الرابط المباشر
         const res = await fetch(`https://sanad-plus-backend.onrender.com/admin/api/deposits/${depositId}/reject`, {
             method: 'POST',
             headers: { 
@@ -4576,25 +4576,19 @@ async function inboxRejectDeposit(depositId) {
             body: JSON.stringify({ reason: 'رفض من لوحة التحكم' })
         });
         
-        console.log(`[DEBUG] Response status: ${res.status}`);
-        
-        const data = await res.json().catch(() => ({}));
-        console.log(`[DEBUG] Response body:`, data);
+        console.log(`[RADICAL DEBUG] Response: ${res.status}`);
 
         if (res.ok) {
-            showToast('تم رفض الإيداع بنجاح', 'success');
-            // إزالة البطاقة من الشاشة فوراً
-            const btn = document.querySelector(`button[onclick="inboxRejectDeposit(${depositId})"]`);
-            if (btn) {
-                const card = btn.closest('.card') || btn.closest('.deposit-card') || btn.closest('.order-card') || btn.closest('.inbox-item') || btn.parentElement.parentElement;
-                if (card) card.remove();
-            }
-            if (typeof loadAllData === 'function') loadAllData();
+            // إظهار رسالة نجاح
+            alert('تم رفض الإيداع بنجاح! سيتم تحديث الصفحة.');
+            // إجبار الصفحة على التحديث بالكامل لسحب البيانات الجديدة
+            window.location.reload();
         } else {
-            showToast(data.error || 'فشل رفض الإيداع من السيرفر', 'error');
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || 'فشل رفض الإيداع من السيرفر');
         }
     } catch (e) {
-        console.error('[DEBUG] Reject Error:', e);
-        showToast('خطأ في الاتصال بالسيرفر', 'error');
+        console.error('[RADICAL DEBUG] Error:', e);
+        alert('خطأ في الاتصال بالسيرفر');
     }
 }
