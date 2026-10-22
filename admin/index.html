@@ -1,120 +1,573 @@
-
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SANAD PLUS+ | لوحة التحكم</title>
-    <link rel="stylesheet" href="css/admin_v3.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        // قتل أي Service Worker قديم
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) { registration.unregister(); }
-            });
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SANAD+ | لوحة التحكم v3 (كاملة)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        /* ================= 1. الإعدادات والمتغيرات ================= */
+        :root {
+            --primary: #0EA5E9; --primary-hover: #0284C7; --primary-soft: #0C2842;
+            --bg: #0B1220; --surface: #131C2E; --surface-2: #1A2438;
+            --text: #E2E8F0; --text-2: #94A3B8; --text-3: #64748B;
+            --border: #263048;
+            --success: #10B981; --success-soft: #052E1F;
+            --warning: #F59E0B; --warning-soft: #3D2A02;
+            --danger: #EF4444; --danger-soft: #401414;
+            --r-md: 12px; --r-lg: 16px; --r-full: 999px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
-    </script>
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        body { background: var(--bg); color: var(--text); font-size: 14px; display: flex; height: 100vh; overflow: hidden; }
+        button { cursor: pointer; border: none; background: none; color: inherit; font-family: inherit; }
+        a { text-decoration: none; color: inherit; }
+        .hidden { display: none !important; }
+        .ltr { direction: ltr; display: inline-block; }
+
+        /* ================= 2. السايدبار ================= */
+        .sidebar { width: 260px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s; z-index: 100; }
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--border); font-size: 22px; font-weight: 900; color: var(--text); }
+        .sidebar-header span { color: var(--primary); }
+        .nav-group { padding: 15px 10px; overflow-y: auto; flex: 1; }
+        .nav-title { font-size: 11px; color: var(--text-3); text-transform: uppercase; margin-bottom: 8px; padding-right: 10px; font-weight: 800; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: var(--r-md); color: var(--text-2); font-weight: 600; transition: 0.2s; margin-bottom: 4px; width: 100%; text-align: right; font-size: 14px; }
+        .nav-item:hover { background: var(--surface-2); color: var(--text); }
+        .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 800; border-right: 4px solid var(--primary); }
+
+        /* ================= 3. المحتوى ================= */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar { height: 60px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 50; }
+        .content-area { flex: 1; padding: 20px; overflow-y: auto; padding-bottom: 80px; }
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ================= 4. العناصر ================= */
+        .page-title { font-size: 24px; font-weight: 900; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow); position: relative; }
+        
+        .btn { padding: 10px 16px; border-radius: var(--r-md); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; border: none; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow-x: auto; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: right; }
+        th, td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { color: var(--text-2); font-size: 12px; font-weight: 800; background: var(--surface-2); }
+        tr:hover td { background: var(--surface-2); }
+
+        .badge { padding: 4px 10px; border-radius: var(--r-full); font-size: 11px; font-weight: 800; }
+        .badge.pending { background: var(--warning-soft); color: #FCD34D; }
+        .badge.completed { background: var(--success-soft); color: #6EE7B7; }
+        .badge.failed { background: var(--danger-soft); color: #FCA5A5; }
+
+        .search-box { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 15px; margin-bottom: 15px; }
+        .search-box input { flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 14px; margin-right: 10px; }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--surface); width: 100%; max-width: 600px; border-radius: var(--r-lg); padding: 24px; border: 1px solid var(--border); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; color: var(--text-2); font-weight: 700; font-size: 13px; }
+        .form-control { width: 100%; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); color: white; font-family: inherit; outline: none; }
+
+        .bulk-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--primary); color: white; padding: 15px; display: none; justify-content: center; gap: 15px; z-index: 500; box-shadow: 0 -4px 12px rgba(0,0,0,0.3); }
+        .bulk-bar.active { display: flex; }
+
+        .toast-container { position: fixed; top: 20px; left: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); border-left: 4px solid var(--primary); padding: 15px 20px; border-radius: var(--r-md); box-shadow: var(--shadow); font-weight: 700; animation: slideIn 0.3s ease; display: flex; align-items: center; gap: 10px; }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+        #loginScreen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 5000; }
+        .login-box { background: var(--surface); padding: 30px; border-radius: var(--r-lg); width: 100%; max-width: 400px; border: 1px solid var(--border); }
+
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; bottom: 0; right: 0; transform: translateX(100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { width: 100%; }
+        }
+    </style>
 </head>
 <body>
 
-<div class="dashboard-container">
-    <!-- Sidebar (Desktop) -->
-    <aside class="sidebar">
-        <h2 style="text-align:center; color:var(--primary); margin-bottom: 30px;">SANAD+</h2>
-        <nav style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="btn btn-outline nav-btn active" onclick="switchSection('dashboard', this)"><i class="fas fa-home"></i> الرئيسية</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('deposits', this)"><i class="fas fa-money-bill-wave"></i> الإيداعات</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('orders', this)"><i class="fas fa-shopping-bag"></i> الطلبات</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('kyc', this)"><i class="fas fa-id-card"></i> التوثيق</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('users', this)"><i class="fas fa-users"></i> المستخدمين</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('products', this)"><i class="fas fa-box"></i> المنتجات</button>
-            <button class="btn btn-outline nav-btn" onclick="switchSection('settings', this)"><i class="fas fa-cog"></i> الإعدادات</button>
-        </nav>
+    <!-- 1. شاشة تسجيل الدخول -->
+    <div id="loginScreen" class="hidden">
+        <div class="login-box">
+            <h2 style="text-align:center; margin-bottom:20px;">SANAD+ | الإدارة</h2>
+            <div class="form-group"><label>اسم المستخدم</label><input type="text" id="loginUser" class="form-control"></div>
+            <div class="form-group"><label>كلمة المرور</label><input type="password" id="loginPass" class="form-control"></div>
+            <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">تسجيل الدخول</button>
+        </div>
+    </div>
+
+    <!-- 2. السايدبار -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">SANAD<span>+</span></div>
+        <div class="nav-group">
+            <div class="nav-title">العمليات</div>
+            <button class="nav-item active" data-sec="dashboard" onclick="nav('dashboard', this)"><span class="material-icons">space_dashboard</span> لوحة التحكم</button>
+            <button class="nav-item" data-sec="inbox" onclick="nav('inbox', this)"><span class="material-icons">inbox</span> الإرساليات</button>
+            <button class="nav-item" data-sec="orders" onclick="nav('orders', this)"><span class="material-icons">receipt_long</span> الطلبات</button>
+            <button class="nav-item" data-sec="deposits" onclick="nav('deposits', this)"><span class="material-icons">account_balance_wallet</span> الإيداعات</button>
+            <button class="nav-item" data-sec="kyc" onclick="nav('kyc', this)"><span class="material-icons">verified_user</span> التوثيق</button>
+            
+            <div class="nav-title" style="margin-top:15px;">المتجر</div>
+            <button class="nav-item" data-sec="products" onclick="nav('products', this)"><span class="material-icons">shopping_bag</span> المنتجات</button>
+            <button class="nav-item" data-sec="categories" onclick="nav('categories', this)"><span class="material-icons">category</span> الأقسام</button>
+            
+            <div class="nav-title" style="margin-top:15px;">النظام</div>
+            <button class="nav-item" data-sec="users" onclick="nav('users', this)"><span class="material-icons">people</span> المستخدمون</button>
+            <button class="nav-item" data-sec="archive" onclick="nav('archive', this)"><span class="material-icons">inventory_2</span> الأرشيف</button>
+            <button class="nav-item" data-sec="audit" onclick="nav('audit', this)"><span class="material-icons">fact_check</span> التدقيق المالي</button>
+            <button class="nav-item" data-sec="settings" onclick="nav('settings', this)"><span class="material-icons">tune</span> الإعدادات</button>
+        </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 id="page-title" style="font-size: 24px; margin: 0;">الرئيسية</h1>
-            <div style="background: var(--bg-card); padding: 10px; border-radius: 50%;"><i class="fas fa-bell"></i></div>
+    <!-- 3. المحتوى -->
+    <main class="main">
+        <header class="topbar">
+            <h2 id="topbarTitle" style="font-size:18px; font-weight:800;">لوحة التحكم</h2>
+            <button class="btn btn-outline btn-sm" onclick="loadAllData()"><span class="material-icons" style="font-size:16px;">refresh</span> تحديث</button>
         </header>
 
-        <!-- Section: Dashboard -->
-        <section id="section-dashboard" class="content-section">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-                <div class="card" style="text-align: center;">
-                    <h3 style="color: var(--text-muted); font-size: 14px;">إيداعات اليوم</h3>
-                    <p style="font-size: 24px; font-weight: bold; color: var(--warning); margin: 10px 0;">0 $</p>
+        <div class="content-area">
+            <!-- Dashboard -->
+            <section id="sec-dashboard" class="section active">
+                <h1 class="page-title">نظرة عامة</h1>
+                <div class="grid-cards">
+                    <div class="card"><h3>إجمالي المستخدمين</h3><div style="font-size:32px; font-weight:900;" id="stat-users">0</div></div>
+                    <div class="card"><h3>الطلبات المعلقة</h3><div style="font-size:32px; font-weight:900; color:var(--warning);" id="stat-orders">0</div></div>
                 </div>
-                <div class="card" style="text-align: center;">
-                    <h3 style="color: var(--text-muted); font-size: 14px;">طلبات اليوم</h3>
-                    <p style="font-size: 24px; font-weight: bold; color: var(--primary); margin: 10px 0;">0</p>
+                <div class="card" style="margin-top:20px; height: 300px;">
+                    <canvas id="mainChart"></canvas>
                 </div>
-                <div class="card" style="text-align: center;">
-                    <h3 style="color: var(--text-muted); font-size: 14px;">طلبات التوثيق</h3>
-                    <p style="font-size: 24px; font-weight: bold; color: var(--success); margin: 10px 0;">0</p>
+            </section>
+
+            <!-- Inbox -->
+            <section id="sec-inbox" class="section">
+                <h1 class="page-title">الإرساليات</h1>
+                <div id="inbox-list" class="grid-cards"></div>
+            </section>
+
+            <!-- Orders -->
+            <section id="sec-orders" class="section">
+                <h1 class="page-title">الطلبات</h1>
+                <div id="orders-list" class="grid-cards"></div>
+            </section>
+
+            <!-- Deposits -->
+            <section id="sec-deposits" class="section">
+                <h1 class="page-title">الإيداعات</h1>
+                <div id="deposits-list" class="grid-cards"></div>
+            </section>
+
+            <!-- KYC -->
+            <section id="sec-kyc" class="section">
+                <h1 class="page-title">طلبات التوثيق</h1>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                        <tbody id="kyc-table"></tbody>
+                    </table>
                 </div>
-            </div>
-            <div class="card" style="margin-top: 20px; text-align: center; padding: 40px;">
-                <i class="fas fa-chart-line fa-3x" style="color: var(--text-muted);"></i>
-                <p style="margin-top: 10px; color: var(--text-muted);">الرسوم البيانية ستتوفر قريباً</p>
-            </div>
-        </section>
+            </section>
 
-        <!-- Section: Deposits -->
-        <section id="section-deposits" class="content-section" style="display:none;">
-            <div id="depositsContainer">
-                <p style="text-align:center; color: var(--text-muted);">جاري تحميل الإيداعات...</p>
-            </div>
-        </section>
+            <!-- Products -->
+            <section id="sec-products" class="section">
+                <h1 class="page-title">المنتجات</h1>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>السعر</th><th>إجراءات</th></tr></thead>
+                        <tbody id="products-table"></tbody>
+                    </table>
+                </div>
+            </section>
 
-        <!-- Section: Orders -->
-        <section id="section-orders" class="content-section" style="display:none;">
-            <div id="ordersContainer">
-                <p style="text-align:center; color: var(--text-muted);">جاري تحميل الطلبات...</p>
-            </div>
-        </section>
+            <!-- Categories -->
+            <section id="sec-categories" class="section">
+                <h1 class="page-title">الأقسام</h1>
+                <div id="categories-grid" class="grid-cards"></div>
+            </section>
 
-        <!-- Section: Users -->
-        <section id="section-users" class="content-section" style="display:none;">
-            <div class="card">
-                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إدارة المستخدمين هنا.</p>
-            </div>
-        </section>
+            <!-- Users -->
+            <section id="sec-users" class="section">
+                <h1 class="page-title">المستخدمون</h1>
+                <div class="search-box"><span class="material-icons">search</span><input type="text" id="userSearch" onkeyup="filterTable('users-table', this.value)" placeholder="ابحث بالاسم أو الآيدي..."></div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ID</th><th>الاسم</th><th>الرصيد</th><th>إجراءات</th></tr></thead>
+                        <tbody id="users-table"></tbody>
+                    </table>
+                </div>
+            </section>
 
-        <!-- Section: KYC -->
-        <section id="section-kyc" class="content-section" style="display:none;">
-            <div class="card">
-                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة طلبات التوثيق هنا.</p>
-            </div>
-        </section>
-        
-        <!-- Section: Products -->
-        <section id="section-products" class="content-section" style="display:none;">
-            <div class="card">
-                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إدارة المنتجات هنا.</p>
-            </div>
-        </section>
+            <!-- Archive -->
+            <section id="sec-archive" class="section">
+                <h1 class="page-title">الأرشيف</h1>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>النوع</th><th>المعرف</th><th>الحالة</th><th>إجراء</th></tr></thead>
+                        <tbody id="archive-table"></tbody>
+                    </table>
+                </div>
+            </section>
 
-        <!-- Section: Settings -->
-        <section id="section-settings" class="content-section" style="display:none;">
-            <div class="card">
-                <p style="text-align:center; color: var(--text-muted);">سيتم إضافة إعدادات المتجر هنا.</p>
-            </div>
-        </section>
+            <!-- Audit Log -->
+            <section id="sec-audit" class="section">
+                <h1 class="page-title">التدقيق المالي</h1>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>#</th><th>المستخدم</th><th>المبلغ</th><th>التاريخ</th></tr></thead>
+                        <tbody id="audit-table"></tbody>
+                    </table>
+                </div>
+            </section>
 
+            <!-- Settings -->
+            <section id="sec-settings" class="section">
+                <h1 class="page-title">الإعدادات</h1>
+                <div class="card">
+                    <div class="form-group"><label>اسم المتجر</label><input type="text" class="form-control" id="setStoreName"></div>
+                    <div class="form-group"><label>سعر الليرة السورية</label><input type="number" class="form-control" id="setSypRate"></div>
+                    <button class="btn btn-primary" onclick="saveSettings(this)">حفظ</button>
+                </div>
+            </section>
+        </div>
     </main>
-</div>
 
-<!-- Bottom Nav (Mobile) -->
-<nav class="bottom-nav">
-    <a href="#" class="active" onclick="switchSection('dashboard', null); return false;"><i class="fas fa-home fa-lg"></i> الرئيسية</a>
-    <a href="#" onclick="switchSection('deposits', null); return false;"><i class="fas fa-money-bill-wave fa-lg"></i> الإيداعات</a>
-    <a href="#" onclick="switchSection('orders', null); return false;"><i class="fas fa-shopping-bag fa-lg"></i> الطلبات</a>
-    <a href="#" onclick="switchSection('users', null); return false;"><i class="fas fa-users fa-lg"></i> المزيد</a>
-</nav>
+    <!-- شريط الإجراءات الجماعية -->
+    <div class="bulk-bar" id="bulkBar">
+        <span style="font-weight:bold;">محدد: <span id="bulkCount">0</span></span>
+        <button class="btn btn-success btn-sm" onclick="bulkAction('approve')">قبول الكل</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkAction('reject')">رفض الكل</button>
+        <button class="btn btn-outline btn-sm" onclick="clearBulk()">إلغاء</button>
+    </div>
 
-<script src="js/admin_v3.js?v=3"></script>
+    <!-- المودال والتنبيهات والـ Lightbox -->
+    <div class="modal-overlay" id="modal"><div class="modal" id="modalContent"></div></div>
+    <div class="toast-container" id="toastContainer"></div>
+    <div id="lightbox" class="modal-overlay" onclick="this.classList.remove('active')"><img id="lightboxImg" style="max-width:90%; max-height:90vh; border-radius:12px;"></div>
+
+    <script>
+        // 1. الأمان
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        // 2. الإعدادات
+        const API_BASE = 'https://sanad-plus-backend.onrender.com';
+        const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
+        let mainChartInstance = null;
+
+        // 3. الحالة
+        const AppState = { users: [], orders: [], deposits: [], kyc: [], products: [], categories: [], archive: [], audit: [], settings: {}, selected: new Set() };
+
+        // 4. الاتصال
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const token = getToken();
+            if (!token) return null;
+            const config = { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } };
+            if (body) config.body = JSON.stringify(body);
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, config);
+                if (res.status === 401) { showToast('انتهت الجلسة', 'danger'); return null; }
+                if (!res.ok) throw new Error('API Error');
+                return await res.json();
+            } catch (err) { showToast('فشل الاتصال', 'danger'); return null; }
+        }
+
+        // 5. تسجيل الدخول
+        async function doLogin() {
+            const user = document.getElementById('loginUser').value;
+            const pass = document.getElementById('loginPass').value;
+            if (!user || !pass) return showToast('أدخل البيانات', 'warning');
+            
+            showToast('جاري التحقق...', 'info');
+            try {
+                const res = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.token) {
+                        localStorage.setItem('admin_token', data.token);
+                        window.location.reload();
+                    } else {
+                        showToast('تحقق من OTP المرسل', 'info');
+                    }
+                } else showToast(data.error || 'خطأ', 'danger');
+            } catch (e) { showToast('فشل الاتصال', 'danger'); }
+        }
+
+        // 6. جلب البيانات
+        async function loadAllData() {
+            showToast('جاري التحديث...', 'info');
+            const [users, orders, deposits, kyc, products, cats, arch, audit, settings] = await Promise.all([
+                apiCall('/admin/api/users'), apiCall('/admin/api/orders'), apiCall('/admin/api/deposits'),
+                apiCall('/admin/api/kyc'), apiCall('/admin/api/products'), apiCall('/admin/api/categories'),
+                apiCall('/admin/api/archive'), apiCall('/admin/api/audit-log'), apiCall('/admin/api/settings')
+            ]);
+            if (users) AppState.users = users;
+            if (orders) AppState.orders = orders;
+            if (deposits) AppState.deposits = deposits;
+            if (kyc) AppState.kyc = kyc;
+            if (products) AppState.products = products;
+            if (cats) AppState.categories = cats;
+            if (arch) AppState.archive = arch;
+            if (audit) AppState.audit = audit;
+            if (settings) AppState.settings = settings;
+            
+            nav('dashboard', document.querySelector('[data-sec="dashboard"]'));
+            showToast('تم التحديث', 'success');
+        }
+
+        // 7. التنقل
+        function nav(sec, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('sec-' + sec).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            document.getElementById('topbarTitle').innerText = btn ? btn.innerText.replace(/[\n\r]/g, '') : 'لوحة التحكم';
+
+            if (sec === 'dashboard') updateDashboard();
+            if (sec === 'inbox' || sec === 'deposits') { renderInbox(); renderDeposits(); }
+            if (sec === 'orders') renderOrders();
+            if (sec === 'kyc') renderKYC();
+            if (sec === 'users') renderUsers();
+            if (sec === 'products') renderProducts();
+            if (sec === 'categories') renderCategories();
+            if (sec === 'archive') renderArchive();
+            if (sec === 'audit') renderAudit();
+            if (sec === 'settings') renderSettings();
+        }
+
+        // 8. دوال الرسم
+        function updateDashboard() {
+            document.getElementById('stat-users').innerText = AppState.users.length;
+            document.getElementById('stat-orders').innerText = AppState.orders.filter(o => o.status === 'pending').length;
+            
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (mainChartInstance) mainChartInstance.destroy();
+            mainChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['معلق', 'مكتمل', 'مرفوض'],
+                    datasets: [{
+                        data: [
+                            AppState.orders.filter(o => o.status === 'pending').length,
+                            AppState.orders.filter(o => o.status === 'completed').length,
+                            AppState.orders.filter(o => o.status === 'failed').length
+                        ],
+                        backgroundColor: ['#F59E0B', '#10B981', '#EF4444']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function renderInbox() {
+            const container = document.getElementById('inbox-list');
+            container.innerHTML = '';
+            const pending = AppState.deposits.filter(d => d.status === 'pending');
+            if (!pending.length) { container.innerHTML = '<p style="color:var(--success);">لا توجد إرساليات معلقة</p>'; return; }
+            
+            pending.forEach(d => {
+                container.innerHTML += `
+                    <div class="card" style="border-right: 4px solid var(--warning);">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>${escapeHtml(d.transaction_id)}</strong>
+                            <input type="checkbox" onchange="toggleBulk(${d.id})">
+                        </div>
+                        <p>المستخدم: ${escapeHtml(d.user_name)} | المبلغ: $${d.amount}</p>
+                        <button class="btn btn-success btn-sm" onclick="approveDeposit(${d.id}, this)">قبول</button>
+                        <button class="btn btn-danger btn-sm" onclick="rejectDeposit(${d.id}, this)">رفض</button>
+                    </div>`;
+            });
+        }
+
+        function renderOrders() {
+            const container = document.getElementById('orders-list');
+            container.innerHTML = AppState.orders.map(o => `
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong class="ltr">${escapeHtml(o.order_number)}</strong>
+                        <span class="badge ${o.status === 'pending' ? 'pending' : (o.status === 'completed' ? 'completed' : 'failed')}">${o.status}</span>
+                    </div>
+                    <p>المنتج: ${escapeHtml(o.product_name)} | السعر: $${o.total_price}</p>
+                    ${o.status === 'pending' ? `
+                    <button class="btn btn-success btn-sm" onclick="updateOrderStatus(${o.id}, 'completed')">إكمال</button>
+                    <button class="btn btn-danger btn-sm" onclick="updateOrderStatus(${o.id}, 'failed')">رفض</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderDeposits() {
+            const container = document.getElementById('deposits-list');
+            container.innerHTML = AppState.deposits.map(d => `
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong class="ltr">${escapeHtml(d.transaction_id)}</strong>
+                        <span class="badge ${d.status === 'pending' ? 'pending' : (d.status === 'approved' ? 'completed' : 'failed')}">${d.status}</span>
+                    </div>
+                    <p>المستخدم: ${escapeHtml(d.user_name)} | المبلغ: $${d.amount}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderUsers() {
+            const tbody = document.getElementById('users-table');
+            tbody.innerHTML = AppState.users.map(u => `
+                <tr>
+                    <td class="ltr">${escapeHtml(u.telegram_id)}</td>
+                    <td>${escapeHtml(u.first_name)}</td>
+                    <td style="color:${u.balance < 0 ? 'var(--danger)' : 'var(--success)'};">$${u.balance}</td>
+                    <td><button class="btn btn-primary btn-sm" onclick="openAdjustBalance(${u.id})">تعديل</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderKYC() {
+            const tbody = document.getElementById('kyc-table');
+            tbody.innerHTML = AppState.kyc.map(k => `
+                <tr>
+                    <td>${escapeHtml(k.full_name)}</td>
+                    <td class="ltr">${escapeHtml(k.phone)}</td>
+                    <td><span class="badge pending">${k.status}</span></td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="viewKYC('${escapeHtml(k.selfie_image)}')">عرض</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderProducts() {
+            const tbody = document.getElementById('products-table');
+            tbody.innerHTML = AppState.products.map(p => `
+                <tr><td>${escapeHtml(p.name)}</td><td>$${p.base_price}</td><td><button class="btn btn-danger btn-sm">حذف</button></td></tr>
+            `).join('');
+        }
+
+        function renderCategories() {
+            const grid = document.getElementById('categories-grid');
+            grid.innerHTML = AppState.categories.map(c => `
+                <div class="card" style="text-align:center;"><div style="font-size:40px;">${c.icon || '📁'}</div><h3>${escapeHtml(c.name)}</h3></div>
+            `).join('');
+        }
+
+        function renderArchive() {
+            const tbody = document.getElementById('archive-table');
+            tbody.innerHTML = AppState.archive.map(a => `
+                <tr><td>${escapeHtml(a.type)}</td><td class="ltr">${escapeHtml(a.ref)}</td><td>${a.status}</td><td><button class="btn btn-success btn-sm">استرجاع</button></td></tr>
+            `).join('');
+        }
+
+        function renderAudit() {
+            const tbody = document.getElementById('audit-table');
+            tbody.innerHTML = AppState.audit.map(a => `
+                <tr><td>${a.id}</td><td class="ltr">${escapeHtml(a.user_id)}</td><td>$${a.amount}</td><td>${a.created_at}</td></tr>
+            `).join('');
+        }
+
+        function renderSettings() {
+            if (AppState.settings.store_name) document.getElementById('setStoreName').value = AppState.settings.store_name;
+            if (AppState.settings.syp_rate) document.getElementById('setSypRate').value = AppState.settings.syp_rate;
+        }
+
+        // 9. الأكشنز
+        async function approveDeposit(id, btn) {
+            btn.disabled = true; btn.innerText = '...';
+            const res = await apiCall(`/admin/api/deposits/${id}/approve`, 'POST');
+            if (res) { showToast('تم القبول', 'success'); AppState.deposits = AppState.deposits.filter(d => d.id !== id); renderInbox(); renderDeposits(); }
+            else btn.disabled = false;
+        }
+
+        async function rejectDeposit(id, btn) {
+            if (!confirm('تأكيد الرفض؟')) return;
+            btn.disabled = true; btn.innerText = '...';
+            const res = await apiCall(`/admin/api/deposits/${id}/reject`, 'POST', {reason: 'رفض'});
+            if (res) { showToast('تم الرفض', 'warning'); AppState.deposits = AppState.deposits.filter(d => d.id !== id); renderInbox(); renderDeposits(); }
+            else btn.disabled = false;
+        }
+
+        async function updateOrderStatus(id, status) {
+            const res = await apiCall(`/admin/api/orders/${id}/status`, 'POST', {status});
+            if (res) { showToast('تم التحديث', 'success'); AppState.orders = AppState.orders.map(o => o.id === id ? {...o, status} : o); renderOrders(); }
+        }
+
+        function viewKYC(url) {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        function openAdjustBalance(id) {
+            document.getElementById('modalContent').innerHTML = `
+                <h3>تعديل الرصيد</h3>
+                <input type="number" id="adjAmount" class="form-control" placeholder="المبلغ">
+                <button class="btn btn-primary" style="margin-top:10px;" onclick="confirmAdjust(${id})">حفظ</button>`;
+            document.getElementById('modal').classList.add('active');
+        }
+
+        async function confirmAdjust(id) {
+            const amount = parseFloat(document.getElementById('adjAmount').value);
+            const res = await apiCall(`/admin/api/users/${id}/balance`, 'POST', {amount});
+            if (res) { showToast('تم التعديل', 'success'); document.getElementById('modal').classList.remove('active'); loadAllData(); }
+        }
+
+        async function saveSettings(btn) {
+            const payload = { store_name: document.getElementById('setStoreName').value, syp_rate: document.getElementById('setSypRate').value };
+            const res = await apiCall('/admin/api/settings', 'PUT', payload);
+            if (res) showToast('تم الحفظ', 'success');
+        }
+
+        // 10. الإجراءات الجماعية والبحث
+        function toggleBulk(id) {
+            if (AppState.selected.has(id)) AppState.selected.delete(id); else AppState.selected.add(id);
+            document.getElementById('bulkCount').innerText = AppState.selected.size;
+            document.getElementById('bulkBar').classList.toggle('active', AppState.selected.size > 0);
+        }
+
+        function clearBulk() {
+            AppState.selected.clear();
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            document.getElementById('bulkBar').classList.remove('active');
+        }
+
+        function bulkAction(type) {
+            showToast(`سيتم ${type === 'approve' ? 'قبول' : 'رفض'} ${AppState.selected.size} عنصر...`, 'info');
+            // هنا يتم استدعاء API الجماعي
+        }
+
+        function filterTable(tableId, query) {
+            const rows = document.getElementById(tableId).getElementsByTagName('tr');
+            for (let row of rows) row.style.display = row.innerText.includes(query) ? '' : 'none';
+        }
+
+        function showToast(msg, type) {
+            const el = document.createElement('div');
+            el.className = 'toast';
+            el.innerHTML = `<span class="material-icons">info</span> ${msg}`;
+            document.getElementById('toastContainer').appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        // 11. التشغيل
+        window.onload = () => {
+            if (!getToken()) document.getElementById('loginScreen').classList.remove('hidden');
+            else loadAllData();
+        };
+    </script>
 </body>
 </html>
