@@ -380,7 +380,7 @@ async function submitGameOrder() {
         const res = await fetch(`${API_URL}/api/miniapp/order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id: tgUser.id, product_id: 1, quantity: 1, delivery_data: playerId })
+            body: JSON.stringify({ telegram_id: tgUser.id, product_id: currentOrderContext.product.id, quantity: 1, delivery_data: playerId })
         });
         const data = await res.json();
         if (data.success) {
