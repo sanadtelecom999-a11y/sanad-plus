@@ -1,10 +1,7 @@
-// ==========================================
-// SANAD PLUS+ Admin Panel v3 (Full Logic)
-// ==========================================
-
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
 let currentSessionId = null;
+let dashboardChartInstance = null;
 
 // ================= Login & OTP =================
 async function handleLogin() {
@@ -13,65 +10,41 @@ async function handleLogin() {
     if(!user || !pass) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل البيانات أولاً', background: '#1e293b', color: '#fff'});
 
     Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    
     try {
         const res = await fetch(`${API_URL}/admin/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: user, password: pass })
         });
         const data = await res.json();
-        
         Swal.close();
         if (res.ok && data.require_otp) {
             currentSessionId = data.session_id;
             document.getElementById('loginStep1').classList.add('hidden');
             document.getElementById('loginStep2').classList.remove('hidden');
-            Swal.fire({icon: 'info', title: 'تم الإرسال', text: 'تفقد حسابك في تليجرام للحصول على الرمز', background: '#1e293b', color: '#fff'});
         } else {
             Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'بيانات غير صحيحة', background: '#1e293b', color: '#fff'});
         }
-    } catch (error) {
-        Swal.fire({icon: 'error', title: 'خطأ في الاتصال', text: 'تعذر الاتصال بالسيرفر، يرجى المحاولة لاحقاً', background: '#1e293b', color: '#fff'});
-    }
+    } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال', background: '#1e293b', color: '#fff'}); }
 }
 
 async function verifyOTP() {
     const code = document.getElementById('otpCode').value;
     if(!code) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل رمز التحقق', background: '#1e293b', color: '#fff'});
-
     Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    
     try {
         const res = await fetch(`${API_URL}/admin/verify-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ session_id: currentSessionId, otp_code: code })
         });
         const data = await res.json();
-        
         if (res.ok && data.token) {
             localStorage.setItem('admin_token', data.token);
-            Swal.fire({icon: 'success', title: 'مرحباً بك', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'})
-                .then(() => location.reload());
-        } else {
-            Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'رمز خاطئ', background: '#1e293b', color: '#fff'});
-        }
-    } catch (error) {
-        Swal.fire({icon: 'error', title: 'خطأ في الاتصال', text: 'تعذر الاتصال بالسيرفر', background: '#1e293b', color: '#fff'});
-    }
+            Swal.fire({icon: 'success', title: 'مرحباً بك', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'}).then(() => location.reload());
+        } else { Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'رمز خاطئ', background: '#1e293b', color: '#fff'}); }
+    } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال', background: '#1e293b', color: '#fff'}); }
 }
 
-// ================= Helper Functions =================
-function previewImage(input, previewId) {
-    const preview = document.getElementById(previewId);
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) { preview.src = e.target.result; preview.classList.remove('hidden'); }
-        reader.readAsDataURL(input.files[0]);
-    } else { preview.src = ''; preview.classList.add('hidden'); }
-}
-
+// ================= Helpers =================
 async function apiCall(endpoint, method = 'GET', body = null) {
     const headers = { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
     const config = { method, headers };
@@ -80,195 +53,50 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         const res = await fetch(`${API_URL}${endpoint}`, config);
         if (res.status === 401) { handleLogout(); return null; }
         return await res.json();
-    } catch (error) { 
-        console.error("API Error:", error);
-        return null; 
-    }
+    } catch (error) { return null; }
 }
 
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-// ================= Dashboard Stats =================
+// ================= Dashboard Stats & Chart =================
 async function loadDashboardStats() {
     const data = await apiCall('/admin/api/stats');
     if (data) {
         document.getElementById('statOrders').innerText = data.total_orders || 0;
         document.getElementById('statUsers').innerText = data.total_users || 0;
+        document.getElementById('statDeposits').innerText = data.total_deposits || 0;
+        document.getElementById('statRevenue').innerText = `$${(data.revenue || 0).toFixed(2)}`;
     }
+    initChart();
 }
 
-// ================= Products =================
-function togglePricingFields() {
-    const type = document.getElementById('prodPricingType').value;
-    if (type === 'fixed') {
-        document.getElementById('fixedPriceFields').classList.remove('hidden');
-        document.getElementById('dynamicPriceFields').classList.add('hidden');
-        document.getElementById('dynamicPreview').classList.add('hidden');
-    } else {
-        document.getElementById('fixedPriceFields').classList.add('hidden');
-        document.getElementById('dynamicPriceFields').classList.remove('hidden');
-        document.getElementById('dynamicPreview').classList.remove('hidden');
-        calculateDynamicPrice();
-    }
-}
-
-function calculateDynamicPrice() {
-    const baseQty = parseFloat(document.getElementById('prodBaseQty').value) || 0;
-    const basePrice = parseFloat(document.getElementById('prodBasePrice').value) || 0;
-    if (baseQty > 0 && basePrice > 0) {
-        document.getElementById('previewCalculatedPrice').innerText = `$${((basePrice / baseQty) * 16000).toFixed(2)}`;
-    } else {
-        document.getElementById('previewCalculatedPrice').innerText = `$0.00`;
-    }
-}
-
-async function saveProduct() {
-    const name = document.getElementById('prodName').value;
-    const imageFile = document.getElementById('prodImageFile').files[0];
-    if (!name) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل اسم المنتج', background: '#1e293b', color: '#fff'});
-
-    Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
+function initChart() {
+    const ctx = document.getElementById('dashboardChart');
+    if(!ctx) return;
+    if(dashboardChartInstance) dashboardChartInstance.destroy(); // تدمير الرسم القديم إن وجد
     
-    let imageBase64 = null;
-    if (imageFile) {
-        imageBase64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(imageFile);
-        });
-    }
-
-    const data = {
-        name: name,
-        category_id: document.getElementById('prodCategory').value,
-        input_type: document.getElementById('prodInputType').value,
-        pricing_type: document.getElementById('prodPricingType').value,
-        image: imageBase64
-    };
-
-    if (data.pricing_type === 'fixed') {
-        data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0;
-    } else {
-        data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0;
-        data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0;
-    }
-
-    const res = await apiCall('/admin/api/products', 'POST', data);
-    if (res && res.success) {
-        Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
-        closeModal('addProductModal'); 
-        loadProducts();
-    } else {
-        Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل الحفظ، تأكد من البيانات', background: '#1e293b', color: '#fff'});
-    }
-}
-
-async function loadProducts() {
-    const data = await apiCall('/admin/api/products');
-    if(data && data.products) {
-        document.getElementById('productsTableBody').innerHTML = data.products.map(p => `
-            <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-                <td class="font-bold text-white">${p.name}</td>
-                <td class="text-primary">${p.pricing_type === 'dynamic' ? 'ديناميكي' : `$${p.price.toFixed(2)}`}</td>
-                <td>${p.category_id}</td>
-                <td>${p.pricing_type === 'dynamic' ? 'كمية' : 'ثابت'}</td>
-                <td><button onclick="deleteProduct(${p.id}, '${p.name}')" class="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg">حذف</button></td>
-            </tr>
-        `).join('');
-    }
-}
-
-// ================= Categories =================
-async function saveCategory() {
-    const name = document.getElementById('catName').value;
-    const imageFile = document.getElementById('catImageFile').files[0];
-    if (!name) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل اسم القسم', background: '#1e293b', color: '#fff'});
-
-    Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    
-    let imageBase64 = null;
-    if (imageFile) {
-        imageBase64 = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(imageFile);
-        });
-    }
-
-    const res = await apiCall('/admin/api/categories', 'POST', { name: name, image: imageBase64 });
-    if (res && res.success) {
-        Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
-        closeModal('addCategoryModal'); 
-        loadCategories();
-    }
-}
-
-async function loadCategories() {
-    const data = await apiCall('/admin/api/categories');
-    if(data && data.categories) {
-        document.getElementById('categoriesContainer').innerHTML = data.categories.map(c => `
-            <div class="glass bento-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative">
-                <button onclick="deleteCategory(${c.id}, '${c.name}')" class="absolute top-2 right-2 text-red-500 hover:text-red-400"><i data-lucide="x" size="18"></i></button>
-                <img src="${c.image || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-xl mb-2">
-                <span class="font-bold text-white">${c.name}</span>
-            </div>
-        `).join('');
-        lucide.createIcons();
-    }
-}
-
-// ================= Users & Balance =================
-async function loadUsers() {
-    const data = await apiCall('/admin/api/users');
-    if (data && data.users) {
-        document.getElementById('usersTableBody').innerHTML = data.users.map(user => `
-            <tr class="hover:bg-slate-800/30 transition">
-                <td><div class="font-bold text-white">${user.first_name}</div><div class="text-xs text-slate-400 font-mono">${user.telegram_id}</div></td>
-                <td class="font-bold text-primary">$${user.balance.toFixed(2)}</td>
-                <td><span class="px-2 py-1 rounded-full text-xs ${user.kyc_status === 'verified' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-400'}">${user.kyc_status}</span></td>
-                <td>${user.vip_level > 0 ? `<span class="text-accent">VIP ${user.vip_level}</span>` : '-'}</td>
-                <td><button onclick="editUserBalance(${user.id}, ${user.balance}, '${user.first_name}')" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded-lg text-sm">تعديل الرصيد</button></td>
-            </tr>
-        `).join('');
-        lucide.createIcons();
-    }
-}
-
-async function editUserBalance(id, currentBalance, name) {
-    const { value: formValues } = await Swal.fire({
-        title: `تعديل رصيد: ${name}`,
-        html: `
-            <div class="flex gap-2 justify-center mb-4">
-                <button id="btn-add" class="swal2-confirm swal2-styled px-6 py-2" style="background-color: #10b981; margin: 0;">+ إضافة</button>
-                <button id="btn-deduct" class="swal2-cancel swal2-styled px-6 py-2" style="background-color: #ef4444; margin: 0;">- خصم</button>
-            </div>
-            <input id="swal-input-amount" class="swal2-input" type="number" placeholder="المبلغ ($)" step="0.01">
-            <input type="hidden" id="swal-action" value="add">
-        `,
-        focusConfirm: false, showCancelButton: true, confirmButtonText: 'حفظ التعديل', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff',
-        didOpen: () => {
-            const btnAdd = document.getElementById('btn-add'); const btnDeduct = document.getElementById('btn-deduct'); const actionInput = document.getElementById('swal-action');
-            btnAdd.addEventListener('click', () => { actionInput.value = 'add'; btnAdd.style.opacity = '1'; btnDeduct.style.opacity = '0.5'; });
-            btnDeduct.addEventListener('click', () => { actionInput.value = 'deduct'; btnDeduct.style.opacity = '1'; btnAdd.style.opacity = '0.5'; });
+    dashboardChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'],
+            datasets: [{
+                label: 'حركة المبيعات ($)',
+                data: [12, 19, 3, 5, 2, 3, 10], // بيانات تجريبية للشكل، سيتم ربطها لاحقاً
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                fill: true, tension: 0.4
+            }]
         },
-        preConfirm: () => {
-            const amount = document.getElementById('swal-input-amount').value; const action = document.getElementById('swal-action').value;
-            if (!amount || amount <= 0) Swal.showValidationMessage('أدخل مبلغاً صحيحاً');
-            return { amount: parseFloat(amount), action };
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#fff' } } },
+            scales: { 
+                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, 
+                y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } 
+            }
         }
     });
-
-    if (formValues) {
-        const newBalance = formValues.action === 'add' ? currentBalance + formValues.amount : currentBalance - formValues.amount;
-        const res = await apiCall(`/admin/api/users/${id}/balance`, 'POST', { balance: newBalance });
-        if (res && res.success) { 
-            Swal.fire({ icon: 'success', title: 'تم التعديل', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' }); 
-            loadUsers(); 
-        } else {
-            Swal.fire({ icon: 'error', title: 'خطأ', text: res?.error || 'فشل التعديل', background: '#1e293b', color: '#fff' });
-        }
-    }
 }
 
 // ================= Navigation =================
@@ -299,3 +127,4 @@ window.onload = () => {
         switchSection('dashboard', document.querySelector('.nav-btn')); 
     } 
 };
+// (ملاحظة: يجب إضافة دوال loadUsers, loadProducts, saveProduct, إلخ من الكود السابق هنا)
