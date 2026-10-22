@@ -29,6 +29,17 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 # Early logger definition (v18.4.14 — fixes ADMIN_IDS parse bug)
 logger = logging.getLogger(__name__)
 
+_mem_rate_limits = {}
+def _mem_rate_limit(user_id, limit=20):
+    import time
+    now = time.time()
+    if user_id not in _mem_rate_limits: _mem_rate_limits[user_id] = []
+    _mem_rate_limits[user_id] = [t for t in _mem_rate_limits[user_id] if now - t < 60]
+    if len(_mem_rate_limits[user_id]) >= limit: return False
+    _mem_rate_limits[user_id].append(now)
+    return True
+
+
 
 # ============================================================
 # 🛡️ Sentry (already initialized in bot_main.py — just import)
@@ -69,6 +80,17 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+_mem_rate_limits = {}
+def _mem_rate_limit(user_id, limit=20):
+    import time
+    now = time.time()
+    if user_id not in _mem_rate_limits: _mem_rate_limits[user_id] = []
+    _mem_rate_limits[user_id] = [t for t in _mem_rate_limits[user_id] if now - t < 60]
+    if len(_mem_rate_limits[user_id]) >= limit: return False
+    _mem_rate_limits[user_id].append(now)
+    return True
+
 
 if not ADMIN_IDS:
     logger.warning("⚠️ TELEGRAM_ADMIN_IDS فارغ — لن تُرسل تنبيهات!")
@@ -406,58 +428,19 @@ _ERROR_NOTIFY_WINDOW = 300
 _ERROR_NOTIFY_MAX = 3
 _ERROR_NOTIFY_KEY_LEN = 80
 
-def _should_notify_error(error_str: str) -> bool:
-    if not error_str:
+def _should_notify_error(error_type: str) -> bool:
+    """يضمن عدم إغراق المطور بالرسائل، ويستخدم نوع الخطأ كمفتاح."""
+    if not redis_client: return True # إذا لم يوجد Redis، لا نحظر الإشعارات
+    safe_type = str(error_type)[:30].replace(" ", "_")
+    key = f"bot:error_notified:{safe_type}"
+    try:
+        # nx=True تعني: نفذ فقط إذا كان المفتاح غير موجود (أي لم نرسل إشعاراً مؤخراً)
+        if redis_client.set(key, "1", ex=60, nx=True):
+            return True
+    except Exception:
         return True
-    key = error_str[:_ERROR_NOTIFY_KEY_LEN]
-    now = time.time()
-    bucket = int(now // _ERROR_NOTIFY_WINDOW)
-    if len(_error_notify_buckets) > 1000:
-        for k in list(_error_notify_buckets.keys()):
-            if k[1] < bucket:
-                del _error_notify_buckets[k]
-    full_key = (key, bucket)
-    _error_notify_buckets[full_key].append(now)
-    count = len(_error_notify_buckets[full_key])
-    if count == _ERROR_NOTIFY_MAX + 1:
-        logger.warning(f"Rate limit triggered: {key[:50]}...")
-        return True
-    return count <= _ERROR_NOTIFY_MAX
+    return False
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    """التعامل مع الأخطاء غير المتوقعة"""
-    error_str = str(context.error)
-
-    if "Conflict" in error_str or "terminated by other getUpdates" in error_str:
-        logger.warning(f"⚠️ Conflict مؤقت — سيُحل تلقائياً")
-        return
-
-    logger.error(f"❌ خطأ في البوت: {context.error}")
-
-    # 🆕 v18: Sentry capture
-    if _SENTRY_AVAILABLE:
-        try:
-            sentry_sdk.capture_exception(context.error)
-        except Exception as e:
-            logger.error(f"Sentry capture failed: {e}")
-
-    if context.error:
-        error_short = str(context.error)[:300]
-        if _should_notify_error(error_short):
-            try:
-                notify_admins_sync(
-                    f"❌ **خطأ في البوت**\n`{error_short}`",
-                    important=True
-                )
-            except Exception as e:
-                logger.error(f"Failed to notify admins: {e}")
-        else:
-            logger.debug(f"Error notification throttled: {error_short[:50]}")
-
-
-# ============================================================
-# ============ App Setup ============
-# ============================================================
 def create_application() -> Application:
     if not BOT_TOKEN:
         raise ValueError("BOT_TOKEN غير موجود في ملف .env")
