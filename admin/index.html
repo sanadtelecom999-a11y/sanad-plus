@@ -10,39 +10,7 @@
 <!-- ============================================================
      🛡️ v18.3.3: KILL ALL SERVICE WORKERS + CACHES
      ============================================================ -->
-<script>
-(function() {
-    try {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                if (registrations.length === 0) return;
-                registrations.forEach(function(reg) {
-                    reg.unregister().then(function(success) {
-                        console.log('[SANAD-ADMIN] ✅ SW unregistered:', reg.scope, success);
-                    });
-                });
-            }).catch(function(err) {
-                console.warn('[SANAD-ADMIN] SW unregister error:', err);
-            });
-        }
-
-        if ('caches' in window) {
-            caches.keys().then(function(names) {
-                if (names.length === 0) return;
-                names.forEach(function(name) {
-                    caches.delete(name).then(function(success) {
-                        console.log('[SANAD-ADMIN] ✅ Cache deleted:', name, success);
-                    });
-                });
-            }).catch(function(err) {
-                console.warn('[SANAD-ADMIN] Cache delete error:', err);
-            });
-        }
-    } catch (e) {
-        console.warn('[SANAD-ADMIN] SW kill error:', e);
-    }
-})();
-</script>
+<!-- Service Worker disabled by v3 -->
 
 <title>SANAD+ Admin</title>
 <meta name="theme-color" content="#0EA5E9">
@@ -894,9 +862,9 @@
      SCRIPTS
      ============================================================ -->
 <script src="js/api.js?v=25"></script>
-<script src="js/admin.js?v=28"></script>
-<script src="js/admin-v16.js?v=27"></script>
-<script src="js/admin-v17.js?v=27"></script>
+
+
+
 <script src="js/security-patch.js"></script>
 
 <script>
@@ -1007,5 +975,6 @@ window.closeGlobalSearch = window.closeGlobalSearch || function() {
 };
 </script>
 
+<script src="js/admin_v3.js?v=1"></script>
 </body>
 </html>
