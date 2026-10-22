@@ -1,28 +1,18 @@
-// ==========================================
-// SANAD PLUS+ MiniApp (Real API Integration)
-// ==========================================
-
 const tg = window.Telegram?.WebApp;
-if (tg) {
-    tg.ready();
-    tg.expand();
-    tg.setHeaderColor("#000000");
-}
+if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor("#000000"); }
 
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const tgUser = tg?.initDataUnsafe?.user;
 let currentUser = null;
 let categoriesData = [];
-let currentOrderContext = { product: null, price: 0 };
+let currentOrderContext = { product: null, price: 0, qty: 1 };
 
-// 1. تهيئة التطبيق وجلب البيانات
 document.addEventListener('DOMContentLoaded', async () => {
     if (!tgUser) {
         showToast("يرجى فتح التطبيق من داخل تليجرام");
         return;
     }
 
-    // إعداد واجهة المستخدم
     document.getElementById('greetingText').innerText = `مرحباً، ${tgUser.first_name} 👋`;
     document.getElementById('profileName').innerText = tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
     document.getElementById('profileUsername').innerText = tgUser.username ? `@${tgUser.username}` : '';
@@ -35,22 +25,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('defaultAvatarIcon').classList.add('hidden');
     }
 
-    // جلب البيانات من السيرفر
+    // جلب البيانات الأساسية
     try {
         const res = await fetch(`${API_URL}/api/miniapp/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                telegram_id: tgUser.id,
-                first_name: tgUser.first_name,
-                username: tgUser.username
-            })
+            body: JSON.stringify({ telegram_id: tgUser.id, first_name: tgUser.first_name, username: tgUser.username })
         });
         
         const data = await res.json();
         if (data.user) {
             currentUser = data.user;
             updateUserUI(data.user);
+            renderOrders(data.orders);
+            renderDeposits(data.deposits);
         }
 
         // جلب المنتجات
@@ -61,23 +49,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         
     } catch (err) {
         console.error(err);
-        showToast("تعذر الاتصال بالسيرفر");
+        showToast("تعذر الاتصال بالسيرفر، يرجى إعادة تحديث الصفحة");
     }
 });
 
-// 2. تحديث واجهة المستخدم بالبيانات الحقيقية
 function updateUserUI(user) {
-    // الرصيد في الرئيسية
-    document.getElementById('homeBalance').innerText = user.balance.toFixed(2);
+    // إصلاح مشكلة تنسيق الرصيد
+    document.getElementById('homeBalanceWrapper').innerHTML = `<span class="text-3xl text-slate-500">$</span>${user.balance.toFixed(2)}`;
+    document.getElementById('profileBalance').innerText = `$${user.balance.toFixed(2)}`;
     
-    // الرصيد في الحساب
-    document.getElementById('profileBalance').innerText = user.balance.toFixed(2);
-    
-    // توليد Sanad ID
     const sanadId = "SN-" + user.id.toString().padStart(6, '0');
     document.getElementById('sanadIdText').innerText = sanadId;
 
-    // علامة التوثيق
     updateVerificationBadge(user.kyc_status);
 }
 
@@ -92,9 +75,24 @@ function updateVerificationBadge(status) {
     }
 }
 
-// 3. عرض التصنيفات الحقيقية
+function openKycModal() {
+    if (currentUser && currentUser.kyc_status === 'verified') {
+        document.getElementById('kycForm').classList.add('hidden');
+        document.getElementById('kycVerifiedView').classList.remove('hidden');
+        document.getElementById('kycVerifiedName').innerText = currentUser.kyc_name || currentUser.first_name;
+    } else {
+        document.getElementById('kycForm').classList.remove('hidden');
+        document.getElementById('kycVerifiedView').classList.add('hidden');
+    }
+    openModal('kycModal');
+}
+
 function renderHomeCategories(categories) {
     const grid = document.getElementById('homeCategories');
+    if(categories.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-slate-400 py-4">لا توجد أقسام حالياً</div>';
+        return;
+    }
     grid.innerHTML = categories.map(cat => `
         <div onclick="openCategory(${cat.id})" class="bg-iosCard rounded-3xl p-4 flex flex-col items-center justify-center text-center cursor-pointer bento-card border border-slate-800">
             <img src="${cat.image || 'https://via.placeholder.com/64'}" alt="${cat.name}" class="w-16 h-16 mb-2 object-cover rounded-xl shadow-lg">
@@ -103,7 +101,6 @@ function renderHomeCategories(categories) {
     `).join('');
 }
 
-// 4. فتح قسم معين وعرض منتجاته
 function openCategory(categoryId) {
     const category = categoriesData.find(c => c.id === categoryId);
     if(!category) return;
@@ -127,7 +124,6 @@ function openCategory(categoryId) {
 
 function closeCategoryView() { document.getElementById('categoryView').classList.remove('active'); }
 
-// 5. فتح نافذة المنتج (تم تبسيطها هنا للعبة، يمكنك توسيعها للأرصدة لاحقاً)
 function openProductModal(productId) {
     let product = null;
     for (let cat of categoriesData) {
@@ -139,17 +135,22 @@ function openProductModal(productId) {
     currentOrderContext.product = product;
     currentOrderContext.price = product.price;
     
-    // نفترض أننا نستخدم نافذة اللعبة (gameModal) كواجهة شراء عامة الآن
     document.getElementById('modalGameTitle').innerText = product.name;
+    if(product.image) document.getElementById('modalGameImg').src = product.image;
+    document.getElementById('gameInputField').placeholder = product.input_type === 'phone' ? 'رقم الهاتف' : 'ايدي الحساب';
+    document.getElementById('gamePackagesList').innerHTML = `
+        <label class="block cursor-pointer">
+            <input type="radio" name="pkg" value="${product.price}" class="package-radio hidden" checked onchange="updateGamePrice(this.value)">
+            <div class="border border-slate-700 bg-dark rounded-2xl p-4 flex justify-between items-center transition"><span class="font-bold text-white">${product.name}</span><span class="text-accent font-bold">$${product.price.toFixed(2)}</span></div>
+        </label>
+    `;
     document.getElementById('gameTotal').innerText = `$${product.price.toFixed(2)}`;
-    
     openModal('gameModal');
 }
 
-// 6. إرسال طلب شراء
 async function submitGameOrder() {
-    const playerId = document.querySelector('#gameModal input[type="number"]').value;
-    if(!playerId) return showToast("يرجى إدخال ID اللاعب");
+    const playerId = document.getElementById('gameInputField').value;
+    if(!playerId) return showToast("يرجى إدخال البيانات المطلوبة");
 
     Swal.fire({ title: 'جاري الشراء...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
 
@@ -157,19 +158,13 @@ async function submitGameOrder() {
         const res = await fetch(`${API_URL}/api/miniapp/order`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                telegram_id: tgUser.id,
-                product_id: currentOrderContext.product.id,
-                quantity: 1,
-                delivery_data: playerId
-            })
+            body: JSON.stringify({ telegram_id: tgUser.id, product_id: currentOrderContext.product.id, quantity: 1, delivery_data: playerId })
         });
         const data = await res.json();
         
         if (data.success) {
             Swal.fire({ icon: 'success', title: 'تم الشراء', text: 'تم إرسال طلبك بنجاح!', background: '#1c1c1e', color: '#fff' });
             closeModal('gameModal');
-            // تحديث الرصيد
             currentUser.balance = data.new_balance;
             updateUserUI(currentUser);
         } else {
@@ -180,108 +175,51 @@ async function submitGameOrder() {
     }
 }
 
-// 7. دالة الإيداع الحقيقية
-async function submitDeposit() {
-    const amount = document.getElementById('depositAmount').value;
-    const sender = document.getElementById('depositSender').value;
-    const file = document.getElementById('depositImage').files[0];
-    
-    if (!amount || !sender || !file) return showToast("يرجى إكمال جميع البيانات");
-
-    Swal.fire({ title: 'جاري رفع الإيصال...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
-
-    // تحويل الصورة إلى Base64
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-        const base64Image = reader.result;
-
-        try {
-            const res = await fetch(`${API_URL}/api/miniapp/deposit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    telegram_id: tgUser.id,
-                    amount: parseFloat(amount),
-                    method: document.getElementById('depositTitle').innerText.replace('إتمام الإيداع - ', ''),
-                    sender_name: sender,
-                    receipt_image: base64Image
-                })
-            });
-            const data = await res.json();
-            
-            if (data.success) {
-                Swal.fire({ icon: 'success', title: 'تم الإرسال', text: 'تم إرسال طلب الإيداع، وسيتم مراجعته قريباً', background: '#1c1c1e', color: '#fff' });
-                closeModal('depositModal');
-            } else {
-                Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
-            }
-        } catch (err) {
-            Swal.fire({ icon: 'error', title: 'خطأ', text: 'فشل الاتصال', background: '#1c1c1e', color: '#fff' });
-        }
-    };
+function renderOrders(orders) {
+    const list = document.getElementById('ordersList');
+    if(!orders || orders.length === 0) {
+        list.innerHTML = `<div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد لديك طلبات سابقة.</div>`;
+        lucide.createIcons(); return;
+    }
+    list.innerHTML = orders.map(o => `
+        <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
+            <div><div class="text-white font-bold text-sm mb-1">${o.order_number}</div><div class="text-xs text-slate-400">${o.product_name}</div></div>
+            <div class="text-left"><div class="text-white font-bold" dir="ltr">$${o.total_price}</div><div class="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full mt-1">${o.status}</div></div>
+        </div>
+    `).join('');
 }
 
-// ================= Utility Functions =================
+function renderDeposits(deposits) {
+    const list = document.getElementById('historyList');
+    if(!deposits || deposits.length === 0) {
+        list.innerHTML = `<div class="bg-iosCard rounded-2xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="inbox" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد إيداعات حالياً.</div>`;
+        lucide.createIcons(); return;
+    }
+    list.innerHTML = deposits.map(d => `
+        <div class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800">
+            <div><div class="text-white font-bold text-sm mb-1">${d.transaction_id}</div><div class="text-xs text-slate-400">${d.method}</div></div>
+            <div class="text-left"><div class="text-white font-bold" dir="ltr">$${d.amount}</div><div class="text-[10px] bg-${d.status==='approved'?'primary':(d.status==='rejected'?'danger':'warning')}/20 text-${d.status==='approved'?'primary':(d.status==='rejected'?'danger':'warning')} px-2 py-0.5 rounded-full mt-1">${d.status}</div></div>
+        </div>
+    `).join('');
+}
+
+// دوال مساعدة للواجهة
 function switchTab(tabId, btnElement) {
     document.querySelectorAll('.tab-content').forEach(tab => { tab.classList.add('hidden'); tab.classList.remove('block'); });
-    const target = document.getElementById('tab-' + tabId);
-    if (target) { target.classList.remove('hidden'); target.classList.add('block'); }
-    
+    document.getElementById('tab-' + tabId)?.classList.replace('hidden', 'block');
     if (btnElement) {
         document.querySelectorAll('.nav-btn').forEach(btn => { btn.classList.remove('text-accent'); btn.classList.add('text-slate-500'); });
         btnElement.classList.remove('text-slate-500'); btnElement.classList.add('text-accent');
     }
 }
-
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    const content = document.getElementById(modalId + 'Content');
-    if(!modal || !content) return;
-    modal.classList.remove('hidden');
-    setTimeout(() => { content.classList.remove('translate-y-full'); }, 50);
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    const content = document.getElementById(modalId + 'Content');
-    if(!modal || !content) return;
-    content.classList.add('translate-y-full');
-    setTimeout(() => { modal.classList.add('hidden'); }, 300);
-}
-
-function selectPaymentMethod(methodName) {
-    document.getElementById('depositTitle').innerText = `إتمام الإيداع - ${methodName}`;
-    let min = 0, max = 500;
-    if(methodName === 'MTN كاش') { min = 1000; max = 100000; }
-    document.getElementById('depositMinLimit').innerText = methodName === 'MTN كاش' ? `${min} ل.س` : `$${min.toFixed(2)}`;
-    document.getElementById('depositMaxLimit').innerText = methodName === 'MTN كاش' ? `${max} ل.س` : `$${max.toFixed(2)}`;
-    closeModal('paymentMethodsModal');
-    setTimeout(() => { openModal('depositModal'); }, 300);
-}
-
-function previewDepositImage(input) {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('depositImagePreview');
-            preview.src = e.target.result;
-            preview.classList.remove('hidden');
-        }
-        reader.readAsDataURL(input.files[0]);
-    }
-}
-
-function copySanadId() {
-    const idText = document.getElementById('sanadIdText').innerText;
-    navigator.clipboard.writeText(idText).then(() => { showToast('تم نسخ المعرف'); });
-}
-
-function showToast(message) {
-    Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: message, showConfirmButton: false, timer: 2500, background: '#1c1c1e', color: '#fff' });
-}
-
+function openModal(id) { const m = document.getElementById(id); const c = document.getElementById(id+'Content'); if(m&&c){m.classList.remove('hidden'); setTimeout(()=>c.classList.remove('translate-y-full'),50);} }
+function closeModal(id) { const m = document.getElementById(id); const c = document.getElementById(id+'Content'); if(m&&c){c.classList.add('translate-y-full'); setTimeout(()=>m.classList.add('hidden'),300);} }
+function selectPaymentMethod(name) { document.getElementById('depositTitle').innerText = `إتمام الإيداع - ${name}`; closeModal('paymentMethodsModal'); setTimeout(()=>openModal('depositModal'),300); }
+function previewDepositImage(input) { if(input.files&&input.files[0]){const r=new FileReader();r.onload=e=>{const p=document.getElementById('depositImagePreview');p.src=e.target.result;p.classList.remove('hidden');};r.readAsDataURL(input.files[0]);} }
+function showToast(msg) { Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: msg, showConfirmButton: false, timer: 2500, background: '#1c1c1e', color: '#fff' }); }
 function openFeatureModal(featureName) { document.getElementById('featureTitle').innerText = featureName; openModal('featureModal'); }
-function handleSearch() { /* يمكن إضافة بحث حقيقي لاحقاً */ }
-function filterHistory(btnElement, status) { /* يمكن إضافة فلترة حقيقية لاحقاً */ }
 function handleLogout() { if(tg) tg.close(); }
+function copySanadId() { navigator.clipboard.writeText(document.getElementById('sanadIdText').innerText).then(() => showToast('تم نسخ المعرف')); }
+function updateGamePrice(price) { document.getElementById('gameTotal').innerText = `$${parseFloat(price).toFixed(2)}`; }
+async function submitDeposit() { showToast("هذه الميزة ستُربط بالسيرفر في التحديث القادم"); }
+function submitKYC() { showToast("هذه الميزة ستُربط بالسيرفر في التحديث القادم"); }

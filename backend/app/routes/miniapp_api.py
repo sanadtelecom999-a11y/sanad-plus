@@ -1,12 +1,11 @@
 from flask import request, jsonify
-from ..models.base import User, Product, Category, Order, Deposit
+from ..models.base import User, Product, Category, Order, Deposit, KYCRequest
 from ..extensions import db
 from . import main
 from datetime import datetime, timezone
 import uuid
 from ..services.cloudinary_service import upload_base64_image
 
-# 1. جلب بيانات المستخدم عند فتح التطبيق
 @main.route("/api/miniapp/init", methods=["POST"])
 def api_miniapp_init():
     data = request.get_json() or {}
@@ -24,6 +23,30 @@ def api_miniapp_init():
         )
         db.session.add(user)
         db.session.commit()
+
+    # جلب الاسم الثلاثي في حال كان موثقاً
+    kyc_name = None
+    if getattr(user, 'kyc_status', '') == 'verified':
+        kyc_req = KYCRequest.query.filter_by(user_id=user.id, status='approved').first()
+        if kyc_req:
+            kyc_name = kyc_req.full_name
+
+    # جلب الطلبات السابقة
+    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
+    orders_list = []
+    for o in orders:
+        prod = Product.query.get(o.product_id)
+        orders_list.append({
+            "id": o.id, "order_number": o.order_number, "product_name": prod.name if prod else "منتج محذوف",
+            "total_price": float(o.total_price), "status": o.status, "created_at": o.created_at.isoformat()
+        })
+
+    # جلب الإيداعات السابقة
+    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).limit(10).all()
+    deposits_list = [{
+        "id": d.id, "transaction_id": d.transaction_id, "amount": float(d.amount),
+        "method": d.method, "status": d.status, "created_at": d.created_at.isoformat()
+    } for d in deposits]
         
     return jsonify({
         "user": {
@@ -32,11 +55,13 @@ def api_miniapp_init():
             "username": user.username,
             "balance": float(user.balance),
             "kyc_status": getattr(user, 'kyc_status', 'unverified'),
+            "kyc_name": kyc_name,
             "vip_level": getattr(user, 'vip_level', 0)
-        }
+        },
+        "orders": orders_list,
+        "deposits": deposits_list
     })
 
-# 2. جلب الأقسام والمنتجات الحقيقية
 @main.route("/api/miniapp/products", methods=["GET"])
 def api_get_products():
     categories = Category.query.all()
@@ -60,73 +85,47 @@ def api_get_products():
         })
     return jsonify({"categories": result})
 
-# 3. إرسال طلب إيداع حقيقي
 @main.route("/api/miniapp/deposit", methods=["POST"])
 def api_create_deposit():
     data = request.get_json() or {}
-    telegram_id = data.get("telegram_id")
-    amount = data.get("amount")
-    method = data.get("method")
-    sender_name = data.get("sender_name")
-    receipt_base64 = data.get("receipt_image")
-    
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+    user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
+    if not user: return jsonify({"error": "User not found"}), 404
         
     image_url = None
+    receipt_base64 = data.get("receipt_image")
     if receipt_base64 and receipt_base64.startswith("data:image/"):
         image_url = upload_base64_image(receipt_base64, folder="sanad/deposits")
         
     new_deposit = Deposit(
-        user_id=user.id,
-        amount=float(amount),
-        method=method,
-        sender_name=sender_name,
-        proof_image=image_url,
-        transaction_id=f"DEP-{uuid.uuid4().hex[:8].upper()}",
+        user_id=user.id, amount=float(data.get("amount")),
+        method=data.get("method"), sender_name=data.get("sender_name"),
+        proof_image=image_url, transaction_id=f"DEP-{uuid.uuid4().hex[:8].upper()}",
         status="pending"
     )
     db.session.add(new_deposit)
     db.session.commit()
-    
     return jsonify({"success": True, "message": "تم إرسال طلب الإيداع بنجاح"})
 
-# 4. إرسال طلب شراء منتج
 @main.route("/api/miniapp/order", methods=["POST"])
 def api_create_order():
     data = request.get_json() or {}
-    telegram_id = data.get("telegram_id")
-    product_id = data.get("product_id")
-    quantity = data.get("quantity", 1)
-    delivery_data = data.get("delivery_data")
+    user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
+    product = Product.query.get(data.get("product_id"))
     
-    user = User.query.filter_by(telegram_id=telegram_id).first()
-    product = Product.query.get(product_id)
-    
-    if not user or not product:
-        return jsonify({"error": "بيانات غير صحيحة"}), 400
+    if not user or not product: return jsonify({"error": "بيانات غير صحيحة"}), 400
         
     total_price = product.price
     if getattr(product, 'product_type', 'fixed') == 'quantity' and product.base_quantity > 0:
-        unit_price = product.base_price / product.base_quantity
-        total_price = unit_price * quantity
+        total_price = (product.base_price / product.base_quantity) * data.get("quantity", 1)
         
-    if user.balance < total_price:
-        return jsonify({"error": "رصيدك غير كافٍ"}), 400
+    if user.balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
         
     user.balance -= total_price
     new_order = Order(
-        user_id=user.id,
-        product_id=product.id,
-        order_number=f"ORD-{uuid.uuid4().hex[:8].upper()}",
-        quantity=quantity,
-        unit_price=total_price / quantity,
-        total_price=total_price,
-        delivery_data=delivery_data,
-        status="pending"
+        user_id=user.id, product_id=product.id, order_number=f"ORD-{uuid.uuid4().hex[:8].upper()}",
+        quantity=data.get("quantity", 1), unit_price=total_price / data.get("quantity", 1),
+        total_price=total_price, delivery_data=data.get("delivery_data"), status="pending"
     )
     db.session.add(new_order)
     db.session.commit()
-    
     return jsonify({"success": True, "message": "تم إرسال الطلب بنجاح", "new_balance": float(user.balance)})
