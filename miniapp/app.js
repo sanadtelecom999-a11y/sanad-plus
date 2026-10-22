@@ -8,30 +8,19 @@ let categoriesData = [];
 let userOrders = [];
 let userDeposits = [];
 
-// دالة تنسيق التاريخ (أرقام إنجليزية)
 function formatDate(dateStr) {
     if (!dateStr) return 'غير محدد';
     const d = new Date(dateStr);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${year}/${month}/${day} ${hours}:${minutes}`;
+    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-// دالة تنظيف بيانات الاستلام
 function cleanDeliveryData(data) {
     if (!data) return 'غير محدد';
-    // إذا كانت البيانات قديمة ومخزنة كـ JSON
     if (typeof data === 'string' && data.startsWith('{')) {
         try {
             const parsed = JSON.parse(data);
-            // نبحث عن أي حقل يحتوي على ID أو رقم أو رابط
             return parsed.player_id || parsed.phone || parsed.link || parsed.account_id || parsed.id || data;
-        } catch (e) {
-            return data;
-        }
+        } catch (e) { return data; }
     }
     return data;
 }
@@ -89,7 +78,8 @@ function renderOrders(statusFilter = 'all') {
         list.innerHTML = `<div class="bg-iosCard rounded-3xl p-10 text-center text-slate-400 border border-slate-800"><i data-lucide="package-search" size="48" class="mx-auto mb-3 text-slate-600"></i>لا توجد طلبات تطابق البحث.</div>`;
     } else {
         list.innerHTML = filtered.map(o => {
-            let statusColor = o.status === 'completed' ? 'primary' : (o.status === 'failed' || o.status === 'rejected' ? 'danger' : 'warning');
+            let isFailed = o.status === 'failed' || o.status === 'rejected';
+            let statusColor = o.status === 'completed' ? 'primary' : (isFailed ? 'danger' : 'warning');
             return `
             <div onclick="openOrderDetails(${o.id})" class="bg-iosCard rounded-2xl p-4 flex justify-between items-center border border-slate-800 bento-card cursor-pointer">
                 <div class="flex items-center gap-3">
@@ -113,25 +103,30 @@ function openOrderDetails(id) {
     const order = userOrders.find(o => o.id === id);
     if(!order) return;
 
-    let statusColor = order.status === 'completed' ? 'primary' : (order.status === 'failed' || order.status === 'rejected' ? 'danger' : 'warning');
+    let isFailed = order.status === 'failed' || order.status === 'rejected';
+    let statusColor = order.status === 'completed' ? 'primary' : (isFailed ? 'danger' : 'warning');
     let cleanData = cleanDeliveryData(order.delivery_data);
     let formattedDate = formatDate(order.created_at);
     
-    // شريط الحالة (Timeline)
+    // شريط الحالة (Timeline) - يتغير للأحمر إذا فشل
+    let lineColor = isFailed ? 'bg-danger' : (order.status === 'completed' ? 'bg-primary' : 'bg-warning');
+    let lastIcon = isFailed ? 'x' : 'check';
+    let lastColor = isFailed ? 'bg-danger' : (order.status === 'completed' ? 'bg-primary' : 'bg-slate-700');
+    
     let timelineHtml = `
         <div class="flex items-center justify-between w-full mt-6 relative px-4">
-            <div class="absolute top-3 left-4 w-[calc(100%-2rem)] h-1 bg-slate-800 -z-10 rounded-full"></div>
+            <div class="absolute top-3 left-4 w-[calc(100%-2rem)] h-1 ${lineColor} -z-10 rounded-full"></div>
             <div class="flex flex-col items-center gap-1 z-10">
-                <div class="w-6 h-6 rounded-full ${order.status !== 'failed' ? 'bg-primary' : 'bg-slate-700'} flex items-center justify-center border-2 border-dark"><i data-lucide="check" size="12" class="text-dark"></i></div>
+                <div class="w-6 h-6 rounded-full ${isFailed ? 'bg-danger' : 'bg-primary'} flex items-center justify-center border-2 border-dark"><i data-lucide="check" size="12" class="text-dark"></i></div>
                 <span class="text-[10px] text-slate-400">معلق</span>
             </div>
             <div class="flex flex-col items-center gap-1 z-10">
-                <div class="w-6 h-6 rounded-full ${order.status === 'completed' ? 'bg-primary' : (order.status === 'failed' ? 'bg-danger' : 'bg-slate-700')} flex items-center justify-center border-2 border-dark"><i data-lucide="clock" size="12" class="text-dark"></i></div>
+                <div class="w-6 h-6 rounded-full ${isFailed ? 'bg-danger' : (order.status === 'completed' ? 'bg-primary' : 'bg-slate-700')} flex items-center justify-center border-2 border-dark"><i data-lucide="clock" size="12" class="text-dark"></i></div>
                 <span class="text-[10px] text-slate-400">معالجة</span>
             </div>
             <div class="flex flex-col items-center gap-1 z-10">
-                <div class="w-6 h-6 rounded-full ${order.status === 'completed' ? 'bg-primary' : 'bg-slate-700'} flex items-center justify-center border-2 border-dark"><i data-lucide="star" size="12" class="text-dark"></i></div>
-                <span class="text-[10px] text-slate-400">مكتمل</span>
+                <div class="w-6 h-6 rounded-full ${lastColor} flex items-center justify-center border-2 border-dark"><i data-lucide="${lastIcon}" size="14" class="${isFailed?'text-white':'text-dark'}"></i></div>
+                <span class="text-[10px] text-slate-400">${isFailed ? 'مرفوض' : 'مكتمل'}</span>
             </div>
         </div>
     `;
@@ -228,7 +223,70 @@ function openDepositDetails(id) {
     lucide.createIcons();
 }
 
-// الدوال المساعدة الأخرى
+// ================= Payment & Deposit =================
+function selectPaymentMethod(name) {
+    document.getElementById('depositTitle').innerText = `إتمام الإيداع - ${name}`;
+    
+    let min = 0, max = 500;
+    let accNum = "0991234567"; // ضع رقم حساب شام كاش هنا
+    if(name === 'MTN كاش') { min = 1000; max = 100000; accNum = "0941234567"; } // ضع رقم MTN هنا
+
+    document.getElementById('depositMinLimit').innerText = name === 'MTN كاش' ? `${min} ل.س` : `$${min.toFixed(2)}`;
+    document.getElementById('depositMaxLimit').innerText = name === 'MTN كاش' ? `${max} ل.س` : `$${max.toFixed(2)}`;
+    document.getElementById('depositAccountNumber').innerText = accNum;
+
+    closeModal('paymentMethodsModal');
+    setTimeout(() => { openModal('depositModal'); }, 300);
+}
+
+function previewDepositImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('depositImagePreview');
+            preview.src = e.target.result;
+            preview.classList.remove('hidden');
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+async function submitDeposit() {
+    const amount = document.getElementById('depositAmount').value;
+    const sender = document.getElementById('depositSender').value;
+    const file = document.getElementById('depositImage').files[0];
+    
+    if (!amount || !sender || !file) return showToast("يرجى إكمال جميع البيانات");
+
+    Swal.fire({ title: 'جاري رفع الإيصال...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = async () => {
+        try {
+            const res = await fetch(`${API_URL}/api/miniapp/deposit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    telegram_id: tgUser.id, amount: parseFloat(amount),
+                    method: document.getElementById('depositTitle').innerText.replace('إتمام الإيداع - ', ''),
+                    sender_name: sender, receipt_image: reader.result
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: 'تم الإرسال', text: data.message, background: '#1c1c1e', color: '#fff' });
+                closeModal('depositModal');
+            } else {
+                Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+            }
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: 'فشل الاتصال', background: '#1c1c1e', color: '#fff' });
+        }
+    };
+}
+
+// ... (باقي الدوال المساعدة: fetchProducts, updateUserUI, submitKYC, إلخ موجودة في الملف السابق وتم تضمينها هنا)
 async function fetchProducts() {
     document.getElementById('homeCategories').innerHTML = '<div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الأقسام...</div>';
     try {
@@ -313,3 +371,84 @@ function closeModal(id) { const m = document.getElementById(id); const c = docum
 function showToast(msg) { Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: msg, showConfirmButton: false, timer: 2500, background: '#1c1c1e', color: '#fff' }); }
 function handleLogout() { if(tg) tg.close(); }
 function copySanadId() { navigator.clipboard.writeText(document.getElementById('sanadIdText').innerText).then(() => showToast('تم نسخ المعرف')); }
+function updateGamePrice(price) { document.getElementById('gameTotal').innerText = `$${parseFloat(price).toFixed(2)}`; }
+async function submitGameOrder() {
+    const playerId = document.getElementById('gameInputField').value;
+    if(!playerId) return showToast("يرجى إدخال البيانات المطلوبة");
+    Swal.fire({ title: 'جاري الشراء...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+    try {
+        const res = await fetch(`${API_URL}/api/miniapp/order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: tgUser.id, product_id: 1, quantity: 1, delivery_data: playerId })
+        });
+        const data = await res.json();
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'تم الشراء', text: 'تم إرسال طلبك بنجاح!', background: '#1c1c1e', color: '#fff' });
+            closeModal('gameModal');
+            currentUser.balance = data.new_balance;
+            updateUserUI(currentUser);
+        } else {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+        }
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1c1c1e', color: '#fff' });
+    }
+}
+function openKycModal() {
+    if (currentUser && currentUser.kyc_status === 'verified') {
+        document.getElementById('kycForm').classList.add('hidden');
+        document.getElementById('kycVerifiedView').classList.remove('hidden');
+        document.getElementById('kycVerifiedName').innerText = currentUser.kyc_name || currentUser.first_name;
+    } else {
+        document.getElementById('kycForm').classList.remove('hidden');
+        document.getElementById('kycVerifiedView').classList.add('hidden');
+    }
+    openModal('kycModal');
+}
+async function submitKYC() {
+    const name = document.getElementById('kycName').value;
+    const phone = document.getElementById('kycPhone').value;
+    const gov = document.getElementById('kycGovernorate').value;
+    const region = document.getElementById('kycRegion').value;
+    const idFront = document.getElementById('kycIdFront').files[0];
+    const selfie = document.getElementById('kycSelfie').files[0];
+
+    if (!name || !phone || !gov || !region || !idFront || !selfie) {
+        return showToast("يرجى تعبئة جميع الحقول ورفع الصور");
+    }
+
+    Swal.fire({ title: 'جاري رفع الطلب...', allowOutsideClick: false, background: '#1c1c1e', color: '#fff', didOpen: () => Swal.showLoading() });
+
+    const readFile = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+    });
+
+    const frontBase64 = await readFile(idFront);
+    const selfieBase64 = await readFile(selfie);
+
+    try {
+        const res = await fetch(`${API_URL}/api/miniapp/kyc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telegram_id: tgUser.id, full_name: name, phone: phone,
+                governorate: gov, region: region, id_front: frontBase64, selfie: selfieBase64
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            Swal.fire({ icon: 'success', title: 'تم الإرسال', text: data.message, background: '#1c1c1e', color: '#fff' });
+            closeModal('kycModal');
+            currentUser.kyc_status = 'pending';
+            updateVerificationBadge('pending');
+        } else {
+            Swal.fire({ icon: 'error', title: 'خطأ', text: data.error, background: '#1c1c1e', color: '#fff' });
+        }
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1c1c1e', color: '#fff' });
+    }
+}
