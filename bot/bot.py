@@ -1,12 +1,13 @@
 # ============================================================
-# 🤖 SANAD PLUS⁺ Bot — v18.5.1 (Full Original + SRE Fixes)
+# 🤖 SANAD PLUS⁺ Bot — v18.5.3 (Full Original + SRE All Fixes)
 # ============================================================
 import os
 import logging
 import requests
 import time
 import asyncio
-from collections import defaultdict
+from collections import defaultdict, deque
+import redis
 
 try:
     from dotenv import load_dotenv
@@ -26,29 +27,21 @@ for env_path in ENV_PATHS:
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Early logger definition (v18.4.14 — fixes ADMIN_IDS parse bug)
 logger = logging.getLogger(__name__)
 
-# ============================================================
-# 🛡 Sentry (already initialized in bot_main.py — just import)
-# ============================================================
 try:
     import sentry_sdk
     _SENTRY_AVAILABLE = True
 except ImportError:
     _SENTRY_AVAILABLE = False
 
-# ============================================================
-# ============ Environment Variables ============
-# ============================================================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TELEGRAM_ADMIN_IDS_STR = os.getenv("TELEGRAM_ADMIN_IDS", "")
-
-# SRE FIX: تنظيف الرابط الافتراضي لتجنب تداخل الـ Query Params
 MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app/").split('?')[0]
 ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.app")
 BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
 BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
+REDIS_URL = os.getenv("REDIS_URL", "")
 
 ADMIN_IDS = []
 for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
@@ -60,52 +53,35 @@ for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
     except ValueError:
         logger.warning(f"⚠️ Invalid admin ID: {_x}")
 
-# ============================================================
-# ============ Logging Setup ============
-# ============================================================
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+redis_client = (
+    redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=5)
+    if REDIS_URL else None
 )
+
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-if not ADMIN_IDS:
-    logger.warning("⚠️ TELEGRAM_ADMIN_IDS فارغ — لن تُرسل تنبيهات!")
-
-# 🔒 إخفاء التوكن من httpx/telegram logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("telegram").setLevel(logging.WARNING)
-logging.getLogger("telegram.ext").setLevel(logging.WARNING)
-logging.getLogger("telegram.request").setLevel(logging.WARNING)
 
-
-# ============================================================
-# ============ Version (Cache Buster) ============
-# ============================================================
 MINIAPP_VERSION = "22"
-BOT_VERSION = "v18.5.1-SRE"
+BOT_VERSION = "v18.5.3-SRE"
 
 def get_miniapp_url():
-    """رابط MiniApp مع cache buster"""
     separator = "&" if "?" in MINIAPP_URL else "?"
     return f"{MINIAPP_URL}{separator}v={MINIAPP_VERSION}"
 
-# ============================================================
 # ============ 🛡 Rate Limiting ============
-# ============================================================
-_rate_limit_store = defaultdict(list)
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 10
+_rate_limit_store = defaultdict(lambda: deque(maxlen=RATE_LIMIT_MAX))
 
-def is_rate_limited(user_id):
+async def is_rate_limited(user_id):
     if user_id in ADMIN_IDS:
         return False
 
-    # ═══ محاولة Redis أولاً ═══
     try:
         from app.services.cache_service import rate_limit_check
-        result = rate_limit_check(
+        result = await asyncio.to_thread(
+            rate_limit_check,
             key=f"bot:{user_id}",
             max_requests=RATE_LIMIT_MAX,
             window_seconds=RATE_LIMIT_WINDOW,
@@ -113,79 +89,57 @@ def is_rate_limited(user_id):
         if result is not None:
             return result
     except Exception as e:
-        logger.warning(f"Redis rate-limit unavailable, using memory: {e}")
-
-    # ═══ Fallback: in-memory ═══
-    # 🆕 v18.4.14: Emergency flush — memory leak prevention
-    if len(_rate_limit_store) > 50_000:
-        logger.warning(f"🚨 _rate_limit_store overflow ({len(_rate_limit_store)} keys) — flushing")
-        if _SENTRY_AVAILABLE:
-            try:
-                sentry_sdk.capture_message("Rate limit fallback overflow", level="warning")
-            except Exception:
-                pass
-        _rate_limit_store.clear()
+        logger.warning(f"Redis rate-limit unavailable: {e}")
 
     now = time.time()
-    _rate_limit_store[user_id] = [
-        t for t in _rate_limit_store[user_id]
-        if now - t < RATE_LIMIT_WINDOW
-    ]
-    if len(_rate_limit_store[user_id]) >= RATE_LIMIT_MAX:
+    dq = _rate_limit_store[user_id]
+    while dq and now - dq[0] > RATE_LIMIT_WINDOW:
+        dq.popleft()
+    if len(dq) >= RATE_LIMIT_MAX:
         return True
-    _rate_limit_store[user_id].append(now)
+    dq.append(now)
     return False
 
-
-# ============================================================
 # ============ 🛡 Notify Admins ============
-# ============================================================
-def notify_admins_sync(message: str, important: bool = False):
-    """إرسال تنبيه لكل الأدمن"""
+async def notify_admins_async(message: str, important: bool = False, use_markdown: bool = False):
     emoji = "🚨" if important else "ℹ️"
     full_message = f"{emoji} {message}"
+    tasks = []
+    for admin_id in ADMIN_IDS:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": admin_id, "text": full_message}
+        if use_markdown:
+            payload["parse_mode"] = "Markdown"
+        tasks.append(asyncio.to_thread(requests.post, url, json=payload, timeout=5))
+    if tasks:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for idx, res in enumerate(results):
+            if isinstance(res, Exception):
+                logger.error(f"فشل إرسال تنبيه للأدمن {ADMIN_IDS[idx]}: {res}")
 
+def _notify_admins_at_startup(message: str):
     for admin_id in ADMIN_IDS:
         try:
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-            payload = {
-                "chat_id": admin_id,
-                "text": full_message,
-                "parse_mode": "Markdown"
-            }
+            payload = {"chat_id": admin_id, "text": message}
             requests.post(url, json=payload, timeout=5)
         except Exception as e:
             logger.error(f"فشل إرسال تنبيه للأدمن {admin_id}: {e}")
 
-
-# ============================================================
 # ============ Register / Update User ============
-# ============================================================
-def register_or_update_user(user_id, first_name, last_name, username):
-    """تسجيل أو تحديث المستخدم عبر الـ Backend (مسار البوت)"""
+async def register_or_update_user(user_id, first_name, last_name, username):
     try:
-        payload = {
-            "telegram_id": user_id,
-            "first_name": first_name or "",
-            "last_name": last_name or "",
-            "username": username or "",
-        }
-        headers = {
-            "X-Bot-Token": BOT_API_SECRET,
-            "Content-Type": "application/json",
-        }
-        response = requests.post(
+        payload = {"telegram_id": user_id, "first_name": first_name or "", "last_name": last_name or "", "username": username or ""}
+        headers = {"X-Bot-Token": BOT_API_SECRET, "Content-Type": "application/json"}
+        response = await asyncio.to_thread(
+            requests.post,
             f"{BACKEND_URL}/api/bot/auth",
-            json=payload,
-            headers=headers,
-            timeout=8
+            json=payload, headers=headers, timeout=8
         )
         if response.ok:
-            data = response.json()
-            logger.info(f"✅ تم تسجيل/تحديث المستخدم {user_id}")
-            return data
+            return response.json()
         else:
-            logger.warning(f"⚠️ Backend رجع {response.status_code} — {response.text[:200]}")
+            logger.warning(f"⚠️ Backend رجع {response.status_code}")
             return None
     except Exception as e:
         logger.error(f"❌ خطأ في تسجيل المستخدم: {e}")
@@ -193,25 +147,21 @@ def register_or_update_user(user_id, first_name, last_name, username):
             sentry_sdk.capture_exception(e)
         return None
 
-# ============================================================
-# 🆕 v18: Heartbeat Loop (Redis) - SRE Hardened
-# ============================================================
+# ============ Heartbeat ============
 async def heartbeat_loop():
     try:
         from app.services.cache_service import cache_set
     except Exception as e:
         logger.error(f"❌ Cannot import cache_set: {e}")
+        await notify_admins_async(f"❌ Heartbeat cannot start: {e}", important=True, use_markdown=False)
         return
 
     await asyncio.sleep(5)
     while True:
         try:
             now = int(time.time())
-            # SRE FIX: TTL 180s and use asyncio.to_thread to avoid blocking
             ok = await asyncio.to_thread(cache_set, "bot:heartbeat", now, ttl=180)
-            if ok:
-                logger.debug(f"💓 Heartbeat sent: {now}")
-            else:
+            if not ok:
                 logger.warning("⚠️ Heartbeat cache_set failed")
         except Exception as e:
             logger.warning(f"Heartbeat error: {e}")
@@ -236,75 +186,53 @@ async def post_shutdown(application: Application):
             pass
         logger.info("🛑 post_shutdown: heartbeat task cancelled")
 
-
-# ============================================================
 # ============ /start ============
-# ============================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.getenv("MAINTENANCE_MODE") == "1":
-        await update.message.reply_text("🛠 المتجر تحت الصيانة حالياً. سنعود قريباً جداً!")
+        await update.message.reply_text("🛠 المتجر تحت الصيانة حالياً.")
         return
     if not update.message or not update.effective_user:
         return
     user_id = update.effective_user.id
     first_name = update.effective_user.first_name or "مستخدم"
-    last_name = update.effective_user.last_name or ""
-    username = update.effective_user.username or ""
 
-    if is_rate_limited(user_id):
-        logger.warning(f"🚫 Rate limit تجاوز المستخدم {user_id}")
-        await update.message.reply_text("⚠️ لقد تجاوزت الحد المسموح من الأوامر.\nيرجى المحاولة بعد دقيقة.")
+    if await is_rate_limited(user_id):
+        await update.message.reply_text("⚠️ لقد تجاوزت الحد المسموح.")
         return
 
-    logger.info(f"📥 /start من {user_id} - {first_name} @{username}")
+    user_data = await register_or_update_user(
+        user_id, first_name,
+        update.effective_user.last_name or "",
+        update.effective_user.username or ""
+    )
 
-    user_data = register_or_update_user(user_id, first_name, last_name, username)
-
-    keyboard = [
-        [InlineKeyboardButton("🛍 افتح المتجر", web_app=WebAppInfo(url=get_miniapp_url()))]
-    ]
-
-    # ✅ زر لوحة التحكم يعود للظهور (تم التأكد من شرط الـ ADMIN_IDS)
+    keyboard = [[InlineKeyboardButton("🛍 افتح المتجر", web_app=WebAppInfo(url=get_miniapp_url()))]]
     if user_id in ADMIN_IDS:
         keyboard.append([InlineKeyboardButton("📊 لوحة التحكم", url=ADMIN_PANEL_URL)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     if user_data:
-        vip_text = ""
-        if user_data.get('vip_level', 0) > 0:
-            vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}"
+        vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}" if user_data.get('vip_level', 0) > 0 else ""
         balance = user_data.get('balance', 0)
         await update.message.reply_text(
-            f"مرحباً {first_name}{vip_text} 👋\n\n"
-            f"💰 رصيدك: {balance:.2f}$\n\n"
-            f"أهلاً بك في متجر SANAD PLUS⁺\n"
-            f"اختر من الأزرار بالأسفل:",
+            f"مرحباً {first_name}{vip_text} 👋\n\n💰 رصيدك: {balance:.2f}$\n\nأهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
             reply_markup=reply_markup,
         )
     else:
-        notify_admins_sync(f"⚠️ فشل تسجيل مستخدم\nID: `{user_id}`\nالاسم: {first_name}", important=True)
-        await update.message.reply_text(
-            f"مرحباً {first_name} 👋\n\n"
-            f"أهلاً بك في متجر SANAD PLUS⁺\n"
-            f"اختر من الأزرار بالأسفل:",
-            reply_markup=reply_markup,
-        )
+        await notify_admins_async(f"⚠️ فشل تسجيل مستخدم - ID: {user_id}", important=True, use_markdown=False)
+        await update.message.reply_text(f"مرحباً {first_name} 👋\n\nأهلاً بك في متجر SANAD PLUS⁺", reply_markup=reply_markup)
 
-
-# ============================================================
 # ============ /me ============
-# ============================================================
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_user:
         return
     user_id = update.effective_user.id
-
-    if is_rate_limited(user_id):
+    if await is_rate_limited(user_id):
         await update.message.reply_text("⚠️ يرجى المحاولة بعد قليل.")
         return
 
-    user_data = register_or_update_user(
+    user_data = await register_or_update_user(
         user_id,
         update.effective_user.first_name or "",
         update.effective_user.last_name or "",
@@ -312,17 +240,11 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if user_data:
-        vip_text = ""
-        if user_data.get('vip_level', 0) > 0:
-            vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}"
-
+        vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}" if user_data.get('vip_level', 0) > 0 else ""
         kyc_status = user_data.get('kyc_status', 'غير موثق')
         balance = user_data.get('balance', 0)
-        
-        # تم إصلاح المسافات البادئة في هذا الجزء
         message = (
-            f"👤 معلوماتك:\n"
-            f"━━━━━━━━━━━━━━━\n"
+            f"👤 معلوماتك:\n━━━━━━━━━━━━━━━\n"
             f"الاسم: {user_data.get('first_name', '')} {user_data.get('last_name', '')}\n"
             f"Telegram ID: `{user_id}`\n"
             f"الرصيد: {balance:.2f}$\n"
@@ -333,22 +255,17 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("تعذر جلب معلوماتك. حاول لاحقاً.")
 
-
-# ============================================================
-# ============ /admin_info (للأدمن فقط) ============
-# ============================================================
+# ============ /admin_info ============
 async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
-        logger.warning(f"🚫 محاولة وصول غير مصرح بها لـ /admin_info من {user_id}")
-        notify_admins_sync(f"🚫 محاولة وصول غير مصرح بها\nالمستخدم: `{user_id}`\nالأمر: /admin_info", important=True)
+        await notify_admins_async(f"🚫 محاولة وصول غير مصرح بها - ID: {user_id}", important=True, use_markdown=False)
         await update.message.reply_text("⛔️ غير مصرح.")
         return
 
     info = (
-        f"📊 معلومات النظام**\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"🤖 **البوت: يعمل ({BOT_VERSION})\n"
+        f"📊 **معلومات النظام**\n━━━━━━━━━━━━━━━\n"
+        f"🤖 **البوت: يعمل** ({BOT_VERSION})\n"
         f"📦 إصدار MiniApp: v{MINIAPP_VERSION}\n"
         f"🔗 MiniApp URL: {get_miniapp_url()}\n"
         f"🖥 Backend: {BACKEND_URL}\n"
@@ -358,68 +275,46 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(info, parse_mode="Markdown")
 
-
-# ============================================================
-# ============ 🛡 Global Error Handler ============
-# ============================================================
-_error_notify_buckets = defaultdict(list)
-_ERROR_NOTIFY_WINDOW = 300
-_ERROR_NOTIFY_MAX = 3
-_ERROR_NOTIFY_KEY_LEN = 80
-
-def _should_notify_error(error_str: str) -> bool:
-    # SRE FIX: Fail-open try/except
+# ============ Error Handler ============
+async def _should_notify_error(exc: Exception) -> bool:
+    error_type = type(exc).__name__[:40]
+    key = f"bot:error_notified:{error_type}"
     try:
-        if not error_str:
-            return True
-        key = error_str[:_ERROR_NOTIFY_KEY_LEN]
-        now = time.time()
-        bucket = int(now // _ERROR_NOTIFY_WINDOW)
-        if len(_error_notify_buckets) > 1000:
-            for k in list(_error_notify_buckets.keys()):
-                if k[1] < bucket:
-                    del _error_notify_buckets[k]
-        full_key = (key, bucket)
-        _error_notify_buckets[full_key].append(now)
-        count = len(_error_notify_buckets[full_key])
-        if count == _ERROR_NOTIFY_MAX + 1:
-            logger.warning(f"Rate limit triggered: {key[:50]}...")
-            return True
-        return count <= _ERROR_NOTIFY_MAX
+        if redis_client:
+            result = await asyncio.to_thread(
+                redis_client.set, key, "1", ex=60, nx=True
+            )
+            return result is not None
+        return True
     except Exception:
-        return True # Fail-open
+        return True
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     error_str = str(context.error)
     if "Conflict" in error_str or "terminated by other getUpdates" in error_str:
-        logger.warning(f"⚠️ Conflict مؤقت — سيُحل تلقائياً")
         return
 
     logger.error(f"❌ خطأ في البوت: {context.error}")
     if _SENTRY_AVAILABLE:
-        try:
-            sentry_sdk.capture_exception(context.error)
-        except Exception as e:
-            logger.error(f"Sentry capture failed: {e}")
+        try: sentry_sdk.capture_exception(context.error)
+        except Exception: pass
 
     if context.error:
-        error_short = str(context.error)[:300]
-        if _should_notify_error(error_short):
+        should = await _should_notify_error(context.error)
+        if should:
             try:
-                notify_admins_sync(f"❌ **خطأ في البوت**\n`{error_short}`", important=True)
-            except Exception as e:
-                logger.error(f"Failed to notify admins: {e}")
-        else:
-            logger.debug(f"Error notification throttled: {error_short[:50]}")
+                await notify_admins_async(
+                    f"❌ خطأ في البوت\n{str(context.error)[:300]}",
+                    important=True,
+                    use_markdown=False,
+                )
+            except Exception: pass
 
-# ============================================================
 # ============ App Setup ============
-# ============================================================
 def create_application() -> Application:
     if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN غير موجود في ملف .env")
+        raise ValueError("BOT_TOKEN غير موجود")
 
-    # SRE FIX: Added concurrent_updates(32) for handling traffic
     application = (
         Application.builder()
         .token(BOT_TOKEN)
@@ -432,28 +327,14 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("me", me))
     application.add_handler(CommandHandler("admin_info", admin_info))
-
     application.add_error_handler(error_handler)
-
     return application
-
 
 def run_polling():
     application = create_application()
-    logger.info(f"🚀 بدء تشغيل البوت {BOT_VERSION} — MiniApp Version: {MINIAPP_VERSION}")
-    logger.info(f"🔗 MiniApp URL: {get_miniapp_url()}")
-    logger.info(f"👥 عدد الأدمن: {len(ADMIN_IDS)}")
-    logger.info(f"🛡 Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}")
-    logger.info(f"💓 Heartbeat loop: سيبدأ خلال 5s")
-
-    notify_admins_sync(
-        f"✅ البوت بدأ العمل ({BOT_VERSION})\n"
-        f"MiniApp v{MINIAPP_VERSION}\n"
-        f"Sentry: {'✅' if _SENTRY_AVAILABLE else '❌'}"
-    )
-
+    logger.info(f"🚀 بدء تشغيل البوت {BOT_VERSION}")
+    _notify_admins_at_startup(f"✅ البوت بدأ العمل ({BOT_VERSION})\nMiniApp v{MINIAPP_VERSION}\nSentry: {'✅' if _SENTRY_AVAILABLE else '❌'}")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
-
 
 if __name__ == "__main__":
     run_polling()
