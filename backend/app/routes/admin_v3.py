@@ -132,12 +132,12 @@ def admin_handle_deposit_v3(id, action):
     db.session.commit()
     return jsonify({"success": True})
 
-# 5. التدقيق المالي
+# 5. التدقيق المالي والأرشيف (مسارات جديدة)
 @main.route("/admin/api/audit", methods=["GET"])
 @jwt_required()
 @handle_errors
 def admin_get_audit_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
-    logs = FinancialAuditLog.query.order_by(FinancialAuditLog.id.desc()).limit(100).all()
-    result = [{"id": l.id, "action": l.action, "amount": float(l.amount) if l.amount else 0, "before": float(l.balance_before) if l.balance_before else 0, "after": float(l.balance_after) if l.balance_after else 0, "ip": getattr(l, 'ip_address', '127.0.0.1'), "date": l.created_at.isoformat() if l.created_at else datetime.now().isoformat()} for l in logs]
+    logs = FinancialAuditLog.query.order_by(FinancialAuditLog.id.desc()).limit(50).all()
+    result = [{"id": l.id, "action": l.action, "amount": float(l.amount) if l.amount else 0, "before": float(l.balance_before) if l.balance_before else 0, "after": float(l.balance_after) if l.balance_after else 0, "date": l.created_at.isoformat() if l.created_at else None} for l in logs]
     return jsonify({"audit": result})

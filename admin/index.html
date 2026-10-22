@@ -1,26 +1,16 @@
-<!-- Force Update -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SANAD PLUS+ | لوحة التحكم الشاملة</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { dark: '#0f172a', card: '#1e293b', primary: '#10b981', danger: '#ef4444', accent: '#38bdf8', warning: '#f59e0b' },
-                    fontFamily: { sans: ['Cairo', 'sans-serif'] }
-                }
-            }
-        }
+        tailwind.config = { theme: { extend: { colors: { dark: '#0f172a', card: '#1e293b', primary: '#10b981', danger: '#ef4444', accent: '#38bdf8', warning: '#f59e0b' }, fontFamily: { sans: ['Cairo', 'sans-serif'] } } } }
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap');
@@ -36,10 +26,7 @@
         .input-field { width: 100%; background-color: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.75rem; outline: none; }
         .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
         .label-text { display: block; color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; }
-        .toggle-checkbox:checked { right: 0; border-color: #10b981; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #10b981; }
         input[type="file"]::file-selector-button { border: none; background: #38bdf8; color: #0f172a; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; margin-left: 1rem; transition: 0.2s; }
-        input[type="file"]::file-selector-button:hover { background: #0ea5e9; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row">
@@ -106,7 +93,7 @@
             <section id="section-inbox" class="content-section hidden"><div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></section>
 
             <!-- 3. الأرشيف -->
-            <section id="section-archive" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأرشيف قيد التطوير</div></section>
+            <section id="section-archive" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأرشيف (سيعرض الطلبات المكتملة قريباً)</div></section>
 
             <!-- 4. المنتجات -->
             <section id="section-products" class="content-section hidden">
@@ -121,7 +108,7 @@
             </section>
 
             <!-- 6. طرق الدفع -->
-            <section id="section-payments" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">إدارة طرق الدفع قيد التطوير</div></section>
+            <section id="section-payments" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">إدارة طرق الدفع (قيد التطوير البسيط)</div></section>
 
             <!-- 7. المستخدمين -->
             <section id="section-users" class="content-section hidden">
@@ -130,59 +117,17 @@
             </section>
 
             <!-- 8. التدقيق المالي -->
-            <section id="section-audit" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">التدقيق المالي قيد التطوير</div></section>
+            <section id="section-audit" class="content-section hidden">
+                <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-right whitespace-nowrap"><thead class="bg-slate-800/50"><tr><th>العملية</th><th>المبلغ</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>التاريخ</th></tr></thead><tbody id="auditTableBody"></tbody></table></div>
+            </section>
 
             <!-- 9. الإشعارات -->
-            <section id="section-notifications" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">نظام الإشعارات قيد التطوير</div></section>
+            <section id="section-notifications" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">نظام الإشعارات (قيد التطوير)</div></section>
 
             <!-- 10. الإعدادات -->
-            <section id="section-settings" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">الإعدادات قيد التطوير</div></section>
+            <section id="section-settings" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">الإعدادات (قيد التطوير)</div></section>
         </div>
     </main>
-
-    <!-- ================== النوافذ المنبثقة ================== -->
-    
-    <!-- إضافة منتج -->
-    <div id="addProductModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center backdrop-blur-sm p-4">
-        <div class="glass rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border-t-4 border-t-accent">
-            <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white">إضافة منتج جديد</h3><button onclick="closeModal('addProductModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button></div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div><label class="label-text">اسم المنتج</label><input type="text" id="prodName" class="input-field"></div>
-                <div><label class="label-text">القسم</label><select id="prodCategory" class="input-field"><option value="1">القسم الافتراضي</option></select></div>
-            </div>
-            <div class="mb-4">
-                <label class="label-text">صورة المنتج</label>
-                <input type="file" id="prodImageFile" class="input-field bg-slate-800 text-slate-300" accept="image/*" onchange="previewImage(this, 'prodImagePreview')">
-                <div class="mt-4 flex justify-center"><img id="prodImagePreview" class="hidden w-24 h-24 object-cover rounded-xl border-2 border-slate-600 shadow-lg" /></div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div><label class="label-text">المدخلات المطلوبة</label><select id="prodInputType" class="input-field"><option value="player_id">ID اللاعب</option><option value="phone">رقم الهاتف</option><option value="account_id">ID الحساب</option></select></div>
-            </div>
-            <hr class="border-slate-700 my-6"><h4 class="text-lg font-bold text-accent mb-4">إعدادات السعر</h4>
-            <div class="mb-4"><label class="label-text">نوع التسعير</label><select id="prodPricingType" class="input-field" onchange="togglePricingFields()"><option value="fixed">سعر ثابت</option><option value="dynamic">متغير حسب الكمية</option></select></div>
-            <div id="fixedPriceFields" class="mb-4"><label class="label-text">السعر الثابت ($)</label><input type="number" id="prodFixedPrice" class="input-field" step="0.01"></div>
-            <div id="dynamicPriceFields" class="hidden grid grid-cols-2 gap-4 mb-4">
-                <div><label class="label-text">الكمية الأساسية</label><input type="number" id="prodBaseQty" class="input-field" onkeyup="calculateDynamicPrice()"></div>
-                <div><label class="label-text">سعر الكمية ($)</label><input type="number" id="prodBasePrice" class="input-field" step="0.01" onkeyup="calculateDynamicPrice()"></div>
-            </div>
-            <div id="dynamicPreview" class="hidden bg-slate-800/50 p-4 rounded-xl text-sm mb-6 text-center border border-slate-700">معاينة (16000): <span class="text-primary font-bold text-lg" id="previewCalculatedPrice">$0.00</span></div>
-            <div class="flex gap-4 mt-8"><button onclick="saveProduct()" class="flex-1 bg-primary text-white font-bold py-3 rounded-xl">حفظ المنتج</button><button onclick="closeModal('addProductModal')" class="flex-1 bg-slate-700 text-white font-bold py-3 rounded-xl">إلغاء</button></div>
-        </div>
-    </div>
-
-    <!-- إضافة قسم -->
-    <div id="addCategoryModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center backdrop-blur-sm p-4">
-        <div class="glass rounded-3xl p-6 w-full max-w-md border-t-4 border-t-accent">
-            <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white">إضافة قسم</h3><button onclick="closeModal('addCategoryModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button></div>
-            <div class="mb-4"><label class="label-text">اسم القسم</label><input type="text" id="catName" class="input-field"></div>
-            <div class="mb-6">
-                <label class="label-text">صورة القسم</label>
-                <input type="file" id="catImageFile" class="input-field bg-slate-800 text-slate-300" accept="image/*" onchange="previewImage(this, 'catImagePreview')">
-                <div class="mt-4 flex justify-center"><img id="catImagePreview" class="hidden w-24 h-24 object-cover rounded-xl border-2 border-slate-600 shadow-lg" /></div>
-            </div>
-            <button onclick="saveCategory()" class="w-full bg-primary text-white font-bold py-3 rounded-xl">حفظ القسم</button>
-        </div>
-    </div>
 
     <script src="js/admin_v3.js"></script>
     <script>lucide.createIcons();</script>

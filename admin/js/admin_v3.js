@@ -46,37 +46,20 @@ function previewImage(input, previewId) {
     } else { preview.src = ''; preview.classList.add('hidden'); }
 }
 
-// ⚠️ دالة الاتصال الصارمة (تظهر أي خطأ)
 async function apiCall(endpoint, method = 'GET', body = null) {
     const token = getToken();
     const headers = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const config = { method, headers };
     if (body) config.body = JSON.stringify(body);
-
     try {
         const res = await fetch(`${API_URL}${endpoint}`, config);
-        
-        if (res.status === 401) {
-            Swal.fire('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً', 'warning').then(() => handleLogout());
-            throw new Error("Unauthorized");
-        }
-
-        if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            throw new Error(`HTTP ${res.status}: ${errorData.error || res.statusText}`);
-        }
-
+        if (res.status === 401) { Swal.fire('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً', 'warning').then(() => handleLogout()); throw new Error("Unauthorized"); }
+        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`HTTP ${res.status}: ${e.error || res.statusText}`); }
         return await res.json();
     } catch (error) {
         console.error(`API Error [${endpoint}]:`, error);
-        Swal.fire({
-            icon: 'error',
-            title: 'فشل الاتصال بالسيرفر',
-            text: `المسار: ${endpoint}\nالخطأ: ${error.message}`,
-            background: '#1e293b', color: '#fff'
-        });
+        Swal.fire({ icon: 'error', title: 'فشل الاتصال', text: `المسار: ${endpoint}\nالخطأ: ${error.message}`, background: '#1e293b', color: '#fff' });
         return null;
     }
 }
@@ -95,98 +78,58 @@ async function loadDashboardStats() {
     }
     initChart();
 }
-
 function initChart() {
     const ctx = document.getElementById('dashboardChart');
     if(!ctx) return;
     if(dashboardChartInstance) dashboardChartInstance.destroy(); 
-    dashboardChartInstance = new Chart(ctx, {
-        type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
-    });
+    dashboardChartInstance = new Chart(ctx, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } } } });
 }
 
-// ================= Inbox (Deposits) =================
+// ================= Inbox =================
 async function loadInbox() {
     const container = document.getElementById('inboxContainer');
     if(!container) return;
     container.innerHTML = '<div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الإرساليات...</div>';
-    
     const data = await apiCall('/admin/api/deposits');
     if(data && data.deposits) {
         const badge = document.getElementById('sidebarInboxBadge');
-        if(badge) {
-            badge.innerText = data.deposits.length;
-            badge.style.display = data.deposits.length > 0 ? 'inline-block' : 'none';
-        }
-
-        if(data.deposits.length === 0) {
-            container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد إرساليات جديدة</div>';
-            return;
-        }
-
+        if(badge) { badge.innerText = data.deposits.length; badge.style.display = data.deposits.length > 0 ? 'inline-block' : 'none'; }
+        if(data.deposits.length === 0) { container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد إرساليات جديدة</div>'; return; }
         container.innerHTML = data.deposits.map(item => `
             <div class="glass bento-card rounded-3xl p-5 border-t-4 border-t-accent">
                 <div class="flex justify-between items-start mb-3">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="credit-card" size="18" class="text-slate-400"></i>
-                        <span class="font-bold text-white">إيداع بمبلغ $${item.amount}</span>
-                    </div>
+                    <div class="flex items-center gap-2"><i data-lucide="credit-card" size="18" class="text-slate-400"></i><span class="font-bold text-white">إيداع بمبلغ $${item.amount}</span></div>
                     <span class="bg-slate-800 text-xs px-2 py-1 rounded-lg text-slate-300">${item.user?.first_name || 'مستخدم'}</span>
                 </div>
                 <div class="flex gap-2 mt-4">
                     <button onclick="handleDepositAction(${item.id}, 'approve')" class="flex-1 bg-primary hover:bg-emerald-600 text-white py-2 rounded-xl text-sm font-bold">قبول</button>
                     <button onclick="handleDepositAction(${item.id}, 'reject')" class="flex-1 bg-danger hover:bg-red-600 text-white py-2 rounded-xl text-sm font-bold">رفض</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`).join('');
         lucide.createIcons();
-    } else {
-        container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-danger">فشل تحميل الإرساليات. (راجع رسالة الخطأ)</div>';
-    }
+    } else { container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-danger">فشل تحميل الإرساليات.</div>'; }
 }
-
 async function handleDepositAction(id, action) {
     const isApprove = action === 'approve';
-    const result = await Swal.fire({
-        title: isApprove ? 'تأكيد القبول' : 'تأكيد الرفض',
-        text: `هل أنت متأكد من ${isApprove ? 'قبول' : 'رفض'} هذا الإيداع؟`,
-        icon: isApprove ? 'question' : 'warning',
-        showCancelButton: true, confirmButtonColor: isApprove ? '#10b981' : '#ef4444',
-        confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff'
-    });
-
+    const result = await Swal.fire({ title: isApprove ? 'تأكيد القبول' : 'تأكيد الرفض', text: `هل أنت متأكد؟`, icon: isApprove ? 'question' : 'warning', showCancelButton: true, confirmButtonColor: isApprove ? '#10b981' : '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
     if (result.isConfirmed) {
         Swal.fire({ title: 'جاري المعالجة...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
         const res = await apiCall(`/admin/api/deposits/${id}/${action}`, 'POST');
-        if(res && res.success) {
-            Swal.fire({icon: 'success', title: 'تمت العملية', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'});
-            loadInbox();
-        }
+        if(res && res.success) { Swal.fire({icon: 'success', title: 'تمت العملية', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); loadInbox(); }
     }
 }
 
 // ================= Products =================
 function togglePricingFields() {
     const type = document.getElementById('prodPricingType').value;
-    if (type === 'fixed') {
-        document.getElementById('fixedPriceFields').classList.remove('hidden');
-        document.getElementById('dynamicPriceFields').classList.add('hidden');
-        document.getElementById('dynamicPreview').classList.add('hidden');
-    } else {
-        document.getElementById('fixedPriceFields').classList.add('hidden');
-        document.getElementById('dynamicPriceFields').classList.remove('hidden');
-        document.getElementById('dynamicPreview').classList.remove('hidden');
-        calculateDynamicPrice();
-    }
+    if (type === 'fixed') { document.getElementById('fixedPriceFields').classList.remove('hidden'); document.getElementById('dynamicPriceFields').classList.add('hidden'); document.getElementById('dynamicPreview').classList.add('hidden'); } 
+    else { document.getElementById('fixedPriceFields').classList.add('hidden'); document.getElementById('dynamicPriceFields').classList.remove('hidden'); document.getElementById('dynamicPreview').classList.remove('hidden'); calculateDynamicPrice(); }
 }
-
 function calculateDynamicPrice() {
     const baseQty = parseFloat(document.getElementById('prodBaseQty').value) || 0;
     const basePrice = parseFloat(document.getElementById('prodBasePrice').value) || 0;
     if (baseQty > 0 && basePrice > 0) { document.getElementById('previewCalculatedPrice').innerText = `$${((basePrice / baseQty) * 16000).toFixed(2)}`; } else { document.getElementById('previewCalculatedPrice').innerText = `$0.00`; }
 }
-
 async function saveProduct() {
     const name = document.getElementById('prodName').value;
     const imageFile = document.getElementById('prodImageFile').files[0];
@@ -195,12 +138,10 @@ async function saveProduct() {
     let imageBase64 = null;
     if (imageFile) { imageBase64 = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(imageFile); }); }
     const data = { name: name, category_id: document.getElementById('prodCategory').value, input_type: document.getElementById('prodInputType').value, pricing_type: document.getElementById('prodPricingType').value, image: imageBase64 };
-    if (data.pricing_type === 'fixed') { data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0; } 
-    else { data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0; data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0; }
+    if (data.pricing_type === 'fixed') { data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0; } else { data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0; data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0; }
     const res = await apiCall('/admin/api/products', 'POST', data);
-    if (res && res.success) { Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addProductModal'); loadProducts(); } 
+    if (res && res.success) { Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addProductModal'); loadProducts(); }
 }
-
 async function loadProducts() {
     const data = await apiCall('/admin/api/products');
     if(data && data.products) {
@@ -213,7 +154,6 @@ async function loadProducts() {
             </tr>`).join('');
     }
 }
-
 async function deleteProduct(id, name) {
     const result = await Swal.fire({ title: 'تأكيد الحذف', text: `حذف "${name}"؟`, icon: 'error', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#475569', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
     if (result.isConfirmed) { await apiCall(`/admin/api/products/${id}`, 'DELETE'); loadProducts(); }
@@ -230,7 +170,6 @@ async function saveCategory() {
     const res = await apiCall('/admin/api/categories', 'POST', { name: name, image: imageBase64 });
     if (res && res.success) { Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addCategoryModal'); loadCategories(); }
 }
-
 async function loadCategories() {
     const data = await apiCall('/admin/api/categories');
     if(data && data.categories) {
@@ -243,7 +182,6 @@ async function loadCategories() {
         lucide.createIcons();
     }
 }
-
 async function deleteCategory(id, name) {
     const result = await Swal.fire({ title: 'تأكيد الحذف', text: `حذف القسم "${name}"؟`, icon: 'error', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
     if (result.isConfirmed) { await apiCall(`/admin/api/categories/${id}`, 'DELETE'); loadCategories(); }
@@ -264,7 +202,6 @@ async function loadUsers() {
         lucide.createIcons();
     }
 }
-
 async function editUserBalance(id, currentBalance, name) {
     const { value: formValues } = await Swal.fire({
         title: `تعديل رصيد: ${name}`,
@@ -280,7 +217,7 @@ async function editUserBalance(id, currentBalance, name) {
     if (formValues) {
         const newBalance = formValues.action === 'add' ? currentBalance + formValues.amount : currentBalance - formValues.amount;
         const res = await apiCall(`/admin/api/users/${id}/balance`, 'POST', { balance: newBalance });
-        if (res && res.success) { Swal.fire({ icon: 'success', title: 'تم التعديل', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' }); loadUsers(); } 
+        if (res && res.success) { Swal.fire({ icon: 'success', title: 'تم التعديل', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' }); loadUsers(); }
     }
 }
 
