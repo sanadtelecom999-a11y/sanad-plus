@@ -224,3 +224,12 @@ window.onload = () => {
     if (!getToken()) { document.getElementById('loginScreen').style.display = 'flex'; } 
     else { document.getElementById('loginScreen').style.display = 'none'; switchSection('dashboard', document.querySelector('.nav-btn')); } 
 };
+
+// SRE FIX: Force loading stats after login
+document.addEventListener('DOMContentLoaded', () => {
+    if(getToken()) {
+        setTimeout(() => {
+            if(typeof loadDashboardStats === 'function') loadDashboardStats();
+        }, 500);
+    }
+});
