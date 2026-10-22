@@ -1,19 +1,75 @@
 // ==========================================
-// SANAD PLUS+ Admin Panel v3 (Fixed Loading)
+// SANAD PLUS+ Admin Panel v3 (Full Logic)
 // ==========================================
 
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
+let currentSessionId = null;
 
+// ================= Login & OTP =================
+async function handleLogin() {
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    if(!user || !pass) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل البيانات أولاً', background: '#1e293b', color: '#fff'});
+
+    Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const res = await fetch(`${API_URL}/admin/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+        });
+        const data = await res.json();
+        
+        Swal.close();
+        if (res.ok && data.require_otp) {
+            currentSessionId = data.session_id;
+            document.getElementById('loginStep1').classList.add('hidden');
+            document.getElementById('loginStep2').classList.remove('hidden');
+            Swal.fire({icon: 'info', title: 'تم الإرسال', text: 'تفقد حسابك في تليجرام للحصول على الرمز', background: '#1e293b', color: '#fff'});
+        } else {
+            Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'بيانات غير صحيحة', background: '#1e293b', color: '#fff'});
+        }
+    } catch (error) {
+        Swal.fire({icon: 'error', title: 'خطأ في الاتصال', text: 'تعذر الاتصال بالسيرفر، يرجى المحاولة لاحقاً', background: '#1e293b', color: '#fff'});
+    }
+}
+
+async function verifyOTP() {
+    const code = document.getElementById('otpCode').value;
+    if(!code) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل رمز التحقق', background: '#1e293b', color: '#fff'});
+
+    Swal.fire({ title: 'جاري التحقق...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
+    
+    try {
+        const res = await fetch(`${API_URL}/admin/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: currentSessionId, otp_code: code })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.token) {
+            localStorage.setItem('admin_token', data.token);
+            Swal.fire({icon: 'success', title: 'مرحباً بك', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'})
+                .then(() => location.reload());
+        } else {
+            Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'رمز خاطئ', background: '#1e293b', color: '#fff'});
+        }
+    } catch (error) {
+        Swal.fire({icon: 'error', title: 'خطأ في الاتصال', text: 'تعذر الاتصال بالسيرفر', background: '#1e293b', color: '#fff'});
+    }
+}
+
+// ================= Helper Functions =================
 function previewImage(input, previewId) {
     const preview = document.getElementById(previewId);
     if (input.files && input.files[0]) {
         const reader = new FileReader();
         reader.onload = function(e) { preview.src = e.target.result; preview.classList.remove('hidden'); }
         reader.readAsDataURL(input.files[0]);
-    } else {
-        preview.src = ''; preview.classList.add('hidden');
-    }
+    } else { preview.src = ''; preview.classList.add('hidden'); }
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
@@ -37,9 +93,8 @@ function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 async function loadDashboardStats() {
     const data = await apiCall('/admin/api/stats');
     if (data) {
-        document.getElementById('statOrders').innerText = data.total_orders;
-        document.getElementById('statUsers').innerText = data.total_users;
-        // يمكن إضافة باقي الإحصائيات هنا
+        document.getElementById('statOrders').innerText = data.total_orders || 0;
+        document.getElementById('statUsers').innerText = data.total_users || 0;
     }
 }
 
@@ -92,7 +147,6 @@ async function saveProduct() {
         image: imageBase64
     };
 
-    // تأكيد إرسال السعر
     if (data.pricing_type === 'fixed') {
         data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0;
     } else {
@@ -104,7 +158,7 @@ async function saveProduct() {
     if (res && res.success) {
         Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
         closeModal('addProductModal'); 
-        loadProducts(); // تحديث الجدول
+        loadProducts();
     } else {
         Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل الحفظ، تأكد من البيانات', background: '#1e293b', color: '#fff'});
     }
@@ -146,7 +200,7 @@ async function saveCategory() {
     if (res && res.success) {
         Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); 
         closeModal('addCategoryModal'); 
-        loadCategories(); // تحديث
+        loadCategories();
     }
 }
 
@@ -231,16 +285,10 @@ function switchSection(sectionId, btnElement) {
         btnElement.classList.remove('text-slate-400'); btnElement.classList.add('bg-slate-700/50', 'text-white');
     }
 
-    // تحميل البيانات عند الانتقال
     if (sectionId === 'dashboard') loadDashboardStats();
     if (sectionId === 'users') loadUsers();
     if (sectionId === 'products') loadProducts();
     if (sectionId === 'categories') loadCategories();
-}
-
-// دالة تحميل كل شيء عند بدء التشغيل
-async function loadAllData() {
-    loadDashboardStats();
 }
 
 function handleLogout() { localStorage.removeItem('admin_token'); localStorage.removeItem('token'); location.reload(); }
