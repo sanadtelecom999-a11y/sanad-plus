@@ -237,3 +237,9 @@ document.addEventListener('DOMContentLoaded', () => {
         switchSection('dashboard', null); 
     }
 });
+// SRE FIX: الدالة المفقودة التي يستدعيها index.html
+async function loadAllData() {
+    console.log('🔄 Loading all data...');
+    await loadDeposits();
+    await loadOrders();
+}
