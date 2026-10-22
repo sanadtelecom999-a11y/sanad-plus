@@ -8,7 +8,7 @@ from ..services.cloudinary_service import upload_base64_image
 
 # 1. جلب بيانات المستخدم عند فتح التطبيق
 @main.route("/api/miniapp/init", methods=["POST"])
-def miniapp_init():
+def api_miniapp_init():
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id")
     
@@ -17,7 +17,6 @@ def miniapp_init():
         
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
-        # إنشاء مستخدم جديد إذا لم يكن موجوداً
         user = User(
             telegram_id=telegram_id, 
             first_name=data.get("first_name", "مستخدم"),
@@ -39,7 +38,7 @@ def miniapp_init():
 
 # 2. جلب الأقسام والمنتجات الحقيقية
 @main.route("/api/miniapp/products", methods=["GET"])
-def get_products():
+def api_get_products():
     categories = Category.query.all()
     result = []
     for cat in categories:
@@ -63,19 +62,18 @@ def get_products():
 
 # 3. إرسال طلب إيداع حقيقي
 @main.route("/api/miniapp/deposit", methods=["POST"])
-def create_deposit():
+def api_create_deposit():
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id")
     amount = data.get("amount")
     method = data.get("method")
     sender_name = data.get("sender_name")
-    receipt_base64 = data.get("receipt_image") # صورة الإيصال بصيغة base64
+    receipt_base64 = data.get("receipt_image")
     
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
         
-    # رفع الصورة إلى Cloudinary
     image_url = None
     if receipt_base64 and receipt_base64.startswith("data:image/"):
         image_url = upload_base64_image(receipt_base64, folder="sanad/deposits")
@@ -96,12 +94,12 @@ def create_deposit():
 
 # 4. إرسال طلب شراء منتج
 @main.route("/api/miniapp/order", methods=["POST"])
-def create_order():
+def api_create_order():
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id")
     product_id = data.get("product_id")
     quantity = data.get("quantity", 1)
-    delivery_data = data.get("delivery_data") # ID اللاعب أو رقم الهاتف
+    delivery_data = data.get("delivery_data")
     
     user = User.query.filter_by(telegram_id=telegram_id).first()
     product = Product.query.get(product_id)
@@ -109,7 +107,6 @@ def create_order():
     if not user or not product:
         return jsonify({"error": "بيانات غير صحيحة"}), 400
         
-    # حساب السعر
     total_price = product.price
     if getattr(product, 'product_type', 'fixed') == 'quantity' and product.base_quantity > 0:
         unit_price = product.base_price / product.base_quantity
@@ -118,7 +115,6 @@ def create_order():
     if user.balance < total_price:
         return jsonify({"error": "رصيدك غير كافٍ"}), 400
         
-    # خصم الرصيد وإنشاء الطلب
     user.balance -= total_price
     new_order = Order(
         user_id=user.id,
