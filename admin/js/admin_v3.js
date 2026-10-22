@@ -4,7 +4,7 @@
 // ==========================================
 
 // 1. Centralized State
-const AppState = {
+const V3State = {
     deposits: [],
     orders: [],
     users: [],
@@ -59,7 +59,7 @@ async function loadDeposits() {
     
     const data = await apiCall('/admin/api/deposits');
     if (data) {
-        AppState.deposits = data.deposits || data; 
+        V3State.deposits = data.deposits || data; 
         renderDeposits();
     }
 }
@@ -69,12 +69,12 @@ function renderDeposits() {
     if (!container) return;
     
     container.innerHTML = '';
-    if (!AppState.deposits || AppState.deposits.length === 0) {
+    if (!V3State.deposits || V3State.deposits.length === 0) {
         container.innerHTML = '<div class="card" style="text-align:center; color:var(--text-muted);"><i class="fas fa-check-circle fa-3x" style="color:var(--success); margin-bottom:10px;"></i><br>لا توجد إيداعات معلقة</div>';
         return;
     }
 
-    AppState.deposits.forEach(deposit => {
+    V3State.deposits.forEach(deposit => {
         const card = document.createElement('div');
         card.className = 'card';
         card.id = `deposit-${deposit.id}`;
@@ -104,7 +104,7 @@ function renderDeposits() {
                 <button class="btn btn-danger" style="flex:1;" onclick="rejectDeposit(${deposit.id})">
                     <i class="fas fa-times"></i> رفض
                 </button>
-                <button class="btn btn-outline" style="flex:0.5;" onclick="viewDeposit(${deposit.id})">
+                <button class="btn btn-outline" style="flex:0.5;" onclick="viewDepositDetails(${deposit.id})">
                     <i class="fas fa-eye"></i>
                 </button>
             </div>
@@ -122,7 +122,7 @@ async function rejectDeposit(id) {
     const res = await apiCall(`/admin/api/deposits/${id}/reject`, 'POST', { reason: 'رفض من لوحة التحكم' });
     
     if (res) {
-        AppState.deposits = AppState.deposits.filter(d => d.id !== id);
+        V3State.deposits = V3State.deposits.filter(d => d.id !== id);
         renderDeposits();
         if (typeof showToast === 'function') showToast('تم رفض الإيداع بنجاح', 'success');
     } else {
@@ -138,7 +138,7 @@ async function approveDeposit(id) {
     const res = await apiCall(`/admin/api/deposits/${id}/approve`, 'POST');
     
     if (res) {
-        AppState.deposits = AppState.deposits.filter(d => d.id !== id);
+        V3State.deposits = V3State.deposits.filter(d => d.id !== id);
         renderDeposits();
         if (typeof showToast === 'function') showToast('تم قبول الإيداع بنجاح', 'success');
     } else {
@@ -147,7 +147,7 @@ async function approveDeposit(id) {
 }
 
 // SRE FIX: دالة مؤقتة لمنع انهيار الواجهة (سيتم بناؤها في Sprint v3.1)
-function viewDeposit(id) {
+function viewDepositDetails(id) {
     alert('عرض تفاصيل الإيداع رقم ' + id + ' قيد التطوير.');
 }
 
@@ -158,7 +158,7 @@ async function loadOrders() {
     
     const data = await apiCall('/admin/api/orders');
     if (data) {
-        AppState.orders = data.orders || data;
+        V3State.orders = data.orders || data;
         renderOrders();
     }
 }
@@ -168,12 +168,12 @@ function renderOrders() {
     if(!container) return;
     
     container.innerHTML = '';
-    if (!AppState.orders || AppState.orders.length === 0) {
+    if (!V3State.orders || V3State.orders.length === 0) {
         container.innerHTML = '<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات حالياً</div>';
         return;
     }
 
-    AppState.orders.forEach(order => {
+    V3State.orders.forEach(order => {
         const card = document.createElement('div');
         card.className = 'card';
         
