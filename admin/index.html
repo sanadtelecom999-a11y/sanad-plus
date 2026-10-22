@@ -1,1011 +1,756 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+[<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SANAD+ | لوحة التحكم v3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-<!-- ============================================================
-     🛡️ v18.3.3: KILL ALL SERVICE WORKERS + CACHES
-     ============================================================ -->
-<script>
-(function() {
-    try {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                if (registrations.length === 0) return;
-                registrations.forEach(function(reg) {
-                    reg.unregister().then(function(success) {
-                        console.log('[SANAD-ADMIN] ✅ SW unregistered:', reg.scope, success);
-                    });
-                });
-            }).catch(function(err) {
-                console.warn('[SANAD-ADMIN] SW unregister error:', err);
-            });
+    <style>
+        :root {
+            --primary: #0EA5E9; --primary-hover: #0284C7; --primary-soft: #E0F2FE;
+            --bg: #F8FAFC; --surface: #FFFFFF; --surface-2: #F1F5F9;
+            --text: #0F172A; --text-2: #475569; --text-3: #94A3B8;
+            --border: #E2E8F0;
+            --success: #10B981; --success-soft: #D1FAE5;
+            --warning: #F59E0B; --warning-soft: #FEF3C7;
+            --danger: #EF4444; --danger-soft: #FEE2E2;
+            --r-md: 12px; --r-lg: 16px; --r-full: 999px;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --transition: 200ms ease;
         }
 
-        if ('caches' in window) {
-            caches.keys().then(function(names) {
-                if (names.length === 0) return;
-                names.forEach(function(name) {
-                    caches.delete(name).then(function(success) {
-                        console.log('[SANAD-ADMIN] ✅ Cache deleted:', name, success);
-                    });
-                });
-            }).catch(function(err) {
-                console.warn('[SANAD-ADMIN] Cache delete error:', err);
-            });
+        [data-theme="dark"] {
+            --primary: #0EA5E9; --primary-hover: #38BDF8; --primary-soft: #0C2842;
+            --bg: #0B1220; --surface: #131C2E; --surface-2: #1A2438;
+            --text: #E2E8F0; --text-2: #94A3B8; --text-3: #64748B;
+            --border: #263048;
+            --success: #10B981; --success-soft: #052E1F;
+            --warning: #F59E0B; --warning-soft: #3D2A02;
+            --danger: #EF4444; --danger-soft: #401414;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
-    } catch (e) {
-        console.warn('[SANAD-ADMIN] SW kill error:', e);
-    }
-})();
-</script>
 
-<title>SANAD+ Admin</title>
-<meta name="theme-color" content="#0EA5E9">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SANAD Admin">
-<meta name="description" content="لوحة تحكم SANAD PLUS⁺">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="css/admin.css?v=27">
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+        body { background: var(--bg); color: var(--text); font-size: 14px; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
+        button { cursor: pointer; border: none; background: none; color: inherit; font-family: inherit; }
+        .hidden { display: none !important; }
+        .ltr { direction: ltr; display: inline-block; }
+
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s; z-index: 100; }
+        .sidebar-header { padding: 20px; text-align: center; border-bottom: 1px solid var(--border); font-size: 22px; font-weight: 900; color: var(--text); display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-header span { color: var(--primary); }
+        .nav-group { padding: 15px 10px; overflow-y: auto; flex: 1; }
+        .nav-title { font-size: 11px; color: var(--text-3); text-transform: uppercase; margin-bottom: 8px; padding-right: 10px; font-weight: 800; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: var(--r-md); color: var(--text-2); font-weight: 600; transition: 0.2s; margin-bottom: 4px; width: 100%; text-align: right; font-size: 14px; }
+        .nav-item:hover { background: var(--surface-2); color: var(--text); }
+        .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 800; border-right: 4px solid var(--primary); }
+        
+        /* Main */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar { height: 60px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 50; }
+        .content-area { flex: 1; padding: 20px; overflow-y: auto; padding-bottom: 80px; }
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* UI Elements */
+        .page-title { font-size: 24px; font-weight: 900; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow); position: relative; }
+        
+        .btn { padding: 10px 16px; border-radius: var(--r-md); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; border: none; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow-x: auto; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: right; }
+        th, td { padding: 15px; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { color: var(--text-2); font-size: 12px; font-weight: 800; background: var(--surface-2); }
+        tr:hover td { background: var(--surface-2); }
+
+        .badge { padding: 4px 10px; border-radius: var(--r-full); font-size: 11px; font-weight: 800; }
+        .badge.pending { background: var(--warning-soft); color: #FCD34D; }
+        .badge.completed { background: var(--success-soft); color: #6EE7B7; }
+        .badge.failed { background: var(--danger-soft); color: #FCA5A5; }
+
+        .search-box { display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 15px; margin-bottom: 15px; }
+        .search-box input { flex: 1; background: transparent; border: none; color: var(--text); outline: none; font-size: 14px; margin-right: 10px; }
+
+        /* Modals */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--surface); width: 100%; max-width: 600px; border-radius: var(--r-lg); padding: 24px; border: 1px solid var(--border); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; color: var(--text-2); font-weight: 700; font-size: 13px; }
+        .form-control { width: 100%; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text); font-family: inherit; outline: none; }
+
+        /* Bulk Bar */
+        .bulk-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--primary); color: white; padding: 15px; display: none; justify-content: center; gap: 15px; z-index: 500; box-shadow: 0 -4px 12px rgba(0,0,0,0.3); }
+        .bulk-bar.active { display: flex; }
+
+        /* Toast */
+        .toast-container { position: fixed; top: 20px; left: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); border-left: 4px solid var(--primary); padding: 15px 20px; border-radius: var(--r-md); box-shadow: var(--shadow); font-weight: 700; animation: slideIn 0.3s ease; display: flex; align-items: center; gap: 10px; color: var(--text); }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+        /* Login */
+        #loginScreen { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 5000; }
+        .login-box { background: var(--surface); padding: 30px; border-radius: var(--r-lg); width: 100%; max-width: 400px; border: 1px solid var(--border); }
+
+        /* User & Order Details Modal specific */
+        .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: var(--text-2); font-weight: 600; }
+        .detail-value { font-weight: 800; color: var(--text); }
+        .copy-btn { background: var(--surface-2); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 11px; margin-right: 5px; cursor: pointer; transition: 0.2s; }
+        .copy-btn:hover { background: var(--primary); color: white; }
+
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; top: 0; bottom: 0; right: 0; transform: translateX(100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { width: 100%; }
+            .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: var(--surface); border-top: 1px solid var(--border); justify-content: space-around; align-items: center; z-index: 100; }
+            .bottom-nav button { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-3); font-size: 11px; font-weight: 700; position: relative; }
+            .bottom-nav button.active { color: var(--primary); }
+            .content-area { padding-bottom: 80px; }
+            .nav-badge-mobile { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; font-size: 10px; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        }
+    </style>
 </head>
 <body>
 
-<!-- ============================================================
-     TOPBAR
-     ============================================================ -->
-<header class="topbar admin-topbar">
-    <button class="icon-btn" onclick="toggleSidebar()" aria-label="القائمة">
-        <span class="material-icons">menu</span>
-    </button>
-    <div class="topbar-title">
-        <span class="logo topbar-brand logo-text">SANAD<span class="plus highlight">+</span></span>
-    </div>
-    <div class="topbar-actions admin-topbar-left">
-        <button class="icon-btn" onclick="toggleAdminTheme()" aria-label="الوضع">
-            <span class="material-icons" id="themeIcon">dark_mode</span>
-        </button>
-        <button class="icon-btn" onclick="logout()" aria-label="خروج">
-            <span class="material-icons">logout</span>
-        </button>
-    </div>
-</header>
-
-<!-- ============================================================
-     SIDEBAR
-     ============================================================ -->
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-        <span class="logo">SANAD<span class="plus">+</span></span>
-        <button class="icon-btn" onclick="closeSidebar()">
-            <span class="material-icons">close</span>
-        </button>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="hidden">
+        <div class="login-box" id="loginBox">
+            <h2 style="text-align:center; margin-bottom:20px;">SANAD+ | الإدارة</h2>
+            <div class="form-group"><label>اسم المستخدم</label><input type="text" id="loginUser" class="form-control"></div>
+            <div class="form-group"><label>كلمة المرور</label><input type="password" id="loginPass" class="form-control"></div>
+            <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">تسجيل الدخول</button>
+        </div>
     </div>
 
-    <nav class="sidebar-nav">
-        <button class="nav-item sidebar-item active" data-section="dashboard" onclick="switchSection('dashboard')">
-            <span class="material-icons">space_dashboard</span>
-            <span>لوحة التحكم</span>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <span>SANAD<span>+</span></span>
+            <button onclick="toggleSidebar()" class="icon-btn"><span class="material-icons">close</span></button>
+        </div>
+        <div class="nav-group">
+            <div class="nav-title">العمليات</div>
+            <button class="nav-item active" data-sec="dashboard" onclick="nav('dashboard', this)"><span class="material-icons">space_dashboard</span> لوحة التحكم</button>
+            <button class="nav-item" data-sec="inbox" onclick="nav('inbox', this)"><span class="material-icons">inbox</span> الإرساليات <span class="nav-badge" id="badge-inbox" style="display:none;">0</span></button>
+            <button class="nav-item" data-sec="orders" onclick="nav('orders', this)"><span class="material-icons">receipt_long</span> الطلبات</button>
+            <button class="nav-item" data-sec="deposits" onclick="nav('deposits', this)"><span class="material-icons">account_balance_wallet</span> الإيداعات</button>
+            <button class="nav-item" data-sec="kyc" onclick="nav('kyc', this)"><span class="material-icons">verified_user</span> التوثيق</button>
+            
+            <div class="nav-title" style="margin-top:15px;">المتجر</div>
+            <button class="nav-item" data-sec="products" onclick="nav('products', this)"><span class="material-icons">shopping_bag</span> المنتجات</button>
+            <button class="nav-item" data-sec="categories" onclick="nav('categories', this)"><span class="material-icons">category</span> الأقسام</button>
+            <button class="nav-item" data-sec="coupons" onclick="nav('coupons', this)"><span class="material-icons">local_offer</span> الكوبونات</button>
+            
+            <div class="nav-title" style="margin-top:15px;">النظام</div>
+            <button class="nav-item" data-sec="users" onclick="nav('users', this)"><span class="material-icons">people</span> المستخدمون</button>
+            <button class="nav-item" data-sec="archive" onclick="nav('archive', this)"><span class="material-icons">inventory_2</span> الأرشيف</button>
+            <button class="nav-item" data-sec="audit" onclick="nav('audit', this)"><span class="material-icons">fact_check</span> التدقيق المالي</button>
+            <button class="nav-item" data-sec="settings" onclick="nav('settings', this)"><span class="material-icons">tune</span> الإعدادات</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+        <header class="topbar">
+            <button class="icon-btn hidden" id="mobileMenuBtn" onclick="toggleSidebar()"><span class="material-icons">menu</span></button>
+            <h2 id="topbarTitle" style="font-size:18px; font-weight:800;">لوحة التحكم</h2>
+            <div style="display:flex; gap:10px;">
+                <button class="icon-btn" onclick="toggleTheme()"><span class="material-icons" id="themeIcon">dark_mode</span></button>
+                <button class="btn btn-outline btn-sm" onclick="loadAllData()"><span class="material-icons" style="font-size:16px;">refresh</span> تحديث</button>
+            </div>
+        </header>
+
+        <div class="content-area">
+            <!-- Dashboard -->
+            <section id="sec-dashboard" class="section active">
+                <h1 class="page-title">نظرة عامة</h1>
+                <div class="grid-cards">
+                    <div class="card"><h3 style="color:var(--text-2);">إجمالي المستخدمين</h3><div style="font-size:32px; font-weight:900; display:flex; align-items:center; gap:10px;"><span class="material-icons" style="color:var(--primary);">people</span><span id="stat-users">0</span></div></div>
+                    <div class="card"><h3 style="color:var(--text-2);">الطلبات المعلقة</h3><div style="font-size:32px; font-weight:900; display:flex; align-items:center; gap:10px;"><span class="material-icons" style="color:var(--warning);">receipt_long</span><span id="stat-orders">0</span></div></div>
+                    <div class="card"><h3 style="color:var(--text-2);">الإيداعات المعلقة</h3><div style="font-size:32px; font-weight:900; display:flex; align-items:center; gap:10px;"><span class="material-icons" style="color:var(--success);">account_balance_wallet</span><span id="stat-deposits">0</span></div></div>
+                </div>
+                <div class="card" style="margin-top:20px; height: 300px;">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Inbox -->
+            <section id="sec-inbox" class="section">
+                <div class="page-title">
+                    <span>الإرساليات</span>
+                    <label class="toggle-label"><input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()"> تحديث تلقائي</label>
+                </div>
+                <div id="inbox-list" class="grid-cards"></div>
+            </section>
+
+            <!-- Orders -->
+            <section id="sec-orders" class="section">
+                <div class="page-title">
+                    <span>الطلبات</span>
+                    <button class="btn btn-outline btn-sm" onclick="exportExcel('orders')"><span class="material-icons" style="font-size:16px;">download</span> Excel</button>
+                </div>
+                <div class="search-box"><span class="material-icons">search</span><input type="text" id="orderSearch" onkeyup="filterTable('orders-table', this.value)" placeholder="ابحث برقم الطلب أو الآيدي..."></div>
+                <div id="orders-list" class="grid-cards"></div>
+            </section>
+
+            <!-- Deposits -->
+            <section id="sec-deposits" class="section">
+                <div class="page-title">
+                    <span>الإيداعات</span>
+                    <button class="btn btn-outline btn-sm" onclick="exportExcel('deposits')"><span class="material-icons" style="font-size:16px;">download</span> Excel</button>
+                </div>
+                <div id="deposits-list" class="grid-cards"></div>
+            </section>
+
+            <!-- KYC -->
+            <section id="sec-kyc" class="section">
+                <h1 class="page-title">طلبات التوثيق</h1>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                        <tbody id="kyc-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Users -->
+            <section id="sec-users" class="section">
+                <div class="page-title">
+                    <span>المستخدمون</span>
+                    <button class="btn btn-outline btn-sm" onclick="exportExcel('users')"><span class="material-icons" style="font-size:16px;">download</span> Excel</button>
+                </div>
+                <div class="search-box"><span class="material-icons">search</span><input type="text" id="userSearch" onkeyup="filterTable('users-table', this.value)" placeholder="ابحث بالاسم أو الآيدي..."></div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ID</th><th>الاسم</th><th>الرصيد</th><th>حالة</th><th>إجراءات</th></tr></thead>
+                        <tbody id="users-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Products -->
+            <section id="sec-products" class="section">
+                <div class="page-title">
+                    <span>المنتجات</span>
+                    <button class="btn btn-primary btn-sm" onclick="alert('إضافة منتج (قريباً)')"><span class="material-icons" style="font-size:16px;">add</span> منتج</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>الاسم</th><th>السعر</th><th>إجراءات</th></tr></thead>
+                        <tbody id="products-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Categories -->
+            <section id="sec-categories" class="section">
+                <h1 class="page-title">الأقسام</h1>
+                <div id="categories-grid" class="grid-cards"></div>
+            </section>
+
+            <!-- Settings -->
+            <section id="sec-settings" class="section">
+                <h1 class="page-title">الإعدادات</h1>
+                <div class="card">
+                    <div class="form-group"><label>اسم المتجر</label><input type="text" class="form-control" id="setStoreName"></div>
+                    <div class="form-group"><label>سعر الليرة السورية</label><input type="number" class="form-control" id="setSypRate"></div>
+                    <button class="btn btn-primary" onclick="saveSettings(this)">حفظ الإعدادات</button>
+                </div>
+            </section>
+            
+            <!-- Archive & Audit (Placeholders) -->
+            <section id="sec-archive" class="section"><h1 class="page-title">الأرشيف</h1><p style="color:var(--text-2)">قيد التطوير...</p></section>
+            <section id="sec-audit" class="section"><h1 class="page-title">التدقيق المالي</h1><p style="color:var(--text-2)">قيد التطوير...</p></section>
+            <section id="sec-coupons" class="section"><h1 class="page-title">الكوبونات</h1><p style="color:var(--text-2)">قيد التطوير...</p></section>
+        </div>
+    </main>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav hidden">
+        <button class="active" data-sec="dashboard" onclick="nav('dashboard', null)"><span class="material-icons">space_dashboard</span>الرئيسية</button>
+        <button data-sec="inbox" onclick="nav('inbox', null)">
+            <span class="material-icons">inbox</span>الإرساليات
+            <span class="nav-badge-mobile" id="badge-inbox-mobile" style="display:none;">0</span>
         </button>
-
-        <div class="nav-group">
-            <div class="nav-group-title">العمليات</div>
-            <button class="nav-item sidebar-item" data-section="inbox" onclick="switchSection('inbox')">
-                <span class="material-icons">inbox</span>
-                <span>الإرساليات</span>
-                <span class="nav-badge" id="badge-inbox" style="display:none;">0</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="orders" onclick="switchSection('orders')">
-                <span class="material-icons">receipt_long</span>
-                <span>الطلبات</span>
-                <span class="nav-badge" id="badge-orders" style="display:none;">0</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="deposits" onclick="switchSection('deposits')">
-                <span class="material-icons">account_balance_wallet</span>
-                <span>الإيداعات</span>
-                <span class="nav-badge" id="badge-deposits" style="display:none;">0</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="kyc" onclick="switchSection('kyc')">
-                <span class="material-icons">verified_user</span>
-                <span>طلبات التوثيق</span>
-                <span class="nav-badge" id="badge-kyc" style="display:none;">0</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="service-requests" onclick="switchSection('service-requests')">
-                <span class="material-icons">handyman</span>
-                <span>طلبات الخدمة</span>
-                <span class="nav-badge" id="badge-services" style="display:none;">0</span>
-            </button>
-        </div>
-
-        <div class="nav-group">
-            <div class="nav-group-title">المتجر</div>
-            <button class="nav-item sidebar-item" data-section="categories" onclick="switchSection('categories')">
-                <span class="material-icons">category</span>
-                <span>الأقسام</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="products" onclick="switchSection('products')">
-                <span class="material-icons">shopping_bag</span>
-                <span>المنتجات</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="payment-methods" onclick="switchSection('payment-methods')">
-                <span class="material-icons">payments</span>
-                <span>طرق الدفع</span>
-            </button>
-        </div>
-
-        <div class="nav-group">
-            <div class="nav-group-title">التسويق</div>
-            <button class="nav-item sidebar-item" data-section="coupons" onclick="switchSection('coupons')">
-                <span class="material-icons">local_offer</span>
-                <span>كودات الخصم</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="referrals" onclick="switchSection('referrals')">
-                <span class="material-icons">card_giftcard</span>
-                <span>الإحالات</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="notifications" onclick="switchSection('notifications')">
-                <span class="material-icons">send</span>
-                <span>إرسال إشعار</span>
-            </button>
-        </div>
-
-        <div class="nav-group">
-            <div class="nav-group-title">المستخدمون</div>
-            <button class="nav-item sidebar-item" data-section="users" onclick="switchSection('users')">
-                <span class="material-icons">people</span>
-                <span>إدارة المستخدمين</span>
-            </button>
-        </div>
-
-        <div class="nav-group">
-            <div class="nav-group-title">الأرشيف</div>
-            <button class="nav-item sidebar-item" data-section="archive" onclick="switchSection('archive')">
-                <span class="material-icons">inventory_2</span>
-                <span>الأرشيف الكامل</span>
-                <span class="nav-badge archive-badge" id="badge-archive-total" style="display:none;">0</span>
-            </button>
-        </div>
-
-        <div class="nav-group">
-            <div class="nav-group-title">النظام</div>
-            <button class="nav-item sidebar-item" data-section="activities" onclick="switchSection('activities')">
-                <span class="material-icons">history</span>
-                <span>سجل النشاطات</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="audit-log" onclick="switchSection('audit-log')">
-                <span class="material-icons">fact_check</span>
-                <span>التدقيق المالي</span>
-            </button>
-            <button class="nav-item sidebar-item" data-section="settings" onclick="switchSection('settings')">
-                <span class="material-icons">tune</span>
-                <span>الإعدادات</span>
-            </button>
-        </div>
+        <button data-sec="orders" onclick="nav('orders', null)"><span class="material-icons">receipt_long</span>الطلبات</button>
+        <button onclick="toggleSidebar()"><span class="material-icons">menu</span>المزيد</button>
     </nav>
-</aside>
 
-<!-- ============================================================
-     MAIN CONTENT
-     ============================================================ -->
-<main class="main admin-content" id="adminContent">
-
-    <!-- INBOX -->
-    <section id="section-inbox" class="section admin-section">
-        <div class="page-header">
-    <div>
-        <h1>📥 الإرساليات</h1>
-        <p id="inboxSubtitle">كل ما يحتاج مراجعة في مكان واحد</p>
+    <!-- Bulk Bar -->
+    <div class="bulk-bar" id="bulkBar">
+        <span style="font-weight:bold;">محدد: <span id="bulkCount">0</span></span>
+        <button class="btn btn-success btn-sm" onclick="bulkAction('approve')">قبول</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkAction('reject')">رفض</button>
+        <button class="btn btn-outline btn-sm" onclick="clearBulk()">إلغاء</button>
     </div>
-    <div style="display:flex;gap:6px;align-items:center;">
-        <label class="inbox-autorefresh-toggle" title="تحديث تلقائي كل 30 ثانية">
-            <input type="checkbox" id="inboxAutoRefresh" onchange="toggleInboxAutoRefresh()">
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label">تحديث تلقائي</span>
-        </label>
-        <button class="btn btn-outline btn-sm" onclick="loadInbox()">
-            <span class="material-icons">refresh</span> تحديث
-        </button>
-    </div>
-</div>
 
-        <div class="inbox-summary" id="inboxSummary">
-            <div class="inbox-chip" data-type="deposits" onclick="scrollToInboxSection('deposits')">
-                <span class="material-icons">account_balance_wallet</span>
-                <span class="inbox-chip-count" id="inboxCountDeposits">0</span>
-                <span class="inbox-chip-label">إيداعات</span>
-            </div>
-            <div class="inbox-chip" data-type="orders" onclick="scrollToInboxSection('orders')">
-                <span class="material-icons">receipt_long</span>
-                <span class="inbox-chip-count" id="inboxCountOrders">0</span>
-                <span class="inbox-chip-label">طلبات</span>
-            </div>
-            <div class="inbox-chip" data-type="kyc" onclick="scrollToInboxSection('kyc')">
-                <span class="material-icons">verified_user</span>
-                <span class="inbox-chip-count" id="inboxCountKYC">0</span>
-                <span class="inbox-chip-label">توثيق</span>
-            </div>
-            <div class="inbox-chip" data-type="services" onclick="scrollToInboxSection('services')">
-                <span class="material-icons">handyman</span>
-                <span class="inbox-chip-count" id="inboxCountServices">0</span>
-                <span class="inbox-chip-label">خدمات</span>
-            </div>
-        </div>
+    <!-- Modals & Overlays -->
+    <div class="modal-overlay" id="modal"><div class="modal" id="modalContent"></div></div>
+    <div id="lightbox" class="modal-overlay" onclick="this.classList.remove('active')"><img id="lightboxImg" style="max-width:90%; max-height:90vh; border-radius:12px;"></div>
+    <div class="toast-container" id="toastContainer"></div>
 
-        <div class="inbox-filters" id="inboxFilters">
-    <button class="inbox-filter active" data-filter="all" onclick="setInboxFilter('all', this)">
-        الكل <span class="inbox-filter-count" id="inboxFilterAllCount">0</span>
-    </button>
-    <button class="inbox-filter" data-filter="deposits" onclick="setInboxFilter('deposits', this)">
-        💰 إيداعات
-    </button>
-    <button class="inbox-filter" data-filter="orders" onclick="setInboxFilter('orders', this)">
-        📦 طلبات
-    </button>
-    <button class="inbox-filter" data-filter="kyc" onclick="setInboxFilter('kyc', this)">
-        🪪 توثيق
-    </button>
-    <button class="inbox-filter" data-filter="services" onclick="setInboxFilter('services', this)">
-        🛠 خدمات
-    </button>
-</div>
-
-<div class="inbox-container" id="inboxContainer">
-            <div class="empty">
-                <div class="empty-icon"><span class="material-icons">hourglass_empty</span></div>
-                <h3>جارٍ التحميل...</h3>
-            </div>
-        </div>
-    </section>
-
-    <!-- DASHBOARD -->
-    <section id="section-dashboard" class="section admin-section active">
-        <div class="page-header">
-            <div>
-                <h1 id="dashGreeting">صباح الخير، أبو سند 👋</h1>
-                <p id="dashSubtitle">آخر تحديث: الآن</p>
-            </div>
-            <button class="btn btn-outline btn-sm" onclick="loadAllData().then(renderDashboard)">
-                <span class="material-icons">refresh</span>
-            </button>
-        </div>
-
-        <div class="attention-card" id="attentionCard">
-            <div class="attention-header">
-                <span class="material-icons">notifications_active</span>
-                <span>يحتاج انتباهك</span>
-            </div>
-            <div class="attention-list" id="attentionList">
-                <div class="attention-empty">
-                    <span class="material-icons">hourglass_empty</span>
-                    جارٍ التحقق...
-                </div>
-            </div>
-        </div>
-
-        <div class="section-head">
-            <h2>الإحصائيات</h2>
-            <div class="time-pills">
-                <button class="time-chip active" onclick="setDashTimeFilter('today', this)">اليوم</button>
-                <button class="time-chip" onclick="setDashTimeFilter('week', this)">7 أيام</button>
-                <button class="time-chip" onclick="setDashTimeFilter('month', this)">30 يوم</button>
-                <button class="time-chip" onclick="setDashTimeFilter('all', this)">الكل</button>
-            </div>
-        </div>
-
-        <div class="stats-grid stats-cards">
-            <div class="stat stat-card">
-                <div class="stat-icon primary"><span class="material-icons">payments</span></div>
-                <div class="stat-value stat-number" id="dashRevenue">$0.00</div>
-                <div class="stat-label" id="dashRevenueLabel">إيرادات اليوم</div>
-            </div>
-            <div class="stat stat-card">
-                <div class="stat-icon info"><span class="material-icons">receipt_long</span></div>
-                <div class="stat-value stat-number" id="dashOrders">0</div>
-                <div class="stat-label" id="dashOrdersLabel">طلبات اليوم</div>
-            </div>
-            <div class="stat stat-card">
-                <div class="stat-icon success"><span class="material-icons">person_add</span></div>
-                <div class="stat-value stat-number" id="dashUsers">0</div>
-                <div class="stat-label" id="dashUsersLabel">مستخدمون جدد</div>
-            </div>
-            <div class="stat stat-card">
-                <div class="stat-icon warning"><span class="material-icons">account_balance_wallet</span></div>
-                <div class="stat-value stat-number" id="dashDeposits">$0.00</div>
-                <div class="stat-label" id="dashDepositsLabel">إيداعات اليوم</div>
-            </div>
-        </div>
-
-        <div class="charts-grid">
-            <div class="chart-card">
-                <h3>الطلبات حسب الحالة</h3>
-                <div class="chart-body"><canvas id="chartOrdersPie"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <h3>الإيداعات - آخر 7 أيام</h3>
-                <div class="chart-body"><canvas id="chartDepositsLine"></canvas></div>
-            </div>
-        </div>
-
-        <div class="section-head"><h2>آخر العمليات</h2></div>
-        <div id="recentActivities">
-            <div class="empty">
-                <div class="empty-icon"><span class="material-icons">history</span></div>
-                <h3>لا توجد عمليات حديثة</h3>
-                <p>عندما يبدأ المستخدمون بالتفاعل، ستظهر هنا آخر الطلبات والإيداعات.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- USERS -->
-    <section id="section-users" class="section admin-section">
-        <div class="page-header">
-            <h1>المستخدمون</h1>
-            <button class="btn btn-outline btn-sm" onclick="exportUsersExcel()">
-                <span class="material-icons">file_download</span> Excel
-            </button>
-        </div>
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="userSearch" aria-label="بحث في المستخدمين" placeholder="ابحث عن مستخدم..." oninput="filterUsers(this.value)">
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Telegram ID</th>
-                        <th>الاسم</th>
-                        <th>الرصيد</th>
-                        <th>الحالة</th>
-                        <th>VIP</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="usersTableBody"></tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- CATEGORIES -->
-    <section id="section-categories" class="section admin-section">
-        <div class="page-header">
-            <h1>الأقسام</h1>
-            <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">
-                <span class="material-icons">add</span> قسم
-            </button>
-        </div>
-        <div class="cards-grid" id="categoriesList"></div>
-    </section>
-
-    <!-- PRODUCTS -->
-    <section id="section-products" class="section admin-section">
-        <div class="page-header">
-            <h1>المنتجات</h1>
-            <button class="btn btn-primary btn-sm" onclick="openProductModal()">
-                <span class="material-icons">add</span> منتج
-            </button>
-        </div>
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="productSearch" aria-label="بحث في المنتجات" placeholder="ابحث عن منتج..." oninput="filterProducts()">
-        </div>
-        <div class="filters-row">
-            <select id="productCategoryFilter" aria-label="فلترة حسب القسم" class="filter-select" onchange="filterProducts()">
-                <option value="all">جميع الأقسام</option>
-            </select>
-            <select id="productTypeFilter" aria-label="فلترة حسب النوع" class="filter-select" onchange="filterProducts()">
-                <option value="all">جميع الأنواع</option>
-                <option value="quantity">كمية</option>
-                <option value="topup">رصيد سوري</option>
-                <option value="bundle">باقة</option>
-            </select>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>الصورة</th>
-                        <th>الاسم</th>
-                        <th>القسم</th>
-                        <th>السعر</th>
-                        <th>الكمية</th>
-                        <th>النوع</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="productsTableBody"></tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- PAYMENT METHODS -->
-    <section id="section-payment-methods" class="section admin-section">
-        <div class="page-header">
-            <h1>طرق الدفع</h1>
-            <button class="btn btn-primary btn-sm" onclick="openPaymentMethodModal()">
-                <span class="material-icons">add</span> طريقة
-            </button>
-        </div>
-        <div class="cards-grid" id="paymentMethodsList"></div>
-    </section>
-
-    <!-- ORDERS -->
-    <section id="section-orders" class="section admin-section">
-        <div class="page-header">
-            <h1>الطلبات</h1>
-            <button class="btn btn-outline btn-sm" onclick="exportOrdersExcel()">
-                <span class="material-icons">file_download</span> Excel
-            </button>
-        </div>
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="orderSearchQuery" aria-label="بحث في الطلبات" placeholder="ابحث برقم الطلب أو User ID..." oninput="applyOrderFilters()">
-        </div>
-        <div class="filters-row">
-            <select id="orderStatusFilter" aria-label="فلترة حسب الحالة" class="filter-select" onchange="applyOrderFilters()">
-                <option value="all">جميع الحالات</option>
-                <option value="pending">قيد المعالجة</option>
-                <option value="review">قيد المراجعة</option>
-                <option value="processing">قيد التنفيذ</option>
-            </select>
-            <select id="orderSortFilter" aria-label="ترتيب الطلبات" class="filter-select" onchange="applyOrderFilters()">
-                <option value="newest">الأحدث</option>
-                <option value="oldest">الأقدم</option>
-                <option value="price_high">الأعلى</option>
-                <option value="price_low">الأقل</option>
-            </select>
-        </div>
-        <div class="tabs" id="ordersTabs">
-            <button class="tab active" onclick="setOrdersTab('all', this)">
-                الكل <span class="tab-count" id="ordersTabAll">0</span>
-            </button>
-            <button class="tab" onclick="setOrdersTab('pending', this)">
-                معلق <span class="tab-count" id="ordersTabPending">0</span>
-            </button>
-            <button class="tab" onclick="setOrdersTab('processing', this)">
-                تنفيذ <span class="tab-count" id="ordersTabProcessing">0</span>
-            </button>
-        </div>
-        <div id="ordersList" class="cards-list"></div>
-    </section>
-
-    <!-- DEPOSITS -->
-    <section id="section-deposits" class="section admin-section">
-        <div class="page-header">
-            <h1>الإيداعات</h1>
-            <button class="btn btn-outline btn-sm" onclick="exportDepositsExcel()">
-                <span class="material-icons">file_download</span> Excel
-            </button>
-        </div>
-        <div id="depositsList" class="cards-list"></div>
-        <table style="display:none;"><tbody id="depositsTableBody"></tbody></table>
-    </section>
-
-    <!-- KYC -->
-    <section id="section-kyc" class="section admin-section">
-        <div class="page-header">
-            <h1>طلبات التوثيق</h1>
-        </div>
-        <div id="kycList" class="cards-list"></div>
-        <table style="display:none;"><tbody id="kycTableBody"></tbody></table>
-    </section>
-
-    <!-- SERVICE REQUESTS -->
-    <section id="section-service-requests" class="section admin-section">
-        <div class="page-header">
-            <h1>طلبات الخدمة</h1>
-        </div>
-        <div id="servicesList" class="cards-list"></div>
-        <table style="display:none;"><tbody id="serviceRequestsTableBody"></tbody></table>
-    </section>
-
-    <!-- COUPONS -->
-    <section id="section-coupons" class="section admin-section">
-        <div class="page-header">
-            <h1>كودات الخصم</h1>
-            <button class="btn btn-primary btn-sm" onclick="openCouponModal()">
-                <span class="material-icons">add</span> كود
-            </button>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>الكود</th>
-                        <th>النوع</th>
-                        <th>القيمة</th>
-                        <th>الاستخدامات</th>
-                        <th>الحالة</th>
-                        <th>إجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="couponsTableBody"></tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- REFERRALS -->
-    <section id="section-referrals" class="section admin-section">
-        <div class="page-header">
-            <h1>الإحالات</h1>
-            <button class="btn btn-outline btn-sm" onclick="exportReferralsExcel()">
-                <span class="material-icons">file_download</span> Excel
-            </button>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>المُحيل</th>
-                        <th>المُحال</th>
-                        <th>المكافأة</th>
-                        <th>الحالة</th>
-                        <th>التاريخ</th>
-                    </tr>
-                </thead>
-                <tbody id="referralsTableBody"></tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- ARCHIVE -->
-    <section id="section-archive" class="section admin-section">
-        <div class="page-header">
-            <h1>الأرشيف</h1>
-            <button class="btn btn-outline btn-sm" onclick="loadArchiveData()">
-                <span class="material-icons">refresh</span>
-            </button>
-        </div>
-
-        <div class="tabs archive-tabs" id="archiveTabs">
-            <button class="tab active" data-archive-tab="orders" onclick="setArchiveTab('orders', this)">
-                الطلبات <span class="tab-count" id="archiveTabOrdersCount">0</span>
-            </button>
-            <button class="tab" data-archive-tab="deposits" onclick="setArchiveTab('deposits', this)">
-                الإيداعات <span class="tab-count" id="archiveTabDepositsCount">0</span>
-            </button>
-            <button class="tab" data-archive-tab="kyc" onclick="setArchiveTab('kyc', this)">
-                التوثيق <span class="tab-count" id="archiveTabKycCount">0</span>
-            </button>
-            <button class="tab" data-archive-tab="services" onclick="setArchiveTab('services', this)">
-                الخدمة <span class="tab-count" id="archiveTabServicesCount">0</span>
-            </button>
-        </div>
-
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="archiveSearch" aria-label="بحث في الأرشيف" placeholder="ابحث في الأرشيف..." oninput="filterArchiveItems()">
-        </div>
-
-        <div id="archiveList" class="cards-list">
-            <div class="empty">
-                <div class="empty-icon"><span class="material-icons">inventory_2</span></div>
-                <h3>جارٍ التحميل...</h3>
-            </div>
-        </div>
-
-        <div id="archiveCatsContainer" style="display:none;">
-            <div id="archiveCatsList"></div>
-            <span id="archiveCatsCount" style="display:none;">0</span>
-        </div>
-        <div id="archiveProdsContainer" style="display:none;">
-            <div id="archiveProdsList"></div>
-            <span id="archiveProdsCount" style="display:none;">0</span>
-        </div>
-    </section>
-
-    <!-- ACTIVITIES -->
-    <section id="section-activities" class="section admin-section">
-        <div class="page-header">
-            <h1>سجل النشاطات</h1>
-            <button class="btn btn-outline btn-sm" onclick="loadActivities()">
-                <span class="material-icons">refresh</span>
-            </button>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr><th>#</th><th>النشاط</th><th>التاريخ</th></tr>
-                </thead>
-                <tbody id="activitiesTableBody">
-                    <tr><td colspan="3" class="empty-state">جار التحميل...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- AUDIT LOG -->
-    <section id="section-audit-log" class="section admin-section">
-        <div class="page-header">
-            <h1>التدقيق المالي</h1>
-            <button class="btn btn-outline btn-sm" onclick="loadAuditLog()">
-                <span class="material-icons">refresh</span>
-            </button>
-        </div>
-        <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" id="auditUserSearch" aria-label="فلترة التدقيق حسب المستخدم" placeholder="فلترة حسب معرف المستخدم..." oninput="filterAuditLog()">
-        </div>
-        <div class="filters-row">
-            <select id="auditActionFilter" aria-label="فلترة حسب العملية" class="filter-select" onchange="filterAuditLog()">
-                <option value="">كل العمليات</option>
-                <option value="order_created">شراء طلب</option>
-                <option value="order_refund">استرداد طلب</option>
-                <option value="order_cancelled">إلغاء طلب</option>
-                <option value="deposit_approved">قبول إيداع</option>
-                <option value="admin_adjustment">تعديل رصيد</option>
-                <option value="referral_reward">مكافأة إحالة</option>
-            </select>
-        </div>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>المستخدم</th>
-                        <th>العملية</th>
-                        <th>المبلغ</th>
-                        <th>الرصيد بعد</th>
-                        <th>التاريخ</th>
-                    </tr>
-                </thead>
-                <tbody id="auditLogTableBody">
-                    <tr><td colspan="6" class="empty-state">جار التحميل...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <!-- NOTIFICATIONS -->
-    <section id="section-notifications" class="section admin-section">
-        <div class="page-header">
-            <h1>إرسال إشعار</h1>
-        </div>
-        <div class="form-card">
-            <div class="form-group">
-                <label>نوع الإشعار</label>
-                <select id="notificationType" aria-label="نوع الإشعار">
-                    <option value="info">معلومات</option>
-                    <option value="success">نجاح</option>
-                    <option value="warning">تحذير</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>إلى</label>
-                <select id="notificationTarget" aria-label="هدف الإشعار" onchange="toggleSpecificUser()">
-                    <option value="all">جميع المستخدمين</option>
-                    <option value="specific">مستخدم محدد</option>
-                </select>
-            </div>
-            <div class="form-group" id="specificUserGroup" style="display:none;">
-                <label>معرف المستخدم</label>
-                <input type="text" id="notificationUserId" aria-label="معرف المستخدم" placeholder="Telegram ID">
-            </div>
-            <div class="form-group">
-                <label>نص الإشعار</label>
-                <textarea id="notificationMessage" rows="4" placeholder="أدخل نص الإشعار..."></textarea>
-            </div>
-            <button class="btn btn-primary btn-block" onclick="sendAdminNotification()">
-                <span class="material-icons">send</span> إرسال
-            </button>
-        </div>
-    </section>
-
-    <!-- SETTINGS -->
-    <section id="section-settings" class="section admin-section">
-        <div class="page-header">
-            <h1>الإعدادات</h1>
-        </div>
-
-        <div class="form-card">
-            <h3>الإعدادات العامة</h3>
-            <div class="form-group">
-                <label>اسم المتجر</label>
-                <input type="text" id="storeName" value="SANAD+">
-            </div>
-            <div class="form-group">
-                <label>رابط الدعم</label>
-                <input type="text" id="supportUrl" value="https://t.me/SANADST">
-            </div>
-        </div>
-
-        <div class="form-card">
-            <h3>سعر صرف الليرة السورية</h3>
-            <div class="form-group">
-                <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:var(--surface); padding:12px; border-radius:8px; border:1px solid var(--border); margin-bottom:12px;">
-                    <label style="margin:0; font-weight:700; color:var(--text); cursor:pointer;" for="sypEnabledCheckbox">تفعيل الليرة السورية في المتجر</label>
-                    <input type="checkbox" id="sypEnabledCheckbox" style="width:22px; height:22px; cursor:pointer; accent-color:var(--primary);">
-                </div>
-                <div class="form-group">
-                    <label>سعر الصرف (ل.س لكل 1$)</label>
-                <input type="number" id="sypRate" value="132" step="1" min="1">
-                <small style="color:var(--text-2);font-size:12px;display:block;margin-top:6px;">
-                    مثال: إذا كان السعر 132 → 132 ل.س = 1.00$
-                </small>
-            </div>
-            <div class="form-group">
-                <label>معاينة</label>
-                <div class="syp-preview">
-                    <div>1000 ل.س = <strong id="sypPreview1000">7.58$</strong></div>
-                    <div>5000 ل.س = <strong id="sypPreview5000">37.88$</strong></div>
-                    <div>10000 ل.س = <strong id="sypPreview10000">75.76$</strong></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-card">
-            <h3>البنرات الإعلانية</h3>
-            <div class="form-group">
-                <label>روابط الصور (رابط واحد في كل سطر)</label>
-                <textarea id="bannersInput" rows="4" placeholder="https://example.com/banner1.jpg&#10;https://example.com/banner2.jpg" style="width:100%; border-radius:8px; padding:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-family:inherit; font-size:14px; resize:vertical;"></textarea>
-                <small style="color:var(--text-2);font-size:12px;display:block;margin-top:6px;">
-                    هذه البنرات ستظهر أعلى الصفحة الرئيسية في MiniApp.
-                </small>
-            </div>
-        </div>
-        <button class="btn btn-primary btn-block" style="margin-top:16px;" onclick="saveSettings()">
-            <span class="material-icons">save</span> حفظ الإعدادات
-        </button>
-    </section>
-
-</main>
-
-<!-- ============================================================
-     BOTTOM NAV + FAB
-     ============================================================ -->
-<nav class="bottom-nav admin-bottom-nav" id="bottomNav">
-    <button class="bottom-item bottom-nav-item active" data-section="dashboard" onclick="switchSection('dashboard')">
-        <span class="material-icons">space_dashboard</span>
-        <span>الرئيسية</span>
-    </button>
-    <button class="bottom-item bottom-nav-item" data-section="inbox" onclick="switchSection('inbox')">
-        <span class="material-icons">inbox</span>
-        <span>الإرساليات</span>
-        <span class="bottom-nav-badge" id="badge-mobile-inbox" style="display:none;">0</span>
-    </button>
-    <button class="bottom-item fab-slot" onclick="openQuickActions()">
-        <span class="material-icons" style="font-size:28px;color:white;">add</span>
-    </button>
-    <button class="bottom-item bottom-nav-item" data-section="deposits" onclick="switchSection('deposits')">
-        <span class="material-icons">account_balance_wallet</span>
-        <span>الإيداعات</span>
-        <span class="bottom-nav-badge" id="badge-mobile-deposits" style="display:none;">0</span>
-    </button>
-    <button class="bottom-item bottom-nav-item" onclick="toggleSidebar()">
-        <span class="material-icons">menu</span>
-        <span>المزيد</span>
-    </button>
-</nav>
-
-<!-- ============================================================
-     BULK BAR
-     ============================================================ -->
-<div class="bulk-bar bulk-orders-bar" id="bulkOrdersBar">
-    <div class="bulk-info bulk-count">
-        <span class="bulk-num bulk-count-num" id="bulkNum">0</span>
-        <span>محدد</span>
-    </div>
-    <button class="bulk-action success" onclick="bulkChangeStatus('completed')">
-        <span class="material-icons">check</span> إكمال
-    </button>
-    <button class="bulk-action danger" onclick="bulkChangeStatus('failed')">
-        <span class="material-icons">close</span> فشل
-    </button>
-    <button class="bulk-action" onclick="bulkChangeStatus('cancelled')">
-        <span class="material-icons">block</span> إلغاء
-    </button>
-    <button class="bulk-close bulk-close-btn" onclick="clearSelectedOrders()">
-        <span class="material-icons">close</span>
-    </button>
-</div>
-
-<!-- ============================================================
-     BOTTOM SHEET
-     ============================================================ -->
-<div class="bottom-sheet-overlay" id="bottomSheetOverlay" onclick="closeBottomSheet()"></div>
-<div class="bottom-sheet" id="bottomSheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-header">
-        <h3 id="sheetTitle"></h3>
-        <button class="icon-btn" onclick="closeBottomSheet()">
-            <span class="material-icons">close</span>
-        </button>
-    </div>
-    <div class="sheet-body" id="sheetBody"></div>
-</div>
-
-<!-- ============================================================
-     TOASTS
-     ============================================================ -->
-<div id="toastContainer" class="toast-container"></div>
-
-<!-- ============================================================
-     IMAGE LIGHTBOX
-     ============================================================ -->
-<div id="imageLightbox" class="image-lightbox" onclick="closeImageLightbox()">
-    <button class="close-lightbox" onclick="closeImageLightbox()">&times;</button>
-    <img src="" alt="" class="lightbox-image" id="lightboxImage">
-</div>
-
-<!-- ============================================================
-     LEGACY MODALS
-     ============================================================ -->
-<div id="modal" class="modal" style="display:none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <button class="close-modal" onclick="closeModal()">&times;</button>
-        </div>
-        <div id="modalBody"></div>
-    </div>
-</div>
-
-<div id="confirmModal" class="modal confirm-modal-overlay" style="display:none;">
-    <div class="modal-content confirm-content">
-        <div class="confirm-icon" id="confirmIcon">
-            <span class="material-icons">help_outline</span>
-        </div>
-        <h3 id="confirmTitle">تأكيد العملية</h3>
-        <p id="confirmMessage">هل أنت متأكد؟</p>
-        <div class="confirm-actions">
-            <button class="btn btn-primary" id="confirmBtn" onclick="closeConfirm(true)">تأكيد</button>
-            <button class="btn btn-outline" onclick="closeConfirm(false)">إلغاء</button>
-        </div>
-    </div>
-</div>
-
-<div id="globalSearchModal" class="modal global-search-modal" style="display:none;">
-    <div class="modal-content global-search-content">
-        <div class="global-search-header">
-            <span class="material-icons">search</span>
-            <input type="text" id="globalSearchInput" aria-label="بحث عام" placeholder="ابحث..." oninput="performGlobalSearch(this.value)" autocomplete="off">
-            <button class="close-modal-inline" onclick="closeGlobalSearch()">
-                <span class="material-icons">close</span>
-            </button>
-        </div>
-        <div class="global-search-results" id="globalSearchResults">
-            <div class="global-search-hint">
-                <span class="material-icons">search</span>
-                <p>ابدأ الكتابة للبحث...</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="adminPTr" class="admin-ptr" style="display:none;">
-    <div class="admin-ptr-icon"><span class="material-icons" id="adminPTrIcon">arrow_downward</span></div>
-    <div class="admin-ptr-text" id="adminPTrText">اسحب للتحديث</div>
-</div>
-
-<!-- ============================================================
-     SCRIPTS
-     ============================================================ -->
-<script src="js/api.js?v=25"></script>
-<script src="js/admin.js?v=28"></script>
-<script src="js/admin-v16.js?v=27"></script>
-<script src="js/admin-v17.js?v=27"></script>
-<script src="js/security-patch.js"></script>
-
-<script>
-(function() {
-    window.switchSection = function(sectionId) {
-        document.querySelectorAll('.section, .admin-section').forEach(sec => {
-            sec.classList.remove('active');
-        });
-
-        const section = document.getElementById('section-' + sectionId);
-        if (section) section.classList.add('active');
-
-        document.querySelectorAll('.sidebar-item, .nav-item').forEach(item => {
-            item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
-        });
-
-        document.querySelectorAll('.bottom-nav-item, .bottom-item').forEach(item => {
-            item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
-        });
-
-        window.currentSection = sectionId;
-
-        if (typeof window.closeSidebar === 'function') window.closeSidebar();
-
-        try {
-            if (sectionId === 'dashboard' && typeof renderDashboard === 'function') renderDashboard();
-            if (sectionId === 'users' && typeof window.renderUsers === 'function') window.renderUsers();
-            if (sectionId === 'categories' && typeof renderCategories === 'function') renderCategories();
-            if (sectionId === 'products') {
-                if (typeof filteredProducts !== 'undefined' && Array.isArray(productsData)) {
-                    window.filteredProducts = [...productsData];
-                }
-                if (typeof renderProducts === 'function') renderProducts();
-            }
-            if (sectionId === 'payment-methods' && typeof renderPaymentMethods === 'function') renderPaymentMethods();
-            if (sectionId === 'orders') {
-                if (typeof ordersData !== 'undefined' && Array.isArray(ordersData)) {
-                    window.filteredOrders = [...ordersData];
-                }
-                if (typeof window.renderOrders === 'function' && typeof ordersData !== 'undefined') {
-                    window.renderOrders(ordersData);
-                }
-            }
-            if (sectionId === 'deposits') {
-                if (typeof window.resetDepositsFilter === 'function') window.resetDepositsFilter();
-                if (typeof window.renderDeposits === 'function') window.renderDeposits(depositsData);
-            }
-            if (sectionId === 'kyc' && typeof window.renderKYC === 'function') window.renderKYC();
-            if (sectionId === 'service-requests' && typeof window.renderServiceRequests === 'function') window.renderServiceRequests();
-            if (sectionId === 'coupons' && typeof renderCoupons === 'function') renderCoupons();
-            if (sectionId === 'referrals' && typeof loadReferrals === 'function') loadReferrals();
-            if (sectionId === 'archive' && typeof window.loadArchiveData === 'function') window.loadArchiveData();
-            if (sectionId === 'activities' && typeof loadActivities === 'function') loadActivities();
-            if (sectionId === 'audit-log' && typeof loadAuditLog === 'function') loadAuditLog();
-            if (sectionId === 'settings' && typeof loadSettings === 'function') loadSettings();
-            if (sectionId === 'inbox' && typeof loadInbox === 'function') loadInbox();
-        } catch (err) {
-            console.warn('Section load error:', err);
+    <script>
+        // 1. Core & Security
+        const API_BASE = ''; // Uses Vercel Proxy
+        const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
+        
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
         }
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        if (sectionId === 'dashboard') {
-            const h = new Date().getHours();
-            const greeting = h < 12 ? 'صباح الخير' : 'مساء الخير';
-            const el = document.getElementById('dashGreeting');
-            if (el) el.textContent = `${greeting}، أبو سند 👋`;
+        function copyText(text) {
+            navigator.clipboard.writeText(text);
+            showToast('تم النسخ!', 'success');
         }
-    };
-})();
-</script>
 
-<script>
-window.openModal = window.openModal || function(title, bodyHTML) {
-    const modal = document.getElementById('modal');
-    const body = document.getElementById('modalBody');
-    if (modal && body) {
-        body.innerHTML = bodyHTML || '';
-        modal.style.display = 'flex';
-    }
-};
+        // 2. State & Theme
+        const AppState = { users: [], orders: [], deposits: [], kyc: [], products: [], categories: [], settings: {}, selected: new Set() };
+        let mainChart = null;
+        let autoRefreshTimer = null;
 
-window.closeModal = window.closeModal || function() {
-    const modal = document.getElementById('modal');
-    if (modal) modal.style.display = 'none';
-};
+        function toggleTheme() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            localStorage.setItem('admin_theme', isDark ? 'light' : 'dark');
+            document.getElementById('themeIcon').innerText = isDark ? 'dark_mode' : 'light_mode';
+            if(mainChart) updateDashboard(); // Re-render chart colors
+        }
+        
+        // Load Theme
+        if (localStorage.getItem('admin_theme') === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.getElementById('themeIcon').innerText = 'dark_mode';
+        }
 
-window.closeConfirm = window.closeConfirm || function(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) modal.style.display = 'none';
-    if (window._confirmResolver) {
-        window._confirmResolver(result);
-        window._confirmResolver = null;
-    }
-};
+        // 3. API Calls
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const token = getToken();
+            if (!token) return null;
+            const config = { method, headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } };
+            if (body) config.body = JSON.stringify(body);
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, config);
+                if (res.status === 401) { showToast('انتهت الجلسة', 'danger'); return null; }
+                if (!res.ok) throw new Error('API Error');
+                return await res.json();
+            } catch (err) { showToast('فشل الاتصال', 'danger'); return null; }
+        }
 
-window.openGlobalSearch = window.openGlobalSearch || function() {
-    const modal = document.getElementById('globalSearchModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.getElementById('globalSearchInput')?.focus();
-    }
-};
+        // 4. Auth (Login & OTP)
+        let _otpSessionId = null;
 
-window.closeGlobalSearch = window.closeGlobalSearch || function() {
-    const modal = document.getElementById('globalSearchModal');
-    if (modal) modal.style.display = 'none';
-};
-</script>
+        async function doLogin() {
+            const u = document.getElementById('loginUser').value;
+            const p = document.getElementById('loginPass').value;
+            if(!u || !p) return showToast('أدخل البيانات', 'warning');
+            
+            showToast('جاري التحقق...', 'info');
+            try {
+                const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p}) });
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.token) {
+                        localStorage.setItem('admin_token', data.token);
+                        location.reload();
+                    } else if (data.session_id) {
+                        _otpSessionId = data.session_id;
+                        document.getElementById('loginBox').innerHTML = `
+                            <h2 style="text-align:center; margin-bottom:10px;">رمز التحقق</h2>
+                            <input type="text" id="otpCode" class="form-control" placeholder="000000" style="text-align:center; font-size:24px; letter-spacing:5px; margin-bottom:15px;">
+                            <button class="btn btn-primary" style="width:100%;" onclick="verifyOTP()">تأكيد</button>
+                        `;
+                    }
+                } else showToast(data.error || 'خطأ', 'danger');
+            } catch { showToast('فشل الاتصال', 'danger'); }
+        }
 
-</body>
-</html>
+        async function verifyOTP() {
+            const code = document.getElementById('otpCode').value;
+            if(code.length !== 6) return showToast('رمز غير صحيح', 'warning');
+            try {
+                const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({session_id: _otpSessionId, otp_code: code}) });
+                const data = await res.json();
+                if(res.ok && data.token) {
+                    localStorage.setItem('admin_token', data.token);
+                    location.reload();
+                } else showToast(data.error || 'خطأ', 'danger');
+            } catch { showToast('فشل الاتصال', 'danger'); }
+        }
+
+        // 5. Data Loading
+        async function loadAllData() {
+            showToast('جاري التحديث...', 'info');
+            const [u, o, d, k, p, c, s] = await Promise.all([
+                apiCall('/admin/api/users'), apiCall('/admin/api/orders'), apiCall('/admin/api/deposits'),
+                apiCall('/admin/api/kyc'), apiCall('/admin/api/products'), apiCall('/admin/api/categories'), apiCall('/admin/api/settings')
+            ]);
+            if (u) AppState.users = u;
+            if (o) AppState.orders = o;
+            if (d) AppState.deposits = d;
+            if (k) AppState.kyc = k;
+            if (p) AppState.products = p;
+            if (c) AppState.categories = c;
+            if (s) AppState.settings = s;
+            
+            updateBadges();
+            nav(document.querySelector('.section.active').id.replace('sec-', ''), document.querySelector('.nav-item.active'));
+            showToast('تم التحديث', 'success');
+        }
+
+        // 6. Navigation & UI
+        function nav(sec, btn) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('sec-' + sec).classList.add('active');
+            document.querySelectorAll('.nav-item, .bottom-nav button').forEach(b => b.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            document.querySelector(`.bottom-nav button[data-sec="${sec}"]`)?.classList.add('active');
+            document.getElementById('sidebar').classList.remove('open');
+
+            const titles = { dashboard: 'لوحة التحكم', inbox: 'الإرساليات', orders: 'الطلبات', deposits: 'الإيداعات', kyc: 'التوثيق', users: 'المستخدمون', products: 'المنتجات', categories: 'الأقسام', settings: 'الإعدادات' };
+            document.getElementById('topbarTitle').innerText = titles[sec] || 'الإدارة';
+
+            if (sec === 'dashboard') updateDashboard();
+            if (sec === 'inbox' || sec === 'deposits') renderInbox(); renderDeposits();
+            if (sec === 'orders') renderOrders();
+            if (sec === 'users') renderUsers();
+            if (sec === 'kyc') renderKYC();
+            if (sec === 'products') renderProducts();
+            if (sec === 'categories') renderCategories();
+            if (sec === 'settings') renderSettings();
+        }
+
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+        function updateBadges() {
+            const pending = AppState.deposits.filter(d => d.status === 'pending').length + AppState.orders.filter(o => o.status === 'pending').length;
+            const badge = document.getElementById('badge-inbox');
+            const badgeMob = document.getElementById('badge-inbox-mobile');
+            if (pending > 0) {
+                if(badge) { badge.innerText = pending; badge.style.display = 'inline-block'; }
+                if(badgeMob) { badgeMob.innerText = pending; badgeMob.style.display = 'flex'; }
+            } else {
+                if(badge) badge.style.display = 'none';
+                if(badgeMob) badgeMob.style.display = 'none';
+            }
+        }
+
+        // 7. Render Functions
+        function updateDashboard() {
+            document.getElementById('stat-users').innerText = AppState.users.length;
+            document.getElementById('stat-orders').innerText = AppState.orders.filter(o => o.status === 'pending').length;
+            document.getElementById('stat-deposits').innerText = AppState.deposits.filter(d => d.status === 'pending').length;
+            
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const textColor = isDark ? '#E2E8F0' : '#0F172A';
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (mainChart) mainChart.destroy();
+            mainChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['معلق', 'مكتمل', 'مرفوض'],
+                    datasets: [{
+                        data: [
+                            AppState.orders.filter(o => o.status === 'pending').length,
+                            AppState.orders.filter(o => o.status === 'completed').length,
+                            AppState.orders.filter(o => o.status === 'failed').length
+                        ],
+                        backgroundColor: ['#F59E0B', '#10B981', '#EF4444'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: textColor, font: {family: 'Cairo'} } } } }
+            });
+        }
+
+        function renderInbox() {
+            const container = document.getElementById('inbox-list');
+            container.innerHTML = '';
+            const pending = AppState.deposits.filter(d => d.status === 'pending');
+            if (!pending.length) { container.innerHTML = '<p style="color:var(--text-2); text-align:center; width:100%;">لا توجد إرساليات معلقة</p>'; return; }
+            
+            pending.forEach(d => {
+                container.innerHTML += `
+                    <div class="card" style="border-right: 4px solid var(--warning);">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                            <strong class="ltr">${escapeHtml(d.transaction_id)} <button class="copy-btn" onclick="copyText('${d.transaction_id}')">📋</button></strong>
+                            <input type="checkbox" onchange="toggleBulk(${d.id})">
+                        </div>
+                        <p style="margin-bottom:10px;">المستخدم: ${escapeHtml(d.user_name)} <br> المبلغ: <strong style="color:var(--success);">$${d.amount}</strong></p>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn btn-success btn-sm" style="flex:1;" onclick="approveDeposit(${d.id}, this)">قبول</button>
+                            <button class="btn btn-danger btn-sm" style="flex:1;" onclick="rejectDeposit(${d.id}, this)">رفض</button>
+                            <button class="btn btn-outline btn-sm" onclick="viewDepositDetails(${d.id})">تفاصيل</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderOrders() {
+            const container = document.getElementById('orders-list');
+            container.innerHTML = AppState.orders.map(o => `
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <strong class="ltr">${escapeHtml(o.order_number)} <button class="copy-btn" onclick="copyText('${o.order_number}')">📋</button></strong>
+                        <span class="badge ${o.status === 'pending' ? 'pending' : (o.status === 'completed' ? 'completed' : 'failed')}">${o.status}</span>
+                    </div>
+                    <p style="margin-bottom:10px;">المنتج: ${escapeHtml(o.product_name)} <br> السعر: <strong>$${o.total_price}</strong></p>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-outline btn-sm" style="flex:1;" onclick="viewOrderDetails(${o.id})">تفاصيل</button>
+                        ${o.status === 'pending' ? `
+                        <button class="btn btn-success btn-sm" style="flex:1;" onclick="updateOrderStatus(${o.id}, 'completed')">إكمال</button>
+                        <button class="btn btn-danger btn-sm" style="flex:1;" onclick="updateOrderStatus(${o.id}, 'failed')">رفض</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderDeposits() {
+            const container = document.getElementById('deposits-list');
+            container.innerHTML = AppState.deposits.map(d => `
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                        <strong class="ltr">${escapeHtml(d.transaction_id)} <button class="copy-btn" onclick="copyText('${d.transaction_id}')">📋</button></strong>
+                        <span class="badge ${d.status === 'pending' ? 'pending' : (d.status === 'approved' ? 'completed' : 'failed')}">${d.status}</span>
+                    </div>
+                    <p style="margin-bottom:10px;">المستخدم: ${escapeHtml(d.user_name)} <br> المبلغ: <strong>$${d.amount}</strong></p>
+                    ${d.status === 'pending' ? `
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-success btn-sm" style="flex:1;" onclick="approveDeposit(${d.id}, this)">قبول</button>
+                        <button class="btn btn-danger btn-sm" style="flex:1;" onclick="rejectDeposit(${d.id}, this)">رفض</button>
+                    </div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderUsers() {
+            const tbody = document.getElementById('users-table');
+            tbody.innerHTML = AppState.users.map(u => `
+                <tr>
+                    <td class="ltr">${escapeHtml(u.telegram_id)} <button class="copy-btn" onclick="copyText('${u.telegram_id}')">📋</button></td>
+                    <td>${escapeHtml(u.first_name)}</td>
+                    <td style="color:${u.balance < 0 ? 'var(--danger)' : 'var(--success)'};">$${u.balance}</td>
+                    <td><span class="badge ${u.is_banned ? 'failed' : 'completed'}">${u.is_banned ? 'محظور' : 'نشط'}</span></td>
+                    <td>
+                        <button class="btn btn-outline btn-sm" onclick="viewUserDetails(${u.id})">👁️</button>
+                        <button class="btn btn-primary btn-sm" onclick="openAdjustBalance(${u.id})">تعديل</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderKYC() {
+            const tbody = document.getElementById('kyc-table');
+            tbody.innerHTML = AppState.kyc.map(k => `
+                <tr>
+                    <td>${escapeHtml(k.full_name)}</td>
+                    <td class="ltr">${escapeHtml(k.phone)}</td>
+                    <td><span class="badge pending">${k.status}</span></td>
+                    <td><button class="btn btn-outline btn-sm" onclick="viewKYCImage('${escapeHtml(k.selfie_image)}')">عرض</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderProducts() {
+            const tbody = document.getElementById('products-table');
+            tbody.innerHTML = AppState.products.map(p => `
+                <tr><td>${escapeHtml(p.name)}</td><td>$${p.base_price}</td><td><button class="btn btn-danger btn-sm">حذف</button></td></tr>
+            `).join('');
+        }
+
+        function renderCategories() {
+            const grid = document.getElementById('categories-grid');
+            grid.innerHTML = AppState.categories.map(c => `
+                <div class="card" style="text-align:center;"><div style="font-size:40px;">${c.icon || '📁'}</div><h3>${escapeHtml(c.name)}</h3></div>
+            `).join('');
+        }
+
+        function renderSettings() {
+            if (AppState.settings.store_name) document.getElementById('setStoreName').value = AppState.settings.store_name;
+            if (AppState.settings.syp_rate) document.getElementById('setSypRate').value = AppState.settings.syp_rate;
+        }
+
+        // 8. Actions & Modals
+        function openModal(content) {
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('modal').classList.add('active');
+        }
+        function closeModal() { document.getElementById('modal').classList.remove('active'); }
+        function viewKYCImage(url) {
+            document.getElementById('lightboxImg').src = url;
+            document.getElementById('lightbox').classList.add('active');
+        }
+
+        // 9. Order Details Modal (The Masterpiece)
+        function viewOrderDetails(id) {
+            const o = AppState.orders.find(x => x.id === id);
+            if(!o) return;
+            
+            // Format delivery data safely
+            let deliveryHtml = '';
+            if (o.delivery_data) {
+                try {
+                    const data = typeof o.delivery_data === 'string' ? JSON.parse(o.delivery_data) : o.delivery_data;
+                    for (const [key, val] of Object.entries(data)) {
+                        deliveryHtml += `<div class="detail-row"><span class="detail-label">${escapeHtml(key)}</span><span class="detail-value ltr">${escapeHtml(val)} <button class="copy-btn" onclick="copyText('${escapeHtml(val)}')">📋</button></span></div>`;
+                    }
+                } catch(e) { deliveryHtml = `<div class="detail-row">${escapeHtml(o.delivery_data)}</div>`; }
+            }
+
+            openModal(`
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                    <h3 style="color:var(--primary);" class="ltr">${escapeHtml(o.order_number)}</h3>
+                    <span class="badge ${o.status === 'pending' ? 'pending' : (o.status === 'completed' ? 'completed' : 'failed')}">${o.status}</span>
+                </div>
+                
+                <h4 style="margin:15px 0 10px 0; color:var(--text-2); font-size:14px;">تفاصيل العميل</h4>
+                <div style="background:var(--surface-2); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    <div class="detail-row"><span class="detail-label">الاسم</span><span class="detail-value">${escapeHtml(o.user_name || 'غير معروف')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Telegram ID</span><span class="detail-value ltr">${escapeHtml(o.user_telegram || '-')} <button class="copy-btn" onclick="copyText('${o.user_telegram}')">📋</button></span></div>
+                    <button class="btn btn-outline btn-sm" style="width:100%; margin-top:10px;" onclick="closeModal(); viewUserDetails(${o.user_id})">عرض ملف العميل</button>
+                </div>
+
+                <h4 style="margin:15px 0 10px 0; color:var(--text-2); font-size:14px;">تفاصيل الطلب</h4>
+                <div style="background:var(--surface-2); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    <div class="detail-row"><span class="detail-label">المنتج</span><span class="detail-value">${escapeHtml(o.product_name)}</span></div>
+                    <div class="detail-row"><span class="detail-label">الكمية</span><span class="detail-value">${o.quantity} ${escapeHtml(o.unit_name || 'قطعة')}</span></div>
+                    <div class="detail-row"><span class="detail-label">سعر الوحدة</span><span class="detail-value">$${o.unit_price}</span></div>
+                    <div class="detail-row" style="margin-top:10px; border-top:1px solid var(--border); padding-top:10px;">
+                        <span class="detail-label" style="font-size:16px; color:var(--text);">الإجمالي</span>
+                        <span class="detail-value" style="font-size:18px; color:var(--success);">$${o.total_price}</span>
+                    </div>
+                </div>
+
+                <h4 style="margin:15px 0 10px 0; color:var(--text-2); font-size:14px;">بيانات التسليم</h4>
+                <div style="background:var(--surface-2); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    ${deliveryHtml || '<div style="text-align:center; color:var(--text-3);">لا توجد بيانات</div>'}
+                </div>
+
+                ${o.status === 'pending' ? `
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <button class="btn btn-success" style="flex:1;" onclick="closeModal(); updateOrderStatus(${o.id}, 'completed')">إكمال الطلب</button>
+                    <button class="btn btn-danger" style="flex:1;" onclick="closeModal(); updateOrderStatus(${o.id}, 'failed')">رفض الطلب</button>
+                </div>
+                ` : ''}
+                <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="closeModal()">إغلاق</button>
+            `);
+        }
+
+        function viewUserDetails(id) {
+            const u = AppState.users.find(x => x.id === id);
+            if(!u) return;
+            openModal(`
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                    <h3>ملف المستخدم</h3>
+                    <span class="badge ${u.is_banned ? 'failed' : 'completed'}">${u.is_banned ? 'محظور' : 'نشط'}</span>
+                </div>
+                <div style="background:var(--surface-2); border-radius:10px; padding:15px; margin-bottom:15px;">
+                    <div class="detail-row"><span class="detail-label">الاسم</span><span class="detail-value">${escapeHtml(u.first_name || 'مستخدم')}</span></div>
+                    <div class="detail-row"><span class="detail-label">Telegram ID</span><span class="detail-value ltr">${escapeHtml(u.telegram_id)} <button class="copy-btn" onclick="copyText('${u.telegram_id}')">📋</button></span></div>
+                    <div class="detail-row"><span class="detail-label">الرصيد</span><span class="detail-value" style="color:var(--success); font-size:18px;">$${u.balance}</span></div>
+                    <div class="detail-row"><span class="detail-label">KYC</span><span class="detail-value">${u.kyc_status}</span></div>
+                </div>
+                <button class="btn btn-primary" style="width:100%; margin-bottom:10px;" onclick="closeModal(); openAdjustBalance(${u.id})">تعديل الرصيد</button>
+                <button class="btn btn-outline" style="width:100%;" onclick="closeModal()">إغلاق</button>
+            `);
+        }
+
+        function openAdjustBalance(id) {
+            openModal(`
+                <h3>تعديل الرصيد</h3>
+                <input type="number" id="adjAmount" class="form-control" placeholder="المبلغ (مثال: 10)">
+                <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="confirmAdjust(${id})">حفظ</button>
+            `);
+        }
+
+        async function confirmAdjust(id) {
+            const amount = parseFloat(document.getElementById('adjAmount').value);
+            const res = await apiCall(`/admin/api/users/${id}/balance`, 'POST', { amount });
+            if (res) { showToast('تم التعديل', 'success'); closeModal(); loadAllData(); }
+        }
+
+        // 10. Bulk Actions & Filters
+        function toggleBulk(id) {
+            if (AppState.selected.has(id)) AppState.selected.delete(id); else AppState.selected.add(id);
+            document.getElementById('bulkCount').innerText = AppState.selected.size;
+            document.getElementById('bulkBar').classList.toggle('active', AppState.selected.size > 0);
+        }
+
+        function clearBulk() {
+            AppState.selected.clear();
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+            document.getElementById('bulkBar').classList.remove('active');
+        }
+
+        function filterTable(tableId, query) {
+            const rows = document.getElementById(tableId).getElementsByTagName('tr');
+            for (let row of rows) row.style.display = row.innerText.includes(query) ? '' : 'none';
+        }
+
+        function toggleAutoRefresh() {
+            const isChecked = document.getElementById('autoRefresh').checked;
+            if (isChecked) {
+                autoRefreshTimer = setInterval(loadAllData, 30000);
+                showToast('التحديث التلقائي مفعل', 'info');
+            } else {
+                clearInterval(autoRefreshTimer);
+                showToast('التحديث التلقائي متوقف', 'info');
+            }
+        }
+
+        // 11. Excel Export
+        function exportExcel(type) {
+            let data = [], filename = '';
+            if(type === 'users') { data = AppState.users; filename = 'users'; }
+            if(type === 'orders') { data = AppState.orders; filename = 'orders'; }
+            if(type === 'deposits') { data = AppState.deposits; filename = 'deposits'; }
+            
+            if(!data.length) return showToast('لا توجد بيانات', 'warning');
+            
+            // Basic Excel generation using SheetJS
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        function showToast(msg, type) {
+            const el = document.createElement('div');
+            el.className = 'toast';
+            el.innerHTML = `<span class="material-icons">info</span> ${msg}`;
+            document.getElementById('toastContainer').appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        // 12. Init
+        window.onload = () => {
+            if (window.innerWidth < 768) {
+                document.getElementById('mobileMenuBtn').classList.remove('hidden');
+                document.querySelector('.bottom-nav').classList.remove('hidden');
+            }
+            if (!getToken()) {
+                document.getElementById('loginScreen').classList.remove('hidden');
+            } else {
+                loadAllData();
+            }
+        };
+    </script>
+<script src="js/admin_v3.js"></script></body>
+</html>]
