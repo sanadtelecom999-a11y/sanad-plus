@@ -1,7 +1,3 @@
-// ==========================================
-// SANAD PLUS+ Admin Panel v3 (The Ultimate Fix)
-// ==========================================
-
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
 let currentSessionId = null;
@@ -50,15 +46,39 @@ function previewImage(input, previewId) {
     } else { preview.src = ''; preview.classList.add('hidden'); }
 }
 
+// ⚠️ دالة الاتصال الصارمة (تظهر أي خطأ)
 async function apiCall(endpoint, method = 'GET', body = null) {
-    const headers = { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const config = { method, headers };
     if (body) config.body = JSON.stringify(body);
+
     try {
         const res = await fetch(`${API_URL}${endpoint}`, config);
-        if (res.status === 401) { handleLogout(); return null; }
+        
+        if (res.status === 401) {
+            Swal.fire('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً', 'warning').then(() => handleLogout());
+            throw new Error("Unauthorized");
+        }
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(`HTTP ${res.status}: ${errorData.error || res.statusText}`);
+        }
+
         return await res.json();
-    } catch (error) { return null; }
+    } catch (error) {
+        console.error(`API Error [${endpoint}]:`, error);
+        Swal.fire({
+            icon: 'error',
+            title: 'فشل الاتصال بالسيرفر',
+            text: `المسار: ${endpoint}\nالخطأ: ${error.message}`,
+            background: '#1e293b', color: '#fff'
+        });
+        return null;
+    }
 }
 
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
@@ -94,7 +114,6 @@ async function loadInbox() {
     
     const data = await apiCall('/admin/api/deposits');
     if(data && data.deposits) {
-        // تحديث الشارة الحمراء في القائمة الجانبية
         const badge = document.getElementById('sidebarInboxBadge');
         if(badge) {
             badge.innerText = data.deposits.length;
@@ -122,6 +141,8 @@ async function loadInbox() {
             </div>
         `).join('');
         lucide.createIcons();
+    } else {
+        container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-danger">فشل تحميل الإرساليات. (راجع رسالة الخطأ)</div>';
     }
 }
 
@@ -140,9 +161,7 @@ async function handleDepositAction(id, action) {
         const res = await apiCall(`/admin/api/deposits/${id}/${action}`, 'POST');
         if(res && res.success) {
             Swal.fire({icon: 'success', title: 'تمت العملية', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'});
-            loadInbox(); // تحديث القائمة
-        } else {
-            Swal.fire({icon: 'error', title: 'خطأ', text: 'فشلت العملية', background: '#1e293b', color: '#fff'});
+            loadInbox();
         }
     }
 }
@@ -180,7 +199,6 @@ async function saveProduct() {
     else { data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0; data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0; }
     const res = await apiCall('/admin/api/products', 'POST', data);
     if (res && res.success) { Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addProductModal'); loadProducts(); } 
-    else { Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل الحفظ', background: '#1e293b', color: '#fff'}); }
 }
 
 async function loadProducts() {
@@ -263,7 +281,6 @@ async function editUserBalance(id, currentBalance, name) {
         const newBalance = formValues.action === 'add' ? currentBalance + formValues.amount : currentBalance - formValues.amount;
         const res = await apiCall(`/admin/api/users/${id}/balance`, 'POST', { balance: newBalance });
         if (res && res.success) { Swal.fire({ icon: 'success', title: 'تم التعديل', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff' }); loadUsers(); } 
-        else { Swal.fire({ icon: 'error', title: 'خطأ', text: res?.error || 'فشل التعديل', background: '#1e293b', color: '#fff' }); }
     }
 }
 
@@ -281,7 +298,6 @@ function switchSection(sectionId, btnElement) {
         btnElement.classList.remove('text-slate-400'); btnElement.classList.add('bg-slate-700/50', 'text-white');
     }
 
-    // هنا يتم استدعاء الدالة الصحيحة لكل قسم
     if (sectionId === 'dashboard') loadDashboardStats();
     if (sectionId === 'inbox') loadInbox();
     if (sectionId === 'users') loadUsers();
