@@ -19,7 +19,7 @@ async function handleLogin() {
             document.getElementById('loginStep2').classList.remove('hidden');
             Swal.fire({icon: 'info', title: 'تم الإرسال', text: 'تفقد حسابك في تليجرام للحصول على الرمز', background: '#1e293b', color: '#fff'});
         } else { Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'بيانات غير صحيحة', background: '#1e293b', color: '#fff'}); }
-    } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال', background: '#1e293b', color: '#fff'}); }
+    } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال بالسيرفر', background: '#1e293b', color: '#fff'}); }
 }
 
 async function verifyOTP() {
@@ -36,7 +36,49 @@ async function verifyOTP() {
     } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال', background: '#1e293b', color: '#fff'}); }
 }
 
-// ================= Helpers =================
+// ================= Helper: Strict API Call (Point 1) =================
+async function apiCall(endpoint, method = 'GET', body = null) {
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const config = { method, headers };
+    if (body) config.body = JSON.stringify(body);
+
+    try {
+        const res = await fetch(`${API_URL}${endpoint}`, config);
+        
+        // 1. معالجة 401 فوراً
+        if (res.status === 401) {
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('token');
+            Swal.fire({
+                icon: 'warning',
+                title: 'انتهت الجلسة',
+                text: 'يرجى تسجيل الدخول مجدداً',
+                background: '#1e293b', color: '#fff',
+                confirmButtonText: 'حسناً'
+            }).then(() => {
+                window.location.reload(); // إعادة التوجيه لشاشة الدخول
+            });
+            throw new Error("Unauthorized");
+        }
+
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(`HTTP ${res.status}: ${errorData.error || res.statusText}`);
+        }
+
+        return await res.json();
+    } catch (error) {
+        console.error(`API Error [${endpoint}]:`, error);
+        if (error.message !== "Unauthorized") {
+            Swal.fire({ icon: 'error', title: 'فشل الاتصال', text: `المسار: ${endpoint}\nالخطأ: ${error.message}`, background: '#1e293b', color: '#fff' });
+        }
+        return null;
+    }
+}
+
 function previewImage(input, previewId) {
     const preview = document.getElementById(previewId);
     if (input.files && input.files[0]) {
@@ -46,28 +88,10 @@ function previewImage(input, previewId) {
     } else { preview.src = ''; preview.classList.add('hidden'); }
 }
 
-async function apiCall(endpoint, method = 'GET', body = null) {
-    const token = getToken();
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-    const config = { method, headers };
-    if (body) config.body = JSON.stringify(body);
-    try {
-        const res = await fetch(`${API_URL}${endpoint}`, config);
-        if (res.status === 401) { Swal.fire('انتهت الجلسة', 'يرجى تسجيل الدخول مجدداً', 'warning').then(() => handleLogout()); throw new Error("Unauthorized"); }
-        if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(`HTTP ${res.status}: ${e.error || res.statusText}`); }
-        return await res.json();
-    } catch (error) {
-        console.error(`API Error [${endpoint}]:`, error);
-        Swal.fire({ icon: 'error', title: 'فشل الاتصال', text: `المسار: ${endpoint}\nالخطأ: ${error.message}`, background: '#1e293b', color: '#fff' });
-        return null;
-    }
-}
-
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-// ================= Dashboard Stats =================
+// ================= Dashboard Stats (Point 3: Data Mapping) =================
 async function loadDashboardStats() {
     const data = await apiCall('/admin/api/stats');
     if (data) {
@@ -85,7 +109,7 @@ function initChart() {
     dashboardChartInstance = new Chart(ctx, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } } } });
 }
 
-// ================= Inbox =================
+// ================= Inbox (Point 3) =================
 async function loadInbox() {
     const container = document.getElementById('inboxContainer');
     if(!container) return;
@@ -107,7 +131,7 @@ async function loadInbox() {
                 </div>
             </div>`).join('');
         lucide.createIcons();
-    } else { container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-danger">فشل تحميل الإرساليات.</div>'; }
+    } else if (data) { container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد إرساليات جديدة</div>'; }
 }
 async function handleDepositAction(id, action) {
     const isApprove = action === 'approve';
@@ -119,7 +143,7 @@ async function handleDepositAction(id, action) {
     }
 }
 
-// ================= Products =================
+// ================= Products (Point 3) =================
 function togglePricingFields() {
     const type = document.getElementById('prodPricingType').value;
     if (type === 'fixed') { document.getElementById('fixedPriceFields').classList.remove('hidden'); document.getElementById('dynamicPriceFields').classList.add('hidden'); document.getElementById('dynamicPreview').classList.add('hidden'); } 
@@ -159,7 +183,7 @@ async function deleteProduct(id, name) {
     if (result.isConfirmed) { await apiCall(`/admin/api/products/${id}`, 'DELETE'); loadProducts(); }
 }
 
-// ================= Categories =================
+// ================= Categories (Point 3) =================
 async function saveCategory() {
     const name = document.getElementById('catName').value;
     const imageFile = document.getElementById('catImageFile').files[0];
@@ -187,7 +211,7 @@ async function deleteCategory(id, name) {
     if (result.isConfirmed) { await apiCall(`/admin/api/categories/${id}`, 'DELETE'); loadCategories(); }
 }
 
-// ================= Users =================
+// ================= Users (Point 3) =================
 async function loadUsers() {
     const data = await apiCall('/admin/api/users');
     if (data && data.users) {

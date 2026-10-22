@@ -30,7 +30,6 @@
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row">
 
-    <!-- Login Screen -->
     <div id="loginScreen" class="fixed inset-0 bg-dark z-50 flex items-center justify-center">
         <div class="glass p-8 rounded-3xl w-96 text-center border-t-4 border-t-accent">
             <div class="text-accent font-bold text-3xl mb-8 tracking-wider">SANAD+</div>
@@ -47,7 +46,6 @@
         </div>
     </div>
 
-    <!-- Sidebar -->
     <aside class="hidden md:flex w-64 glass border-l border-slate-700/50 flex-col py-6 z-10 h-full overflow-y-auto scrollbar-hide">
         <div class="text-accent font-bold text-2xl mb-8 px-6 tracking-wider">SANAD+</div>
         <div class="px-4 mb-2 text-xs text-slate-500 font-bold">العمليات</div>
@@ -72,7 +70,6 @@
         </nav>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 h-full overflow-y-auto pb-20 md:pb-0 relative">
         <header class="sticky top-0 z-20 glass flex justify-between items-center p-4 md:p-6 border-b border-slate-700/50">
             <h2 id="page-title" class="text-2xl font-bold text-white">لوحة التحكم</h2>
@@ -80,7 +77,6 @@
         </header>
 
         <div class="p-4 md:p-8">
-            <!-- Sections -->
             <section id="section-dashboard" class="content-section block">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
@@ -120,7 +116,6 @@
         </div>
     </main>
 
-    <!-- Modals -->
     <div id="addProductModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div class="glass rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border-t-4 border-t-accent">
             <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white">إضافة منتج جديد</h3><button onclick="closeModal('addProductModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button></div>
@@ -161,8 +156,8 @@
         </div>
     </div>
 
-    <!-- ⚠️ تم تغيير اسم الملف إلى admin_v3.js?v=2 لكسر الكاش -->
-    <script src="js/admin_v3.js?v=2"></script>
+    <!-- Point 4: Cache Busting (v=3) -->
+    <script src="js/admin_v3.js?v=3"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
