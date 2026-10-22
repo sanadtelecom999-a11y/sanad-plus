@@ -1,3 +1,7 @@
+// ==========================================
+// SANAD PLUS+ Admin Panel v3 (The Ultimate Fix)
+// ==========================================
+
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
 let currentSessionId = null;
@@ -82,6 +86,67 @@ function initChart() {
     });
 }
 
+// ================= Inbox (Deposits) =================
+async function loadInbox() {
+    const container = document.getElementById('inboxContainer');
+    if(!container) return;
+    container.innerHTML = '<div class="col-span-full text-center text-slate-400 animate-pulse py-4">جاري تحميل الإرساليات...</div>';
+    
+    const data = await apiCall('/admin/api/deposits');
+    if(data && data.deposits) {
+        // تحديث الشارة الحمراء في القائمة الجانبية
+        const badge = document.getElementById('sidebarInboxBadge');
+        if(badge) {
+            badge.innerText = data.deposits.length;
+            badge.style.display = data.deposits.length > 0 ? 'inline-block' : 'none';
+        }
+
+        if(data.deposits.length === 0) {
+            container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد إرساليات جديدة</div>';
+            return;
+        }
+
+        container.innerHTML = data.deposits.map(item => `
+            <div class="glass bento-card rounded-3xl p-5 border-t-4 border-t-accent">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="credit-card" size="18" class="text-slate-400"></i>
+                        <span class="font-bold text-white">إيداع بمبلغ $${item.amount}</span>
+                    </div>
+                    <span class="bg-slate-800 text-xs px-2 py-1 rounded-lg text-slate-300">${item.user?.first_name || 'مستخدم'}</span>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="handleDepositAction(${item.id}, 'approve')" class="flex-1 bg-primary hover:bg-emerald-600 text-white py-2 rounded-xl text-sm font-bold">قبول</button>
+                    <button onclick="handleDepositAction(${item.id}, 'reject')" class="flex-1 bg-danger hover:bg-red-600 text-white py-2 rounded-xl text-sm font-bold">رفض</button>
+                </div>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+}
+
+async function handleDepositAction(id, action) {
+    const isApprove = action === 'approve';
+    const result = await Swal.fire({
+        title: isApprove ? 'تأكيد القبول' : 'تأكيد الرفض',
+        text: `هل أنت متأكد من ${isApprove ? 'قبول' : 'رفض'} هذا الإيداع؟`,
+        icon: isApprove ? 'question' : 'warning',
+        showCancelButton: true, confirmButtonColor: isApprove ? '#10b981' : '#ef4444',
+        confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff'
+    });
+
+    if (result.isConfirmed) {
+        Swal.fire({ title: 'جاري المعالجة...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
+        const res = await apiCall(`/admin/api/deposits/${id}/${action}`, 'POST');
+        if(res && res.success) {
+            Swal.fire({icon: 'success', title: 'تمت العملية', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'});
+            loadInbox(); // تحديث القائمة
+        } else {
+            Swal.fire({icon: 'error', title: 'خطأ', text: 'فشلت العملية', background: '#1e293b', color: '#fff'});
+        }
+    }
+}
+
 // ================= Products =================
 function togglePricingFields() {
     const type = document.getElementById('prodPricingType').value;
@@ -154,7 +219,7 @@ async function loadCategories() {
         document.getElementById('categoriesContainer').innerHTML = data.categories.map(c => `
             <div class="glass bento-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative">
                 <button onclick="deleteCategory(${c.id}, '${c.name}')" class="absolute top-2 right-2 text-red-500"><i data-lucide="x" size="18"></i></button>
-                <img src="${c.image || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-xl mb-2">
+                <img src="${c.image || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-xl mb-2 object-cover">
                 <span class="font-bold text-white">${c.name}</span>
             </div>`).join('');
         lucide.createIcons();
@@ -207,13 +272,18 @@ function switchSection(sectionId, btnElement) {
     document.querySelectorAll('.content-section').forEach(sec => sec.classList.add('hidden'));
     const target = document.getElementById('section-' + sectionId);
     if (target) { target.classList.remove('hidden'); target.classList.add('block'); }
+    
     const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'users': 'إدارة المستخدمين', 'products': 'المنتجات', 'categories': 'الأقسام', 'settings': 'الإعدادات' };
     document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
+    
     if (btnElement) {
         document.querySelectorAll('.nav-btn').forEach(btn => { btn.classList.remove('bg-slate-700/50', 'text-white'); btn.classList.add('text-slate-400'); });
         btnElement.classList.remove('text-slate-400'); btnElement.classList.add('bg-slate-700/50', 'text-white');
     }
+
+    // هنا يتم استدعاء الدالة الصحيحة لكل قسم
     if (sectionId === 'dashboard') loadDashboardStats();
+    if (sectionId === 'inbox') loadInbox();
     if (sectionId === 'users') loadUsers();
     if (sectionId === 'products') loadProducts();
     if (sectionId === 'categories') loadCategories();
@@ -224,12 +294,3 @@ window.onload = () => {
     if (!getToken()) { document.getElementById('loginScreen').style.display = 'flex'; } 
     else { document.getElementById('loginScreen').style.display = 'none'; switchSection('dashboard', document.querySelector('.nav-btn')); } 
 };
-
-// SRE FIX: Force loading stats after login
-document.addEventListener('DOMContentLoaded', () => {
-    if(getToken()) {
-        setTimeout(() => {
-            if(typeof loadDashboardStats === 'function') loadDashboardStats();
-        }, 500);
-    }
-});
