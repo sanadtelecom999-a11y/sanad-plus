@@ -1,209 +1,429 @@
+# ============================================================
+# 🤖 SANAD PLUS⁺ Bot — v18.5.1 (Full Original + SRE Fixes)
+# ============================================================
 import os
 import logging
-import asyncio
+import requests
 import time
-from datetime import datetime, timezone
-import httpx
-import redis
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+import asyncio
+from collections import defaultdict
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+ENV_PATHS = [
+    os.path.join(os.path.dirname(__file__), '..', 'backend', '.env'),
+    os.path.join(os.path.dirname(__file__), '..', '.env'),
+]
+for env_path in ENV_PATHS:
+    if os.path.exists(env_path):
+        if load_dotenv:
+            load_dotenv(env_path)
+        break
+
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# ============================================================
-# 🛡️ 1. إعدادات النظام (Config & Sentry)
-# ============================================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
-REDIS_URL = os.getenv("REDIS_URL", "")
-MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "0")
-TELEGRAM_ADMIN_IDS = os.getenv("TELEGRAM_ADMIN_IDS", "")
-BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
-
-ADMIN_IDS = [int(x.strip()) for x in TELEGRAM_ADMIN_IDS.split(",") if x.strip()]
-BOT_VERSION = "v18.5.0"
-MINIAPP_VERSION = "22"
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# Early logger definition (v18.4.14 — fixes ADMIN_IDS parse bug)
 logger = logging.getLogger(__name__)
 
-_SENTRY_AVAILABLE = False
-SENTRY_DSN = os.getenv("SENTRY_DSN", "")
-if SENTRY_DSN:
-    try:
-        import sentry_sdk
-        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.1)
-        _SENTRY_AVAILABLE = True
-    except ImportError:
-        pass
-
 # ============================================================
-# 🔗 2. التكامل مع الـ Backend
-# ============================================================
-def get_miniapp_url():
-    return f"{BACKEND_URL}/?v={MINIAPP_VERSION}"
-
-def notify_admins_sync(message: str):
-    """إرسال إشعار للمالكين بشكل متزامن عبر HTTP"""
-    if not BOT_TOKEN or not ADMIN_IDS:
-        return
-    import requests
-    for admin_id in ADMIN_IDS:
-        try:
-            requests.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                json={"chat_id": admin_id, "text": message},
-                timeout=5
-            )
-        except Exception as e:
-            logger.error(f"Failed to notify admin {admin_id}: {e}")
-
-# ============================================================
-# 🛡️ 3. الحماية والـ Rate Limiting (SRE Fixes)
+# 🛡 Sentry (already initialized in bot_main.py — just import)
 # ============================================================
 try:
-    redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
-except Exception as e:
-    logger.error(f"Redis connection failed: {e}")
-    redis_client = None
+    import sentry_sdk
+    _SENTRY_AVAILABLE = True
+except ImportError:
+    _SENTRY_AVAILABLE = False
 
-_mem_rate_limits = {}
+# ============================================================
+# ============ Environment Variables ============
+# ============================================================
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+TELEGRAM_ADMIN_IDS_STR = os.getenv("TELEGRAM_ADMIN_IDS", "")
 
-def _mem_rate_limit(user_id, limit=15):
-    """Fallback صارم في الذاكرة عند سقوط Redis"""
-    now = time.time()
-    if user_id not in _mem_rate_limits:
-        _mem_rate_limits[user_id] = []
-    _mem_rate_limits[user_id] = [t for t in _mem_rate_limits[user_id] if now - t < 60]
-    if len(_mem_rate_limits[user_id]) >= limit:
+# SRE FIX: تنظيف الرابط الافتراضي لتجنب تداخل الـ Query Params
+MINIAPP_URL = os.getenv("MINIAPP_URL", "https://sanad-plus.vercel.app/").split('?')[0]
+ADMIN_PANEL_URL = os.getenv("ADMIN_PANEL_URL", "https://sanad-plus-admi.vercel.app")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://sanad-plus-backend.onrender.com")
+BOT_API_SECRET = os.getenv("BOT_API_SECRET", "")
+
+ADMIN_IDS = []
+for _x in TELEGRAM_ADMIN_IDS_STR.split(","):
+    _x = _x.strip()
+    if not _x:
+        continue
+    try:
+        ADMIN_IDS.append(int(_x))
+    except ValueError:
+        logger.warning(f"⚠️ Invalid admin ID: {_x}")
+
+# ============================================================
+# ============ Logging Setup ============
+# ============================================================
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
+if not ADMIN_IDS:
+    logger.warning("⚠️ TELEGRAM_ADMIN_IDS فارغ — لن تُرسل تنبيهات!")
+
+# 🔒 إخفاء التوكن من httpx/telegram logs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+logging.getLogger("telegram.request").setLevel(logging.WARNING)
+
+
+# ============================================================
+# ============ Version (Cache Buster) ============
+# ============================================================
+MINIAPP_VERSION = "22"
+BOT_VERSION = "v18.5.1-SRE"
+
+def get_miniapp_url():
+    """رابط MiniApp مع cache buster"""
+    separator = "&" if "?" in MINIAPP_URL else "?"
+    return f"{MINIAPP_URL}{separator}v={MINIAPP_VERSION}"
+
+# ============================================================
+# ============ 🛡 Rate Limiting ============
+# ============================================================
+_rate_limit_store = defaultdict(list)
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 10
+
+def is_rate_limited(user_id):
+    if user_id in ADMIN_IDS:
         return False
-    _mem_rate_limits[user_id].append(now)
-    return True
 
-def rate_limit_decorator(func):
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
-        user_id = update.effective_user.id
+    # ═══ محاولة Redis أولاً ═══
+    try:
+        from app.services.cache_service import rate_limit_check
+        result = rate_limit_check(
+            key=f"bot:{user_id}",
+            max_requests=RATE_LIMIT_MAX,
+            window_seconds=RATE_LIMIT_WINDOW,
+        )
+        if result is not None:
+            return result
+    except Exception as e:
+        logger.warning(f"Redis rate-limit unavailable, using memory: {e}")
+
+    # ═══ Fallback: in-memory ═══
+    # 🆕 v18.4.14: Emergency flush — memory leak prevention
+    if len(_rate_limit_store) > 50_000:
+        logger.warning(f"🚨 _rate_limit_store overflow ({len(_rate_limit_store)} keys) — flushing")
+        if _SENTRY_AVAILABLE:
+            try:
+                sentry_sdk.capture_message("Rate limit fallback overflow", level="warning")
+            except Exception:
+                pass
+        _rate_limit_store.clear()
+
+    now = time.time()
+    _rate_limit_store[user_id] = [
+        t for t in _rate_limit_store[user_id]
+        if now - t < RATE_LIMIT_WINDOW
+    ]
+    if len(_rate_limit_store[user_id]) >= RATE_LIMIT_MAX:
+        return True
+    _rate_limit_store[user_id].append(now)
+    return False
+
+
+# ============================================================
+# ============ 🛡 Notify Admins ============
+# ============================================================
+def notify_admins_sync(message: str, important: bool = False):
+    """إرسال تنبيه لكل الأدمن"""
+    emoji = "🚨" if important else "ℹ️"
+    full_message = f"{emoji} {message}"
+
+    for admin_id in ADMIN_IDS:
         try:
-            if redis_client:
-                # استخدام Pipeline لضمان الذرية ومنع الانهيار
-                pipe = redis_client.pipeline()
-                key = f"ratelimit:bot:{user_id}"
-                pipe.incr(key)
-                pipe.expire(key, 60, nx=True)
-                results = pipe.execute()
-                redis_count = results[0]
-                mem_count = len(_mem_rate_limits.get(user_id, []))
-                if max(redis_count, mem_count) > 10:
-                    await update.effective_message.reply_text("⚠️ تجاوزت الحد المسموح، يرجى الانتظار دقيقة.")
-                    return
-            else:
-                if not _mem_rate_limit(user_id, limit=15):
-                    await update.effective_message.reply_text("⚠️ الخدمة تحت الضغط (Fallback)، حاول لاحقاً.")
-                    return
-        except Exception:
-            if not _mem_rate_limit(user_id, limit=15):
-                await update.effective_message.reply_text("⚠️ الخدمة تحت الضغط (Fallback)، حاول لاحقاً.")
-                return
-        return await func(update, context, *args, **kwargs)
-    return wrapper
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+            payload = {
+                "chat_id": admin_id,
+                "text": full_message,
+                "parse_mode": "Markdown"
+            }
+            requests.post(url, json=payload, timeout=5)
+        except Exception as e:
+            logger.error(f"فشل إرسال تنبيه للأدمن {admin_id}: {e}")
 
-def _should_notify_error(exc: Exception) -> bool:
-    """حماية من إغراق المطور بالرسائل"""
-    error_type = type(exc).__name__[:40]
+
+# ============================================================
+# ============ Register / Update User ============
+# ============================================================
+def register_or_update_user(user_id, first_name, last_name, username):
+    """تسجيل أو تحديث المستخدم عبر الـ Backend (مسار البوت)"""
     try:
-        if redis_client:
-            key = f"bot:error_notified:{error_type}"
-            return redis_client.set(key, "1", ex=60, nx=True) is not None
-        return True
-    except Exception:
-        return True
-
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.error(msg="Exception while handling an update:", exc_info=context.error)
-    if _should_notify_error(context.error):
-        logger.warning("Sentry notified about a new error type.")
+        payload = {
+            "telegram_id": user_id,
+            "first_name": first_name or "",
+            "last_name": last_name or "",
+            "username": username or "",
+        }
+        headers = {
+            "X-Bot-Token": BOT_API_SECRET,
+            "Content-Type": "application/json",
+        }
+        response = requests.post(
+            f"{BACKEND_URL}/api/bot/auth",
+            json=payload,
+            headers=headers,
+            timeout=8
+        )
+        if response.ok:
+            data = response.json()
+            logger.info(f"✅ تم تسجيل/تحديث المستخدم {user_id}")
+            return data
+        else:
+            logger.warning(f"⚠️ Backend رجع {response.status_code} — {response.text[:200]}")
+            return None
+    except Exception as e:
+        logger.error(f"❌ خطأ في تسجيل المستخدم: {e}")
+        if _SENTRY_AVAILABLE:
+            sentry_sdk.capture_exception(e)
+        return None
 
 # ============================================================
-# 📱 4. أوامر البوت (Handlers)
+# 🆕 v18: Heartbeat Loop (Redis) - SRE Hardened
 # ============================================================
-@rate_limit_decorator
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if MAINTENANCE_MODE == "1":
-        await update.effective_message.reply_text("🛠️ المتجر تحت الصيانة حالياً. سنعود قريباً جداً!")
-        return
-    
-    keyboard = [[InlineKeyboardButton("🛍️ افتح المتجر", web_app=WebAppInfo(url=get_miniapp_url()))]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.effective_message.reply_text(
-        "أهلاً بك في متجر SANAD PLUS⁺ 🎮\nرصيدك الحالي: يرجى فتح المتجر للتحقق.\nاضغط الزر أدناه لبدء التسوق:",
-        reply_markup=reply_markup
-    )
-
-@rate_limit_decorator
-async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+async def heartbeat_loop():
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.post(
-                f"{BACKEND_URL}/api/bot/auth",
-                headers={"X-Bot-Token": BOT_API_SECRET},
-                json={"telegram_id": user.id, "first_name": user.first_name}
-            )
-            if res.status_code == 200:
-                data = res.json()
-                msg = f"👤 حسابك:\n🆔 المعرف: {data.get('id')}\n💰 الرصيد: {data.get('balance')}$\n📊 المستوى: {data.get('vip_level')}\n✅ التوثيق: {data.get('kyc_status')}"
-                await update.message.reply_text(msg)
-            else:
-                await update.message.reply_text("⚠️ الخدمة غير متاحة حالياً، حاول لاحقاً.")
-    except Exception:
-        await update.message.reply_text("⚠️ تعذر الاتصال بالخادم.")
-
-@rate_limit_decorator
-async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMIN_IDS:
+        from app.services.cache_service import cache_set
+    except Exception as e:
+        logger.error(f"❌ Cannot import cache_set: {e}")
         return
-    await update.message.reply_text(f"⚙️ حالة النظام:\nالإصدار: {BOT_VERSION}\nحالة البوت: يعمل بنجاح ✅")
 
-# ============================================================
-# 💓 5. النبضة والمراقبة (Heartbeat & Monitoring)
-# ============================================================
-async def heartbeat_loop(app):
+    await asyncio.sleep(5)
     while True:
         try:
-            if redis_client:
-                # to_thread لمنع حجب الـ Event Loop
-                await asyncio.to_thread(redis_client.setex, "bot:heartbeat", 180, int(time.time()))
-            
-            # تنظيف ذاكرة الـ Rate Limit
-            now = time.time()
-            for uid in list(_mem_rate_limits.keys()):
-                _mem_rate_limits[uid] = [t for t in _mem_rate_limits[uid] if now - t < 60]
-                if not _mem_rate_limits[uid]:
-                    del _mem_rate_limits[uid]
+            now = int(time.time())
+            # SRE FIX: TTL 180s and use asyncio.to_thread to avoid blocking
+            ok = await asyncio.to_thread(cache_set, "bot:heartbeat", now, ttl=180)
+            if ok:
+                logger.debug(f"💓 Heartbeat sent: {now}")
+            else:
+                logger.warning("⚠️ Heartbeat cache_set failed")
         except Exception as e:
-            logger.warning(f"heartbeat failed (will retry): {e}")
+            logger.warning(f"Heartbeat error: {e}")
         await asyncio.sleep(60)
 
-async def post_init(app: Application):
-    logger.info("🚀 post_init: starting heartbeat loop")
-    asyncio.create_task(heartbeat_loop(app))
+_heartbeat_task = None
 
-async def post_shutdown(app: Application):
-    logger.info("🛑 post_shutdown: cleaning up")
-    if redis_client:
+async def post_init(application: Application):
+    global _heartbeat_task
+    if _heartbeat_task and not _heartbeat_task.done():
+        _heartbeat_task.cancel()
+    logger.info("🚀 post_init: starting heartbeat loop")
+    _heartbeat_task = asyncio.create_task(heartbeat_loop())
+
+async def post_shutdown(application: Application):
+    global _heartbeat_task
+    if _heartbeat_task and not _heartbeat_task.done():
+        _heartbeat_task.cancel()
         try:
-            redis_client.delete("bot:heartbeat")
-        except: pass
+            await _heartbeat_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("🛑 post_shutdown: heartbeat task cancelled")
+
 
 # ============================================================
-# ⚙️ 6. التهيئة والتشغيل (App Setup)
+# ============ /start ============
+# ============================================================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if os.getenv("MAINTENANCE_MODE") == "1":
+        await update.message.reply_text("🛠 المتجر تحت الصيانة حالياً. سنعود قريباً جداً!")
+        return
+    if not update.message or not update.effective_user:
+        return
+    user_id = update.effective_user.id
+    first_name = update.effective_user.first_name or "مستخدم"
+    last_name = update.effective_user.last_name or ""
+    username = update.effective_user.username or ""
+
+    if is_rate_limited(user_id):
+        logger.warning(f"🚫 Rate limit تجاوز المستخدم {user_id}")
+        await update.message.reply_text("⚠️ لقد تجاوزت الحد المسموح من الأوامر.\nيرجى المحاولة بعد دقيقة.")
+        return
+
+    logger.info(f"📥 /start من {user_id} - {first_name} @{username}")
+
+    user_data = register_or_update_user(user_id, first_name, last_name, username)
+
+    keyboard = [
+        [InlineKeyboardButton("🛍 افتح المتجر", web_app=WebAppInfo(url=get_miniapp_url()))]
+    ]
+
+    # ✅ زر لوحة التحكم يعود للظهور (تم التأكد من شرط الـ ADMIN_IDS)
+    if user_id in ADMIN_IDS:
+        keyboard.append([InlineKeyboardButton("📊 لوحة التحكم", url=ADMIN_PANEL_URL)])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if user_data:
+        vip_text = ""
+        if user_data.get('vip_level', 0) > 0:
+            vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}"
+        balance = user_data.get('balance', 0)
+        await update.message.reply_text(
+            f"مرحباً {first_name}{vip_text} 👋\n\n"
+            f"💰 رصيدك: {balance:.2f}$\n\n"
+            f"أهلاً بك في متجر SANAD PLUS⁺\n"
+            f"اختر من الأزرار بالأسفل:",
+            reply_markup=reply_markup,
+        )
+    else:
+        notify_admins_sync(f"⚠️ فشل تسجيل مستخدم\nID: `{user_id}`\nالاسم: {first_name}", important=True)
+        await update.message.reply_text(
+            f"مرحباً {first_name} 👋\n\n"
+            f"أهلاً بك في متجر SANAD PLUS⁺\n"
+            f"اختر من الأزرار بالأسفل:",
+            reply_markup=reply_markup,
+        )
+
+
+# ============================================================
+# ============ /me ============
+# ============================================================
+async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_user:
+        return
+    user_id = update.effective_user.id
+
+    if is_rate_limited(user_id):
+        await update.message.reply_text("⚠️ يرجى المحاولة بعد قليل.")
+        return
+
+    user_data = register_or_update_user(
+        user_id,
+        update.effective_user.first_name or "",
+        update.effective_user.last_name or "",
+        update.effective_user.username or ""
+    )
+
+    if user_data:
+        vip_text = ""
+        if user_data.get('vip_level', 0) > 0:
+            vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}"
+
+        kyc_status = user_data.get('kyc_status', 'غير موثق')
+        balance = user_data.get('balance', 0)
+        
+        # تم إصلاح المسافات البادئة في هذا الجزء
+        message = (
+            f"👤 معلوماتك:\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"الاسم: {user_data.get('first_name', '')} {user_data.get('last_name', '')}\n"
+            f"Telegram ID: `{user_id}`\n"
+            f"الرصيد: {balance:.2f}$\n"
+            f"الحالة KYC: {kyc_status}\n"
+            f"مستوى VIP: {user_data.get('vip_level', 0)}{vip_text}\n"
+        )
+        await update.message.reply_text(message, parse_mode="Markdown")
+    else:
+        await update.message.reply_text("تعذر جلب معلوماتك. حاول لاحقاً.")
+
+
+# ============================================================
+# ============ /admin_info (للأدمن فقط) ============
+# ============================================================
+async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        logger.warning(f"🚫 محاولة وصول غير مصرح بها لـ /admin_info من {user_id}")
+        notify_admins_sync(f"🚫 محاولة وصول غير مصرح بها\nالمستخدم: `{user_id}`\nالأمر: /admin_info", important=True)
+        await update.message.reply_text("⛔️ غير مصرح.")
+        return
+
+    info = (
+        f"📊 معلومات النظام**\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"🤖 **البوت: يعمل ({BOT_VERSION})\n"
+        f"📦 إصدار MiniApp: v{MINIAPP_VERSION}\n"
+        f"🔗 MiniApp URL: {get_miniapp_url()}\n"
+        f"🖥 Backend: {BACKEND_URL}\n"
+        f"👥 عدد الأدمن: {len(ADMIN_IDS)}\n"
+        f"🛡 Sentry: {'✅ نشط' if _SENTRY_AVAILABLE else '❌ غير متوفر'}\n"
+        f"💓 Heartbeat: كل 60s → Redis\n"
+    )
+    await update.message.reply_text(info, parse_mode="Markdown")
+
+
+# ============================================================
+# ============ 🛡 Global Error Handler ============
+# ============================================================
+_error_notify_buckets = defaultdict(list)
+_ERROR_NOTIFY_WINDOW = 300
+_ERROR_NOTIFY_MAX = 3
+_ERROR_NOTIFY_KEY_LEN = 80
+
+def _should_notify_error(error_str: str) -> bool:
+    # SRE FIX: Fail-open try/except
+    try:
+        if not error_str:
+            return True
+        key = error_str[:_ERROR_NOTIFY_KEY_LEN]
+        now = time.time()
+        bucket = int(now // _ERROR_NOTIFY_WINDOW)
+        if len(_error_notify_buckets) > 1000:
+            for k in list(_error_notify_buckets.keys()):
+                if k[1] < bucket:
+                    del _error_notify_buckets[k]
+        full_key = (key, bucket)
+        _error_notify_buckets[full_key].append(now)
+        count = len(_error_notify_buckets[full_key])
+        if count == _ERROR_NOTIFY_MAX + 1:
+            logger.warning(f"Rate limit triggered: {key[:50]}...")
+            return True
+        return count <= _ERROR_NOTIFY_MAX
+    except Exception:
+        return True # Fail-open
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    error_str = str(context.error)
+    if "Conflict" in error_str or "terminated by other getUpdates" in error_str:
+        logger.warning(f"⚠️ Conflict مؤقت — سيُحل تلقائياً")
+        return
+
+    logger.error(f"❌ خطأ في البوت: {context.error}")
+    if _SENTRY_AVAILABLE:
+        try:
+            sentry_sdk.capture_exception(context.error)
+        except Exception as e:
+            logger.error(f"Sentry capture failed: {e}")
+
+    if context.error:
+        error_short = str(context.error)[:300]
+        if _should_notify_error(error_short):
+            try:
+                notify_admins_sync(f"❌ **خطأ في البوت**\n`{error_short}`", important=True)
+            except Exception as e:
+                logger.error(f"Failed to notify admins: {e}")
+        else:
+            logger.debug(f"Error notification throttled: {error_short[:50]}")
+
+# ============================================================
+# ============ App Setup ============
 # ============================================================
 def create_application() -> Application:
     if not BOT_TOKEN:
-        raise ValueError("BOT_TOKEN غير موجود في متغيرات البيئة")
+        raise ValueError("BOT_TOKEN غير موجود في ملف .env")
 
+    # SRE FIX: Added concurrent_updates(32) for handling traffic
     application = (
         Application.builder()
         .token(BOT_TOKEN)
-        .concurrent_updates(32) # منع إشباع الـ Pool
+        .concurrent_updates(32)
         .post_init(post_init)
         .post_shutdown(post_shutdown)
         .build()
@@ -212,9 +432,11 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("me", me))
     application.add_handler(CommandHandler("admin_info", admin_info))
+
     application.add_error_handler(error_handler)
 
     return application
+
 
 def run_polling():
     application = create_application()
@@ -231,6 +453,7 @@ def run_polling():
     )
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     run_polling()
