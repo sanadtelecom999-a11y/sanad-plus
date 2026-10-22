@@ -267,7 +267,7 @@
         }
 
         // 2. الإعدادات
-        const API_BASE = 'https://sanad-plus-backend.onrender.com';
+        const API_BASE = ''; // Proxy via Vercel
         const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
         let mainChartInstance = null;
 
@@ -340,7 +340,8 @@
             document.getElementById('sec-' + sec).classList.add('active');
             document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
             if (btn) btn.classList.add('active');
-            document.getElementById('topbarTitle').innerText = btn ? btn.innerText.replace(/[\n\r]/g, '') : 'لوحة التحكم';
+            const titles = { dashboard: 'لوحة التحكم', inbox: 'الإرساليات', orders: 'الطلبات', deposits: 'الإيداعات', kyc: 'التوثيق', products: 'المنتجات', categories: 'الأقسام', users: 'المستخدمون', archive: 'الأرشيف', audit: 'التدقيق المالي', settings: 'الإعدادات' };
+            document.getElementById('topbarTitle').innerText = titles[sec] || 'الإدارة';
 
             if (sec === 'dashboard') updateDashboard();
             if (sec === 'inbox' || sec === 'deposits') { renderInbox(); renderDeposits(); }
