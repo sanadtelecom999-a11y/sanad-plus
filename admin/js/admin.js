@@ -4557,38 +4557,39 @@ async function rejectDepositHandler(depositId) {
 async function inboxRejectDeposit(depositId) {
     if (!confirm('هل أنت متأكد من رفض هذا الإيداع؟')) return;
     
-    console.log(`[RADICAL DEBUG] Rejecting deposit: ${depositId}`);
-    
     try {
         const token = getAdminToken();
-        if (!token) {
-            alert('انتهت الجلسة، يرجى تسجيل الدخول مجدداً');
-            window.location.reload();
-            return;
-        }
+        if (!token) { showToast('انتهت الجلسة', 'error'); return; }
 
         const res = await fetch(`https://sanad-plus-backend.onrender.com/admin/api/deposits/${depositId}/reject`, {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${token}`, 
-                'Content-Type': 'application/json' 
-            },
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason: 'رفض من لوحة التحكم' })
         });
         
-        console.log(`[RADICAL DEBUG] Response: ${res.status}`);
-
         if (res.ok) {
-            // إظهار رسالة نجاح
-            alert('تم رفض الإيداع بنجاح! سيتم تحديث الصفحة.');
-            // إجبار الصفحة على التحديث بالكامل لسحب البيانات الجديدة
-            window.location.reload();
+            showToast('تم رفض الإيداع بنجاح', 'success');
+            
+            // [إصلاح المشكلة]: إزالة البطاقة من الشاشة فوراً
+            const btn = document.querySelector(`button[onclick="inboxRejectDeposit(${depositId})"]`);
+            if (btn) {
+                // البحث عن الحاوية الأب (البطاقة) بأكثر من طريقة لضمان إيجادها
+                const card = btn.closest('.inbox-item') || btn.closest('.card') || btn.closest('.deposit-card') || btn.parentElement.parentElement;
+                if (card) {
+                    card.remove(); // مسح السطر من الشاشة
+                    console.log('[SUCCESS] DOM Element Removed for deposit', depositId);
+                }
+            }
+            
+            // تحديث الإحصائيات (اختياري لضمان دقة الأرقام العلوية)
+            if (typeof loadAllData === 'function') loadAllData();
+            
         } else {
             const data = await res.json().catch(() => ({}));
-            alert(data.error || 'فشل رفض الإيداع من السيرفر');
+            showToast(data.error || 'فشل الرفض', 'error');
         }
     } catch (e) {
-        console.error('[RADICAL DEBUG] Error:', e);
-        alert('خطأ في الاتصال بالسيرفر');
+        console.error('[ERROR]', e);
+        showToast('خطأ في الاتصال', 'error');
     }
 }
