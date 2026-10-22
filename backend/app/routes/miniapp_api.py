@@ -23,7 +23,8 @@ def api_miniapp_init():
         kyc_req = KYCRequest.query.filter_by(user_id=user.id, status='approved').first()
         if kyc_req: kyc_name = kyc_req.full_name
 
-    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).all()
+    # جلب آخر 20 طلب فقط لتخفيف الحمل
+    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(20).all()
     orders_list = []
     for o in orders:
         prod = Product.query.get(o.product_id)
@@ -32,21 +33,22 @@ def api_miniapp_init():
             "order_number": o.order_number, 
             "product_name": prod.name if prod else "منتج محذوف",
             "product_image": getattr(prod, 'image', None) if prod else None,
-            "quantity": o.quantity if o.quantity else 1, # قيمة افتراضية
+            "quantity": o.quantity if o.quantity else 1,
             "unit_price": float(o.unit_price) if o.unit_price else 0,
             "total_price": float(o.total_price),
-            "delivery_data": o.delivery_data if o.delivery_data else "غير محدد", # قيمة افتراضية
+            "delivery_data": o.delivery_data if o.delivery_data else "غير محدد",
             "status": o.status, 
             "created_at": o.created_at.isoformat() if o.created_at else None
         })
 
-    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).all()
+    # جلب آخر 20 إيداع فقط
+    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).limit(20).all()
     deposits_list = [{
         "id": d.id, 
         "transaction_id": d.transaction_id, 
         "amount": float(d.amount),
         "method": d.method, 
-        "sender_name": d.sender_name if d.sender_name else "غير محدد", # قيمة افتراضية
+        "sender_name": d.sender_name if d.sender_name else "غير محدد",
         "proof_image": d.proof_image,
         "status": d.status, 
         "created_at": d.created_at.isoformat() if d.created_at else None
@@ -62,7 +64,6 @@ def api_miniapp_init():
         "deposits": deposits_list
     })
 
-# (باقي الدوال كما هي...)
 @main.route("/api/miniapp/products", methods=["GET"])
 def api_get_products():
     categories = Category.query.all()
