@@ -13,3 +13,4 @@ from . import admin_settings
 from . import admin_archive
 from . import support
 from . import admin_v3
+from . import miniapp_api
