@@ -221,7 +221,7 @@ def admin_payments_v3():
         db.session.add(new_pay)
         db.session.commit()
         return jsonify({"success": True})
-    return jsonify([{"id": p.id, "name": p.name, "min": float(p.min_amount), "max": float(p.max_amount), "account": p.account_name, "fee": getattr(p, 'fee', 0), "require_kyc": getattr(p, 'require_kyc', False)} for p in PaymentMethod.query.all()])
+    return jsonify([{"id": p.id, "name": p.name, "min": float(p.min_amount), "max": float(p.max_amount), "account": p.account, "fee": getattr(p, 'fee', 0), "require_kyc": getattr(p, 'require_kyc', False)} for p in PaymentMethod.query.all()])
 
 @main.route("/admin/api/payments/<int:id>", methods=["DELETE"])
 @jwt_required()
