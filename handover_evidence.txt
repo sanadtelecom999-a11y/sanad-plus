@@ -1,0 +1,54 @@
+SANAD PLUS+ HANDOVER EVIDENCE — 2026-10-23T19:34:01Z
+Git HEAD: 398db328996a763135e9dd408d5efb153aebac60
+
+========== [1 VERSIONS & LINE COUNTS] ==========
+
+--- Bot version markers ---
+
+--- wc -l for key files ---
+
+--- Recent commits (last 10) ---
+
+========== [2 SECURITY: ADMIN PANEL] ==========
+
+--- escapeHtml uses (count) ---
+
+--- innerHTML lines WITHOUT escapeHtml on the same line ---
+
+--- Where admin_token is read/written ---
+
+========== [3 SECURITY: MINIAPP AUTH] ==========
+
+--- Any verification of Telegram initData / HMAC in backend? ---
+
+--- How /miniapp/* routes identify the user ---
+
+--- Routes registered under /miniapp ---
+
+========== [4 SECURITY: BOT] ==========
+
+--- parse_mode usages in /me handler ---
+
+--- X-Bot-Token / BOT_API_SECRET server-side validation ---
+
+========== [5 SECURITY: OTP] ==========
+
+--- Locate admin auth service ---
+
+--- random vs secrets usage ---
+
+========== [6 OPS CLAIMS] ==========
+
+--- Supervisor / shutdown / heartbeat ---
+
+--- TELEGRAM_ADMIN_IDS check ---
+
+--- CORS allow-list ---
+
+========== [7 DATABASE] ==========
+
+========== [8 SECRETS HYGIENE] ==========
+
+--- .env tracked in git? ---
+
+--- Possible secrets in history ---
