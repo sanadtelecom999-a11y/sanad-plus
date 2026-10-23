@@ -380,9 +380,12 @@ def admin_update_order_status(order_id):
 
     data = request.get_json(silent=True) or {}
     new_status = data.get("status", "completed")
+    admin_note = data.get("admin_note", "")
 
-    # تحديث الحالة صراحة
+    # تحديث الحالة والملاحظة
     order.status = new_status
+    if admin_note:
+        order.admin_note = admin_note
     
     try:
         db.session.commit()

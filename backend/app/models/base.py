@@ -178,6 +178,7 @@ class Order(db.Model):
     cancelled_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     failed_at = db.Column(db.DateTime)
+    admin_note = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=_now, index=True)
     updated_at = db.Column(db.DateTime, default=_now, onupdate=_now)
 

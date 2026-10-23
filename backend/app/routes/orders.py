@@ -95,6 +95,7 @@ def _serialize_order(order, product=None):
         "discount_amount": _f(order.discount_amount),
         "coupon_code": order.coupon_code,
         "status": order.status,
+        "admin_note": getattr(order, "admin_note", None),
         "delivery_data": delivery,
         "can_cancel_until": order.can_cancel_until.isoformat() if order.can_cancel_until else None,
         "cancelled_at": order.cancelled_at.isoformat() if order.cancelled_at else None,
@@ -617,6 +618,7 @@ def cancel_order(order_id):
                 "error": "لا يمكن الإلغاء في هذه الحالة",
                 "code": "ORDER_NOT_CANCELLABLE",
                 "status": order.status,
+        "admin_note": getattr(order, "admin_note", None),
             }), 400
         if not order.can_cancel_until or order.can_cancel_until.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
             return jsonify({
