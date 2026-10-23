@@ -67,15 +67,21 @@
             <section id="page-orders" class="page">
                 <div class="section-header"><h3>طلباتي</h3></div>
                 <div id="ordersList" class="orders-list">
-                    <div class="empty-state"><i data-lucide="package-open" size="48"></i><p>جاري التحميل...</p></div>
+                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
                 </div>
             </section>
 
             <section id="page-deposits" class="page">
                 <div class="section-header"><h3>سجل الإيداعات</h3></div>
                 <div id="depositsList" class="orders-list">
-                    <div class="empty-state"><i data-lucide="wallet" size="48"></i><p>جاري التحميل...</p></div>
+                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
                 </div>
+            </section>
+
+            <!-- صفحة طرق الدفع الجديدة -->
+            <section id="page-deposit-methods" class="page">
+                <div class="section-header"><h3>اختر طريقة الدفع</h3></div>
+                <div class="payment-methods-list" id="paymentMethodsList"></div>
             </section>
 
             <section id="page-profile" class="page">
@@ -135,19 +141,13 @@
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="navigate('home')" data-page="home"><i data-lucide="home"></i><span>الرئيسية</span></button>
             <button class="nav-item" onclick="navigate('orders')" data-page="orders"><i data-lucide="list"></i><span>طلباتي</span></button>
-            <button class="nav-item center-btn" onclick="openDepositSheet()"><div class="center-btn-inner"><i data-lucide="zap"></i></div></button>
+            <!-- تم تغيير هذا الزر ليفتح صفحة كاملة -->
+            <button class="nav-item center-btn" onclick="navigate('deposit-methods')"><div class="center-btn-inner"><i data-lucide="zap"></i></div></button>
             <button class="nav-item" onclick="navigate('deposits')" data-page="deposits"><i data-lucide="wallet"></i><span>إيداعات</span></button>
             <button class="nav-item" onclick="navigate('profile')" data-page="profile"><i data-lucide="user"></i><span>حسابي</span></button>
         </nav>
 
         <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
-
-        <div class="bottom-sheet" id="depositSheet">
-            <div class="sheet-grabber"></div>
-            <h3 class="text-center">شحن الرصيد</h3>
-            <p class="text-muted text-center" style="margin-bottom: 20px;">اختر طريقة الدفع المناسبة لك</p>
-            <div class="payment-methods-list" id="paymentMethodsList"></div>
-        </div>
 
         <div class="bottom-sheet" id="paymentDetailsSheet">
             <div class="sheet-grabber"></div>

@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full Logic Engine (Fixed Keyboard & PM Layout)
+   SANAD PLUS+ — Full Logic Engine (Full-Page Deposit & Input Fix)
    ============================================================ */
 
 const tg = window.Telegram?.WebApp;
@@ -110,6 +110,7 @@ function showApp() {
     document.getElementById('statTotalDeposits').textContent = `$${totalApproved.toFixed(2)}`;
 
     renderCategories();
+    renderPaymentMethodsPage();
     lucide.createIcons();
 }
 
@@ -123,6 +124,38 @@ function renderCategories() {
         el.innerHTML = `<img src="${cat.image || 'https://via.placeholder.com/60'}"><span>${escapeHTML(cat.name)}</span>`;
         grid.appendChild(el);
     });
+}
+
+function renderPaymentMethodsPage() {
+    const container = document.getElementById('paymentMethodsList');
+    container.innerHTML = '';
+    if (!paymentMethodsData || paymentMethodsData.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center" style="grid-column:span 2;">لا توجد طرق دفع</p>';
+        return;
+    }
+    paymentMethodsData.forEach(pm => {
+        const el = document.createElement('div');
+        el.className = 'pm-card';
+        el.onclick = () => openPaymentDetails(pm);
+        
+        const isKyc = pm.requires_kyc;
+        const subText = isKyc ? 'تتطلب توثيق الحساب' : 'شحن فوري';
+        const subClass = isKyc ? 'kyc' : 'instant';
+        const subIcon = isKyc ? 'lock' : 'zap';
+        
+        el.innerHTML = `
+            <div class="pm-card-right">
+                <div class="pm-icon-box">💳</div>
+                <div class="pm-details">
+                    <span class="pm-name">${escapeHTML(pm.name)}</span>
+                    <span class="pm-sub ${subClass}"><i data-lucide="${subIcon}" size="12"></i> ${subText}</span>
+                </div>
+            </div>
+            <i data-lucide="chevron-left" class="pm-arrow"></i>
+        `;
+        container.appendChild(el);
+    });
+    lucide.createIcons();
 }
 
 function openCategory(id, name) {
@@ -164,9 +197,9 @@ function openProductDetails(prod) {
     let inputHtml = '';
     const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
     
-    if (prod.input_type === 'id') inputHtml = `<div class="form-group"><label>ايدي اللاعب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
-    else if (prod.input_type === 'account_id') inputHtml = `<div class="form-group"><label>ايدي الحساب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
-    else if (prod.input_type === 'phone') inputHtml = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchaseInput" class="form-input" placeholder="أدخل رقم الهاتف..." required ${focusScript}></div>`;
+    if (prod.input_type === 'id') inputHtml = `<div class="form-group"><label>ايدي اللاعب</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'account_id') inputHtml = `<div class="form-group"><label>ايدي الحساب</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'phone') inputHtml = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل رقم الهاتف..." required ${focusScript}></div>`;
     else if (prod.input_type === 'url') inputHtml = `<div class="form-group"><label>الرابط (URL)</label><input type="url" id="purchaseInput" class="form-input" placeholder="https://..." dir="ltr" required ${focusScript}></div>`;
 
     let dynamicHtml = '';
@@ -186,10 +219,11 @@ function openProductDetails(prod) {
         `).join('');
         dynamicHtml = `<div class="form-group" style="margin-top:15px;"><label>اختر الباقة</label><div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">${bundlesOptions}</div></div>`;
     } else if (prod.product_type === 'quantity' && prod.base_quantity > 0) {
+        // تم استخدام type="text" مع inputmode لحل مشكلة الأرقام العربية
         dynamicHtml = `
             <div class="form-group" style="margin-top:15px;">
                 <label>الكمية المطلوبة (${escapeHTML(prod.unit_name || 'قطعة')})</label>
-                <input type="number" id="purchaseQty" class="form-input" value="${currentQty}" min="1" oninput="updateDynamicPrice()" ${focusScript}>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseQty" class="form-input" value="${currentQty}" oninput="updateDynamicPrice(this)" ${focusScript}>
             </div>
         `;
     }
@@ -227,10 +261,14 @@ function selectBundle(id, price) {
     if (tg) tg.HapticFeedback.selectionChanged();
 }
 
-function updateDynamicPrice() {
-    const qtyInput = document.getElementById('purchaseQty');
-    let qty = parseInt(qtyInput.value);
-    if (isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
+function updateDynamicPrice(input) {
+    // إزالة أي حرف غير الأرقام الإنجليزية
+    let rawVal = input.value.replace(/[^0-9]/g, '');
+    input.value = rawVal; // إعادة تعيين الحقل لضمان بقاء الأرقام الإنجليزية فقط
+    
+    let qty = parseInt(rawVal);
+    if (isNaN(qty) || qty < 1) qty = 1;
+    
     currentQty = qty;
     const unitPrice = parseFloat(currentProduct.base_price) / currentProduct.base_quantity;
     const total = unitPrice * qty;
@@ -286,46 +324,11 @@ async function submitOrder(e) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Deposit Flow & Payment Methods Layout
+// Deposit Flow & Payment Details
 // ════════════════════════════════════════════════════════════
-function openDepositSheet() {
-    if (tg) tg.HapticFeedback.impactOccurred('light');
-    const container = document.getElementById('paymentMethodsList');
-    container.innerHTML = '';
-    if (!paymentMethodsData || paymentMethodsData.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">لا توجد طرق دفع</p>';
-    } else {
-        paymentMethodsData.forEach(pm => {
-            const el = document.createElement('div');
-            el.className = 'pm-card';
-            el.onclick = () => openPaymentDetails(pm);
-            
-            const isKyc = pm.requires_kyc;
-            const subText = isKyc ? 'تتطلب توثيق الحساب' : 'شحن فوري';
-            const subClass = isKyc ? 'kyc' : 'instant';
-            const subIcon = isKyc ? 'lock' : 'zap';
-            
-            el.innerHTML = `
-                <div class="pm-card-right">
-                    <div class="pm-icon-box">💳</div>
-                    <div class="pm-details">
-                        <span class="pm-name">${escapeHTML(pm.name)}</span>
-                        <span class="pm-sub ${subClass}"><i data-lucide="${subIcon}" size="12"></i> ${subText}</span>
-                    </div>
-                </div>
-                <i data-lucide="chevron-left" class="pm-arrow"></i>
-            `;
-            container.appendChild(el);
-        });
-    }
-    lucide.createIcons();
-    openSheet('depositSheet');
-}
-
 function openPaymentDetails(pm) {
     if (tg) tg.HapticFeedback.selectionChanged();
     selectedPaymentMethod = pm;
-    closeSheets();
     
     setTimeout(() => {
         const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
@@ -335,7 +338,7 @@ function openPaymentDetails(pm) {
             <div class="copy-box"><span dir="ltr">${escapeHTML(pm.account || 'رقم الحساب')}</span><i data-lucide="copy" onclick="copyText('${pm.account}', 'تم نسخ رقم الحساب')"></i></div>
             <div class="text-center" style="margin: 20px 0;"><span class="text-muted">الحد الأدنى: $${pm.min_amount} | الحد الأقصى: $${pm.max_amount}</span></div>
             <form onsubmit="submitDeposit(event)">
-                <div class="form-group"><label>المبلغ المراد إيداعه ($)</label><input type="number" id="depositAmount" class="form-input" min="${pm.min_amount}" max="${pm.max_amount}" step="0.01" required ${focusScript}></div>
+                <div class="form-group"><label>المبلغ المراد إيداعه ($)</label><input type="text" inputmode="decimal" pattern="[0-9.]*" id="depositAmount" class="form-input" required ${focusScript}></div>
                 <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" class="form-input" required ${focusScript}></div>
                 <div class="form-group">
                     <label>إثبات التحويل (صورة)</label>
@@ -372,6 +375,7 @@ async function submitDeposit(e) {
         if (res.ok) {
             if (tg) tg.HapticFeedback.notificationOccurred('success');
             closeSheets();
+            navigate('home');
             if (tg) tg.showAlert(`تم إرسال طلب الإيداع بنجاح!\nرقم العملية: ${data.transaction_id}`);
         } else { throw new Error(data.error || 'فشل الإيداع'); }
     } catch (err) { if (tg) tg.showAlert(`خطأ:\n${err.message}`); } 
@@ -386,7 +390,7 @@ function navigate(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(`page-${page}`).classList.add('active');
     
-    if (page === 'products') {
+    if (page === 'products' || page === 'deposit-methods') {
         document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
         if (tg) tg.BackButton.show();
     } else {
@@ -399,8 +403,62 @@ function navigate(page) {
     if (page === 'support') loadSupportTickets();
 }
 
-async function loadOrders() { /* (سابقاً) */ }
-async function loadDeposits() { /* (سابقاً) */ }
+async function loadOrders() {
+    const list = document.getElementById('ordersList');
+    list.innerHTML = '<div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>';
+    lucide.createIcons();
+    try {
+        const res = await fetch(`${API_BASE}/api/orders/`, { headers: getHeaders() });
+        ordersData = await res.json();
+        list.innerHTML = '';
+        if (ordersData.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i data-lucide="package-open" size="48"></i><p>لا توجد طلبات</p></div>';
+            lucide.createIcons(); return;
+        }
+        ordersData.forEach(o => {
+            const card = document.createElement('div');
+            card.className = 'list-card';
+            card.onclick = () => openOrderDetails(o.id);
+            card.innerHTML = `
+                <div class="list-card-header">
+                    <span>${o.order_number}</span>
+                    <span class="${o.status === 'completed' ? 'text-success' : o.status === 'pending' ? 'text-warning' : 'text-danger'}">${o.status}</span>
+                </div>
+                <div class="list-card-body"><span>${o.product_name}</span><span>$${parseFloat(o.total_price).toFixed(2)}</span></div>
+            `;
+            list.appendChild(card);
+        });
+    } catch (e) { list.innerHTML = '<p class="text-danger text-center">تعذر التحميل</p>'; }
+}
+
+async function loadDeposits() {
+    const list = document.getElementById('depositsList');
+    list.innerHTML = '<div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>';
+    lucide.createIcons();
+    try {
+        const res = await fetch(`${API_BASE}/api/deposits/`, { headers: getHeaders() });
+        depositsData = await res.json();
+        list.innerHTML = '';
+        if (depositsData.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i data-lucide="wallet" size="48"></i><p>لا توجد إيداعات</p></div>';
+            lucide.createIcons(); return;
+        }
+        depositsData.forEach(d => {
+            const card = document.createElement('div');
+            card.className = 'list-card';
+            card.onclick = () => openDepositDetails(d.id);
+            card.innerHTML = `
+                <div class="list-card-header">
+                    <span>${d.transaction_id}</span>
+                    <span class="${d.status === 'approved' ? 'text-success' : d.status === 'pending' ? 'text-warning' : 'text-danger'}">${d.status}</span>
+                </div>
+                <div class="list-card-body"><span>${d.method}</span><span>$${parseFloat(d.amount).toFixed(2)}</span></div>
+            `;
+            list.appendChild(card);
+        });
+    } catch (e) { list.innerHTML = '<p class="text-danger text-center">تعذر التحميل</p>'; }
+}
+
 function openOrderDetails(orderId) { /* (سابقاً) */ }
 function openDepositDetails(depositId) { /* (سابقاً) */ }
 function openKYCModal() { openSheet('kycSheet'); /* (سابقاً) */ }

@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full UI System
+   SANAD PLUS+ — Full UI System (Fast & Full-Page)
    ============================================================ */
 :root {
     --bg: #000000; --card-bg: #1c1c1e; --card-bg-2: #2c2c2e;
@@ -20,6 +20,9 @@ body { font-family: 'Cairo', sans-serif; background-color: var(--bg); color: var
 .text-muted { color: var(--text-muted); font-size: 14px; }
 .text-primary { color: var(--primary); } .text-danger { color: var(--danger); }
 .text-warning { color: var(--warning); } .text-success { color: var(--success); } .text-center { text-align: center; }
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
 
 .loading-screen { position: fixed; inset: 0; background: var(--bg); padding: 20px; z-index: 9999; }
 .skeleton { background: linear-gradient(90deg, var(--card-bg) 25%, var(--card-bg-2) 50%, var(--card-bg) 75%); background-size: 200% 100%; animation: pulse 1.5s infinite; border-radius: 12px; }
@@ -111,13 +114,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .center-btn:active .center-btn-inner { transform: scale(0.9); }
 .center-btn-inner i { width: 28px; height: 28px; fill: white; }
 
-.bottom-sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s; }
-.bottom-sheet-overlay.active { opacity: 1; pointer-events: auto; }
-.bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-radius: 30px 30px 0 0; padding: 20px; z-index: 201; transform: translateY(100%); transition: 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); padding-bottom: calc(30px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.bottom-sheet.active { transform: translateY(0); }
-.sheet-grabber { width: 40px; height: 5px; background: var(--card-bg-2); border-radius: 10px; margin: 0 auto 20px; }
-
-/* Payment Methods New Design */
+/* Payment Methods (Full Page) */
 .payment-methods-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
 .pm-card { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border: 1px solid var(--border); padding: 16px; border-radius: 20px; transition: 0.2s; cursor: pointer; }
 .pm-card:active { transform: scale(0.98); background: var(--card-bg-2); }
@@ -130,7 +127,13 @@ input:checked + .slider:before { transform: translateX(20px); }
 .pm-sub.instant { color: var(--success); }
 .pm-arrow { color: var(--text-muted); width: 20px; height: 20px; }
 
-/* Product Modal Additions */
+/* Bottom Sheet & Modals */
+.bottom-sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s; }
+.bottom-sheet-overlay.active { opacity: 1; pointer-events: auto; }
+.bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-radius: 30px 30px 0 0; padding: 20px; z-index: 201; transform: translateY(100%); transition: 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); padding-bottom: calc(30px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.bottom-sheet.active { transform: translateY(0); }
+.sheet-grabber { width: 40px; height: 5px; background: var(--card-bg-2); border-radius: 10px; margin: 0 auto 20px; }
+
 .product-modal-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
 .product-modal-img { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; }
 .product-modal-title { font-size: 18px; font-weight: 800; }
@@ -166,7 +169,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 .form-group { margin-bottom: 15px; text-align: right; }
 .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
-.form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 14px; border-radius: 12px; color: var(--text-main); font-family: inherit; outline: none; transition: 0.2s; }
+.form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 14px; border-radius: 12px; color: var(--text-main); font-family: inherit; outline: none; transition: 0.2s; font-size: 16px; }
 .form-input:focus { border-color: var(--primary); }
 .file-upload-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: rgba(10, 132, 255, 0.1); border: 1px dashed var(--primary); color: var(--primary); padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 13px; }
 .btn-primary { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 16px; font-weight: bold; font-family: inherit; cursor: pointer; transition: 0.2s; width: 100%; font-size: 16px; }
@@ -186,7 +189,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .chat-time { font-size: 10px; color: rgba(255,255,255,0.5); display: block; text-align: left; margin-top: 4px; }
 .chat-bubble.admin .chat-time { color: var(--text-muted); }
 .chat-input-wrapper { position: fixed; bottom: var(--nav-height); left: 0; right: 0; padding: 10px 20px; background: var(--bg); display: flex; gap: 10px; border-top: 1px solid var(--border); padding-bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 90; }
-.chat-input-wrapper input { flex: 1; background: var(--card-bg); border: 1px solid var(--border); padding: 12px 16px; border-radius: 20px; color: var(--text-main); font-family: inherit; outline: none; }
+.chat-input-wrapper input { flex: 1; background: var(--card-bg); border: 1px solid var(--border); padding: 12px 16px; border-radius: 20px; color: var(--text-main); font-family: inherit; outline: none; font-size: 16px; }
 .chat-input-wrapper button { background: var(--primary); border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; transition: 0.2s; }
 .chat-input-wrapper button:active { transform: scale(0.9); }
 
