@@ -1,6 +1,3 @@
-from flask_cors import CORS
-# Strict CORS for Production only
-from .middleware import setup_middlewares
 # ============================================================
 # 🚀 SANAD PLUS⁺ — App Initialization (v17.1)
 # ============================================================
@@ -20,7 +17,6 @@ from .models.base import (
     AdminOTPSession, JWTBlacklist, UserProductDiscount
 )
 
-
 # ============================================================
 # 🌐 استخراج IP الحقيقي (Cloudflare + Render)
 # ============================================================
@@ -33,7 +29,6 @@ def get_real_ip():
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.remote_addr or "unknown"
-
 
 # ============================================================
 # 🔴 Redis Rate Limiting
@@ -59,15 +54,14 @@ limiter = Limiter(
     swallow_errors=True,
 )
 
-
 def create_app():
     app = Flask(__name__)
-CORS(app, resources={r"/admin/api/*": {"origins": "https://sanad-plus-admi.vercel.app"}, r"/api/*": {"origins": "*"}})
     app.config.from_object(Config)
 
     # ============================================================
-    # 🌐 CORS
+    # 🌐 CORS (تم إصلاحه ووضعه في مكانه الصحيح)
     # ============================================================
+    CORS(
         app,
         resources={
             r"/api/*": {"origins": Config.ALLOWED_ORIGINS},
@@ -190,7 +184,6 @@ CORS(app, resources={r"/admin/api/*": {"origins": "https://sanad-plus-admi.verce
     # ============================================================
     from .services.cache_service import setup_cache_invalidation
     setup_cache_invalidation(app)
-
 
     # ============================================================
     # v18.4.13: Decimal -> float in JSON
