@@ -78,6 +78,7 @@ def admin_approve_deposit(deposit_id):
             user.balance = float(current + net_amount)
 
         deposit.status = "approved"
+        deposit.admin_note = request.get_json(silent=True).get("admin_note", "")
         deposit.reviewed_at = datetime.now(timezone.utc)
 
         db.session.add(Transaction(
@@ -234,6 +235,7 @@ def admin_reject_deposit(deposit_id):
         reason = "تم الرفض من قبل الإدارة"
 
     deposit.status = "rejected"
+        deposit.admin_note = reason
     deposit.reviewed_at = datetime.now(timezone.utc)
     log_admin_activity(f"رفض إيداع {deposit.id}")
 

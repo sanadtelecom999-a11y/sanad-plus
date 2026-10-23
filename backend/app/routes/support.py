@@ -43,3 +43,61 @@ def get_tickets():
         "reply": t.admin_reply,
         "date": t.created_at.isoformat()
     } for t in tickets]), 200
+
+# ================= Admin Support Routes =================
+@main.route('/admin/api/support/tickets', methods=['GET'])
+@jwt_required()
+def admin_get_tickets():
+    from app.middleware import admin_required
+    from flask import jsonify
+    from app.extensions import db
+    from app.models.base import SupportTicket, User
+    
+    # نجلب التذاكر المفتوحة والمُجابة
+    tickets = SupportTicket.query.filter(SupportTicket.status != 'closed').order_by(SupportTicket.created_at.desc()).all()
+    result = []
+    for t in tickets:
+        user = User.query.get(t.user_id)
+        result.append({
+            "id": t.id,
+            "user_name": user.first_name if user else "مستخدم",
+            "user_telegram": user.telegram_id if user else "",
+            "message": t.message,
+            "status": t.status,
+            "reply": t.admin_reply,
+            "date": t.created_at.isoformat()
+        })
+    return jsonify(result)
+
+@main.route('/admin/api/support/tickets/<int:id>/reply', methods=['POST'])
+@jwt_required()
+def admin_reply_ticket(id):
+    from flask import request, jsonify
+    from app.extensions import db
+    from app.models.base import SupportTicket
+    
+    data = request.get_json()
+    reply = data.get('reply')
+    if not reply: return jsonify({"error": "الرد مطلوب"}), 400
+    
+    ticket = SupportTicket.query.get(id)
+    if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
+    
+    ticket.admin_reply = reply
+    ticket.status = 'answered'
+    db.session.commit()
+    return jsonify({"success": True})
+
+@main.route('/admin/api/support/tickets/<int:id>/close', methods=['POST'])
+@jwt_required()
+def admin_close_ticket(id):
+    from flask import jsonify
+    from app.extensions import db
+    from app.models.base import SupportTicket
+    
+    ticket = SupportTicket.query.get(id)
+    if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
+    
+    ticket.status = 'closed'
+    db.session.commit()
+    return jsonify({"success": True})
