@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — MiniApp Engine (Error Handling & UX Upgrade)
+   SANAD PLUS+ — MiniApp Engine (COMPLETE v3.0)
    ============================================================ */
 
 const tg = window.Telegram?.WebApp;
@@ -27,17 +27,12 @@ function showToast(message, type = 'error') {
         container.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:10px; width:90%; max-width:350px; pointer-events:none;';
         document.body.appendChild(container);
     }
-    
     const toast = document.createElement('div');
     const bgColor = type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
-    const icon = type === 'error' ? 'alert-circle' : 'check-circle';
-    
     toast.style.cssText = `background: ${bgColor}; backdrop-filter: blur(10px); color: white; padding: 12px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); animation: slideDown 0.3s ease;`;
-    toast.innerHTML = `<i data-lucide="${icon}" size="20"></i> <span>${message}</span>`;
-    
+    toast.innerHTML = `<i data-lucide="${type === 'error' ? 'alert-circle' : 'check-circle'}" size="20"></i> <span>${message}</span>`;
     container.appendChild(toast);
     lucide.createIcons();
-    
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transition = 'opacity 0.3s';
@@ -45,31 +40,24 @@ function showToast(message, type = 'error') {
     }, 3500);
 }
 
-// ================= Safe Fetch (Handles HTML Errors) =================
 async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url, options);
         const contentType = res.headers.get("content-type");
-        
         if (!contentType || !contentType.includes("application/json")) {
             throw new Error("السيرفر غير متاح حالياً. جاري إعادة التشغيل...");
         }
-        
         const data = await res.json();
-        
-        if (!res.ok) {
-            throw new Error(data.error || `خطأ في السيرفر: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(data.error || `خطأ في السيرفر: ${res.status}`);
         return data;
     } catch (error) {
         if (error.name === 'TypeError' || error.message.includes('JSON')) {
-            throw new Error("تعذر الاتصال بالسيرفر. تحقق من اتصالك بالإنترنت.");
+            throw new Error("تعذر الاتصال بالسيرفر. تحقق من اتصالك.");
         }
         throw error;
     }
 }
 
-// ================= Init & Auth =================
 document.addEventListener('DOMContentLoaded', async () => {
     if (tg) {
         tg.ready(); tg.expand(); tg.setHeaderColor('#000000'); tg.disableVerticalSwipes();
@@ -118,7 +106,6 @@ async function loadInitialData() {
     } catch(e) { console.warn("Initial data partially failed"); }
 }
 
-// ================= UI Rendering =================
 function showApp() {
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
@@ -166,59 +153,188 @@ function showApp() {
 }
 
 // ================= Categories & Products =================
-function renderCategories() { /* (سابقاً) */ }
-function openCategory(id, name) { /* (سابقاً) */ }
-function renderPaymentMethodsPage() { /* (سابقاً) */ }
+function renderCategories() {
+    const grid = document.getElementById('categoriesGrid');
+    grid.innerHTML = '';
+    if (!categoriesData || categoriesData.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column: span 2;">لا توجد أقسام</div>';
+        return;
+    }
+    categoriesData.forEach(cat => {
+        const el = document.createElement('div');
+        el.className = 'category-item';
+        el.onclick = () => openCategory(cat.id, cat.name);
+        el.innerHTML = `<img src="${cat.image || 'https://via.placeholder.com/60'}"><span>${escapeHTML(cat.name)}</span>`;
+        grid.appendChild(el);
+    });
+}
 
-// ================= Product Purchase =================
-function openProductDetails(prod) { /* (سابقاً) */ }
-function selectBundle(id, price) { /* (سابقاً) */ }
-function updateDynamicPrice(input) { /* (سابقاً) */ }
+function openCategory(id, name) {
+    if (tg) tg.HapticFeedback.impactOccurred('light');
+    document.getElementById('productsPageTitle').textContent = name;
+    const catProducts = productsData.filter(p => p.category_id === id);
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = '';
+    
+    if (catProducts.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column: span 2;">لا توجد منتجات</div>';
+    } else {
+        catProducts.forEach(prod => {
+            const el = document.createElement('div');
+            el.className = 'category-item';
+            el.onclick = () => openProductDetails(prod);
+            el.innerHTML = `
+                <img src="${prod.image || 'https://via.placeholder.com/60'}">
+                <span>${escapeHTML(prod.name)}</span>
+                <div style="color: var(--primary); font-size: 12px; margin-top: 5px; font-weight:bold;">
+                    ${prod.product_type === 'bundle' ? 'باقات متعددة' : `$${parseFloat(prod.base_price).toFixed(2)}`}
+                </div>
+            `;
+            grid.appendChild(el);
+        });
+    }
+    navigate('products');
+}
+
+// ================= Advanced Product Purchase =================
+function openProductDetails(prod) {
+    if (tg) tg.HapticFeedback.impactOccurred('light');
+    currentProduct = prod;
+    selectedBundle = prod.bundles && prod.bundles.length > 0 ? prod.bundles[0] : null;
+    currentQty = prod.base_quantity > 0 ? prod.base_quantity : 1;
+    
+    let inputHtml = '';
+    const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
+    
+    if (prod.input_type === 'id') inputHtml = `<div class="form-group"><label>ايدي اللاعب</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'account_id') inputHtml = `<div class="form-group"><label>ايدي الحساب</label><input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'phone') inputHtml = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" inputmode="numeric" pattern="[0-9]*" id="purchaseInput" class="form-input" placeholder="أدخل رقم الهاتف..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'url') inputHtml = `<div class="form-group"><label>الرابط (URL)</label><input type="url" id="purchaseInput" class="form-input" placeholder="https://..." dir="ltr" required ${focusScript}></div>`;
+
+    let dynamicHtml = '';
+    let initialPrice = parseFloat(prod.base_price) || 0;
+
+    if (prod.bundles && prod.bundles.length > 0) {
+        initialPrice = parseFloat(selectedBundle.price_usd) || 0;
+        let bundlesOptions = prod.bundles.map((b, index) => `
+            <label class="bundle-option ${index === 0 ? 'selected' : ''}" onclick="selectBundle('${b.id}', ${parseFloat(b.price_usd)})">
+                <input type="radio" name="bundle" ${index === 0 ? 'checked' : ''} style="display:none;">
+                <div class="bundle-info">
+                    <strong>${escapeHTML(b.name)}</strong>
+                    ${b.quantity > 0 ? `<span>${b.quantity} ${escapeHTML(prod.unit_name)}</span>` : ''}
+                </div>
+                <div class="bundle-price">$${parseFloat(b.price_usd).toFixed(2)}</div>
+            </label>
+        `).join('');
+        dynamicHtml = `<div class="form-group" style="margin-top:15px;"><label>اختر الباقة</label><div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">${bundlesOptions}</div></div>`;
+    } else if (prod.product_type === 'quantity' && prod.base_quantity > 0) {
+        dynamicHtml = `
+            <div class="form-group" style="margin-top:15px;">
+                <label>الكمية المطلوبة (${escapeHTML(prod.unit_name || 'قطعة')})</label>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="purchaseQty" class="form-input" value="${currentQty}" oninput="updateDynamicPrice(this)" ${focusScript}>
+            </div>
+        `;
+    }
+
+    const descHtml = prod.description ? `<p class="text-muted" style="font-size:13px; font-style:italic; margin-bottom:15px; text-align:center;">${escapeHTML(prod.description)}</p>` : '';
+
+    document.getElementById('productPurchaseContent').innerHTML = `
+        <div class="product-modal-header">
+            <img src="${prod.image || 'https://via.placeholder.com/80'}" class="product-modal-img">
+            <h3 class="product-modal-title">${escapeHTML(prod.name)}</h3>
+        </div>
+        ${descHtml}
+        <form onsubmit="submitOrder(event)">
+            ${inputHtml}
+            ${dynamicHtml}
+            <div class="total-box" style="margin-top:20px;">
+                <span>الإجمالي:</span>
+                <strong id="totalPriceDisplay">$${initialPrice.toFixed(2)}</strong>
+            </div>
+            <button type="submit" class="btn-primary" id="buyBtn" style="margin-top:15px;">شراء الآن</button>
+        </form>
+    `;
+    openSheet('productPurchaseSheet');
+}
+
+function selectBundle(id, price) {
+    selectedBundle = currentProduct.bundles.find(b => b.id === parseInt(id) || b.id === id);
+    document.querySelectorAll('.bundle-option').forEach(el => el.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    document.getElementById('totalPriceDisplay').textContent = `$${price.toFixed(2)}`;
+    if (tg) tg.HapticFeedback.selectionChanged();
+}
+
+function updateDynamicPrice(input) {
+    let rawVal = input.value.replace(/[^0-9]/g, '');
+    input.value = rawVal;
+    let qty = parseInt(rawVal) || 1;
+    currentQty = qty;
+    const unitPrice = parseFloat(currentProduct.base_price) / currentProduct.base_quantity;
+    const total = unitPrice * qty;
+    document.getElementById('totalPriceDisplay').textContent = `$${total.toFixed(2)}`;
+}
 
 async function submitOrder(e) {
     e.preventDefault();
     const btn = document.getElementById('buyBtn');
     const inputVal = document.getElementById('purchaseInput')?.value;
-    
-    if (currentProduct.input_type !== 'none' && !inputVal) {
-        return showToast('يرجى إدخال البيانات المطلوبة', 'error');
-    }
+    if (currentProduct.input_type !== 'none' && !inputVal) return showToast('يرجى إدخال البيانات المطلوبة', 'error');
 
     btn.textContent = 'جاري التنفيذ...'; btn.disabled = true;
-
     try {
-        const orderData = {
-            product_id: currentProduct.id,
-            idempotency_key: `ord-${userData.telegram_id}-${Date.now()}`,
-            quantity: currentProduct.bundles?.length > 0 ? 1 : currentQty
-        };
+        const orderData = { product_id: currentProduct.id, idempotency_key: `ord-${userData.telegram_id}-${Date.now()}`, quantity: currentProduct.bundles?.length > 0 ? 1 : currentQty };
         if (selectedBundle) orderData.bundle_id = selectedBundle.id;
         if (currentProduct.input_type === 'id') orderData.player_id = inputVal;
         else if (currentProduct.input_type === 'account_id') orderData.account_id = inputVal;
         else if (currentProduct.input_type === 'phone') orderData.phone = inputVal;
         else if (currentProduct.input_type === 'url') orderData.url = inputVal;
 
-        const data = await safeFetch(`${API_BASE}/api/orders/create`, {
-            method: 'POST', headers: getHeaders(), body: JSON.stringify(orderData)
-        });
-
+        const data = await safeFetch(`${API_BASE}/api/orders/create`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(orderData) });
+        
         if (tg) tg.HapticFeedback.notificationOccurred('success');
         closeSheets();
         userData.balance -= parseFloat(data.total_price);
         showApp();
         showToast(`تم الطلب بنجاح! رقم: ${data.order_number}`, 'success');
-    } catch (err) {
-        showToast(err.message, 'error');
-    } finally {
-        btn.textContent = 'شراء الآن'; btn.disabled = false;
-    }
+    } catch (err) { showToast(err.message, 'error'); } 
+    finally { btn.textContent = 'شراء الآن'; btn.disabled = false; }
 }
 
 // ================= Deposit Flow =================
+function renderPaymentMethodsPage() {
+    const container = document.getElementById('paymentMethodsList');
+    container.innerHTML = '';
+    if (!paymentMethodsData || paymentMethodsData.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center" style="grid-column:span 2;">لا توجد طرق دفع</p>';
+        return;
+    }
+    paymentMethodsData.forEach(pm => {
+        const el = document.createElement('div');
+        el.className = 'pm-card';
+        el.onclick = () => openPaymentDetails(pm);
+        const isKyc = pm.requires_kyc;
+        const subText = isKyc ? 'تتطلب توثيق الحساب' : 'شحن فوري';
+        const subClass = isKyc ? 'kyc' : 'instant';
+        const subIcon = isKyc ? 'lock' : 'zap';
+        el.innerHTML = `
+            <div class="pm-card-right">
+                <div class="pm-icon-box">💳</div>
+                <div class="pm-details">
+                    <span class="pm-name">${escapeHTML(pm.name)}</span>
+                    <span class="pm-sub ${subClass}"><i data-lucide="${subIcon}" size="12"></i> ${subText}</span>
+                </div>
+            </div>
+            <i data-lucide="chevron-left" class="pm-arrow"></i>
+        `;
+        container.appendChild(el);
+    });
+    lucide.createIcons();
+}
+
 function openPaymentDetails(pm) {
     if (tg) tg.HapticFeedback.selectionChanged();
     selectedPaymentMethod = pm;
-    
     setTimeout(() => {
         const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
         document.getElementById('paymentDetailsContent').innerHTML = `
@@ -249,7 +365,6 @@ async function submitDeposit(e) {
     const sender = document.getElementById('depositSenderName').value;
     const file = document.getElementById('depositReceipt').files[0];
     
-    // التحقق المحلي قبل إرسال الطلب
     const maxAmt = parseFloat(selectedPaymentMethod.max_amount);
     const minAmt = parseFloat(selectedPaymentMethod.min_amount);
     
@@ -265,31 +380,39 @@ async function submitDeposit(e) {
             reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error);
         });
         const base64Img = await toBase64(file);
-        
         await safeFetch(`${API_BASE}/api/deposits/create`, {
             method: 'POST', headers: getHeaders(),
             body: JSON.stringify({ amount: amount, method_id: selectedPaymentMethod.id, sender_name: sender, proof_image: base64Img, idempotency_key: `dep-${userData.telegram_id}-${Date.now()}` })
         });
-        
         if (tg) tg.HapticFeedback.notificationOccurred('success');
         closeSheets();
         navigate('home');
         showToast('تم إرسال طلب الإيداع بنجاح!', 'success');
-    } catch (err) {
-        showToast(err.message, 'error');
-    } finally { 
-        btn.textContent = 'إرسال الطلب'; btn.disabled = false; 
-    }
+    } catch (err) { showToast(err.message, 'error'); } 
+    finally { btn.textContent = 'إرسال الطلب'; btn.disabled = false; }
 }
 
-// ================= Navigation & Lists (With Retry) =================
-function navigate(page) { /* (سابقاً) */ }
+// ================= Navigation & Lists =================
+function navigate(page) {
+    if (tg) tg.HapticFeedback.selectionChanged();
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(`page-${page}`).classList.add('active');
+    if (page === 'products' || page === 'deposit-methods') {
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+        if (tg) tg.BackButton.show();
+    } else {
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+        if (page !== 'home') { if (tg) tg.BackButton.show(); } else { if (tg) tg.BackButton.hide(); }
+    }
+    if (page === 'orders') loadOrders();
+    if (page === 'deposits') loadDeposits();
+    if (page === 'support') loadSupportTickets();
+}
 
 async function loadOrders() {
     const list = document.getElementById('ordersList');
     list.innerHTML = '<div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>';
     lucide.createIcons();
-    
     try {
         const data = await safeFetch(`${API_BASE}/api/orders/`, { headers: getHeaders() });
         ordersData = data;
@@ -314,20 +437,148 @@ async function loadOrders() {
     }
 }
 
-async function loadDeposits() { /* (نفس منطق loadOrders مع تغيير المسار) */ }
-function openOrderDetails(orderId) { /* (سابقاً) */ }
-function openDepositDetails(depositId) { /* (سابقاً) */ }
-function openKYCModal() { /* (سابقاً) */ }
-function openReferralModal() { /* (سابقاً) */ }
-function openFAQModal() { /* (سابقاً) */ }
-function openSupportModal() { /* (سابقاً) */ }
-async function loadSupportTickets() { /* (سابقاً) */ }
-async function sendSupportMessage() { /* (سابقاً) */ }
-function openSheet(sheetId) { /* (سابقاً) */ }
-function closeSheets() { /* (سابقاً) */ }
-function openLightbox(imgSrc) { /* (سابقاً) */ }
-function closeLightbox() { /* (سابقاً) */ }
-function toggleDarkMode() { /* (سابقاً) */ }
-function copyText(text, msg) { navigator.clipboard.writeText(text); showToast(msg, 'success'); }
+async function loadDeposits() {
+    const list = document.getElementById('depositsList');
+    list.innerHTML = '<div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>';
+    lucide.createIcons();
+    try {
+        const data = await safeFetch(`${API_BASE}/api/deposits/`, { headers: getHeaders() });
+        depositsData = data;
+        list.innerHTML = '';
+        if (depositsData.length === 0) {
+            list.innerHTML = '<div class="empty-state"><i data-lucide="wallet" size="48"></i><p>لا توجد إيداعات</p></div>';
+            lucide.createIcons(); return;
+        }
+        depositsData.forEach(d => {
+            const card = document.createElement('div');
+            card.className = 'list-card';
+            card.onclick = () => openDepositDetails(d.id);
+            card.innerHTML = `
+                <div class="list-card-header"><span>${d.transaction_id}</span><span class="${d.status === 'approved' ? 'text-success' : d.status === 'pending' ? 'text-warning' : 'text-danger'}">${d.status}</span></div>
+                <div class="list-card-body"><span>${d.method}</span><span>$${parseFloat(d.amount).toFixed(2)}</span></div>
+            `;
+            list.appendChild(card);
+        });
+    } catch (e) {
+        list.innerHTML = `<div class="empty-state"><i data-lucide="wifi-off" size="48" class="text-danger"></i><p>${e.message}</p><button onclick="loadDeposits()" class="btn-primary" style="margin-top:15px; width:auto; padding:10px 20px;">إعادة المحاولة</button></div>`;
+        lucide.createIcons();
+    }
+}
+
+function openOrderDetails(orderId) {
+    const order = ordersData.find(o => o.id === orderId);
+    if (!order) return;
+    const date = new Date(order.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+    let timelineHtml = '';
+    if (order.status === 'failed' || order.status === 'cancelled') {
+        timelineHtml = `<div class="timeline"><div class="timeline-step error active"><div class="timeline-circle">✕</div><div class="timeline-text">فشل/ملغي</div></div></div>`;
+    } else {
+        const isPending = order.status === 'pending';
+        const isProcessing = order.status === 'processing' || order.status === 'review';
+        const isCompleted = order.status === 'completed';
+        timelineHtml = `<div class="timeline"><div class="timeline-step ${isPending || isProcessing || isCompleted ? 'active' : ''}"><div class="timeline-circle">1</div><div class="timeline-text">معلق</div></div><div class="timeline-step ${isProcessing || isCompleted ? 'active' : ''}"><div class="timeline-circle">2</div><div class="timeline-text">معالجة</div></div><div class="timeline-step ${isCompleted ? 'success' : ''}"><div class="timeline-circle">✓</div><div class="timeline-text">مكتمل</div></div></div>`;
+    }
+    document.getElementById('orderDetailsContent').innerHTML = `
+        <h3 class="text-center" style="margin-bottom: 20px;">تفاصيل الطلب</h3>
+        <div class="detail-header">
+            <div class="detail-title">${order.order_number} <i data-lucide="copy" onclick="copyText('${order.order_number}', 'تم نسخ رقم الطلب')"></i></div>
+            <span class="${order.status === 'completed' ? 'text-success' : order.status === 'pending' ? 'text-warning' : 'text-danger'}">${order.status}</span>
+        </div>
+        <div class="detail-row"><span class="detail-label">المنتج</span><span class="detail-value">${order.product_name}</span></div>
+        <div class="detail-row"><span class="detail-label">الكمية</span><span class="detail-value">${order.quantity}</span></div>
+        ${order.delivery_data ? `<div class="detail-row"><span class="detail-label">بيانات الاستلام</span><span class="detail-value text-primary" dir="ltr">${typeof order.delivery_data === 'object' ? Object.values(order.delivery_data).join(', ') : order.delivery_data}</span></div>` : ''}
+        ${order.admin_note ? `<div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); border-radius: 8px; padding: 10px; margin-top: 15px;"><span style="color: var(--warning); font-size: 12px; font-weight: bold; display: block; margin-bottom: 5px;">ملاحظة الإدارة:</span><span style="color: var(--text-main); font-size: 14px;">${order.admin_note}</span></div>` : ''}
+        <div class="detail-row"><span class="detail-label">التاريخ</span><span class="detail-value" style="font-size:12px; color:var(--text-muted);">${date}</span></div>
+        <div class="detail-row" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;"><span class="detail-label">الإجمالي</span><span class="detail-value detail-total">$${parseFloat(order.total_price).toFixed(2)}</span></div>
+        ${timelineHtml}
+    `;
+    lucide.createIcons(); openSheet('orderDetailsSheet');
+}
+
+function openDepositDetails(depositId) {
+    const d = depositsData.find(x => x.id === depositId);
+    if (!d) return;
+    const date = new Date(d.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+    const proofImg = d.proof_image ? `<img src="${d.proof_image}" class="proof-image" onclick="openLightbox('${d.proof_image}')">` : '<p class="text-muted">لا يوجد إيصال</p>';
+    document.getElementById('depositDetailsContent').innerHTML = `
+        <h3 class="text-center" style="margin-bottom: 20px;">تفاصيل الإيداع</h3>
+        <div class="detail-header">
+            <div class="detail-title">${d.transaction_id} <i data-lucide="copy" onclick="copyText('${d.transaction_id}', 'تم نسخ رقم العملية')"></i></div>
+            <span class="${d.status === 'approved' ? 'text-success' : d.status === 'pending' ? 'text-warning' : 'text-danger'}">${d.status}</span>
+        </div>
+        <div class="detail-row"><span class="detail-label">الطريقة</span><span class="detail-value">${d.method}</span></div>
+        <div class="detail-row"><span class="detail-label">اسم المرسل</span><span class="detail-value">${d.sender_name || 'غير محدد'}</span></div>
+        <div class="detail-row"><span class="detail-label">التاريخ</span><span class="detail-value" style="font-size:12px; color:var(--text-muted);">${date}</span></div>
+        <div style="margin-top: 15px;"><span class="detail-label" style="display:block; margin-bottom:10px;">إثبات التحويل</span>${proofImg}</div>
+        <div class="detail-row" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 15px;"><span class="detail-label">المبلغ</span><span class="detail-value detail-total">$${parseFloat(d.amount).toFixed(2)}</span></div>
+    `;
+    lucide.createIcons(); openSheet('depositDetailsSheet');
+}
+
+function openKYCModal() { openSheet('kycSheet'); }
+function openReferralModal() { openSheet('referralSheet'); }
+function openFAQModal() { openSheet('faqSheet'); }
+function openSupportModal() { openSheet('supportModalSheet'); }
+
+async function loadSupportTickets() {
+    const container = document.getElementById('chatContainer');
+    container.innerHTML = '<p class="text-muted" style="text-align:center;">جاري التحميل...</p>';
+    try {
+        const res = await fetch(`${API_BASE}/api/support`, { headers: getHeaders() });
+        const tickets = await res.json();
+        container.innerHTML = '';
+        if (tickets.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i data-lucide="message-circle" size="48"></i><p>مرحباً بك، كيف يمكننا مساعدتك؟</p></div>';
+            lucide.createIcons(); return;
+        }
+        tickets.reverse().forEach(t => {
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(t.message)}</span><span class="chat-time">${new Date(t.date).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
+            container.appendChild(userBubble);
+            if (t.reply) {
+                const adminBubble = document.createElement('div');
+                adminBubble.className = 'chat-bubble admin';
+                adminBubble.innerHTML = `<span class="chat-sender">إدارة سند بلس</span><span>${escapeHTML(t.reply)}</span><span class="chat-time">${new Date(t.date).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
+                container.appendChild(adminBubble);
+            }
+        });
+        window.scrollTo(0, document.body.scrollHeight);
+    } catch (e) { container.innerHTML = '<p class="text-danger text-center">تعذر التحميل</p>'; }
+}
+
+async function sendSupportMessage() {
+    const input = document.getElementById('supportInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    const container = document.getElementById('chatContainer');
+    if (container.querySelector('.empty-state')) container.innerHTML = '';
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble user';
+    bubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(msg)}</span><span class="chat-time">الآن</span>`;
+    container.appendChild(bubble);
+    window.scrollTo(0, document.body.scrollHeight);
+    try { await fetch(`${API_BASE}/api/support`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg }) }); } 
+    catch (e) { showToast("تعذر إرسال الرسالة", 'error'); }
+}
+
+function openSheet(sheetId) {
+    if (tg) tg.HapticFeedback.impactOccurred('light');
+    document.getElementById('sheetOverlay').classList.add('active');
+    document.getElementById(sheetId).classList.add('active');
+}
+function closeSheets() {
+    document.getElementById('sheetOverlay').classList.remove('active');
+    document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('active'));
+}
+function openLightbox(imgSrc) { document.getElementById('lightboxImg').src = imgSrc; document.getElementById('lightbox').classList.remove('hidden'); }
+function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); }
+function toggleDarkMode() {
+    const isDark = document.getElementById('darkModeToggle').checked;
+    if (isDark) { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'dark'); if(tg) tg.setHeaderColor('#000000'); } 
+    else { document.documentElement.setAttribute('data-theme', 'light'); localStorage.setItem('theme', 'light'); if(tg) tg.setHeaderColor('#F2F2F7'); }
+}
+function copyText(text, msg) { navigator.clipboard.writeText(text).then(() => { if(tg) tg.HapticFeedback.notificationOccurred('success'); showToast(msg, 'success'); }); }
 function handleLogout() { if (tg) tg.close(); else location.reload(); }
 function escapeHTML(str) { if (!str) return ''; return String(str).replace(/[&<>"']/g, function(s) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s]; }); }
