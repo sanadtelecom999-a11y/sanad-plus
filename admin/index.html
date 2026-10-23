@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config = { theme: { extend: { colors: { dark: '#0f172a', card: '#1e293b', primary: '#10b981', danger: '#ef4444', accent: '#38bdf8', warning: '#f59e0b' }, fontFamily: { sans: ['Cairo', 'sans-serif'] } } } }
     </script>
@@ -27,6 +28,8 @@
         .label-text { display: block; color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; }
         .filter-btn.active { background-color: #38bdf8; color: #0f172a; }
         .filter-btn { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+        @keyframes pulse-red { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .badge-pulse { animation: pulse-red 2s infinite; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row">
@@ -52,7 +55,7 @@
         <div class="px-4 mb-2 text-xs text-slate-500 font-bold">العمليات</div>
         <nav class="flex flex-col gap-1 w-full px-3">
             <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="layout-dashboard" size="20"></i> <span class="font-bold">لوحة التحكم</span></button>
-            <button onclick="switchSection('inbox', this)" class="nav-btn flex items-center justify-between p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><div class="flex items-center gap-3"><i data-lucide="inbox" size="20"></i> <span class="font-bold">الإرساليات</span></div><span class="bg-danger text-white text-xs px-2 py-0.5 rounded-full" id="sidebarInboxBadge">0</span></button>
+            <button onclick="switchSection('inbox', this)" class="nav-btn flex items-center justify-between p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><div class="flex items-center gap-3"><i data-lucide="inbox" size="20"></i> <span class="font-bold">الإرساليات</span></div><span class="hidden bg-danger text-white text-xs px-2 py-0.5 rounded-full badge-pulse" id="sidebarInboxBadge">0</span></button>
             <button onclick="switchSection('archive', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="archive" size="20"></i> <span class="font-bold">الأرشيف الكامل</span></button>
         </nav>
         <div class="px-4 mt-6 mb-2 text-xs text-slate-500 font-bold">المتجر</div>
@@ -78,6 +81,7 @@
         </header>
 
         <div class="p-4 md:p-8">
+            <!-- 1. الرئيسية -->
             <section id="section-dashboard" class="content-section block">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
@@ -88,74 +92,101 @@
                 <div class="glass rounded-3xl p-6 h-80"><canvas id="dashboardChart"></canvas></div>
             </section>
 
-            <!-- قسم الإرساليات الجديد مع التبويبات -->
+            <!-- 2. الإرساليات -->
             <section id="section-inbox" class="content-section hidden">
                 <div class="flex justify-between items-center mb-6">
                     <div class="flex gap-2 overflow-x-auto scrollbar-hide" id="inboxTabs">
-                        <button onclick="switchInboxTab('deposits', this)" class="filter-btn active px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">الإيداعات</button>
-                        <button onclick="switchInboxTab('orders', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">الطلبات</button>
-                        <button onclick="switchInboxTab('kyc', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">التوثيق (KYC)</button>
-                        <button onclick="switchInboxTab('services', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">طلبات الخدمة</button>
+                        <button onclick="switchInboxTab('deposits', this)" class="filter-btn active px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2">الإيداعات <span class="bg-danger text-white text-[10px] px-1.5 py-0.5 rounded-full hidden" id="tabBadgeDeposits">0</span></button>
+                        <button onclick="switchInboxTab('orders', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2">الطلبات <span class="bg-danger text-white text-[10px] px-1.5 py-0.5 rounded-full hidden" id="tabBadgeOrders">0</span></button>
+                        <button onclick="switchInboxTab('kyc', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2">التوثيق <span class="bg-danger text-white text-[10px] px-1.5 py-0.5 rounded-full hidden" id="tabBadgeKyc">0</span></button>
+                        <button onclick="switchInboxTab('services', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition flex items-center gap-2">طلبات الخدمة <span class="bg-danger text-white text-[10px] px-1.5 py-0.5 rounded-full hidden" id="tabBadgeServices">0</span></button>
                     </div>
-                    <button onclick="loadInbox()" class="bg-slate-800 hover:bg-slate-700 text-white p-2.5 rounded-xl transition flex items-center justify-center border border-slate-700" title="تحديث الآن">
-                        <i data-lucide="refresh-cw" size="18"></i>
-                    </button>
+                    <button onclick="loadInbox()" class="bg-slate-800 hover:bg-slate-700 text-white p-2.5 rounded-xl transition flex items-center justify-center border border-slate-700" title="تحديث"><i data-lucide="refresh-cw" size="18"></i></button>
                 </div>
                 <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </section>
 
-            <section id="section-archive" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأرشيف قيد التطوير</div></section>
-            
+            <!-- 3. الأرشيف -->
+            <section id="section-archive" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <input type="text" placeholder="ابحث برقم العملية..." class="input-field w-64" id="archiveSearch" onkeyup="filterArchive()">
+                    <button onclick="exportArchive()" class="bg-primary text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="download" size="18"></i> تصدير Excel</button>
+                </div>
+                <div class="glass rounded-3xl overflow-x-auto">
+                    <table class="w-full text-right whitespace-nowrap">
+                        <thead class="bg-slate-800/50"><tr><th>النوع</th><th>المرجع</th><th>المستخدم</th><th>المبلغ</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+                        <tbody id="archiveTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. المنتجات -->
             <section id="section-products" class="content-section hidden">
                 <div class="flex justify-between mb-6"><button onclick="openModal('addProductModal')" class="bg-accent text-dark font-bold px-4 py-2 rounded-xl flex items-center gap-2"><i data-lucide="plus" size="18"></i> منتج جديد</button></div>
                 <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-right whitespace-nowrap"><thead class="bg-slate-800/50"><tr><th>المنتج</th><th>السعر</th><th>القسم</th><th>النوع</th><th>إجراءات</th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
             </section>
 
+            <!-- 5. الأقسام -->
             <section id="section-categories" class="content-section hidden">
                 <button onclick="openModal('addCategoryModal')" class="bg-accent text-dark font-bold px-4 py-2 rounded-xl mb-6 flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة قسم</button>
                 <div id="categoriesContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
             </section>
 
+            <!-- 6. طرق الدفع -->
             <section id="section-payments" class="content-section hidden">
-                <div class="glass p-8 rounded-3xl text-center">
-                    <i data-lucide="wallet" size="48" class="mx-auto text-accent mb-4 opacity-50"></i>
-                    <h3 class="text-xl font-bold text-white mb-2">طرق الدفع</h3>
-                    <p class="text-slate-400">سيتم تفعيل إدارة المحافظ الإلكترونية (شام كاش، MTN) قريباً في التحديث القادم.</p>
-                </div>
+                <div class="flex justify-between mb-6"><button onclick="openModal('addPaymentModal')" class="bg-accent text-dark font-bold px-4 py-2 rounded-xl flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة طريقة دفع</button></div>
+                <div id="paymentsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
             </section>
 
+            <!-- 7. المستخدمين -->
             <section id="section-users" class="content-section hidden">
                 <div class="mb-6"><input type="text" id="userSearchInput" placeholder="ابحث بالاسم أو الآيدي..." class="input-field w-full md:w-1/2"></div>
                 <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-right whitespace-nowrap"><thead class="bg-slate-800/50"><tr><th>المستخدم</th><th>الرصيد</th><th>الحالة</th><th>VIP</th><th>إجراءات</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
             </section>
 
-            <!-- قسم التدقيق المالي -->
+            <!-- 8. التدقيق المالي -->
             <section id="section-audit" class="content-section hidden">
                 <div class="glass rounded-3xl overflow-x-auto">
                     <table class="w-full text-right whitespace-nowrap">
-                        <thead class="bg-slate-800/50">
-                            <tr><th>العملية</th><th>المبلغ</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>التاريخ</th></tr>
-                        </thead>
-                        <tbody id="auditTableBody">
-                            <tr><td colspan="5" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>
-                        </tbody>
+                        <thead class="bg-slate-800/50"><tr><th>العملية</th><th>المبلغ</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>التاريخ</th></tr></thead>
+                        <tbody id="auditTableBody"></tbody>
                     </table>
                 </div>
             </section>
 
+            <!-- 9. الإشعارات -->
             <section id="section-notifications" class="content-section hidden">
-                <div class="glass p-8 rounded-3xl text-center">
-                    <i data-lucide="bell" size="48" class="mx-auto text-purple-400 mb-4 opacity-50"></i>
-                    <h3 class="text-xl font-bold text-white mb-2">مركز الإشعارات</h3>
-                    <p class="text-slate-400">سيتم تفعيل إرسال الإشعارات الجماعية للمستخدمين قريباً.</p>
+                <div class="glass rounded-3xl p-6 max-w-2xl">
+                    <h3 class="text-xl font-bold mb-4 text-accent">إرسال إشعار للمستخدمين</h3>
+                    <div class="mb-4"><label class="label-text">المستهدف</label>
+                        <select id="notifTarget" class="input-field"><option value="all">جميع المستخدمين</option><option value="specific">مستخدم محدد (ID)</option></select>
+                    </div>
+                    <div class="mb-4 hidden" id="specificUserDiv"><label class="label-text">Telegram ID</label><input type="text" id="notifSpecificId" class="input-field" placeholder="123456789"></div>
+                    <div class="mb-4"><label class="label-text">نص الإشعار (يدعم HTML)</label><textarea id="notifMessage" class="input-field" rows="4" placeholder="اكتب رسالتك هنا... <b>عريض</b>"></textarea></div>
+                    <div class="flex gap-4 mt-6">
+                        <button onclick="previewNotification()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition">معاينة</button>
+                        <button onclick="sendNotification()" class="flex-1 bg-accent hover:bg-sky-400 text-dark font-bold py-3 rounded-xl transition">إرسال الآن</button>
+                    </div>
                 </div>
             </section>
 
+            <!-- 10. الإعدادات -->
             <section id="section-settings" class="content-section hidden">
-                <div class="glass p-8 rounded-3xl text-center">
-                    <i data-lucide="settings" size="48" class="mx-auto text-slate-500 mb-4 opacity-50"></i>
-                    <h3 class="text-xl font-bold text-white mb-2">إعدادات المتجر</h3>
-                    <p class="text-slate-400">سيتم إضافة إعدادات سعر الصرف والبنرات قريباً.</p>
+                <div class="glass rounded-3xl p-6 max-w-2xl">
+                    <h3 class="text-xl font-bold mb-4 text-accent">إعدادات المتجر</h3>
+                    <div class="mb-4"><label class="label-text">اسم المتجر</label><input type="text" id="setStoreName" class="input-field"></div>
+                    <div class="mb-4"><label class="label-text">رابط الدعم</label><input type="text" id="setSupportLink" class="input-field"></div>
+                    <div class="mb-4"><label class="label-text">سعر صرف الليرة السورية (للدولار)</label><input type="number" id="setExchangeRate" class="input-field"></div>
+                    
+                    <div class="flex items-center justify-between bg-slate-800/50 p-4 rounded-xl mb-6">
+                        <span class="font-bold text-white">وضع الصيانة (إيقاف المتجر مؤقتاً)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="setMaintenance" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-danger"></div>
+                        </label>
+                    </div>
+                    
+                    <button onclick="saveSettings()" class="bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-emerald-600 transition w-full">حفظ الإعدادات</button>
                 </div>
             </section>
         </div>
@@ -202,7 +233,20 @@
         </div>
     </div>
 
-    <script src="js/admin_v3.js?v=5"></script>
+    <div id="addPaymentModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="glass rounded-3xl p-6 w-full max-w-md border-t-4 border-t-accent">
+            <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white">إضافة طريقة دفع</h3><button onclick="closeModal('addPaymentModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button></div>
+            <div class="mb-4"><label class="label-text">اسم الطريقة (شام كاش، MTN)</label><input type="text" id="payName" class="input-field"></div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div><label class="label-text">الحد الأدنى</label><input type="number" id="payMin" class="input-field"></div>
+                <div><label class="label-text">الحد الأقصى</label><input type="number" id="payMax" class="input-field"></div>
+            </div>
+            <div class="mb-6"><label class="label-text">رقم الحساب / المحفظة</label><input type="text" id="payAccount" class="input-field"></div>
+            <button onclick="savePayment()" class="w-full bg-primary text-white font-bold py-3 rounded-xl">حفظ الطريقة</button>
+        </div>
+    </div>
+
+    <script src="js/admin_v3.js?v=6"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
