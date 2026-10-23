@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/admin/api/:path*",
-      "destination": "https://sanad-plus-backend.onrender.com/admin/api/:path*"
-    }
-  ]
-}
