@@ -14,10 +14,6 @@
     <div id="loadingScreen" class="loading-screen">
         <div class="skeleton" style="height: 60px; margin-bottom: 20px;"></div>
         <div class="skeleton" style="height: 180px; border-radius: 24px; margin-bottom: 20px;"></div>
-        <div class="grid-2">
-            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
-            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
-        </div>
     </div>
 
     <div id="app" class="app-container hidden">
@@ -88,7 +84,6 @@
                         <img id="profileAvatarImg" class="avatar-img hidden" src="" alt="Avatar">
                         <div class="avatar large" id="profileAvatarFallback">S</div>
                     </div>
-                    <!-- تم نقل الشارة هنا بجانب الاسم -->
                     <div class="profile-name-row">
                         <h2 id="profileFullName">المستخدم</h2>
                         <div id="kycBadgeName" class="kyc-badge-twitter hidden"></div>
@@ -106,54 +101,29 @@
                 </div>
                 
                 <div class="stats-grid">
-                    <div class="stat-box">
-                        <span>الرصيد</span>
-                        <strong id="statBalance">$0.00</strong>
-                    </div>
-                    <div class="stat-box">
-                        <span>إجمالي الإيداعات</span>
-                        <strong id="statTotalDeposits">$0.00</strong>
-                    </div>
+                    <div class="stat-box"><span>الرصيد</span><strong id="statBalance">$0.00</strong></div>
+                    <div class="stat-box"><span>إجمالي الإيداعات</span><strong id="statTotalDeposits">$0.00</strong></div>
                 </div>
 
                 <div class="menu-list">
-                    <div class="menu-item" onclick="openKYCModal()">
-                        <i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span>
-                        <i data-lucide="chevron-left" class="chevron"></i>
-                    </div>
-                    <div class="menu-item" onclick="openReferralModal()">
-                        <i data-lucide="gift" class="text-warning"></i> <span>الإحالات</span>
-                        <i data-lucide="chevron-left" class="chevron"></i>
-                    </div>
-                    <div class="menu-item" onclick="openFAQModal()">
-                        <i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span>
-                        <i data-lucide="chevron-left" class="chevron"></i>
-                    </div>
-                    <div class="menu-item" onclick="openSupportModal()">
-                        <i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span>
-                        <i data-lucide="chevron-left" class="chevron"></i>
-                    </div>
+                    <div class="menu-item" onclick="openKYCModal()"><i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openReferralModal()"><i data-lucide="gift" class="text-warning"></i> <span>الإحالات</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openFAQModal()"><i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openSupportModal()"><i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span><i data-lucide="chevron-left" class="chevron"></i></div>
                 </div>
 
                 <div class="menu-list" style="margin-top: 15px;">
                     <div class="menu-item">
                         <i data-lucide="moon" class="text-warning"></i> <span>الوضع الليلي</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="darkModeToggle" checked onchange="toggleDarkMode()">
-                            <span class="slider"></span>
-                        </label>
+                        <label class="toggle-switch"><input type="checkbox" id="darkModeToggle" checked onchange="toggleDarkMode()"><span class="slider"></span></label>
                     </div>
-                    <div class="menu-item text-danger" onclick="handleLogout()">
-                        <i data-lucide="log-out"></i> <span>تسجيل الخروج</span>
-                    </div>
+                    <div class="menu-item text-danger" onclick="handleLogout()"><i data-lucide="log-out"></i> <span>تسجيل الخروج</span></div>
                 </div>
             </section>
 
             <section id="page-support" class="page" style="padding-bottom: 80px;">
                 <div class="section-header"><h3>محادثة الدعم</h3></div>
-                <div id="chatContainer" class="chat-container">
-                    <div class="empty-state"><i data-lucide="message-circle" size="48"></i><p>مرحباً بك، كيف يمكننا مساعدتك؟</p></div>
-                </div>
+                <div id="chatContainer" class="chat-container"></div>
                 <div class="chat-input-wrapper">
                     <input type="text" id="supportInput" placeholder="اكتب رسالتك هنا...">
                     <button onclick="sendSupportMessage()" id="sendBtn"><i data-lucide="send"></i></button>
@@ -171,57 +141,33 @@
         </nav>
 
         <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
+
+        <!-- نافذة طرق الدفع -->
         <div class="bottom-sheet" id="depositSheet">
             <div class="sheet-grabber"></div>
-            <h3>شحن الرصيد</h3>
-            <p class="text-muted">اختر طريقة الدفع المناسبة لك</p>
+            <h3 class="text-center">شحن الرصيد</h3>
+            <p class="text-muted text-center" style="margin-bottom: 20px;">اختر طريقة الدفع المناسبة لك</p>
             <div class="payment-methods-list" id="paymentMethodsList"></div>
         </div>
-        <div class="bottom-sheet" id="orderDetailsSheet">
+
+        <!-- نافذة تفاصيل الدفع وإرسال الإيداع -->
+        <div class="bottom-sheet" id="paymentDetailsSheet">
             <div class="sheet-grabber"></div>
-            <div id="orderDetailsContent"></div>
+            <div id="paymentDetailsContent"></div>
         </div>
-        <div class="bottom-sheet" id="depositDetailsSheet">
+
+        <!-- نافذة شراء منتج -->
+        <div class="bottom-sheet" id="productPurchaseSheet">
             <div class="sheet-grabber"></div>
-            <div id="depositDetailsContent"></div>
+            <div id="productPurchaseContent"></div>
         </div>
-        <div class="bottom-sheet" id="kycSheet">
-            <div class="sheet-grabber"></div>
-            <div id="kycContent"></div>
-        </div>
-        <div class="bottom-sheet" id="referralSheet">
-            <div class="sheet-grabber"></div>
-            <div class="text-center">
-                <div class="icon-wrapper-large" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); margin: 0 auto 15px;"><i data-lucide="gift" size="32"></i></div>
-                <h3>ادعُ أصدقاءك واربح</h3>
-                <p class="text-muted" style="margin-bottom: 20px;">احصل على مكافأة على كل عملية شراء يقومون بها!</p>
-                <div class="referral-box">
-                    <span id="referralCodeText">SANAD2026</span>
-                    <button onclick="copyToClipboard('referralCodeText', 'تم نسخ كود الإحالة')"><i data-lucide="copy" size="18"></i></button>
-                </div>
-            </div>
-        </div>
-        <div class="bottom-sheet" id="faqSheet">
-            <div class="sheet-grabber"></div>
-            <h3 class="text-center" style="margin-bottom: 20px;">الأسئلة الشائعة</h3>
-            <div class="faq-list">
-                <div class="faq-item" onclick="this.classList.toggle('open')"><div class="faq-question">كيف أقوم بشحن رصيدي؟ <i data-lucide="chevron-down"></i></div><div class="faq-answer">اضغط على زر البرق ⚡ في شريط التنقل السفلي، ثم اختر المحفظة وارفع صورة الإيصال.</div></div>
-                <div class="faq-item" onclick="this.classList.toggle('open')"><div class="faq-question">كم يستغرق اعتماد الإيداع؟ <i data-lucide="chevron-down"></i></div><div class="faq-answer">يتم اعتماد الإيداعات يدوياً من قبل الإدارة، وتستغرق عادة من 5 إلى 30 دقيقة.</div></div>
-                <div class="faq-item" onclick="this.classList.toggle('open')"><div class="faq-question">ماذا أفعل إذا فشل طلبي؟ <i data-lucide="chevron-down"></i></div><div class="faq-answer">في حال فشل الطلب، يتم إعادة المبلغ إلى رصيدك تلقائياً، ويمكنك مراجعة الدعم.</div></div>
-            </div>
-        </div>
-        <div class="bottom-sheet" id="supportModalSheet">
-            <div class="sheet-grabber"></div>
-            <div class="text-center">
-                <div class="icon-wrapper-large" style="background: rgba(10, 132, 255, 0.1); color: var(--primary); margin: 0 auto 15px;"><i data-lucide="headphones" size="32"></i></div>
-                <h3>الدعم الفني</h3>
-                <p class="text-muted" style="margin-bottom: 20px;">فريقنا جاهز لمساعدتك على مدار الساعة.</p>
-                <a href="https://t.me/SANADST" target="_blank" class="btn-primary" style="display: block; text-decoration: none; padding: 15px; border-radius: 16px; font-weight: bold;">مراسلة الدعم على تيليجرام</a>
-            </div>
-        </div>
-        <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()">
-            <img id="lightboxImg" src="" alt="إثبات">
-        </div>
+
+        <!-- نوافذ أخرى -->
+        <div class="bottom-sheet" id="orderDetailsSheet"><div class="sheet-grabber"></div><div id="orderDetailsContent"></div></div>
+        <div class="bottom-sheet" id="depositDetailsSheet"><div class="sheet-grabber"></div><div id="depositDetailsContent"></div></div>
+        <div class="bottom-sheet" id="kycSheet"><div class="sheet-grabber"></div><div id="kycContent"></div></div>
+
+        <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()"><img id="lightboxImg" src="" alt="إثبات"></div>
 
     </div>
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full UI System (Fixed Scrolling & Badges)
+   SANAD PLUS+ — Full UI System (Fixed Modals)
    ============================================================ */
 :root {
     --bg: #000000; --card-bg: #1c1c1e; --card-bg-2: #2c2c2e;
@@ -13,28 +13,18 @@
     --text-main: #000000; --text-muted: #666666; --border: rgba(0, 0, 0, 0.1);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-/* 🛠️ إصلاح جذري للتمرير على الهواتف */
 html, body { height: 100dvh; width: 100%; overflow: hidden; }
-body {
-    font-family: 'Cairo', sans-serif; background-color: var(--bg); color: var(--text-main);
-    transition: background 0.3s; overscroll-behavior-y: none;
-}
-#app {
-    display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
-}
+body { font-family: 'Cairo', sans-serif; background-color: var(--bg); color: var(--text-main); display: flex; flex-direction: column; overscroll-behavior-y: none; }
+#app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
 .hidden { display: none !important; }
 .text-muted { color: var(--text-muted); font-size: 14px; }
 .text-primary { color: var(--primary); } .text-danger { color: var(--danger); }
 .text-warning { color: var(--warning); } .text-success { color: var(--success); } .text-center { text-align: center; }
 
-/* Skeleton Loading */
 .loading-screen { position: fixed; inset: 0; background: var(--bg); padding: 20px; z-index: 9999; }
 .skeleton { background: linear-gradient(90deg, var(--card-bg) 25%, var(--card-bg-2) 50%, var(--card-bg) 75%); background-size: 200% 100%; animation: pulse 1.5s infinite; border-radius: 12px; }
 @keyframes pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 
-/* Header */
 .top-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; padding-top: calc(20px + env(safe-area-inset-top)); background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 50; flex-shrink: 0; }
 [data-theme="light"] .top-header { background: rgba(242, 242, 247, 0.8); }
 .user-greeting { display: flex; align-items: center; gap: 12px; cursor: pointer; }
@@ -43,25 +33,16 @@ body {
 .avatar.large { width: 80px; height: 80px; font-size: 32px; }
 .avatar-wrapper { position: relative; display: inline-block; margin-bottom: 15px; }
 .avatar-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
-
 .greeting-text { font-size: 12px; color: var(--text-muted); }
 .user-name { font-size: 16px; font-weight: 800; }
 .icon-btn { background: var(--card-bg); border: 1px solid var(--border); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-main); }
 
-/* Main Content - Touch Action Fix */
-.main-content { 
-    flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; 
-    padding: 0 20px; padding-bottom: calc(var(--nav-height) + 30px); 
-    touch-action: pan-y; /* إجبار المتصفح على قبول السحب العمودي */
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; 
-}
+.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; padding: 0 20px; padding-bottom: calc(var(--nav-height) + 30px); touch-action: pan-y; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .main-content::-webkit-scrollbar { display: none; }
 .page { display: none; animation: fadeIn 0.3s ease; }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Cards & Elements */
 .balance-card { background: linear-gradient(135deg, #1e293b, #000000); border: 1px solid #334155; border-radius: 24px; padding: 24px; margin: 10px 0 25px; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 .balance-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
 .card-label { font-size: 14px; color: var(--text-muted); font-weight: 600; }
@@ -85,15 +66,11 @@ body {
 .category-item img { width: 60px; height: 60px; border-radius: 16px; object-fit: cover; }
 .category-item span { font-weight: 700; font-size: 14px; }
 
-/* Profile Specifics */
 .profile-header { text-align: center; margin-top: 10px; margin-bottom: 25px; }
-
-/* ✅ تنسيق شارة التوثيق بجانب الاسم (مثل تويتر) */
 .profile-name-row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 4px; }
 .profile-name-row h2 { font-size: 22px; font-weight: 800; }
 .kyc-badge-twitter { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
 .kyc-badge-twitter svg { width: 100%; height: 100%; }
-
 .username { color: var(--text-muted); font-size: 14px; }
 .sanad-id-card { background: linear-gradient(135deg, #111827, #000000); border: 1px solid #374151; border-radius: 20px; padding: 20px; position: relative; overflow: hidden; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
 .sanad-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
@@ -116,7 +93,6 @@ body {
 input:checked + .slider { background-color: var(--success); }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* Lists */
 .orders-list { display: flex; flex-direction: column; gap: 12px; }
 .list-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; transition: 0.2s; cursor: pointer; }
 .list-card:active { transform: scale(0.98); }
@@ -125,7 +101,6 @@ input:checked + .slider:before { transform: translateX(20px); }
 .empty-state { text-align: center; padding: 50px 0; color: var(--text-muted); }
 .empty-state p { margin-top: 15px; font-weight: 600; }
 
-/* Bottom Nav */
 .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height); padding-bottom: env(safe-area-inset-bottom); background: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; flex-shrink: 0; }
 .nav-item { background: none; border: none; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit; font-size: 10px; font-weight: 600; transition: 0.3s; width: 60px; }
 .nav-item i { width: 24px; height: 24px; }
@@ -136,14 +111,21 @@ input:checked + .slider:before { transform: translateX(20px); }
 .center-btn:active .center-btn-inner { transform: scale(0.9); }
 .center-btn-inner i { width: 28px; height: 28px; fill: white; }
 
-/* Bottom Sheets */
 .bottom-sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s; }
 .bottom-sheet-overlay.active { opacity: 1; pointer-events: auto; }
 .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-radius: 30px 30px 0 0; padding: 20px; z-index: 201; transform: translateY(100%); transition: 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); padding-bottom: calc(30px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .bottom-sheet.active { transform: translateY(0); }
 .sheet-grabber { width: 40px; height: 5px; background: var(--card-bg-2); border-radius: 10px; margin: 0 auto 20px; }
 
-/* Details Specifics */
+.payment-methods-list { display: flex; flex-direction: column; gap: 12px; }
+.payment-method-card { display: flex; align-items: center; gap: 15px; background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 16px; transition: 0.2s; cursor: pointer; }
+.payment-method-card:active { transform: scale(0.98); border-color: var(--primary); }
+.pm-icon { font-size: 24px; width: 40px; height: 40px; background: var(--card-bg-2); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.pm-info { flex: 1; }
+.pm-info strong { display: block; font-size: 16px; margin-bottom: 3px; color: var(--text-main); }
+.pm-info span { font-size: 12px; color: var(--text-muted); }
+.payment-method-card i { color: var(--text-muted); }
+
 .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
 .detail-title { font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 8px; }
 .detail-title i { cursor: pointer; color: var(--text-muted); }
@@ -164,7 +146,6 @@ input:checked + .slider:before { transform: translateX(20px); }
 .timeline-step.error .timeline-circle { background: var(--danger); border-color: var(--danger); color: white; }
 .timeline-step.error .timeline-text { color: var(--danger); }
 
-/* KYC Form */
 .form-group { margin-bottom: 15px; text-align: right; }
 .form-group label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
 .form-input { width: 100%; background: var(--bg); border: 1px solid var(--border); padding: 14px; border-radius: 12px; color: var(--text-main); font-family: inherit; outline: none; transition: 0.2s; }
@@ -173,19 +154,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 .btn-primary { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 16px; font-weight: bold; font-family: inherit; cursor: pointer; transition: 0.2s; width: 100%; font-size: 16px; }
 .btn-primary:active { transform: scale(0.96); }
 .icon-wrapper-large { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
+.copy-box { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border: 1px solid var(--border); padding: 12px 15px; border-radius: 12px; margin-bottom: 15px; }
+.copy-box span { font-family: monospace; font-size: 16px; font-weight: bold; color: var(--primary); }
+.copy-box i { cursor: pointer; color: var(--text-muted); }
 
-/* Referrals & FAQ */
-.referral-box { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border: 1px solid var(--warning); padding: 15px 20px; border-radius: 16px; margin-bottom: 20px; }
-.referral-box span { font-family: monospace; font-size: 20px; font-weight: 900; color: var(--warning); }
-.referral-box button { background: none; border: none; color: var(--warning); cursor: pointer; }
-.faq-list { display: flex; flex-direction: column; gap: 10px; }
-.faq-item { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.faq-question { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; padding: 15px; cursor: pointer; }
-.faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; color: var(--text-muted); font-size: 13px; padding: 0 15px; }
-.faq-item.open .faq-answer { max-height: 100px; padding-bottom: 15px; }
-.faq-item.open .faq-question i { transform: rotate(180deg); }
-
-/* Chat */
 .chat-container { display: flex; flex-direction: column; gap: 12px; padding-bottom: 90px; }
 .chat-bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; position: relative; }
 .chat-bubble.user { background: var(--primary); color: white; align-self: flex-start; border-bottom-right-radius: 4px; }
@@ -200,6 +172,5 @@ input:checked + .slider:before { transform: translateX(20px); }
 .chat-input-wrapper button { background: var(--primary); border: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; transition: 0.2s; }
 .chat-input-wrapper button:active { transform: scale(0.9); }
 
-/* Lightbox */
 .lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .lightbox-overlay img { max-width: 100%; max-height: 100%; border-radius: 12px; }
