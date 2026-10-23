@@ -4,101 +4,114 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SANAD PLUS+ | المتجر</title>
-    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- شاشة التحميل (Skeleton) -->
+    <!-- شاشة التحميل (Skeletons) -->
     <div id="loadingScreen" class="loading-screen">
-        <div class="skeleton-header"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-grid">
-            <div class="skeleton-box"></div>
-            <div class="skeleton-box"></div>
-            <div class="skeleton-box"></div>
-            <div class="skeleton-box"></div>
+        <div class="skeleton" style="height: 60px; margin-bottom: 20px;"></div>
+        <div class="skeleton" style="height: 180px; border-radius: 24px; margin-bottom: 20px;"></div>
+        <div class="skeleton" style="height: 40px; width: 50%; margin-bottom: 15px;"></div>
+        <div class="grid-2">
+            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
+            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
+            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
+            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
         </div>
     </div>
 
-    <!-- الشاشة الرئيسية للمتجر -->
+    <!-- التطبيق -->
     <div id="app" class="app-container hidden">
         
         <!-- الشريط العلوي -->
-        <header class="glass-header">
-            <div class="user-info" onclick="navigate('profile')">
+        <header class="top-header">
+            <div class="user-greeting">
                 <div class="avatar" id="userAvatar">S</div>
-                <div class="greeting">
-                    <span class="hello">مرحباً،</span>
-                    <span class="name" id="userName">جاري التحميل...</span>
+                <div>
+                    <div class="greeting-text">مرحباً بك،</div>
+                    <div class="user-name" id="userName">جاري التحميل...</div>
                 </div>
             </div>
-            <div class="balance-badge" id="headerBalance" onclick="navigate('profile')">
-                $0.00
+            <div class="header-actions">
+                <button class="icon-btn"><i data-lucide="bell"></i></button>
             </div>
         </header>
 
-        <!-- المحتوى الرئيسي -->
+        <!-- المحتوى -->
         <main class="main-content">
             
-            <!-- صفحة: الرئيسية -->
+            <!-- الرئيسية -->
             <section id="page-home" class="page active">
-                <div class="bento-grid">
-                    <!-- البطاقة الرئيسية للرصيد -->
-                    <div class="bento-card balance-card" onclick="navigate('profile')">
-                        <div class="card-icon">💳</div>
-                        <div class="card-title">الرصيد الإجمالي</div>
-                        <div class="card-value" id="mainBalance">$0.00</div>
+                <!-- بطاقة الرصيد (Apple Card Style) -->
+                <div class="balance-card">
+                    <div class="balance-header">
+                        <span class="card-label">الرصيد الإجمالي</span>
+                        <i data-lucide="wifi" class="contactless-icon"></i>
                     </div>
-                    
-                    <!-- بطاقة الإيداع السريع -->
-                    <div class="bento-card action-card" onclick="navigate('deposit')">
-                        <div class="card-icon">⚡</div>
-                        <div class="card-title">شحن سريع</div>
+                    <div class="balance-amount" id="mainBalance">$0.00</div>
+                    <div class="balance-footer">
+                        <span id="userSanadId">SANAD ID: ****</span>
+                        <span class="status-badge">نشط</span>
                     </div>
+                    <div class="floating-dollar">$</div>
                 </div>
 
-                <h3 class="section-title">الأقسام</h3>
+                <!-- شريط البحث -->
+                <div class="search-bar">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" placeholder="ابحث عن منتج أو خدمة...">
+                </div>
+
+                <!-- الأقسام (Bento Grid) -->
+                <div class="section-header">
+                    <h3>الأقسام</h3>
+                    <span class="see-all">عرض الكل</span>
+                </div>
                 <div id="categoriesGrid" class="categories-grid">
-                    <!-- سيتم ملؤها عبر JS -->
-                </div>
-
-                <h3 class="section-title" id="productsSectionTitle" style="display:none;">المنتجات</h3>
-                <div id="productsGrid" class="products-grid">
-                    <!-- سيتم ملؤها عبر JS -->
+                    <!-- JS -->
                 </div>
             </section>
 
-            <!-- صفحة: طلباتي -->
+            <!-- الطلبات -->
             <section id="page-orders" class="page">
-                <h2 class="page-title">سجل الطلبات</h2>
-                <div id="ordersList" class="orders-list">
-                    <div class="empty-state">لا توجد طلبات حتى الآن</div>
+                <div class="section-header"><h3>طلباتي</h3></div>
+                <div class="empty-state">
+                    <i data-lucide="package-open" size="48"></i>
+                    <p>لا توجد طلبات حتى الآن</p>
                 </div>
             </section>
 
-            <!-- صفحة: حسابي -->
+            <!-- الحساب -->
             <section id="page-profile" class="page">
-                <div class="profile-header">
+                <div class="profile-card">
                     <div class="avatar large" id="profileAvatar">S</div>
                     <h2 id="profileName">المستخدم</h2>
-                    <div class="user-id" id="profileId">@username</div>
-                    <div class="balance-large" id="profileBalance">$0.00</div>
+                    <div class="sanad-id-box">
+                        <span>SANAD ID</span>
+                        <strong id="profileSanadId">SN-000000</strong>
+                        <i data-lucide="copy" size="16" onclick="copySanadId()"></i>
+                    </div>
                 </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span>الطلبات</span>
+                        <strong>0</strong>
+                    </div>
+                    <div class="stat-box">
+                        <span>الإيداعات</span>
+                        <strong>0</strong>
+                    </div>
+                </div>
+
                 <div class="menu-list">
-                    <div class="menu-item" onclick="navigate('deposit')">
-                        <span>إيداع رصيد</span>
-                        <span>💳</span>
-                    </div>
-                    <div class="menu-item">
-                        <span>توثيق الحساب (KYC)</span>
-                        <span>🪪</span>
-                    </div>
-                    <div class="menu-item">
-                        <span>الدعم الفني</span>
-                        <span>🎧</span>
-                    </div>
+                    <div class="menu-item"><i data-lucide="shield-check"></i> توثيق الحساب</div>
+                    <div class="menu-item"><i data-lucide="headphones"></i> الدعم الفني</div>
+                    <div class="menu-item"><i data-lucide="log-out"></i> تسجيل الخروج</div>
                 </div>
             </section>
 
@@ -106,30 +119,53 @@
 
         <!-- شريط التنقل السفلي -->
         <nav class="bottom-nav">
-            <button class="nav-item active" onclick="navigate('home')" data-target="home">
-                <span class="icon">🏠</span>
-                <span class="text">الرئيسية</span>
+            <button class="nav-item active" onclick="navigate('home')" data-page="home">
+                <i data-lucide="home"></i><span>الرئيسية</span>
             </button>
-            <button class="nav-item" onclick="navigate('orders')" data-target="orders">
-                <span class="icon">📦</span>
-                <span class="text">طلباتي</span>
+            <button class="nav-item" onclick="navigate('orders')" data-page="orders">
+                <i data-lucide="list"></i><span>طلباتي</span>
             </button>
-            <button class="nav-item" onclick="navigate('profile')" data-target="profile">
-                <span class="icon">👤</span>
-                <span class="text">حسابي</span>
+            <!-- الزر البارز في المنتصف -->
+            <button class="nav-item center-btn" onclick="openDepositSheet()">
+                <div class="center-btn-inner"><i data-lucide="zap"></i></div>
+            </button>
+            <button class="nav-item" onclick="navigate('profile')" data-page="profile">
+                <i data-lucide="user"></i><span>حسابي</span>
+            </button>
+            <button class="nav-item" onclick="navigate('support')" data-page="support">
+                <i data-lucide="message-square"></i><span>الدعم</span>
             </button>
         </nav>
-    </div>
 
-    <!-- شاشة الحظر -->
-    <div id="bannedScreen" class="overlay hidden">
-        <div class="overlay-content">
-            <div class="error-icon">🚫</div>
-            <h2>حسابك محظور</h2>
-            <p>يرجى التواصل مع الدعم الفني.</p>
+        <!-- Bottom Sheet (للإيداع) -->
+        <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeDepositSheet()"></div>
+        <div class="bottom-sheet" id="depositSheet">
+            <div class="sheet-grabber"></div>
+            <h3>شحن الرصيد</h3>
+            <p class="text-muted">اختر طريقة الدفع المناسبة لك</p>
+            <div class="payment-methods-list">
+                <div class="payment-method-card">
+                    <div class="pm-icon">💳</div>
+                    <div class="pm-info">
+                        <strong>شام كاش</strong>
+                        <span>حد أدنى: $5.00</span>
+                    </div>
+                    <i data-lucide="chevron-left"></i>
+                </div>
+                <div class="payment-method-card">
+                    <div class="pm-icon">📱</div>
+                    <div class="pm-info">
+                        <strong>MTN كاش</strong>
+                        <span>حد أدنى: $5.00</span>
+                    </div>
+                    <i data-lucide="chevron-left"></i>
+                </div>
+            </div>
         </div>
+
     </div>
 
     <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>
