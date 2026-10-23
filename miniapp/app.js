@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Real Data Engine (Advanced Product Purchase)
+   SANAD PLUS+ — Full Logic Engine (Fixed Keyboard & PM Layout)
    ============================================================ */
 
 const tg = window.Telegram?.WebApp;
@@ -162,16 +162,17 @@ function openProductDetails(prod) {
     currentQty = prod.base_quantity > 0 ? prod.base_quantity : 1;
     
     let inputHtml = '';
-    if (prod.input_type === 'id') inputHtml = `<div class="form-group"><label>ايدي اللاعب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required></div>`;
-    else if (prod.input_type === 'account_id') inputHtml = `<div class="form-group"><label>ايدي الحساب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required></div>`;
-    else if (prod.input_type === 'phone') inputHtml = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchaseInput" class="form-input" placeholder="أدخل رقم الهاتف..." required></div>`;
-    else if (prod.input_type === 'url') inputHtml = `<div class="form-group"><label>الرابط (URL)</label><input type="url" id="purchaseInput" class="form-input" placeholder="https://..." dir="ltr" required></div>`;
+    const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
+    
+    if (prod.input_type === 'id') inputHtml = `<div class="form-group"><label>ايدي اللاعب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'account_id') inputHtml = `<div class="form-group"><label>ايدي الحساب</label><input type="number" id="purchaseInput" class="form-input" placeholder="أدخل الآيدي هنا..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'phone') inputHtml = `<div class="form-group"><label>رقم الهاتف</label><input type="tel" id="purchaseInput" class="form-input" placeholder="أدخل رقم الهاتف..." required ${focusScript}></div>`;
+    else if (prod.input_type === 'url') inputHtml = `<div class="form-group"><label>الرابط (URL)</label><input type="url" id="purchaseInput" class="form-input" placeholder="https://..." dir="ltr" required ${focusScript}></div>`;
 
     let dynamicHtml = '';
     let initialPrice = parseFloat(prod.base_price) || 0;
 
     if (prod.bundles && prod.bundles.length > 0) {
-        // خيارات الباقات
         initialPrice = parseFloat(selectedBundle.price_usd) || 0;
         let bundlesOptions = prod.bundles.map((b, index) => `
             <label class="bundle-option ${index === 0 ? 'selected' : ''}" onclick="selectBundle('${b.id}', ${parseFloat(b.price_usd)})">
@@ -185,11 +186,10 @@ function openProductDetails(prod) {
         `).join('');
         dynamicHtml = `<div class="form-group" style="margin-top:15px;"><label>اختر الباقة</label><div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">${bundlesOptions}</div></div>`;
     } else if (prod.product_type === 'quantity' && prod.base_quantity > 0) {
-        // سعر متغير حسب الكمية
         dynamicHtml = `
             <div class="form-group" style="margin-top:15px;">
                 <label>الكمية المطلوبة (${escapeHTML(prod.unit_name || 'قطعة')})</label>
-                <input type="number" id="purchaseQty" class="form-input" value="${currentQty}" min="1" oninput="updateDynamicPrice()">
+                <input type="number" id="purchaseQty" class="form-input" value="${currentQty}" min="1" oninput="updateDynamicPrice()" ${focusScript}>
             </div>
         `;
     }
@@ -230,10 +230,7 @@ function selectBundle(id, price) {
 function updateDynamicPrice() {
     const qtyInput = document.getElementById('purchaseQty');
     let qty = parseInt(qtyInput.value);
-    if (isNaN(qty) || qty < 1) {
-        qty = 1;
-        qtyInput.value = 1;
-    }
+    if (isNaN(qty) || qty < 1) { qty = 1; qtyInput.value = 1; }
     currentQty = qty;
     const unitPrice = parseFloat(currentProduct.base_price) / currentProduct.base_quantity;
     const total = unitPrice * qty;
@@ -250,8 +247,7 @@ async function submitOrder(e) {
         return;
     }
 
-    btn.textContent = 'جاري التنفيذ...';
-    btn.disabled = true;
+    btn.textContent = 'جاري التنفيذ...'; btn.disabled = true;
 
     try {
         const orderData = {
@@ -285,13 +281,12 @@ async function submitOrder(e) {
     } catch (err) {
         if (tg) tg.showAlert(`خطأ:\n${err.message}`);
     } finally {
-        btn.textContent = 'شراء الآن';
-        btn.disabled = false;
+        btn.textContent = 'شراء الآن'; btn.disabled = false;
     }
 }
 
 // ════════════════════════════════════════════════════════════
-// Deposit Flow (Keep from previous)
+// Deposit Flow & Payment Methods Layout
 // ════════════════════════════════════════════════════════════
 function openDepositSheet() {
     if (tg) tg.HapticFeedback.impactOccurred('light');
@@ -302,12 +297,23 @@ function openDepositSheet() {
     } else {
         paymentMethodsData.forEach(pm => {
             const el = document.createElement('div');
-            el.className = 'payment-method-card';
+            el.className = 'pm-card';
             el.onclick = () => openPaymentDetails(pm);
+            
+            const isKyc = pm.requires_kyc;
+            const subText = isKyc ? 'تتطلب توثيق الحساب' : 'شحن فوري';
+            const subClass = isKyc ? 'kyc' : 'instant';
+            const subIcon = isKyc ? 'lock' : 'zap';
+            
             el.innerHTML = `
-                <div class="pm-icon">💳</div>
-                <div class="pm-info"><strong>${escapeHTML(pm.name)}</strong><span>الحد الأدنى: $${parseFloat(pm.min_amount).toFixed(2)}</span></div>
-                <i data-lucide="chevron-left"></i>
+                <div class="pm-card-right">
+                    <div class="pm-icon-box">💳</div>
+                    <div class="pm-details">
+                        <span class="pm-name">${escapeHTML(pm.name)}</span>
+                        <span class="pm-sub ${subClass}"><i data-lucide="${subIcon}" size="12"></i> ${subText}</span>
+                    </div>
+                </div>
+                <i data-lucide="chevron-left" class="pm-arrow"></i>
             `;
             container.appendChild(el);
         });
@@ -322,14 +328,15 @@ function openPaymentDetails(pm) {
     closeSheets();
     
     setTimeout(() => {
+        const focusScript = `onfocus="setTimeout(() => this.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300)"`;
         document.getElementById('paymentDetailsContent').innerHTML = `
             <h3 class="text-center" style="margin-bottom: 20px;">إتمام الإيداع</h3>
             <div class="copy-box"><span>${escapeHTML(pm.account_name || 'اسم الحساب')}</span><i data-lucide="copy" onclick="copyText('${pm.account_name}', 'تم نسخ اسم الحساب')"></i></div>
             <div class="copy-box"><span dir="ltr">${escapeHTML(pm.account || 'رقم الحساب')}</span><i data-lucide="copy" onclick="copyText('${pm.account}', 'تم نسخ رقم الحساب')"></i></div>
             <div class="text-center" style="margin: 20px 0;"><span class="text-muted">الحد الأدنى: $${pm.min_amount} | الحد الأقصى: $${pm.max_amount}</span></div>
             <form onsubmit="submitDeposit(event)">
-                <div class="form-group"><label>المبلغ المراد إيداعه ($)</label><input type="number" id="depositAmount" class="form-input" min="${pm.min_amount}" max="${pm.max_amount}" step="0.01" required></div>
-                <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" class="form-input" required></div>
+                <div class="form-group"><label>المبلغ المراد إيداعه ($)</label><input type="number" id="depositAmount" class="form-input" min="${pm.min_amount}" max="${pm.max_amount}" step="0.01" required ${focusScript}></div>
+                <div class="form-group"><label>اسم المرسل</label><input type="text" id="depositSenderName" class="form-input" required ${focusScript}></div>
                 <div class="form-group">
                     <label>إثبات التحويل (صورة)</label>
                     <input type="file" id="depositReceipt" accept="image/*" class="hidden" onchange="document.getElementById('receiptLabel').textContent = 'تم اختيار الصورة'">
@@ -372,12 +379,13 @@ async function submitDeposit(e) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Other UI Functions (Keep from previous)
+// Other Core Utils & Modals
 // ════════════════════════════════════════════════════════════
 function navigate(page) {
     if (tg) tg.HapticFeedback.selectionChanged();
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(`page-${page}`).classList.add('active');
+    
     if (page === 'products') {
         document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
         if (tg) tg.BackButton.show();
@@ -385,21 +393,22 @@ function navigate(page) {
         document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
         if (page !== 'home') { if (tg) tg.BackButton.show(); } else { if (tg) tg.BackButton.hide(); }
     }
+    
     if (page === 'orders') loadOrders();
     if (page === 'deposits') loadDeposits();
     if (page === 'support') loadSupportTickets();
 }
 
-async function loadOrders() { /* (مختصر لعدم الإطالة) */ }
-async function loadDeposits() { /* (مختصر لعدم الإطالة) */ }
-function openOrderDetails(orderId) { /* (مختصر لعدم الإطالة) */ }
-function openDepositDetails(depositId) { /* (مختصر لعدم الإطالة) */ }
-function openKYCModal() { openSheet('kycSheet'); /* (مختصر لعدم الإطالة) */ }
+async function loadOrders() { /* (سابقاً) */ }
+async function loadDeposits() { /* (سابقاً) */ }
+function openOrderDetails(orderId) { /* (سابقاً) */ }
+function openDepositDetails(depositId) { /* (سابقاً) */ }
+function openKYCModal() { openSheet('kycSheet'); /* (سابقاً) */ }
 function openReferralModal() { openSheet('referralSheet'); }
 function openFAQModal() { openSheet('faqSheet'); }
 function openSupportModal() { openSheet('supportModalSheet'); }
-async function loadSupportTickets() { /* (مختصر لعدم الإطالة) */ }
-async function sendSupportMessage() { /* (مختصر لعدم الإطالة) */ }
+async function loadSupportTickets() { /* (سابقاً) */ }
+async function sendSupportMessage() { /* (سابقاً) */ }
 
 function openSheet(sheetId) {
     if (tg) tg.HapticFeedback.impactOccurred('light');

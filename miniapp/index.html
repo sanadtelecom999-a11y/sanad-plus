@@ -95,7 +95,7 @@
                     <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
                     <div class="sanad-number-row">
                         <span id="profileSanadId">SN-000000</span>
-                        <i data-lucide="copy" size="18" onclick="copyToClipboard('profileSanadId', 'تم نسخ معرف سند')"></i>
+                        <i data-lucide="copy" size="18" onclick="copyText(document.getElementById('profileSanadId').textContent, 'تم نسخ معرف سند')"></i>
                     </div>
                     <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
                 </div>
@@ -142,7 +142,6 @@
 
         <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
 
-        <!-- نافذة طرق الدفع -->
         <div class="bottom-sheet" id="depositSheet">
             <div class="sheet-grabber"></div>
             <h3 class="text-center">شحن الرصيد</h3>
@@ -150,19 +149,16 @@
             <div class="payment-methods-list" id="paymentMethodsList"></div>
         </div>
 
-        <!-- نافذة تفاصيل الدفع وإرسال الإيداع -->
         <div class="bottom-sheet" id="paymentDetailsSheet">
             <div class="sheet-grabber"></div>
             <div id="paymentDetailsContent"></div>
         </div>
 
-        <!-- نافذة شراء منتج -->
         <div class="bottom-sheet" id="productPurchaseSheet">
             <div class="sheet-grabber"></div>
             <div id="productPurchaseContent"></div>
         </div>
 
-        <!-- نوافذ أخرى -->
         <div class="bottom-sheet" id="orderDetailsSheet"><div class="sheet-grabber"></div><div id="orderDetailsContent"></div></div>
         <div class="bottom-sheet" id="depositDetailsSheet"><div class="sheet-grabber"></div><div id="depositDetailsContent"></div></div>
         <div class="bottom-sheet" id="kycSheet"><div class="sheet-grabber"></div><div id="kycContent"></div></div>

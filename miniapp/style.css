@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full UI System (Fixed Modals)
+   SANAD PLUS+ — Full UI System
    ============================================================ */
 :root {
     --bg: #000000; --card-bg: #1c1c1e; --card-bg-2: #2c2c2e;
@@ -117,14 +117,31 @@ input:checked + .slider:before { transform: translateX(20px); }
 .bottom-sheet.active { transform: translateY(0); }
 .sheet-grabber { width: 40px; height: 5px; background: var(--card-bg-2); border-radius: 10px; margin: 0 auto 20px; }
 
-.payment-methods-list { display: flex; flex-direction: column; gap: 12px; }
-.payment-method-card { display: flex; align-items: center; gap: 15px; background: var(--bg); border: 1px solid var(--border); padding: 16px; border-radius: 16px; transition: 0.2s; cursor: pointer; }
-.payment-method-card:active { transform: scale(0.98); border-color: var(--primary); }
-.pm-icon { font-size: 24px; width: 40px; height: 40px; background: var(--card-bg-2); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
-.pm-info { flex: 1; }
-.pm-info strong { display: block; font-size: 16px; margin-bottom: 3px; color: var(--text-main); }
-.pm-info span { font-size: 12px; color: var(--text-muted); }
-.payment-method-card i { color: var(--text-muted); }
+/* Payment Methods New Design */
+.payment-methods-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
+.pm-card { display: flex; align-items: center; justify-content: space-between; background: var(--card-bg); border: 1px solid var(--border); padding: 16px; border-radius: 20px; transition: 0.2s; cursor: pointer; }
+.pm-card:active { transform: scale(0.98); background: var(--card-bg-2); }
+.pm-card-right { display: flex; align-items: center; gap: 14px; }
+.pm-icon-box { width: 50px; height: 50px; border-radius: 14px; background: var(--bg); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.pm-details { display: flex; flex-direction: column; gap: 4px; }
+.pm-name { font-weight: 800; font-size: 16px; color: var(--text-main); }
+.pm-sub { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; font-weight: 600; }
+.pm-sub.kyc { color: var(--warning); }
+.pm-sub.instant { color: var(--success); }
+.pm-arrow { color: var(--text-muted); width: 20px; height: 20px; }
+
+/* Product Modal Additions */
+.product-modal-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+.product-modal-img { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; }
+.product-modal-title { font-size: 18px; font-weight: 800; }
+.bundle-option { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: 0.2s; background: var(--bg); }
+.bundle-option.selected { border-color: var(--primary); background: rgba(10, 132, 255, 0.1); }
+.bundle-info strong { display: block; font-size: 15px; }
+.bundle-info span { font-size: 12px; color: var(--text-muted); }
+.bundle-price { font-weight: 900; color: var(--primary); }
+.total-box { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); }
+.total-box span { font-weight: bold; color: var(--text-muted); }
+.total-box strong { font-size: 22px; color: var(--success); font-weight: 900; }
 
 .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
 .detail-title { font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 8px; }
@@ -134,6 +151,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .detail-value { font-weight: bold; }
 .detail-total { font-size: 20px; color: var(--success); font-weight: 900; direction: ltr; }
 .proof-image { width: 100%; max-height: 200px; object-fit: contain; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid var(--border); }
+
 .timeline { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; position: relative; padding: 0 10px; }
 .timeline::before { content: ''; position: absolute; top: 12px; left: 30px; right: 30px; height: 2px; background: var(--border); z-index: 1; }
 .timeline-step { display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 2; position: relative; width: 60px; }
@@ -174,16 +192,3 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 .lightbox-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .lightbox-overlay img { max-width: 100%; max-height: 100%; border-radius: 12px; }
-
-/* Product Purchase Modal Additions */
-.product-modal-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
-.product-modal-img { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; }
-.product-modal-title { font-size: 18px; font-weight: 800; }
-.bundle-option { display: flex; justify-content: space-between; align-items: center; padding: 15px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; transition: 0.2s; background: var(--bg); }
-.bundle-option.selected { border-color: var(--primary); background: rgba(10, 132, 255, 0.1); }
-.bundle-info strong { display: block; font-size: 15px; }
-.bundle-info span { font-size: 12px; color: var(--text-muted); }
-.bundle-price { font-weight: 900; color: var(--primary); }
-.total-box { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); }
-.total-box span { font-weight: bold; color: var(--text-muted); }
-.total-box strong { font-size: 22px; color: var(--success); font-weight: 900; }
