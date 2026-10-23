@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full Logic Engine (Fixed Badge & Totals)
+   SANAD PLUS+ — Real Data & UI Engine (v2.0)
    ============================================================ */
 
 const tg = window.Telegram?.WebApp;
@@ -9,17 +9,22 @@ const tgUser = tg?.initDataUnsafe?.user;
 let authToken = null;
 let userData = null;
 let categoriesData = [];
+let productsData = [];
+let paymentMethodsData = [];
 let ordersData = [];
 let depositsData = [];
+let currentCategoryId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (tg) {
-        tg.ready();
-        tg.expand();
-        tg.setHeaderColor('#000000');
-        tg.disableVerticalSwipes();
-        tg.BackButton.onClick(() => navigate('home'));
-        
+        tg.ready(); tg.expand(); tg.setHeaderColor('#000000'); tg.disableVerticalSwipes();
+        tg.BackButton.onClick(() => {
+            if (document.getElementById('page-products').classList.contains('active')) {
+                navigate('home');
+            } else {
+                navigate('home');
+            }
+        });
         if (tg.colorScheme === 'light') {
             document.getElementById('darkModeToggle').checked = false;
             toggleDarkMode();
@@ -64,15 +69,17 @@ function getHeaders() {
 }
 
 async function loadInitialData() {
-    const [catRes, depRes] = await Promise.all([
+    const [catRes, prodRes, pmRes, depRes] = await Promise.all([
         fetch(`${API_BASE}/api/categories/`),
+        fetch(`${API_BASE}/api/products/`),
+        fetch(`${API_BASE}/api/payment-methods/`),
         fetch(`${API_BASE}/api/deposits/`, { headers: getHeaders() })
     ]);
     
     if (catRes.ok) categoriesData = await catRes.json();
-    if (depRes.ok) {
-        depositsData = await depRes.json();
-    }
+    if (prodRes.ok) productsData = await prodRes.json();
+    if (pmRes.ok) paymentMethodsData = await pmRes.json();
+    if (depRes.ok) depositsData = await depRes.json();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -110,7 +117,7 @@ function showApp() {
     document.getElementById('profileTelegramId').textContent = `Telegram: ${userData.telegram_id}`;
     document.getElementById('referralCodeText').textContent = userData.referral_code || 'SANAD';
 
-    // ✅ شارة التوثيق (بجانب الاسم بتصميم تويتر)
+    // شارة التوثيق
     const isVerified = userData.is_verified || userData.kyc_status === 'verified';
     const kycBadge = document.getElementById('kycBadgeName');
     if (isVerified) {
@@ -125,12 +132,12 @@ function showApp() {
     document.getElementById('mainBalance').textContent = balance;
     document.getElementById('statBalance').textContent = balance;
     
-    // ✅ حساب إجمالي الإيداعات فوراً
     let totalApproved = 0;
     depositsData.forEach(d => { if(d.status === 'approved') totalApproved += parseFloat(d.amount); });
     document.getElementById('statTotalDeposits').textContent = `$${totalApproved.toFixed(2)}`;
 
     renderCategories();
+    renderPaymentMethods();
     lucide.createIcons();
 }
 
@@ -144,7 +151,7 @@ function renderCategories() {
     categoriesData.forEach(cat => {
         const el = document.createElement('div');
         el.className = 'category-item';
-        el.onclick = () => alert(`عرض منتجات: ${cat.name}`);
+        el.onclick = () => openCategory(cat.id, cat.name);
         
         const img = document.createElement('img');
         img.src = cat.image || 'https://via.placeholder.com/60';
@@ -158,6 +165,88 @@ function renderCategories() {
     });
 }
 
+function openCategory(id, name) {
+    if (tg) tg.HapticFeedback.impactOccurred('light');
+    currentCategoryId = id;
+    document.getElementById('productsPageTitle').textContent = name;
+    
+    const catProducts = productsData.filter(p => p.category_id === id);
+    const grid = document.getElementById('productsGrid');
+    grid.innerHTML = '';
+    
+    if (catProducts.length === 0) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column: span 2;">لا توجد منتجات في هذا القسم</div>';
+    } else {
+        catProducts.forEach(prod => {
+            const el = document.createElement('div');
+            el.className = 'category-item';
+            el.onclick = () => openProductDetails(prod);
+            
+            const img = document.createElement('img');
+            img.src = prod.image || 'https://via.placeholder.com/60';
+            
+            const title = document.createElement('span');
+            title.textContent = prod.name;
+            
+            const price = document.createElement('div');
+            price.textContent = `$${parseFloat(prod.base_price).toFixed(2)}`;
+            price.style.color = 'var(--primary)';
+            price.style.fontSize = '12px';
+            price.style.marginTop = '5px';
+            
+            el.appendChild(img);
+            el.appendChild(title);
+            el.appendChild(price);
+            grid.appendChild(el);
+        });
+    }
+    
+    navigate('products');
+}
+
+function renderPaymentMethods() {
+    const container = document.getElementById('paymentMethodsList');
+    container.innerHTML = '';
+    if (!paymentMethodsData || paymentMethodsData.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">لا توجد طرق دفع متاحة حالياً</p>';
+        return;
+    }
+    paymentMethodsData.forEach(pm => {
+        const el = document.createElement('div');
+        el.className = 'payment-method-card';
+        
+        const icon = document.createElement('div');
+        icon.className = 'pm-icon';
+        icon.textContent = '💳';
+        
+        const info = document.createElement('div');
+        info.className = 'pm-info';
+        
+        const name = document.createElement('strong');
+        name.textContent = pm.name;
+        
+        const min = document.createElement('span');
+        min.textContent = `الحد الأدنى: $${parseFloat(pm.min_amount).toFixed(2)}`;
+        
+        info.appendChild(name);
+        info.appendChild(min);
+        
+        const arrow = document.createElement('i');
+        arrow.setAttribute('data-lucide', 'chevron-left');
+        
+        el.appendChild(icon);
+        el.appendChild(info);
+        el.appendChild(arrow);
+        
+        el.onclick = () => {
+            if (tg) tg.showAlert(`طريقة الدفع: ${pm.name}\nالحد الأدنى: $${pm.min_amount}\nالحد الأقصى: $${pm.max_amount}\nالرسوم: ${pm.fee}%`);
+        };
+        
+        container.appendChild(el);
+    });
+    lucide.createIcons();
+}
+
 // ════════════════════════════════════════════════════════════
 // Navigation
 // ════════════════════════════════════════════════════════════
@@ -165,9 +254,14 @@ function navigate(page) {
     if (tg) tg.HapticFeedback.selectionChanged();
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(`page-${page}`).classList.add('active');
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
     
-    if (page !== 'home') { if (tg) tg.BackButton.show(); } else { if (tg) tg.BackButton.hide(); }
+    if (page === 'products') {
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+        if (tg) tg.BackButton.show();
+    } else {
+        document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+        if (page !== 'home') { if (tg) tg.BackButton.show(); } else { if (tg) tg.BackButton.hide(); }
+    }
 
     if (page === 'orders') loadOrders();
     if (page === 'deposits') loadDeposits();
@@ -228,7 +322,7 @@ function openOrderDetails(orderId) {
     document.getElementById('orderDetailsContent').innerHTML = `
         <h3 class="text-center" style="margin-bottom: 20px;">تفاصيل الطلب</h3>
         <div class="detail-header">
-            <div class="detail-title">${order.order_number} <i data-lucide="copy" onclick="copyToClipboard('${order.order_number}', 'تم نسخ رقم الطلب')"></i></div>
+            <div class="detail-title">${order.order_number} <i data-lucide="copy" onclick="copyText('${order.order_number}', 'تم نسخ رقم الطلب')"></i></div>
             <span class="${order.status === 'completed' ? 'text-success' : order.status === 'pending' ? 'text-warning' : 'text-danger'}">${order.status}</span>
         </div>
         <div class="detail-row"><span class="detail-label">المنتج</span><span class="detail-value">${order.product_name}</span></div>
@@ -285,7 +379,7 @@ function openDepositDetails(depositId) {
     document.getElementById('depositDetailsContent').innerHTML = `
         <h3 class="text-center" style="margin-bottom: 20px;">تفاصيل الإيداع</h3>
         <div class="detail-header">
-            <div class="detail-title">${d.transaction_id} <i data-lucide="copy" onclick="copyToClipboard('${d.transaction_id}', 'تم نسخ رقم العملية')"></i></div>
+            <div class="detail-title">${d.transaction_id} <i data-lucide="copy" onclick="copyText('${d.transaction_id}', 'تم نسخ رقم العملية')"></i></div>
             <span class="${d.status === 'approved' ? 'text-success' : d.status === 'pending' ? 'text-warning' : 'text-danger'}">${d.status}</span>
         </div>
         <div class="detail-row"><span class="detail-label">الطريقة</span><span class="detail-value">${d.method}</span></div>
@@ -440,6 +534,11 @@ function openReferralModal() { openSheet('referralSheet'); }
 function openFAQModal() { openSheet('faqSheet'); }
 function openSupportModal() { openSheet('supportModalSheet'); }
 
+function openProductDetails(prod) {
+    if (tg) tg.HapticFeedback.impactOccurred('light');
+    if (tg) tg.showAlert(`المنتج: ${prod.name}\nالسعر: $${parseFloat(prod.base_price).toFixed(2)}\n\n(سيتم بناء نافذة الشراء قريباً)`);
+}
+
 // ════════════════════════════════════════════════════════════
 // Core Utils
 // ════════════════════════════════════════════════════════════
@@ -462,8 +561,7 @@ function toggleDarkMode() {
     else { document.documentElement.setAttribute('data-theme', 'light'); localStorage.setItem('theme', 'light'); if(tg) tg.setHeaderColor('#F2F2F7'); }
 }
 
-function copyToClipboard(elementId, msg) {
-    const text = document.getElementById(elementId).textContent;
+function copyText(text, msg) {
     navigator.clipboard.writeText(text).then(() => {
         if (tg) { tg.HapticFeedback.notificationOccurred('success'); tg.showAlert(msg); }
         else { alert(msg); }
