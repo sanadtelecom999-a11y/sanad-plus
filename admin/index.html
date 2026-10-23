@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SANAD PLUS+ | لوحة التحكم</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -18,12 +17,10 @@
         }
     </script>
     
-    <!-- Icons & Alerts -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Fonts & CSS -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -58,7 +55,7 @@
             
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">العمليات</div>
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
-                <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-white transition bg-slate-700/50"><i data-lucide="layout-dashboard" size="20"></i> <span class="font-bold">لوحة التحكم</span></button>
+                <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-white transition"><i data-lucide="layout-dashboard" size="20"></i> <span class="font-bold">لوحة التحكم</span></button>
                 <button onclick="switchSection('inbox', this)" class="nav-btn flex items-center justify-between p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><div class="flex items-center gap-3"><i data-lucide="inbox" size="20"></i> <span class="font-bold">الإرساليات</span></div><span class="bg-danger text-white text-xs px-2 py-0.5 rounded-full hidden" id="sidebarInboxBadge">0</span></button>
                 <button onclick="switchSection('archive', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="archive" size="20"></i> <span class="font-bold">الأرشيف الكامل</span></button>
             </nav>
@@ -98,7 +95,7 @@
                 <!-- 1. لوحة القيادة -->
                 <section id="section-dashboard" class="content-section block">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer hover:scale-105 transition">
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])">
                             <h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3>
                             <div class="text-3xl font-bold text-white" id="statOrders">0</div>
                         </div>
@@ -106,11 +103,11 @@
                             <h3 class="text-slate-400 text-sm mb-1">الإيرادات المحققة</h3>
                             <div class="text-3xl font-bold text-white" id="statRevenue">$0.00</div>
                         </div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer hover:scale-105 transition">
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])">
                             <h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3>
                             <div class="text-3xl font-bold text-white" id="statDeposits">0</div>
                         </div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer hover:scale-105 transition">
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer hover:scale-105 transition" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[7])">
                             <h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3>
                             <div class="text-3xl font-bold text-white" id="statUsers">0</div>
                         </div>
@@ -121,8 +118,20 @@
                     </div>
                 </section>
 
+                <!-- 2. الإرساليات -->
+                <section id="section-inbox" class="content-section hidden">
+                    <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
+                        <button onclick="switchInboxTab('deposits', this)" class="inbox-tab active glass px-6 py-2 rounded-xl text-sm font-bold transition">الإيداعات</button>
+                        <button onclick="switchInboxTab('orders', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الطلبات</button>
+                        <button onclick="switchInboxTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق KYC</button>
+                    </div>
+                    
+                    <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- سيتم ملؤها عبر JS -->
+                    </div>
+                </section>
+
                 <!-- Placeholders for other sections -->
-                <section id="section-inbox" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الإرساليات (قيد التطوير)</div></section>
                 <section id="section-archive" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأرشيف (قيد التطوير)</div></section>
                 <section id="section-categories" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأقسام (قيد التطوير)</div></section>
                 <section id="section-products" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المنتجات (قيد التطوير)</div></section>
@@ -134,6 +143,22 @@
 
             </div>
         </main>
+    </div>
+
+    <!-- Modal for Details (Image/Info) -->
+    <div id="detailsModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 id="modalTitle" class="text-xl font-bold text-white">تفاصيل</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div id="modalBody" class="p-6 overflow-y-auto text-slate-300">
+                <!-- Dynamic Content -->
+            </div>
+            <div id="modalFooter" class="p-4 border-t border-slate-700 flex gap-3">
+                <!-- Dynamic Buttons -->
+            </div>
+        </div>
     </div>
 
     <script src="app.js"></script>

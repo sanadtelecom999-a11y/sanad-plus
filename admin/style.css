@@ -1,43 +1,40 @@
 /* ============================================================
-   SANAD PLUS+ — Admin v3.0 Styles (Glass + Bento)
+   SANAD PLUS+ — Admin v3.0 Styles
    ============================================================ */
 body { font-family: 'Cairo', sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; }
-
-/* Glassmorphism */
-.glass {
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Bento Card Hover */
+.glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
 .bento-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .bento-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
 
-/* Inputs */
-.input-field {
-    width: 100%; background: #0f172a; border: 1px solid #334155;
-    color: white; padding: 0.75rem; border-radius: 0.75rem; outline: none; transition: 0.2s;
-}
+.input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.75rem; outline: none; transition: 0.2s; }
 .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
-
-/* Buttons */
 .btn-primary { width: 100%; background: #38bdf8; color: #0f172a; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; transition: 0.2s; }
 .btn-primary:hover { background: #0ea5e9; }
 .btn-success { width: 100%; background: #10b981; color: white; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; transition: 0.2s; }
 .btn-success:hover { background: #059669; }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* Inbox Custom Styles */
+.inbox-tab { border: 1px solid transparent; }
+.inbox-tab.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+.inbox-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 1.5rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; transition: 0.2s; }
+.inbox-card:hover { border-color: #38bdf8; }
+.inbox-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.25rem; }
+.inbox-details { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; }
+.inbox-details strong { color: #f8fafc; }
+.inbox-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.btn-action { flex: 1; padding: 0.5rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.85rem; border: none; cursor: pointer; transition: 0.2s; }
+.btn-approve { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.btn-approve:hover { background: #10b981; color: white; }
+.btn-reject { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+.btn-reject:hover { background: #ef4444; color: white; }
+.btn-view { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+.btn-view:hover { background: #38bdf8; color: #0f172a; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-/* Nav Button Active */
-.nav-btn.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
-
-/* Mobile Sidebar (Simple overlay) */
 @media (max-width: 768px) {
     aside { position: fixed; right: -100%; transition: right 0.3s ease; z-index: 100; }
     aside.open { right: 0; }
