@@ -84,7 +84,7 @@ def api_get_payment_methods():
         if req_kyc and not is_verified:
             item["locked"] = True
         else:
-            item["account_number"] = m.account_number
+            item["account_number"] = m.account_name
             item["barcode"] = getattr(m, 'barcode', None)
             
         result.append(item)

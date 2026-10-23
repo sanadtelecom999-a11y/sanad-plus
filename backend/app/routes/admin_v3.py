@@ -214,14 +214,14 @@ def admin_payments_v3():
         data = request.get_json()
         new_pay = PaymentMethod(
             name=data.get("name"), min_amount=float(data.get("min_amount", 0)), max_amount=float(data.get("max_amount", 0)), 
-            account_number=data.get("account_number"), is_active=True, 
+            account_name=data.get("account_name"), is_active=True, 
             fee=float(data.get("fee", 0)) if hasattr(PaymentMethod, 'fee') else 0,
             require_kyc=bool(data.get("require_kyc", False)) if hasattr(PaymentMethod, 'require_kyc') else False
         )
         db.session.add(new_pay)
         db.session.commit()
         return jsonify({"success": True})
-    return jsonify([{"id": p.id, "name": p.name, "min": float(p.min_amount), "max": float(p.max_amount), "account": p.account_number, "fee": getattr(p, 'fee', 0), "require_kyc": getattr(p, 'require_kyc', False)} for p in PaymentMethod.query.all()])
+    return jsonify([{"id": p.id, "name": p.name, "min": float(p.min_amount), "max": float(p.max_amount), "account": p.account_name, "fee": getattr(p, 'fee', 0), "require_kyc": getattr(p, 'require_kyc', False)} for p in PaymentMethod.query.all()])
 
 @main.route("/admin/api/payments/<int:id>", methods=["DELETE"])
 @jwt_required()
