@@ -67,6 +67,7 @@ def api_get_products():
 def api_get_payment_methods():
     # F-2: إرجاع طرق الدفع مع حالة KYC
     tg_id = request.args.get("telegram_id")
+        tg_id = int(tg_id) if tg_id and tg_id.isdigit() else None
     user = User.query.filter_by(telegram_id=tg_id).first() if tg_id else None
     methods = PaymentMethod.query.filter_by(is_active=True).all()
     
