@@ -37,14 +37,14 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="icon-btn"><i data-lucide="bell"></i></button>
+                <button class="icon-btn" onclick="navigate('support')"><i data-lucide="message-square"></i></button>
             </div>
         </header>
 
         <!-- المحتوى -->
         <main class="main-content">
             
-            <!-- الرئيسية -->
+            <!-- 1. الرئيسية -->
             <section id="page-home" class="page active">
                 <!-- بطاقة الرصيد (Apple Card Style) -->
                 <div class="balance-card">
@@ -60,32 +60,55 @@
                     <div class="floating-dollar">$</div>
                 </div>
 
-                <!-- شريط البحث -->
+                <!-- شريط البحث وزر الدعم -->
                 <div class="search-bar">
                     <i data-lucide="search" class="search-icon"></i>
-                    <input type="text" placeholder="ابحث عن منتج أو خدمة...">
+                    <input type="text" placeholder="ابحث عن منتج...">
+                </div>
+
+                <div class="home-actions-grid">
+                    <button class="home-action-btn" onclick="navigate('support')">
+                        <i data-lucide="headphones"></i>
+                        <span>الدعم الفني</span>
+                    </button>
+                    <button class="home-action-btn" onclick="navigate('deposits')">
+                        <i data-lucide="receipt"></i>
+                        <span>سجل الإيداعات</span>
+                    </button>
                 </div>
 
                 <!-- الأقسام (Bento Grid) -->
                 <div class="section-header">
                     <h3>الأقسام</h3>
-                    <span class="see-all">عرض الكل</span>
                 </div>
                 <div id="categoriesGrid" class="categories-grid">
-                    <!-- JS -->
+                    <!-- سيتم ملؤها عبر JS -->
                 </div>
             </section>
 
-            <!-- الطلبات -->
+            <!-- 2. الطلبات -->
             <section id="page-orders" class="page">
                 <div class="section-header"><h3>طلباتي</h3></div>
-                <div class="empty-state">
-                    <i data-lucide="package-open" size="48"></i>
-                    <p>لا توجد طلبات حتى الآن</p>
+                <div id="ordersList" class="orders-list">
+                    <div class="empty-state">
+                        <i data-lucide="package-open" size="48"></i>
+                        <p>جاري التحميل...</p>
+                    </div>
                 </div>
             </section>
 
-            <!-- الحساب -->
+            <!-- 3. سجل الإيداعات -->
+            <section id="page-deposits" class="page">
+                <div class="section-header"><h3>سجل الإيداعات</h3></div>
+                <div id="depositsList" class="orders-list">
+                    <div class="empty-state">
+                        <i data-lucide="wallet" size="48"></i>
+                        <p>جاري التحميل...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. حسابي -->
             <section id="page-profile" class="page">
                 <div class="profile-card">
                     <div class="avatar large" id="profileAvatar">S</div>
@@ -100,24 +123,46 @@
                 <div class="stats-grid">
                     <div class="stat-box">
                         <span>الطلبات</span>
-                        <strong>0</strong>
+                        <strong id="statOrdersCount">0</strong>
                     </div>
                     <div class="stat-box">
                         <span>الإيداعات</span>
-                        <strong>0</strong>
+                        <strong id="statDepositsCount">0</strong>
                     </div>
                 </div>
 
                 <div class="menu-list">
-                    <div class="menu-item"><i data-lucide="shield-check"></i> توثيق الحساب</div>
-                    <div class="menu-item"><i data-lucide="headphones"></i> الدعم الفني</div>
-                    <div class="menu-item"><i data-lucide="log-out"></i> تسجيل الخروج</div>
+                    <div class="menu-item" onclick="navigate('support')">
+                        <i data-lucide="headphones"></i> الدعم الفني
+                        <i data-lucide="chevron-left" style="margin-right:auto; width:16px;"></i>
+                    </div>
+                    <div class="menu-item" onclick="alert('قريباً')">
+                        <i data-lucide="shield-check"></i> توثيق الحساب
+                        <i data-lucide="chevron-left" style="margin-right:auto; width:16px;"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. الدعم (Chat) -->
+            <section id="page-support" class="page" style="padding-bottom: 80px;">
+                <div class="section-header"><h3>محادثة الدعم</h3></div>
+                
+                <div id="chatContainer" class="chat-container">
+                    <div class="empty-state">
+                        <i data-lucide="message-circle" size="48"></i>
+                        <p>مرحباً بك، كيف يمكننا مساعدتك؟</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-wrapper">
+                    <input type="text" id="supportInput" placeholder="اكتب رسالتك هنا...">
+                    <button onclick="sendSupportMessage()" id="sendBtn"><i data-lucide="send"></i></button>
                 </div>
             </section>
 
         </main>
 
-        <!-- شريط التنقل السفلي -->
+        <!-- شريط التنقل السفلي (5 أزرار) -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="navigate('home')" data-page="home">
                 <i data-lucide="home"></i><span>الرئيسية</span>
@@ -129,11 +174,11 @@
             <button class="nav-item center-btn" onclick="openDepositSheet()">
                 <div class="center-btn-inner"><i data-lucide="zap"></i></div>
             </button>
+            <button class="nav-item" onclick="navigate('deposits')" data-page="deposits">
+                <i data-lucide="wallet"></i><span>إيداعات</span>
+            </button>
             <button class="nav-item" onclick="navigate('profile')" data-page="profile">
                 <i data-lucide="user"></i><span>حسابي</span>
-            </button>
-            <button class="nav-item" onclick="navigate('support')" data-page="support">
-                <i data-lucide="message-square"></i><span>الدعم</span>
             </button>
         </nav>
 
@@ -143,23 +188,8 @@
             <div class="sheet-grabber"></div>
             <h3>شحن الرصيد</h3>
             <p class="text-muted">اختر طريقة الدفع المناسبة لك</p>
-            <div class="payment-methods-list">
-                <div class="payment-method-card">
-                    <div class="pm-icon">💳</div>
-                    <div class="pm-info">
-                        <strong>شام كاش</strong>
-                        <span>حد أدنى: $5.00</span>
-                    </div>
-                    <i data-lucide="chevron-left"></i>
-                </div>
-                <div class="payment-method-card">
-                    <div class="pm-icon">📱</div>
-                    <div class="pm-info">
-                        <strong>MTN كاش</strong>
-                        <span>حد أدنى: $5.00</span>
-                    </div>
-                    <i data-lucide="chevron-left"></i>
-                </div>
+            <div class="payment-methods-list" id="paymentMethodsList">
+                <!-- سيتم ملؤها عبر JS -->
             </div>
         </div>
 
