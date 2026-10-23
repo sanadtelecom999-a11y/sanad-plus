@@ -19,8 +19,6 @@
         <div class="grid-2">
             <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
             <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
-            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
-            <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
         </div>
     </div>
 
@@ -60,21 +58,10 @@
                     <div class="floating-dollar">$</div>
                 </div>
 
-                <!-- شريط البحث وزر الدعم -->
+                <!-- شريط البحث -->
                 <div class="search-bar">
                     <i data-lucide="search" class="search-icon"></i>
                     <input type="text" placeholder="ابحث عن منتج...">
-                </div>
-
-                <div class="home-actions-grid">
-                    <button class="home-action-btn" onclick="navigate('support')">
-                        <i data-lucide="headphones"></i>
-                        <span>الدعم الفني</span>
-                    </button>
-                    <button class="home-action-btn" onclick="navigate('deposits')">
-                        <i data-lucide="receipt"></i>
-                        <span>سجل الإيداعات</span>
-                    </button>
                 </div>
 
                 <!-- الأقسام (Bento Grid) -->
@@ -82,7 +69,7 @@
                     <h3>الأقسام</h3>
                 </div>
                 <div id="categoriesGrid" class="categories-grid">
-                    <!-- سيتم ملؤها عبر JS -->
+                    <!-- JS -->
                 </div>
             </section>
 
@@ -110,35 +97,71 @@
 
             <!-- 4. حسابي -->
             <section id="page-profile" class="page">
-                <div class="profile-card">
-                    <div class="avatar large" id="profileAvatar">S</div>
+                <div class="profile-header">
+                    <div class="avatar-wrapper">
+                        <div class="avatar large" id="profileAvatar">S</div>
+                        <div class="kyc-badge" id="kycBadge" title="غير موثق">⚠️</div>
+                    </div>
                     <h2 id="profileName">المستخدم</h2>
-                    <div class="sanad-id-box">
-                        <span>SANAD ID</span>
-                        <strong id="profileSanadId">SN-000000</strong>
-                        <i data-lucide="copy" size="16" onclick="copySanadId()"></i>
+                    <div class="username" id="profileUsername">@username</div>
+                </div>
+
+                <div class="sanad-id-card">
+                    <div class="sanad-card-bg"></div>
+                    <div class="sanad-card-content">
+                        <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
+                        <div class="sanad-number-row">
+                            <span id="profileSanadId">SN-000000</span>
+                            <i data-lucide="copy" size="18" onclick="copySanadId()"></i>
+                        </div>
+                        <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
                     </div>
                 </div>
                 
                 <div class="stats-grid">
                     <div class="stat-box">
-                        <span>الطلبات</span>
-                        <strong id="statOrdersCount">0</strong>
+                        <span>الرصيد</span>
+                        <strong id="statBalance">$0.00</strong>
                     </div>
                     <div class="stat-box">
-                        <span>الإيداعات</span>
-                        <strong id="statDepositsCount">0</strong>
+                        <span>إجمالي الإيداعات</span>
+                        <strong id="statTotalDeposits">$0.00</strong>
                     </div>
                 </div>
 
                 <div class="menu-list">
-                    <div class="menu-item" onclick="navigate('support')">
-                        <i data-lucide="headphones"></i> الدعم الفني
-                        <i data-lucide="chevron-left" style="margin-right:auto; width:16px;"></i>
+                    <div class="menu-item" onclick="alert('قريباً: رفع الهوية')">
+                        <i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span>
+                        <i data-lucide="chevron-left" class="chevron"></i>
                     </div>
                     <div class="menu-item" onclick="alert('قريباً')">
-                        <i data-lucide="shield-check"></i> توثيق الحساب
-                        <i data-lucide="chevron-left" style="margin-right:auto; width:16px;"></i>
+                        <i data-lucide="heart" class="text-danger"></i> <span>المفضلة</span>
+                        <i data-lucide="chevron-left" class="chevron"></i>
+                    </div>
+                    <div class="menu-item" onclick="openReferralModal()">
+                        <i data-lucide="gift" class="text-warning"></i> <span>الإحالات</span>
+                        <i data-lucide="chevron-left" class="chevron"></i>
+                    </div>
+                    <div class="menu-item" onclick="openFAQModal()">
+                        <i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span>
+                        <i data-lucide="chevron-left" class="chevron"></i>
+                    </div>
+                    <div class="menu-item" onclick="navigate('support')">
+                        <i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span>
+                        <i data-lucide="chevron-left" class="chevron"></i>
+                    </div>
+                </div>
+
+                <div class="menu-list" style="margin-top: 15px;">
+                    <div class="menu-item">
+                        <i data-lucide="moon" class="text-warning"></i> <span>الوضع الليلي</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkModeToggle" checked onchange="toggleDarkMode()">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="menu-item text-danger" onclick="handleLogout()">
+                        <i data-lucide="log-out"></i> <span>تسجيل الخروج</span>
                     </div>
                 </div>
             </section>
@@ -162,7 +185,7 @@
 
         </main>
 
-        <!-- شريط التنقل السفلي (5 أزرار) -->
+        <!-- شريط التنقل السفلي -->
         <nav class="bottom-nav">
             <button class="nav-item active" onclick="navigate('home')" data-page="home">
                 <i data-lucide="home"></i><span>الرئيسية</span>
@@ -170,7 +193,6 @@
             <button class="nav-item" onclick="navigate('orders')" data-page="orders">
                 <i data-lucide="list"></i><span>طلباتي</span>
             </button>
-            <!-- الزر البارز في المنتصف -->
             <button class="nav-item center-btn" onclick="openDepositSheet()">
                 <div class="center-btn-inner"><i data-lucide="zap"></i></div>
             </button>
@@ -183,14 +205,68 @@
         </nav>
 
         <!-- Bottom Sheet (للإيداع) -->
-        <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeDepositSheet()"></div>
+        <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
+        
         <div class="bottom-sheet" id="depositSheet">
             <div class="sheet-grabber"></div>
             <h3>شحن الرصيد</h3>
             <p class="text-muted">اختر طريقة الدفع المناسبة لك</p>
             <div class="payment-methods-list" id="paymentMethodsList">
-                <!-- سيتم ملؤها عبر JS -->
+                <!-- JS -->
             </div>
+        </div>
+
+        <!-- Bottom Sheet (لتفاصيل الطلب) -->
+        <div class="bottom-sheet" id="orderDetailsSheet">
+            <div class="sheet-grabber"></div>
+            <div id="orderDetailsContent"></div>
+        </div>
+
+        <!-- Bottom Sheet (لتفاصيل الإيداع) -->
+        <div class="bottom-sheet" id="depositDetailsSheet">
+            <div class="sheet-grabber"></div>
+            <div id="depositDetailsContent"></div>
+        </div>
+
+        <!-- Bottom Sheet (للإحالات) -->
+        <div class="bottom-sheet" id="referralSheet">
+            <div class="sheet-grabber"></div>
+            <h3 class="text-center" style="margin-bottom: 20px;">الإحالات</h3>
+            <p class="text-muted text-center" style="margin-bottom: 20px;">شارك كودك واحصل على مكافأة عند انضمام صديق!</p>
+            <div class="sanad-id-card" style="margin-bottom: 20px;">
+                <div class="sanad-card-content text-center">
+                    <div class="sanad-label">كود الإحالة الخاص بك</div>
+                    <div class="sanad-number-row" style="justify-content: center; gap: 10px;">
+                        <span id="referralCodeText" style="font-size: 24px; color: var(--warning);">SANAD</span>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="shareReferral()">مشاركة الكود</button>
+        </div>
+
+        <!-- Bottom Sheet (للأسئلة الشائعة) -->
+        <div class="bottom-sheet" id="faqSheet">
+            <div class="sheet-grabber"></div>
+            <h3 class="text-center" style="margin-bottom: 20px;">الأسئلة الشائعة</h3>
+            <div class="faq-list">
+                <div class="faq-item" onclick="this.classList.toggle('open')">
+                    <div class="faq-question">كيف أشحن رصيدي؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-answer">اضغط على زر البرق ⚡ في شريط التنقل السفلي، ثم اختر المحفظة وارفع صورة الإيصال.</div>
+                </div>
+                <div class="faq-item" onclick="this.classList.toggle('open')">
+                    <div class="faq-question">كم يستغرق تنفيذ الطلب؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-answer">عادة من 5 إلى 15 دقيقة، وفي أوقات الذروة قد يتأخر قليلاً.</div>
+                </div>
+                <div class="faq-item" onclick="this.classList.toggle('open')">
+                    <div class="faq-question">ما هو التوثيق (KYC)؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-answer">توثيق الهوية لتفعيل جميع الميزات وطرق الدفع.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lightbox للصور -->
+        <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()">
+            <img id="lightboxImg" src="" alt="إثبات">
         </div>
 
     </div>
