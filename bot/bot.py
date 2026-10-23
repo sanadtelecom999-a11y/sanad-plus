@@ -1,3 +1,4 @@
+import html
 # ============================================================
 # 🤖 SANAD PLUS⁺ Bot — v18.5.3 (Full Original + SRE All Fixes)
 # ============================================================
@@ -216,12 +217,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         vip_text = f" 👑 VIP{user_data.get('vip_level', 0)}" if user_data.get('vip_level', 0) > 0 else ""
         balance = user_data.get('balance', 0)
         await update.message.reply_text(
-            f"مرحباً {first_name}{vip_text} 👋\n\n💰 رصيدك: {balance:.2f}$\n\nأهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
+            f"مرحباً {html.escape(str(first_name)) if first_name else ''}{vip_text} 👋\n\n💰 رصيدك: {balance:.2f}$\n\nأهلاً بك في متجر SANAD PLUS⁺\nاختر من الأزرار بالأسفل:",
             reply_markup=reply_markup,
         )
     else:
         await notify_admins_async(f"⚠️ فشل تسجيل مستخدم - ID: {user_id}", important=True, use_markdown=False)
-        await update.message.reply_text(f"مرحباً {first_name} 👋\n\nأهلاً بك في متجر SANAD PLUS⁺", reply_markup=reply_markup)
+        await update.message.reply_text(f"مرحباً {html.escape(str(first_name)) if first_name else ''} 👋\n\nأهلاً بك في متجر SANAD PLUS⁺", reply_markup=reply_markup)
 
 # ============ /me ============
 async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -251,7 +252,7 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"الحالة KYC: {kyc_status}\n"
             f"مستوى VIP: {user_data.get('vip_level', 0)}{vip_text}\n"
         )
-        await update.message.reply_text(message, parse_mode="Markdown")
+        await update.message.reply_text(message, parse_mode="HTML")
     else:
         await update.message.reply_text("تعذر جلب معلوماتك. حاول لاحقاً.")
 
@@ -273,7 +274,7 @@ async def admin_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🛡 Sentry: {'✅ نشط' if _SENTRY_AVAILABLE else '❌ غير متوفر'}\n"
         f"💓 Heartbeat: كل 60s → Redis\n"
     )
-    await update.message.reply_text(info, parse_mode="Markdown")
+    await update.message.reply_text(info, parse_mode="HTML")
 
 # ============ Error Handler ============
 async def _should_notify_error(exc: Exception) -> bool:

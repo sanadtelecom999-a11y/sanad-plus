@@ -1,3 +1,4 @@
+function escapeHtml(str) { return str ? String(str).replace(/[&<>"']/g, function(s) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s]; }) : ''; }
 const API_URL = 'https://sanad-plus-backend.onrender.com';
 const getToken = () => localStorage.getItem('admin_token') || localStorage.getItem('token');
 let currentSessionId = null;
@@ -212,7 +213,7 @@ async function loadPayments() {
     container.innerHTML = items.map(p => `
         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-primary relative">
             <button onclick="deletePayment(${p.id})" class="absolute top-4 left-4 text-red-500 hover:text-red-400"><i data-lucide="trash-2" size="18"></i></button>
-            <h3 class="font-bold text-lg mb-2 text-white">${p.name}</h3>
+            <h3 class="font-bold text-lg mb-2 text-white">${escapeHtml(p.name)}</h3>
             <p class="text-sm text-slate-400">الحد الأدنى: $${p.min}</p>
             <p class="text-sm text-slate-400">الحد الأقصى: $${p.max}</p>
             <p class="text-sm text-accent mt-2 font-mono">${p.account}</p>
@@ -239,14 +240,14 @@ async function loadCategories() {
     // 1. تحديث القائمة المنسدلة في المودال
     const select = document.getElementById('prodCategory');
     if(select) {
-        select.innerHTML = '<option value="">اختر القسم...</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        select.innerHTML = '<option value="">اختر القسم...</option>' + categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     }
     // 2. تحديث عرض الأقسام
     document.getElementById('categoriesContainer').innerHTML = categories.map(c => `
         <div class="glass bento-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative">
             <button class="absolute top-2 right-2 text-red-500"><i data-lucide="x" size="18"></i></button>
             <img src="${c.image || 'https://via.placeholder.com/40'}" class="w-12 h-12 rounded-xl mb-2 object-cover">
-            <span class="font-bold text-white">${c.name}</span>
+            <span class="font-bold text-white">${escapeHtml(c.name)}</span>
         </div>`).join('');
     lucide.createIcons();
 }
@@ -296,7 +297,7 @@ async function loadProducts() {
     cachedProducts = getArrayData(data, 'products');
     document.getElementById('productsTableBody').innerHTML = cachedProducts.map(p => `
         <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-            <td class="font-bold text-white flex items-center gap-2"><img src="${p.image || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-md object-cover"> ${p.name}</td>
+            <td class="font-bold text-white flex items-center gap-2"><img src="${p.image || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-md object-cover"> ${escapeHtml(p.name)}</td>
             <td class="text-primary">$${p.price}</td><td>${p.category_id}</td><td>ثابت</td>
             <td>
                 <button onclick="openEditProduct(${p.id})" class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg mr-2"><i data-lucide="edit-2" size="14" class="inline"></i> تعديل</button>
@@ -312,7 +313,7 @@ async function loadUsers() {
     const users = getArrayData(data, 'users');
     document.getElementById('usersTableBody').innerHTML = users.map(user => `
         <tr class="hover:bg-slate-800/30 transition">
-            <td><div class="font-bold text-white">${user.first_name}</div><div class="text-xs text-slate-400 font-mono">${user.telegram_id}</div></td>
+            <td><div class="font-bold text-white">${escapeHtml(user.first_name)}</div><div class="text-xs text-slate-400 font-mono">${user.telegram_id}</div></td>
             <td class="font-bold text-primary">$${user.balance.toFixed(2)}</td>
             <td><span class="px-2 py-1 rounded-full text-xs ${user.kyc_status === 'verified' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-400'}">${user.kyc_status}</span> ${user.is_banned ? '<span class="px-2 py-1 rounded-full text-xs bg-danger/20 text-danger ml-1">محظور</span>' : ''}</td>
             <td>${user.vip_level > 0 ? `<span class="text-accent">VIP ${user.vip_level}</span>` : '-'}</td>
