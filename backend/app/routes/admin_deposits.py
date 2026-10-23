@@ -13,7 +13,7 @@ from ..services.cache_service import (
     invalidate_payment_methods, invalidate_settings,
 )
 from ..services.cloudinary_service import get_signed_url, upload_base64_image
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from ..extensions import db
 from ..services.telegram_service import send_deposit_approved, send_deposit_rejected, notify_admins, send_telegram_notification
 from . import main
@@ -34,14 +34,6 @@ def admin_approve_deposit(deposit_id):
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
 
-    from flask import current_app
-    from decimal import Decimal
-    from datetime import datetime, timezone
-    from ..extensions import db
-    from ..models.base import Deposit, User, Transaction, log_financial
-    from ..services.cache_service import cache_delete, key_admin_list, invalidate_admin
-    from ..services.telegram_service import send_deposit_approved
-
     try:
         deposit = Deposit.query.filter_by(id=deposit_id).with_for_update().first()
         if not deposit:
@@ -49,6 +41,10 @@ def admin_approve_deposit(deposit_id):
 
         if deposit.status != "pending":
             return jsonify({"error": f"تمت معالجته مسبقاً (status={deposit.status})", "code": "ALREADY_PROCESSED"}), 400
+
+        # ✅ حفظ الملاحظة بشكل آمن
+        req_data = request.get_json(silent=True) or {}
+        deposit.admin_note = req_data.get("admin_note", "")
 
         user = User.query.filter_by(id=deposit.user_id).with_for_update().first()
         if not user:
@@ -78,8 +74,6 @@ def admin_approve_deposit(deposit_id):
             user.balance = float(current + net_amount)
 
         deposit.status = "approved"
-        req_data = request.get_json(silent=True) or {}
-        deposit.admin_note = req_data.get("admin_note", "")
         deposit.reviewed_at = datetime.now(timezone.utc)
 
         db.session.add(Transaction(
@@ -93,21 +87,7 @@ def admin_approve_deposit(deposit_id):
             ref_type="deposit", ref_id=deposit.id
         )
 
-        current_app.logger.info(f"🚨 BEFORE COMMIT: deposit={deposit.id}, balance={balance_before} -> {user.balance}")
-        try:
-            db.session.commit()
-            current_app.logger.info(f"✅ AFTER COMMIT SUCCESS: deposit={deposit.id}, balance={user.balance}")
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"❌ COMMIT FAILED: {str(e)}", exc_info=True)
-            return jsonify({"error": "فشل الحفظ في DB", "details": str(e)}), 500
-
-        try:
-            db.session.refresh(user)
-        except Exception:
-            pass
-
-        actual_balance = float(user.balance)
+        db.session.commit()
 
         try:
             cache_delete(f"user:{user.id}")
@@ -124,7 +104,7 @@ def admin_approve_deposit(deposit_id):
         return jsonify({
             "status": "approved", "deposit_id": deposit.id,
             "paid_debt": float(paid_debt), "added": float(added_amount),
-            "balance_before": float(balance_before), "new_balance": actual_balance
+            "balance_before": float(balance_before), "new_balance": float(user.balance)
         }), 200
 
     except Exception as e:
@@ -138,10 +118,6 @@ def admin_approve_deposit(deposit_id):
 def admin_deposits():
     if not is_admin_user(get_jwt_identity()):
         return jsonify({"error": "غير مصرح"}), 403
-
-    cached = cache_get(key_admin_list("deposits"))
-    if cached is not None:
-        return jsonify(cached)
 
     deposits = (
         Deposit.query
@@ -165,9 +141,7 @@ def admin_deposits():
             "created_at": d.created_at.isoformat() if d.created_at else None,
         })
 
-    cache_set(key_admin_list("deposits"), result, ttl=TTL_ADMIN_LISTS)
     return jsonify(result)
-
 
 @main.route("/admin/api/deposits/<int:deposit_id>", methods=["GET"])
 @jwt_required()
@@ -212,8 +186,6 @@ def admin_deposit_detail(deposit_id):
         "created_at": deposit.created_at.isoformat() if deposit.created_at else None,
     })
 
-
-
 @main.route("/admin/api/deposits/<int:deposit_id>/reject", methods=["POST", "OPTIONS"])
 @jwt_required(optional=True)
 @handle_errors
@@ -229,16 +201,14 @@ def admin_reject_deposit(deposit_id):
     if deposit.status != "pending":
         return jsonify({"error": "تمت معالجته مسبقاً"}), 400
 
-    try:
-        data = request.get_json(silent=True) or {}
-        reason = data.get("reason", "تم الرفض من قبل الإدارة")
-    except:
-        reason = "تم الرفض من قبل الإدارة"
+    # ✅ حفظ الملاحظة بشكل آمن
+    req_data = request.get_json(silent=True) or {}
+    reason = req_data.get("admin_note", "تم الرفض من قبل الإدارة")
 
     deposit.status = "rejected"
-        req_data = request.get_json(silent=True) or {}
-        deposit.admin_note = req_data.get("admin_note", reason)
     deposit.reviewed_at = datetime.now(timezone.utc)
+    deposit.admin_note = reason
+
     log_admin_activity(f"رفض إيداع {deposit.id}")
 
     try:
@@ -258,4 +228,3 @@ def admin_reject_deposit(deposit_id):
         current_app.logger.warning(f"Telegram notify failed: {e}")
 
     return jsonify({"status": "rejected", "deposit_id": deposit.id}), 200
-
