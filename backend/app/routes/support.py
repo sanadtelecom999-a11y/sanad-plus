@@ -1,10 +1,11 @@
 """Support Ticketing Routes"""
 from flask import request, jsonify
 from ..extensions import db
-from ..models.base import SupportTicket
+from ..models.base import SupportTicket, User
 from ..services.telegram_service import send_telegram_notification
 from . import main
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from .admin_utils import is_admin_user
 import os
 
 @main.route('/api/support', methods=['POST'])
@@ -21,7 +22,6 @@ def create_ticket():
     db.session.add(ticket)
     db.session.commit()
     
-    # إرسال إشعار للأدمن
     admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "")
     admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
     if admin_ids:
@@ -46,14 +46,11 @@ def get_tickets():
 
 # ================= Admin Support Routes =================
 @main.route('/admin/api/support/tickets', methods=['GET'])
-@admin_required
+@jwt_required()
 def admin_get_tickets():
-    from app.middleware import admin_required
-    from flask import jsonify
-    from app.extensions import db
-    from app.models.base import SupportTicket, User
-    
-    # نجلب التذاكر المفتوحة والمُجابة
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+        
     tickets = SupportTicket.query.filter(SupportTicket.status != 'closed').order_by(SupportTicket.created_at.desc()).all()
     result = []
     for t in tickets:
@@ -70,12 +67,11 @@ def admin_get_tickets():
     return jsonify(result)
 
 @main.route('/admin/api/support/tickets/<int:id>/reply', methods=['POST'])
-@admin_required
+@jwt_required()
 def admin_reply_ticket(id):
-    from flask import request, jsonify
-    from app.extensions import db
-    from app.models.base import SupportTicket
-    
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+        
     data = request.get_json()
     reply = data.get('reply')
     if not reply: return jsonify({"error": "الرد مطلوب"}), 400
@@ -89,12 +85,11 @@ def admin_reply_ticket(id):
     return jsonify({"success": True})
 
 @main.route('/admin/api/support/tickets/<int:id>/close', methods=['POST'])
-@admin_required
+@jwt_required()
 def admin_close_ticket(id):
-    from flask import jsonify
-    from app.extensions import db
-    from app.models.base import SupportTicket
-    
+    if not is_admin_user(get_jwt_identity()):
+        return jsonify({"error": "غير مصرح"}), 403
+        
     ticket = SupportTicket.query.get(id)
     if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
     
