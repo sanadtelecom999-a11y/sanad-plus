@@ -317,6 +317,15 @@ async function handleAction(type, id, action, extra) {
 
     try {
         const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
+        
+        // التحقق من نوع الرد (JSON أو HTML)
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("السيرفر غير متاح حالياً (500). يرجى مراجعة Render.");
+        }
+
+        const data = await res.json();
+
         if (res.ok) {
             closeModal();
             showToast('تمت العملية بنجاح', 'success');
@@ -324,12 +333,11 @@ async function handleAction(type, id, action, extra) {
             loadDashboardStats();
             checkInboxBadge();
         } else {
-            const err = await res.json();
-            showToast(err.error || 'حدث خطأ', 'error');
+            showToast(data.error || 'حدث خطأ في السيرفر', 'error');
             if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
         }
     } catch (e) { 
-        showToast('تعذر الاتصال', 'error'); 
+        showToast(e.message, 'error'); 
         if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
     }
 }
