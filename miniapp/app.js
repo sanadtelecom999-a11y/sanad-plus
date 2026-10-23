@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tg) {
         tg.ready();
         tg.expand();
+        tg.disableVerticalSwipes();
         tg.setHeaderColor('#000000');
         tg.BackButton.onClick(() => navigate('home'));
         
