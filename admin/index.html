@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SANAD PLUS+ | لوحة التحكم</title>
+    <title>SANAD PLUS+ | لوحة التحكم الشاملة</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -25,7 +25,8 @@
         .input-field { width: 100%; background-color: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.75rem; outline: none; }
         .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
         .label-text { display: block; color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 600; }
-        input[type="file"]::file-selector-button { border: none; background: #38bdf8; color: #0f172a; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; margin-left: 1rem; transition: 0.2s; }
+        .filter-btn.active { background-color: #38bdf8; color: #0f172a; }
+        .filter-btn { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row">
@@ -87,8 +88,23 @@
                 <div class="glass rounded-3xl p-6 h-80"><canvas id="dashboardChart"></canvas></div>
             </section>
 
-            <section id="section-inbox" class="content-section hidden"><div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div></section>
-            <section id="section-archive" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأرشيف (سيعرض الطلبات المكتملة قريباً)</div></section>
+            <!-- قسم الإرساليات الجديد مع التبويبات -->
+            <section id="section-inbox" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex gap-2 overflow-x-auto scrollbar-hide" id="inboxTabs">
+                        <button onclick="switchInboxTab('deposits', this)" class="filter-btn active px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">الإيداعات</button>
+                        <button onclick="switchInboxTab('orders', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">الطلبات</button>
+                        <button onclick="switchInboxTab('kyc', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">التوثيق (KYC)</button>
+                        <button onclick="switchInboxTab('services', this)" class="filter-btn px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition">طلبات الخدمة</button>
+                    </div>
+                    <button onclick="loadInbox()" class="bg-slate-800 hover:bg-slate-700 text-white p-2.5 rounded-xl transition flex items-center justify-center border border-slate-700" title="تحديث الآن">
+                        <i data-lucide="refresh-cw" size="18"></i>
+                    </button>
+                </div>
+                <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </section>
+
+            <section id="section-archive" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">قسم الأرشيف قيد التطوير</div></section>
             
             <section id="section-products" class="content-section hidden">
                 <div class="flex justify-between mb-6"><button onclick="openModal('addProductModal')" class="bg-accent text-dark font-bold px-4 py-2 rounded-xl flex items-center gap-2"><i data-lucide="plus" size="18"></i> منتج جديد</button></div>
@@ -100,22 +116,52 @@
                 <div id="categoriesContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
             </section>
 
-            <section id="section-payments" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">إدارة طرق الدفع (قيد التطوير البسيط)</div></section>
+            <section id="section-payments" class="content-section hidden">
+                <div class="glass p-8 rounded-3xl text-center">
+                    <i data-lucide="wallet" size="48" class="mx-auto text-accent mb-4 opacity-50"></i>
+                    <h3 class="text-xl font-bold text-white mb-2">طرق الدفع</h3>
+                    <p class="text-slate-400">سيتم تفعيل إدارة المحافظ الإلكترونية (شام كاش، MTN) قريباً في التحديث القادم.</p>
+                </div>
+            </section>
 
             <section id="section-users" class="content-section hidden">
                 <div class="mb-6"><input type="text" id="userSearchInput" placeholder="ابحث بالاسم أو الآيدي..." class="input-field w-full md:w-1/2"></div>
                 <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-right whitespace-nowrap"><thead class="bg-slate-800/50"><tr><th>المستخدم</th><th>الرصيد</th><th>الحالة</th><th>VIP</th><th>إجراءات</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>
             </section>
 
+            <!-- قسم التدقيق المالي -->
             <section id="section-audit" class="content-section hidden">
-                <div class="glass rounded-3xl overflow-x-auto"><table class="w-full text-right whitespace-nowrap"><thead class="bg-slate-800/50"><tr><th>العملية</th><th>المبلغ</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>التاريخ</th></tr></thead><tbody id="auditTableBody"></tbody></table></div>
+                <div class="glass rounded-3xl overflow-x-auto">
+                    <table class="w-full text-right whitespace-nowrap">
+                        <thead class="bg-slate-800/50">
+                            <tr><th>العملية</th><th>المبلغ</th><th>الرصيد قبل</th><th>الرصيد بعد</th><th>التاريخ</th></tr>
+                        </thead>
+                        <tbody id="auditTableBody">
+                            <tr><td colspan="5" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
-            <section id="section-notifications" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">نظام الإشعارات (قيد التطوير)</div></section>
-            <section id="section-settings" class="content-section hidden"><div class="glass p-10 rounded-3xl text-center text-slate-400">الإعدادات (قيد التطوير)</div></section>
+            <section id="section-notifications" class="content-section hidden">
+                <div class="glass p-8 rounded-3xl text-center">
+                    <i data-lucide="bell" size="48" class="mx-auto text-purple-400 mb-4 opacity-50"></i>
+                    <h3 class="text-xl font-bold text-white mb-2">مركز الإشعارات</h3>
+                    <p class="text-slate-400">سيتم تفعيل إرسال الإشعارات الجماعية للمستخدمين قريباً.</p>
+                </div>
+            </section>
+
+            <section id="section-settings" class="content-section hidden">
+                <div class="glass p-8 rounded-3xl text-center">
+                    <i data-lucide="settings" size="48" class="mx-auto text-slate-500 mb-4 opacity-50"></i>
+                    <h3 class="text-xl font-bold text-white mb-2">إعدادات المتجر</h3>
+                    <p class="text-slate-400">سيتم إضافة إعدادات سعر الصرف والبنرات قريباً.</p>
+                </div>
+            </section>
         </div>
     </main>
 
+    <!-- Modals -->
     <div id="addProductModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div class="glass rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border-t-4 border-t-accent">
             <div class="flex justify-between items-center mb-6"><h3 class="text-2xl font-bold text-white">إضافة منتج جديد</h3><button onclick="closeModal('addProductModal')" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button></div>
@@ -156,8 +202,7 @@
         </div>
     </div>
 
-    <!-- Point 4: Cache Busting (v=3) -->
-    <script src="js/admin_v3.js?v=4"></script>
+    <script src="js/admin_v3.js?v=5"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
