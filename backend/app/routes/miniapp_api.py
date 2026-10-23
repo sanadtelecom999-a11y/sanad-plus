@@ -1,5 +1,5 @@
 from flask import request, jsonify
-from ..models.base import User, Product, Category, Order, Deposit, KYCRequest
+from ..models.base import User, Product, Category, Order, Deposit, KYCRequest, Setting, Notification, PaymentMethod
 from ..extensions import db
 from . import main
 from datetime import datetime, timezone
@@ -10,6 +10,7 @@ from ..services.cloudinary_service import upload_base64_image
 def api_miniapp_init():
     data = request.get_json() or {}
     telegram_id = data.get("telegram_id")
+    
     if not telegram_id: return jsonify({"error": "Telegram ID required"}), 400
         
     user = User.query.filter_by(telegram_id=telegram_id).first()
@@ -18,51 +19,41 @@ def api_miniapp_init():
         db.session.add(user)
         db.session.commit()
 
-    kyc_name = None
-    if getattr(user, 'kyc_status', '') == 'verified':
-        kyc_req = KYCRequest.query.filter_by(user_id=user.id, status='approved').first()
-        if kyc_req: kyc_name = kyc_req.full_name
+    # فحص الحظر
+    if getattr(user, 'is_banned', False):
+        return jsonify({"banned": True, "message": "حسابك محظور، يرجى التواصل مع الدعم."})
 
-    # جلب آخر 20 طلب فقط لتخفيف الحمل
-    orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(20).all()
-    orders_list = []
-    for o in orders:
-        prod = Product.query.get(o.product_id)
-        orders_list.append({
-            "id": o.id, 
-            "order_number": o.order_number, 
-            "product_name": prod.name if prod else "منتج محذوف",
-            "product_image": getattr(prod, 'image', None) if prod else None,
-            "quantity": o.quantity if o.quantity else 1,
-            "unit_price": float(o.unit_price) if o.unit_price else 0,
-            "total_price": float(o.total_price),
-            "delivery_data": o.delivery_data if o.delivery_data else "غير محدد",
-            "status": o.status, 
-            "created_at": o.created_at.isoformat() if o.created_at else None
-        })
+    # فحص وضع الصيانة
+    maint_mode = Setting.query.filter_by(key='maintenance_mode').first()
+    if maint_mode and maint_mode.value == '1':
+        return jsonify({"maintenance": True, "message": "المتجر تحت الصيانة حالياً، سنعود قريباً."})
 
-    # جلب آخر 20 إيداع فقط
-    deposits = Deposit.query.filter_by(user_id=user.id).order_by(Deposit.created_at.desc()).limit(20).all()
-    deposits_list = [{
-        "id": d.id, 
-        "transaction_id": d.transaction_id, 
-        "amount": float(d.amount),
-        "method": d.method, 
-        "sender_name": d.sender_name if d.sender_name else "غير محدد",
-        "proof_image": d.proof_image,
-        "status": d.status, 
-        "created_at": d.created_at.isoformat() if d.created_at else None
-    } for d in deposits]
-        
+    # جلب الإشعارات غير المقروءة
+    notifications = Notification.query.filter_by(user_id=user.id, is_read=False).order_by(Notification.id.desc()).all()
+    notifs_list = [{"id": n.id, "title": n.title, "message": n.message, "type": getattr(n, 'type', 'info')} for n in notifications]
+
+    # جلب إعدادات المتجر
+    settings = {s.key: s.value for s in Setting.query.all()}
+    exchange_rate = float(settings.get('exchange_rate', 135))
+
     return jsonify({
         "user": {
             "id": user.id, "first_name": user.first_name, "username": user.username,
             "balance": float(user.balance), "kyc_status": getattr(user, 'kyc_status', 'unverified'),
-            "kyc_name": kyc_name, "vip_level": getattr(user, 'vip_level', 0)
+            "discount": float(getattr(user, 'general_discount', 0)),
+            "vip_level": getattr(user, 'vip_level', 0)
         },
-        "orders": orders_list,
-        "deposits": deposits_list
+        "notifications": notifs_list,
+        "settings": {"exchange_rate": exchange_rate}
     })
+
+@main.route("/api/miniapp/notifications/<int:id>/read", methods=["POST"])
+def api_mark_notification_read(id):
+    notif = Notification.query.get(id)
+    if notif:
+        notif.is_read = True
+        db.session.commit()
+    return jsonify({"success": True})
 
 @main.route("/api/miniapp/products", methods=["GET"])
 def api_get_products():
@@ -73,9 +64,9 @@ def api_get_products():
         result.append({
             "id": cat.id, "name": cat.name, "image": getattr(cat, 'image_url', None),
             "products": [{
-                "id": p.id, "name": p.name, "price": float(getattr(p, 'base_price', 0) or 0),
+                "id": p.id, "name": p.name, "price": float(getattr(p, 'base_price', 0)),
                 "image": getattr(p, 'image', None), "product_type": getattr(p, 'product_type', 'fixed'),
-                "base_quantity": getattr(p, 'base_quantity', 0), "base_price": float(getattr(p, 'base_price', 0) or 0),
+                "base_quantity": getattr(p, 'base_quantity', 0), "base_price": float(getattr(p, 'base_price', 0)),
                 "input_type": getattr(p, 'input_type', 'id')
             } for p in products]
         })
@@ -85,11 +76,13 @@ def api_get_products():
 def api_create_deposit():
     data = request.get_json() or {}
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
-    if not user: return jsonify({"error": "User not found"}), 404
+    if not user or getattr(user, 'is_banned', False): return jsonify({"error": "غير مصرح"}), 403
+        
     image_url = None
     receipt_base64 = data.get("receipt_image")
     if receipt_base64 and receipt_base64.startswith("data:image/"):
         image_url = upload_base64_image(receipt_base64, folder="sanad/deposits")
+        
     new_deposit = Deposit(
         user_id=user.id, amount=float(data.get("amount")), method=data.get("method"), 
         sender_name=data.get("sender_name"), proof_image=image_url, 
@@ -104,16 +97,29 @@ def api_create_order():
     data = request.get_json() or {}
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
     product = Product.query.get(data.get("product_id"))
-    if not user or not product: return jsonify({"error": "بيانات غير صحيحة"}), 400
+    
+    if not user or getattr(user, 'is_banned', False) or not product:
+        return jsonify({"error": "بيانات غير صحيحة أو حساب محظور"}), 400
+        
     qty = data.get("quantity", 1)
-    total_price = float(getattr(product, 'base_price', 0) or 0)
+    original_price = float(getattr(product, 'base_price', 0))
+    
+    # حساب السعر الأساسي
     if getattr(product, 'product_type', 'fixed') == 'quantity' and product.base_quantity > 0:
-        total_price = (float(getattr(product, 'base_price', 0) or 0) / product.base_quantity) * qty
-    if user.balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
-    user.balance -= total_price
+        original_price = (float(getattr(product, 'base_price', 0)) / product.base_quantity) * qty
+
+    # تطبيق الخصم (إن وجد)
+    discount_pct = float(getattr(user, 'general_discount', 0))
+    final_price = original_price - (original_price * (discount_pct / 100))
+    final_price = round(final_price, 2)
+        
+    if user.balance < final_price: 
+        return jsonify({"error": "رصيدك غير كافٍ"}), 400
+        
+    user.balance -= final_price
     new_order = Order(
         user_id=user.id, product_id=product.id, order_number=f"ORD-{uuid.uuid4().hex[:8].upper()}",
-        quantity=qty, unit_price=total_price / qty, total_price=total_price, 
+        quantity=qty, unit_price=final_price / qty, total_price=final_price, 
         delivery_data=data.get("delivery_data"), status="pending"
     )
     db.session.add(new_order)
@@ -124,10 +130,12 @@ def api_create_order():
 def api_submit_kyc():
     data = request.get_json() or {}
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
-    if not user: return jsonify({"error": "User not found"}), 404
+    if not user or getattr(user, 'is_banned', False): return jsonify({"error": "غير مصرح"}), 403
     if getattr(user, 'kyc_status', '') == 'verified': return jsonify({"error": "حسابك موثق بالفعل"}), 400
+    
     front_img = upload_base64_image(data.get("id_front"), folder="sanad/kyc") if data.get("id_front") else None
     selfie_img = upload_base64_image(data.get("selfie"), folder="sanad/kyc") if data.get("selfie") else None
+    
     new_kyc = KYCRequest(
         user_id=user.id, full_name=data.get("full_name"), phone=data.get("phone"),
         governorate=data.get("governorate"), region=data.get("region"),
