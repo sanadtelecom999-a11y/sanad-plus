@@ -560,8 +560,11 @@ async function sendSupportMessage() {
     bubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(msg)}</span><span class="chat-time">الآن</span>`;
     container.appendChild(bubble);
     window.scrollTo(0, document.body.scrollHeight);
-    try { await fetch(`${API_BASE}/api/support`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg }) }); } 
-    catch (e) { showToast("تعذر إرسال الرسالة", 'error'); }
+    try { 
+        await safeFetch(`${API_BASE}/api/support`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg }) }); 
+        showToast('تم إرسال رسالتك للدعم', 'success');
+    } 
+    catch (e) { showToast(e.message || "تعذر إرسال الرسالة", 'error'); }
 }
 
 function openSheet(sheetId) {

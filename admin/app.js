@@ -165,6 +165,7 @@ async function loadInbox(type) {
         data.forEach(item => {
             const card = document.createElement('div');
             card.className = 'inbox-card';
+            card.id = `inbox-card-${item.id}`;
             card.onclick = () => viewDetails(type, item.id);
             
             if (type === 'orders') {
@@ -300,6 +301,13 @@ async function handleAction(type, id, action, extra) {
     });
     if (!confirm.isConfirmed) return;
 
+    // حذف البطاقة فوراً من الشاشة (Optimistic UI)
+    const card = document.getElementById(`inbox-card-${id}`);
+    if (card) {
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none';
+    }
+
     let endpoint = '';
     let body = { admin_note: adminNote };
     
@@ -312,14 +320,18 @@ async function handleAction(type, id, action, extra) {
         if (res.ok) {
             closeModal();
             showToast('تمت العملية بنجاح', 'success');
-            loadInbox(type);
+            if (card) card.remove(); // حذف نهائي
             loadDashboardStats();
             checkInboxBadge();
         } else {
             const err = await res.json();
             showToast(err.error || 'حدث خطأ', 'error');
+            if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
         }
-    } catch (e) { showToast('تعذر الاتصال', 'error'); }
+    } catch (e) { 
+        showToast('تعذر الاتصال', 'error'); 
+        if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
+    }
 }
 
 function closeModal() { document.getElementById('detailsModal').classList.add('hidden'); }

@@ -46,7 +46,7 @@ def get_tickets():
 
 # ================= Admin Support Routes =================
 @main.route('/admin/api/support/tickets', methods=['GET'])
-@jwt_required()
+@admin_required
 def admin_get_tickets():
     from app.middleware import admin_required
     from flask import jsonify
@@ -70,7 +70,7 @@ def admin_get_tickets():
     return jsonify(result)
 
 @main.route('/admin/api/support/tickets/<int:id>/reply', methods=['POST'])
-@jwt_required()
+@admin_required
 def admin_reply_ticket(id):
     from flask import request, jsonify
     from app.extensions import db
@@ -89,7 +89,7 @@ def admin_reply_ticket(id):
     return jsonify({"success": True})
 
 @main.route('/admin/api/support/tickets/<int:id>/close', methods=['POST'])
-@jwt_required()
+@admin_required
 def admin_close_ticket(id):
     from flask import jsonify
     from app.extensions import db
