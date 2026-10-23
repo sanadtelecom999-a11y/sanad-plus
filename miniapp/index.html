@@ -11,11 +11,10 @@
 </head>
 <body>
 
-    <!-- شاشة التحميل (Skeletons) -->
+    <!-- شاشة التحميل -->
     <div id="loadingScreen" class="loading-screen">
         <div class="skeleton" style="height: 60px; margin-bottom: 20px;"></div>
         <div class="skeleton" style="height: 180px; border-radius: 24px; margin-bottom: 20px;"></div>
-        <div class="skeleton" style="height: 40px; width: 50%; margin-bottom: 15px;"></div>
         <div class="grid-2">
             <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
             <div class="skeleton" style="height: 100px; border-radius: 16px;"></div>
@@ -27,11 +26,11 @@
         
         <!-- الشريط العلوي -->
         <header class="top-header">
-            <div class="user-greeting">
-                <div class="avatar" id="userAvatar">S</div>
+            <div class="user-greeting" onclick="navigate('profile')">
+                <div class="avatar" id="headerAvatar">S</div>
                 <div>
                     <div class="greeting-text">مرحباً بك،</div>
-                    <div class="user-name" id="userName">جاري التحميل...</div>
+                    <div class="user-name" id="headerUserName">جاري التحميل...</div>
                 </div>
             </div>
             <div class="header-actions">
@@ -44,7 +43,6 @@
             
             <!-- 1. الرئيسية -->
             <section id="page-home" class="page active">
-                <!-- بطاقة الرصيد (Apple Card Style) -->
                 <div class="balance-card">
                     <div class="balance-header">
                         <span class="card-label">الرصيد الإجمالي</span>
@@ -58,29 +56,20 @@
                     <div class="floating-dollar">$</div>
                 </div>
 
-                <!-- شريط البحث -->
                 <div class="search-bar">
                     <i data-lucide="search" class="search-icon"></i>
                     <input type="text" placeholder="ابحث عن منتج...">
                 </div>
 
-                <!-- الأقسام (Bento Grid) -->
-                <div class="section-header">
-                    <h3>الأقسام</h3>
-                </div>
-                <div id="categoriesGrid" class="categories-grid">
-                    <!-- JS -->
-                </div>
+                <div class="section-header"><h3>الأقسام</h3></div>
+                <div id="categoriesGrid" class="categories-grid"></div>
             </section>
 
             <!-- 2. الطلبات -->
             <section id="page-orders" class="page">
                 <div class="section-header"><h3>طلباتي</h3></div>
                 <div id="ordersList" class="orders-list">
-                    <div class="empty-state">
-                        <i data-lucide="package-open" size="48"></i>
-                        <p>جاري التحميل...</p>
-                    </div>
+                    <div class="empty-state"><i data-lucide="package-open" size="48"></i><p>جاري التحميل...</p></div>
                 </div>
             </section>
 
@@ -88,36 +77,36 @@
             <section id="page-deposits" class="page">
                 <div class="section-header"><h3>سجل الإيداعات</h3></div>
                 <div id="depositsList" class="orders-list">
-                    <div class="empty-state">
-                        <i data-lucide="wallet" size="48"></i>
-                        <p>جاري التحميل...</p>
-                    </div>
+                    <div class="empty-state"><i data-lucide="wallet" size="48"></i><p>جاري التحميل...</p></div>
                 </div>
             </section>
 
             <!-- 4. حسابي -->
             <section id="page-profile" class="page">
+                <!-- الترويسة -->
                 <div class="profile-header">
                     <div class="avatar-wrapper">
-                        <div class="avatar large" id="profileAvatar">S</div>
-                        <div class="kyc-badge" id="kycBadge" title="غير موثق">⚠️</div>
+                        <img id="profileAvatarImg" class="avatar-img hidden" src="" alt="Avatar">
+                        <div class="avatar large" id="profileAvatarFallback">S</div>
+                        <div class="kyc-badge" id="kycBadge" title="حالة التوثيق"></div>
                     </div>
-                    <h2 id="profileName">المستخدم</h2>
+                    <div class="profile-name-row">
+                        <h2 id="profileFullName">المستخدم</h2>
+                    </div>
                     <div class="username" id="profileUsername">@username</div>
                 </div>
 
+                <!-- بطاقة Sanad ID -->
                 <div class="sanad-id-card">
-                    <div class="sanad-card-bg"></div>
-                    <div class="sanad-card-content">
-                        <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
-                        <div class="sanad-number-row">
-                            <span id="profileSanadId">SN-000000</span>
-                            <i data-lucide="copy" size="18" onclick="copySanadId()"></i>
-                        </div>
-                        <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
+                    <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
+                    <div class="sanad-number-row">
+                        <span id="profileSanadId">SN-000000</span>
+                        <i data-lucide="copy" size="18" onclick="copyToClipboard('profileSanadId', 'تم نسخ معرف سند')"></i>
                     </div>
+                    <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
                 </div>
                 
+                <!-- الإحصائيات -->
                 <div class="stats-grid">
                     <div class="stat-box">
                         <span>الرصيد</span>
@@ -129,13 +118,10 @@
                     </div>
                 </div>
 
+                <!-- القائمة -->
                 <div class="menu-list">
-                    <div class="menu-item" onclick="alert('قريباً: رفع الهوية')">
+                    <div class="menu-item" onclick="openKYCModal()">
                         <i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span>
-                        <i data-lucide="chevron-left" class="chevron"></i>
-                    </div>
-                    <div class="menu-item" onclick="alert('قريباً')">
-                        <i data-lucide="heart" class="text-danger"></i> <span>المفضلة</span>
                         <i data-lucide="chevron-left" class="chevron"></i>
                     </div>
                     <div class="menu-item" onclick="openReferralModal()">
@@ -146,7 +132,7 @@
                         <i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span>
                         <i data-lucide="chevron-left" class="chevron"></i>
                     </div>
-                    <div class="menu-item" onclick="navigate('support')">
+                    <div class="menu-item" onclick="openSupportModal()">
                         <i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span>
                         <i data-lucide="chevron-left" class="chevron"></i>
                     </div>
@@ -169,14 +155,9 @@
             <!-- 5. الدعم (Chat) -->
             <section id="page-support" class="page" style="padding-bottom: 80px;">
                 <div class="section-header"><h3>محادثة الدعم</h3></div>
-                
                 <div id="chatContainer" class="chat-container">
-                    <div class="empty-state">
-                        <i data-lucide="message-circle" size="48"></i>
-                        <p>مرحباً بك، كيف يمكننا مساعدتك؟</p>
-                    </div>
+                    <div class="empty-state"><i data-lucide="message-circle" size="48"></i><p>مرحباً بك، كيف يمكننا مساعدتك؟</p></div>
                 </div>
-
                 <div class="chat-input-wrapper">
                     <input type="text" id="supportInput" placeholder="اكتب رسالتك هنا...">
                     <button onclick="sendSupportMessage()" id="sendBtn"><i data-lucide="send"></i></button>
@@ -187,84 +168,89 @@
 
         <!-- شريط التنقل السفلي -->
         <nav class="bottom-nav">
-            <button class="nav-item active" onclick="navigate('home')" data-page="home">
-                <i data-lucide="home"></i><span>الرئيسية</span>
-            </button>
-            <button class="nav-item" onclick="navigate('orders')" data-page="orders">
-                <i data-lucide="list"></i><span>طلباتي</span>
-            </button>
-            <button class="nav-item center-btn" onclick="openDepositSheet()">
-                <div class="center-btn-inner"><i data-lucide="zap"></i></div>
-            </button>
-            <button class="nav-item" onclick="navigate('deposits')" data-page="deposits">
-                <i data-lucide="wallet"></i><span>إيداعات</span>
-            </button>
-            <button class="nav-item" onclick="navigate('profile')" data-page="profile">
-                <i data-lucide="user"></i><span>حسابي</span>
-            </button>
+            <button class="nav-item active" onclick="navigate('home')" data-page="home"><i data-lucide="home"></i><span>الرئيسية</span></button>
+            <button class="nav-item" onclick="navigate('orders')" data-page="orders"><i data-lucide="list"></i><span>طلباتي</span></button>
+            <button class="nav-item center-btn" onclick="openDepositSheet()"><div class="center-btn-inner"><i data-lucide="zap"></i></div></button>
+            <button class="nav-item" onclick="navigate('deposits')" data-page="deposits"><i data-lucide="wallet"></i><span>إيداعات</span></button>
+            <button class="nav-item" onclick="navigate('profile')" data-page="profile"><i data-lucide="user"></i><span>حسابي</span></button>
         </nav>
 
-        <!-- Bottom Sheet (للإيداع) -->
+        <!-- Overlay -->
         <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
-        
+
+        <!-- Bottom Sheet: Deposit -->
         <div class="bottom-sheet" id="depositSheet">
             <div class="sheet-grabber"></div>
             <h3>شحن الرصيد</h3>
             <p class="text-muted">اختر طريقة الدفع المناسبة لك</p>
-            <div class="payment-methods-list" id="paymentMethodsList">
-                <!-- JS -->
-            </div>
+            <div class="payment-methods-list" id="paymentMethodsList"></div>
         </div>
 
-        <!-- Bottom Sheet (لتفاصيل الطلب) -->
+        <!-- Bottom Sheet: Order Details -->
         <div class="bottom-sheet" id="orderDetailsSheet">
             <div class="sheet-grabber"></div>
             <div id="orderDetailsContent"></div>
         </div>
 
-        <!-- Bottom Sheet (لتفاصيل الإيداع) -->
+        <!-- Bottom Sheet: Deposit Details -->
         <div class="bottom-sheet" id="depositDetailsSheet">
             <div class="sheet-grabber"></div>
             <div id="depositDetailsContent"></div>
         </div>
 
-        <!-- Bottom Sheet (للإحالات) -->
-        <div class="bottom-sheet" id="referralSheet">
+        <!-- Bottom Sheet: KYC -->
+        <div class="bottom-sheet" id="kycSheet">
             <div class="sheet-grabber"></div>
-            <h3 class="text-center" style="margin-bottom: 20px;">الإحالات</h3>
-            <p class="text-muted text-center" style="margin-bottom: 20px;">شارك كودك واحصل على مكافأة عند انضمام صديق!</p>
-            <div class="sanad-id-card" style="margin-bottom: 20px;">
-                <div class="sanad-card-content text-center">
-                    <div class="sanad-label">كود الإحالة الخاص بك</div>
-                    <div class="sanad-number-row" style="justify-content: center; gap: 10px;">
-                        <span id="referralCodeText" style="font-size: 24px; color: var(--warning);">SANAD</span>
-                    </div>
-                </div>
-            </div>
-            <button class="btn-primary" onclick="shareReferral()">مشاركة الكود</button>
+            <div id="kycContent"></div>
         </div>
 
-        <!-- Bottom Sheet (للأسئلة الشائعة) -->
+        <!-- Bottom Sheet: Referral -->
+        <div class="bottom-sheet" id="referralSheet">
+            <div class="sheet-grabber"></div>
+            <div class="text-center">
+                <div class="icon-wrapper-large" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); margin: 0 auto 15px;"><i data-lucide="gift" size="32"></i></div>
+                <h3>ادعُ أصدقاءك واربح</h3>
+                <p class="text-muted" style="margin-bottom: 20px;">احصل على مكافأة على كل عملية شراء يقومون بها!</p>
+                
+                <div class="referral-box">
+                    <span id="referralCodeText">SANAD2026</span>
+                    <button onclick="copyToClipboard('referralCodeText', 'تم نسخ كود الإحالة')"><i data-lucide="copy" size="18"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Sheet: FAQ -->
         <div class="bottom-sheet" id="faqSheet">
             <div class="sheet-grabber"></div>
             <h3 class="text-center" style="margin-bottom: 20px;">الأسئلة الشائعة</h3>
             <div class="faq-list">
                 <div class="faq-item" onclick="this.classList.toggle('open')">
-                    <div class="faq-question">كيف أشحن رصيدي؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-question">كيف أقوم بشحن رصيدي؟ <i data-lucide="chevron-down"></i></div>
                     <div class="faq-answer">اضغط على زر البرق ⚡ في شريط التنقل السفلي، ثم اختر المحفظة وارفع صورة الإيصال.</div>
                 </div>
                 <div class="faq-item" onclick="this.classList.toggle('open')">
-                    <div class="faq-question">كم يستغرق تنفيذ الطلب؟ <i data-lucide="chevron-down"></i></div>
-                    <div class="faq-answer">عادة من 5 إلى 15 دقيقة، وفي أوقات الذروة قد يتأخر قليلاً.</div>
+                    <div class="faq-question">كم يستغرق اعتماد الإيداع؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-answer">يتم اعتماد الإيداعات يدوياً من قبل الإدارة، وتستغرق عادة من 5 إلى 30 دقيقة.</div>
                 </div>
                 <div class="faq-item" onclick="this.classList.toggle('open')">
-                    <div class="faq-question">ما هو التوثيق (KYC)؟ <i data-lucide="chevron-down"></i></div>
-                    <div class="faq-answer">توثيق الهوية لتفعيل جميع الميزات وطرق الدفع.</div>
+                    <div class="faq-question">ماذا أفعل إذا فشل طلبي؟ <i data-lucide="chevron-down"></i></div>
+                    <div class="faq-answer">في حال فشل الطلب، يتم إعادة المبلغ إلى رصيدك تلقائياً، ويمكنك مراجعة الدعم.</div>
                 </div>
             </div>
         </div>
 
-        <!-- Lightbox للصور -->
+        <!-- Bottom Sheet: Support Modal -->
+        <div class="bottom-sheet" id="supportModalSheet">
+            <div class="sheet-grabber"></div>
+            <div class="text-center">
+                <div class="icon-wrapper-large" style="background: rgba(10, 132, 255, 0.1); color: var(--primary); margin: 0 auto 15px;"><i data-lucide="headphones" size="32"></i></div>
+                <h3>الدعم الفني</h3>
+                <p class="text-muted" style="margin-bottom: 20px;">فريقنا جاهز لمساعدتك على مدار الساعة.</p>
+                <a href="https://t.me/SANADST" target="_blank" class="btn-primary" style="display: block; text-decoration: none; padding: 15px; border-radius: 16px; font-weight: bold;">مراسلة الدعم على تيليجرام</a>
+            </div>
+        </div>
+
+        <!-- Lightbox -->
         <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()">
             <img id="lightboxImg" src="" alt="إثبات">
         </div>
