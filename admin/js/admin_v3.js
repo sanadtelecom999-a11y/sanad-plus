@@ -24,7 +24,6 @@ async function handleLogin() {
         } else { Swal.fire({icon: 'error', title: 'خطأ', text: data.error || 'بيانات غير صحيحة', background: '#1e293b', color: '#fff'}); }
     } catch (error) { Swal.fire({icon: 'error', title: 'خطأ', text: 'تعذر الاتصال', background: '#1e293b', color: '#fff'}); }
 }
-
 async function verifyOTP() {
     const code = document.getElementById('otpCode').value;
     if(!code) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل رمز التحقق', background: '#1e293b', color: '#fff'});
@@ -48,7 +47,6 @@ function previewImage(input, previewId) {
         reader.readAsDataURL(input.files[0]);
     } else { preview.src = ''; preview.classList.add('hidden'); }
 }
-
 async function apiCall(endpoint, method = 'GET', body = null) {
     const token = getToken();
     const headers = { 'Content-Type': 'application/json' };
@@ -62,16 +60,9 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         return await res.json();
     } catch (error) { console.error(`API Error [${endpoint}]:`, error); return null; }
 }
-
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-// دالة سحرية لاستخراج المصفوفة سواء كان الرد مصفوفة أو كائناً
-function getArrayData(data, key) {
-    if (Array.isArray(data)) return data;
-    if (data && data[key] && Array.isArray(data[key])) return data[key];
-    return [];
-}
+function getArrayData(data, key) { if (Array.isArray(data)) return data; if (data && data[key] && Array.isArray(data[key])) return data[key]; return []; }
 
 // ================= Dashboard =================
 async function loadDashboardStats() {
@@ -91,7 +82,7 @@ function initChart() {
     dashboardChartInstance = new Chart(ctx, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } } } });
 }
 
-// ================= Badges =================
+// ================= Badges & Inbox =================
 async function loadBadges() {
     const data = await apiCall('/admin/api/inbox/counts');
     if (data) {
@@ -99,27 +90,19 @@ async function loadBadges() {
         const sidebarBadge = document.getElementById('sidebarInboxBadge');
         if (total > 0) { sidebarBadge.innerText = total; sidebarBadge.classList.remove('hidden'); }
         else { sidebarBadge.classList.add('hidden'); }
-
-        const updateTabBadge = (id, count) => {
-            const el = document.getElementById(id);
-            if (count > 0) { el.innerText = count; el.classList.remove('hidden'); }
-            else { el.classList.add('hidden'); }
-        };
+        const updateTabBadge = (id, count) => { const el = document.getElementById(id); if (count > 0) { el.innerText = count; el.classList.remove('hidden'); } else { el.classList.add('hidden'); } };
         updateTabBadge('tabBadgeDeposits', data.deposits);
         updateTabBadge('tabBadgeOrders', data.orders);
         updateTabBadge('tabBadgeKyc', data.kyc);
         updateTabBadge('tabBadgeServices', data.services);
     }
 }
-
-// ================= Inbox =================
 function switchInboxTab(tab, btn) {
     currentInboxTab = tab;
     document.querySelectorAll('#inboxTabs .filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     loadInbox();
 }
-
 async function loadInbox() {
     const container = document.getElementById('inboxContainer');
     if(!container) return;
@@ -133,10 +116,7 @@ async function loadInbox() {
     const data = await apiCall(endpoint);
     const items = getArrayData(data, 'items');
 
-    if(items.length === 0) {
-        container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد عناصر في هذا القسم حالياً</div>';
-        return;
-    }
+    if(items.length === 0) { container.innerHTML = '<div class="glass col-span-full p-10 rounded-3xl text-center text-slate-400">لا توجد عناصر في هذا القسم حالياً</div>'; return; }
 
     container.innerHTML = items.map(item => {
         if(currentInboxTab === 'deposits') {
@@ -151,64 +131,43 @@ async function loadInbox() {
     }).join('');
     lucide.createIcons();
 }
-
 function openInboxAction(type, id, amount = 0, title = '') {
     document.getElementById('inboxActionType').value = type;
     document.getElementById('inboxActionId').value = id;
     document.getElementById('inboxActionNote').value = '';
-
     let detailsHtml = '';
-    if(type === 'deposits') {
-        document.getElementById('inboxActionTitle').innerText = 'مراجعة الإيداع';
-        detailsHtml = `<p><strong>المبلغ:</strong> $${amount}</p><p><strong>المستخدم:</strong> ${title}</p>`;
-    } else if(type === 'orders') {
-        document.getElementById('inboxActionTitle').innerText = 'مراجعة الطلب';
-        detailsHtml = `<p><strong>رقم الطلب:</strong> ${title}</p><p><strong>السعر:</strong> $${amount}</p>`;
-    } else {
-        document.getElementById('inboxActionTitle').innerText = 'طلب توثيق';
-    }
+    if(type === 'deposits') { document.getElementById('inboxActionTitle').innerText = 'مراجعة الإيداع'; detailsHtml = `<p><strong>المبلغ:</strong> $${amount}</p><p><strong>المستخدم:</strong> ${title}</p>`; } 
+    else if(type === 'orders') { document.getElementById('inboxActionTitle').innerText = 'مراجعة الطلب'; detailsHtml = `<p><strong>رقم الطلب:</strong> ${title}</p><p><strong>السعر:</strong> $${amount}</p>`; } 
+    else { document.getElementById('inboxActionTitle').innerText = 'طلب توثيق'; }
     document.getElementById('inboxActionDetails').innerHTML = detailsHtml;
     openModal('inboxActionModal');
 }
-
 async function submitInboxAction(action) {
     const type = document.getElementById('inboxActionType').value;
     const id = document.getElementById('inboxActionId').value;
     const note = document.getElementById('inboxActionNote').value;
-
     Swal.fire({ title: 'جاري التنفيذ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    
-    let endpoint = `/admin/api/${type}/${id}/${action}`;
-    const res = await apiCall(endpoint, 'POST', { note: note });
-
+    const res = await apiCall(`/admin/api/${type}/${id}/${action}`, 'POST', { note: note });
     if (res && res.success) {
         closeModal('inboxActionModal');
         Swal.fire({icon: 'success', title: 'تم بنجاح', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'});
-        loadInbox();
-        loadBadges();
-    } else {
-        Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل في العملية', background: '#1e293b', color: '#fff'});
-    }
+        loadInbox(); loadBadges();
+    } else { Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل في العملية', background: '#1e293b', color: '#fff'}); }
 }
 
-// ================= Archive =================
+// ================= Archive (P0-3) =================
 async function loadArchive() {
     const tbody = document.getElementById('archiveTableBody');
     if(!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400 animate-pulse">جاري التحميل...</td></tr>';
-    
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400 animate-pulse">جاري التحميل...</td></tr>';
     const data = await apiCall('/admin/api/archive');
     cachedArchiveData = getArrayData(data, 'archive');
     renderArchive(cachedArchiveData);
 }
-
 function renderArchive(data) {
     const tbody = document.getElementById('archiveTableBody');
-    if(data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا يوجد سجل سابق</td></tr>';
-        return;
-    }
-    tbody.innerHTML = data.map(item => {
+    if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400">لا يوجد سجل سابق</td></tr>'; return; }
+    tbody.innerHTML = data.map((item, index) => {
         let statusColor = (item.status === 'completed' || item.status === 'approved') ? 'text-primary' : 'text-danger';
         return `
         <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
@@ -218,36 +177,38 @@ function renderArchive(data) {
             <td class="font-bold">$${item.amount}</td>
             <td class="${statusColor}">${item.status}</td>
             <td class="text-xs text-slate-500">${new Date(item.date).toLocaleString('ar-EG')}</td>
+            <td><button onclick="viewArchiveDetails(${index})" class="bg-slate-700 text-white px-2 py-1 rounded-lg"><i data-lucide="eye" size="16"></i></button></td>
         </tr>`;
     }).join('');
+    lucide.createIcons();
 }
-
+function viewArchiveDetails(index) {
+    const item = cachedArchiveData[index];
+    Swal.fire({
+        title: 'تفاصيل العملية المؤرشفة',
+        html: `<div class="text-right space-y-2 text-sm">
+            <p><strong>المرجع:</strong> ${item.ref}</p>
+        </div>`,
+        background: '#1e293b', color: '#fff', confirmButtonColor: '#38bdf8'
+    });
+}
 function filterArchive() {
     const query = document.getElementById('archiveSearch').value.toLowerCase();
-    const filtered = cachedArchiveData.filter(item => 
-        (item.ref && item.ref.toLowerCase().includes(query)) || 
-        (item.user && item.user.toLowerCase().includes(query))
-    );
-    renderArchive(filtered);
+    renderArchive(cachedArchiveData.filter(item => (item.ref && item.ref.toLowerCase().includes(query)) || (item.user && item.user.toLowerCase().includes(query))));
 }
-
 function exportArchive() {
     if(cachedArchiveData.length === 0) return Swal.fire({icon: 'info', title: 'لا يوجد بيانات', background: '#1e293b', color: '#fff'});
-    const ws = XLSX.utils.json_to_sheet(cachedArchiveData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Archive");
-    XLSX.writeFile(wb, `Sanad_Archive_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const ws = XLSX.utils.json_to_sheet(cachedArchiveData); const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Archive"); XLSX.writeFile(wb, `Sanad_Archive_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
-// ================= Payments =================
+// ================= Payments (P0-4, F-2) =================
 async function loadPayments() {
     const data = await apiCall('/admin/api/payments');
     const container = document.getElementById('paymentsContainer');
     if(!container) return;
     const items = getArrayData(data, 'payments');
-    
     if(items.length === 0) { container.innerHTML = '<div class="glass p-10 rounded-3xl text-center text-slate-400">لا توجد طرق دفع مضافة</div>'; return; }
-
     container.innerHTML = items.map(p => `
         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-primary relative">
             <button onclick="deletePayment(${p.id})" class="absolute top-4 left-4 text-red-500 hover:text-red-400"><i data-lucide="trash-2" size="18"></i></button>
@@ -255,112 +216,32 @@ async function loadPayments() {
             <p class="text-sm text-slate-400">الحد الأدنى: $${p.min}</p>
             <p class="text-sm text-slate-400">الحد الأقصى: $${p.max}</p>
             <p class="text-sm text-accent mt-2 font-mono">${p.account}</p>
-        </div>
-    `).join('');
+        </div>`).join('');
     lucide.createIcons();
 }
-
 async function savePayment() {
     const name = document.getElementById('payName').value;
     const min = document.getElementById('payMin').value;
     const max = document.getElementById('payMax').value;
     const account = document.getElementById('payAccount').value;
-
+    const fee = document.getElementById('payFee').value;
+    const reqKyc = document.getElementById('payRequireKyc').checked;
     if(!name || !account) return Swal.fire({icon: 'warning', title: 'أكمل البيانات', background: '#1e293b', color: '#fff'});
-    const res = await apiCall('/admin/api/payments', 'POST', { name, min_amount: min, max_amount: max, account_number: account });
+    const res = await apiCall('/admin/api/payments', 'POST', { name, min_amount: min, max_amount: max, account_number: account, fee, require_kyc: reqKyc });
     if(res && res.success) { closeModal('addPaymentModal'); loadPayments(); Swal.fire({icon: 'success', title: 'تمت الإضافة', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'}); }
 }
+async function deletePayment(id) { const res = await apiCall(`/admin/api/payments/${id}`, 'DELETE'); if(res) loadPayments(); }
 
-async function deletePayment(id) {
-    const res = await apiCall(`/admin/api/payments/${id}`, 'DELETE');
-    if(res) loadPayments();
-}
-
-// ================= Products =================
-function openAddProductModal() {
-    document.getElementById('prodModalTitle').innerText = 'إضافة منتج جديد';
-    document.getElementById('editProdId').value = '';
-    document.getElementById('prodName').value = '';
-    document.getElementById('prodImageFile').value = '';
-    document.getElementById('prodImagePreview').classList.add('hidden');
-    openModal('addProductModal');
-}
-
-function openEditProduct(id) {
-    const prod = cachedProducts.find(p => p.id === id);
-    if(!prod) return;
-    document.getElementById('prodModalTitle').innerText = 'تعديل المنتج';
-    document.getElementById('editProdId').value = id;
-    document.getElementById('prodName').value = prod.name;
-    document.getElementById('prodCategory').value = prod.category_id;
-    
-    if(prod.product_type === 'quantity') {
-        document.getElementById('prodPricingType').value = 'dynamic';
-        togglePricingFields();
-        document.getElementById('prodBaseQty').value = prod.base_quantity || 1;
-        document.getElementById('prodBasePrice').value = prod.price;
-    } else {
-        document.getElementById('prodPricingType').value = 'fixed';
-        togglePricingFields();
-        document.getElementById('prodFixedPrice').value = prod.price;
-    }
-
-    document.getElementById('prodImageFile').value = '';
-    document.getElementById('prodImagePreview').src = prod.image || '';
-    document.getElementById('prodImagePreview').classList.remove('hidden');
-    openModal('addProductModal');
-}
-
-function togglePricingFields() {
-    const type = document.getElementById('prodPricingType').value;
-    if (type === 'fixed') { document.getElementById('fixedPriceFields').classList.remove('hidden'); document.getElementById('dynamicPriceFields').classList.add('hidden'); } 
-    else { document.getElementById('fixedPriceFields').classList.add('hidden'); document.getElementById('dynamicPriceFields').classList.remove('hidden'); }
-}
-
-async function saveProduct() {
-    const editId = document.getElementById('editProdId').value;
-    const name = document.getElementById('prodName').value;
-    const imageFile = document.getElementById('prodImageFile').files[0];
-    
-    if (!name) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل اسم المنتج', background: '#1e293b', color: '#fff'});
-    Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    
-    let imageBase64 = null;
-    if (imageFile) { imageBase64 = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(imageFile); }); }
-    
-    const data = { name: name, category_id: document.getElementById('prodCategory').value, input_type: 'id', pricing_type: document.getElementById('prodPricingType').value, image: imageBase64 };
-    if (data.pricing_type === 'fixed') { data.price = parseFloat(document.getElementById('prodFixedPrice').value) || 0; } 
-    else { data.base_qty = parseFloat(document.getElementById('prodBaseQty').value) || 0; data.price = parseFloat(document.getElementById('prodBasePrice').value) || 0; }
-
-    let res = editId ? await apiCall(`/admin/api/products/${editId}`, 'PUT', data) : await apiCall('/admin/api/products', 'POST', data);
-
-    if (res && res.success) { Swal.fire({icon: 'success', title: 'تم الحفظ', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addProductModal'); loadProducts(); }
-}
-
-async function loadProducts() {
-    const data = await apiCall('/admin/api/products');
-    cachedProducts = getArrayData(data, 'products');
-    document.getElementById('productsTableBody').innerHTML = cachedProducts.map(p => `
-        <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-            <td class="font-bold text-white flex items-center gap-2"><img src="${p.image || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-md object-cover"> ${p.name}</td>
-            <td class="text-primary">${p.product_type === 'quantity' ? 'ديناميكي' : `$${p.price}`}</td>
-            <td>${p.category_id}</td><td>${p.product_type === 'quantity' ? 'كمية' : 'ثابت'}</td>
-            <td>
-                <button onclick="openEditProduct(${p.id})" class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg mr-2"><i data-lucide="edit-2" size="14" class="inline"></i> تعديل</button>
-                <button onclick="deleteProduct(${p.id})" class="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg"><i data-lucide="trash-2" size="14" class="inline"></i> حذف</button>
-            </td>
-        </tr>`).join('');
-    lucide.createIcons();
-}
-
-async function deleteProduct(id) {
-    const result = await Swal.fire({ title: 'تأكيد الحذف', text: 'هل أنت متأكد؟', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
-    if (result.isConfirmed) { await apiCall(`/admin/api/products/${id}`, 'DELETE'); loadProducts(); }
-}
-
+// ================= Products (F-1) =================
 async function loadCategories() {
     const data = await apiCall('/admin/api/categories');
     const categories = getArrayData(data, 'categories');
+    // 1. تحديث القائمة المنسدلة في المودال
+    const select = document.getElementById('prodCategory');
+    if(select) {
+        select.innerHTML = '<option value="">اختر القسم...</option>' + categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+    // 2. تحديث عرض الأقسام
     document.getElementById('categoriesContainer').innerHTML = categories.map(c => `
         <div class="glass bento-card rounded-3xl p-6 flex flex-col items-center justify-center text-center relative">
             <button class="absolute top-2 right-2 text-red-500"><i data-lucide="x" size="18"></i></button>
@@ -369,20 +250,71 @@ async function loadCategories() {
         </div>`).join('');
     lucide.createIcons();
 }
+function openAddProductModal() {
+    document.getElementById('prodModalTitle').innerText = 'إضافة منتج جديد';
+    document.getElementById('editProdId').value = '';
+    document.getElementById('prodName').value = '';
+    document.getElementById('prodDescription').value = '';
+    document.getElementById('prodImageFile').value = '';
+    document.getElementById('prodImagePreview').classList.add('hidden');
+    loadCategories(); // تحديث الأقسام
+    openModal('addProductModal');
+}
+function openEditProduct(id) {
+    const prod = cachedProducts.find(p => p.id === id);
+    if(!prod) return;
+    document.getElementById('prodModalTitle').innerText = 'تعديل المنتج';
+    document.getElementById('editProdId').value = id;
+    document.getElementById('prodName').value = prod.name;
+    document.getElementById('prodDescription').value = prod.description || '';
+    loadCategories();
+    document.getElementById('prodCategory').value = prod.category_id;
+    document.getElementById('prodImageFile').value = '';
+    document.getElementById('prodImagePreview').src = prod.image || '';
+    document.getElementById('prodImagePreview').classList.remove('hidden');
+    openModal('addProductModal');
+}
+async function saveProduct() {
+    const editId = document.getElementById('editProdId').value;
+    const name = document.getElementById('prodName').value;
+    const cat = document.getElementById('prodCategory').value;
+    const desc = document.getElementById('prodDescription').value;
+    const imageFile = document.getElementById('prodImageFile').files[0];
+    
+    if (!name || !cat) return Swal.fire({icon: 'warning', title: 'تنبيه', text: 'أدخل اسم المنتج واختر القسم', background: '#1e293b', color: '#fff'});
+    Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
+    
+    let imageBase64 = null;
+    if (imageFile) { imageBase64 = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(imageFile); }); }
+    
+    const data = { name: name, category_id: cat, description: desc, pricing_type: 'fixed', price: parseFloat(document.getElementById('prodFixedPrice').value) || 0, image: imageBase64 };
+    let res = editId ? await apiCall(`/admin/api/products/${editId}`, 'PUT', data) : await apiCall('/admin/api/products', 'POST', data);
+    if (res && res.success) { Swal.fire({icon: 'success', title: 'تم الحفظ', timer: 1500, showConfirmButton: false, background: '#1e293b', color: '#fff'}); closeModal('addProductModal'); loadProducts(); }
+}
+async function loadProducts() {
+    const data = await apiCall('/admin/api/products');
+    cachedProducts = getArrayData(data, 'products');
+    document.getElementById('productsTableBody').innerHTML = cachedProducts.map(p => `
+        <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
+            <td class="font-bold text-white flex items-center gap-2"><img src="${p.image || 'https://via.placeholder.com/24'}" class="w-6 h-6 rounded-md object-cover"> ${p.name}</td>
+            <td class="text-primary">$${p.price}</td><td>${p.category_id}</td><td>ثابت</td>
+            <td>
+                <button onclick="openEditProduct(${p.id})" class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-lg mr-2"><i data-lucide="edit-2" size="14" class="inline"></i> تعديل</button>
+                <button class="bg-red-500/20 text-red-400 px-3 py-1 rounded-lg"><i data-lucide="trash-2" size="14" class="inline"></i> حذف</button>
+            </td>
+        </tr>`).join('');
+    lucide.createIcons();
+}
 
-// ================= Users =================
+// ================= Users (P0-1, P0-2) =================
 async function loadUsers() {
     const data = await apiCall('/admin/api/users');
     const users = getArrayData(data, 'users');
-    
     document.getElementById('usersTableBody').innerHTML = users.map(user => `
         <tr class="hover:bg-slate-800/30 transition">
             <td><div class="font-bold text-white">${user.first_name}</div><div class="text-xs text-slate-400 font-mono">${user.telegram_id}</div></td>
             <td class="font-bold text-primary">$${user.balance.toFixed(2)}</td>
-            <td>
-                <span class="px-2 py-1 rounded-full text-xs ${user.kyc_status === 'verified' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-400'}">${user.kyc_status}</span>
-                ${user.is_banned ? '<span class="px-2 py-1 rounded-full text-xs bg-danger/20 text-danger ml-1">محظور</span>' : ''}
-            </td>
+            <td><span class="px-2 py-1 rounded-full text-xs ${user.kyc_status === 'verified' ? 'bg-primary/20 text-primary' : 'bg-amber-500/20 text-amber-400'}">${user.kyc_status}</span> ${user.is_banned ? '<span class="px-2 py-1 rounded-full text-xs bg-danger/20 text-danger ml-1">محظور</span>' : ''}</td>
             <td>${user.vip_level > 0 ? `<span class="text-accent">VIP ${user.vip_level}</span>` : '-'}</td>
             <td class="flex gap-2">
                 <button onclick="openUserDetails(${user.id})" class="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded-lg text-sm" title="عرض الملف"><i data-lucide="eye" size="16"></i></button>
@@ -391,47 +323,55 @@ async function loadUsers() {
         </tr>`).join('');
     lucide.createIcons();
 }
-
 async function openUserDetails(id) {
     Swal.fire({ title: 'جاري التحميل...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
     const data = await apiCall(`/admin/api/users/${id}/stats`);
     if(!data) return;
-    
     document.getElementById('userDetailsBody').innerHTML = `
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">Telegram ID:</span> <span class="font-mono text-white">${data.telegram_id}</span></div>
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">Sanad ID:</span> <span class="font-mono text-white">${data.sanad_id}</span></div>
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">اسم KYC:</span> <span class="text-white">${data.kyc_name || 'غير موثق'}</span></div>
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">حالة KYC:</span> <span class="${data.kyc_status === 'verified' ? 'text-primary' : 'text-warning'}">${data.kyc_status}</span></div>
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">عدد الطلبات:</span> <span class="text-white">${data.total_orders}</span></div>
-        <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">عدد الإيداعات:</span> <span class="text-white">${data.total_deposits}</span></div>
         <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">إجمالي الصرف:</span> <span class="text-primary font-bold">$${data.total_spent.toFixed(2)}</span></div>
-        <div class="flex justify-between border-b border-slate-700 pb-2"><span class="text-slate-400">الخصم:</span> <span class="text-accent">${data.discount}%</span></div>
-        <div class="flex justify-between pb-2"><span class="text-slate-400">الحالة:</span> <span class="${data.is_banned ? 'text-danger font-bold' : 'text-primary'}">${data.is_banned ? 'محظور' : 'نشط'}</span></div>
+        <div class="flex justify-between pb-2"><span class="text-slate-400">الخصم:</span> <span class="text-accent">${data.discount}%</span></div>
     `;
-    Swal.close();
-    openModal('userDetailsModal');
+    Swal.close(); openModal('userDetailsModal');
 }
-
+let currentBalanceAction = 'add';
+function setBalanceAction(action) {
+    currentBalanceAction = action;
+    document.getElementById('editUserBalanceAction').value = action;
+    const btnAdd = document.getElementById('btn-add-bal'); const btnSub = document.getElementById('btn-sub-bal');
+    if(action === 'add') { btnAdd.classList.add('bg-primary', 'text-white'); btnAdd.classList.remove('bg-slate-700', 'text-slate-300'); btnSub.classList.add('bg-slate-700', 'text-slate-300'); btnSub.classList.remove('bg-danger', 'text-white'); } 
+    else { btnSub.classList.add('bg-danger', 'text-white'); btnSub.classList.remove('bg-slate-700', 'text-slate-300'); btnAdd.classList.add('bg-slate-700', 'text-slate-300'); btnAdd.classList.remove('bg-primary', 'text-white'); }
+}
 function openEditUser(id, balance, banned, discount) {
     document.getElementById('editUserId').value = id;
-    document.getElementById('editUserBalance').value = balance;
+    document.getElementById('editUserBalanceAmount').value = '';
     document.getElementById('editUserDiscount').value = discount;
     document.getElementById('editUserBanned').checked = banned;
+    setBalanceAction('add');
     openModal('editUserModal');
 }
-
 async function saveUserEdit() {
     const id = document.getElementById('editUserId').value;
-    const balance = parseFloat(document.getElementById('editUserBalance').value) || 0;
+    const amount = parseFloat(document.getElementById('editUserBalanceAmount').value) || 0;
+    const action = document.getElementById('editUserBalanceAction').value;
     const discount = parseFloat(document.getElementById('editUserDiscount').value) || 0;
     const banned = document.getElementById('editUserBanned').checked;
-
-    Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
-    const res = await apiCall(`/admin/api/users/${id}/edit`, 'POST', { balance, discount, is_banned: banned });
-    if(res && res.success) { closeModal('editUserModal'); Swal.fire({icon: 'success', title: 'تم التعديل', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'}); loadUsers(); }
+    const btn = document.getElementById('btn-save-user');
+    
+    btn.disabled = true; btn.innerText = 'جارٍ الحفظ...';
+    try {
+        const res = await apiCall(`/admin/api/users/${id}/edit`, 'POST', { balance_change: amount, balance_action: action, discount, is_banned: banned });
+        if(res && res.success) { closeModal('editUserModal'); Swal.fire({icon: 'success', title: 'تم التعديل', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'}); loadUsers(); }
+        else { Swal.fire({icon: 'error', title: 'خطأ', text: 'فشل التعديل', background: '#1e293b', color: '#fff'}); }
+    } catch(e) { Swal.fire({icon: 'error', title: 'خطأ', text: 'حدث خطأ غير متوقع', background: '#1e293b', color: '#fff'}); } 
+    finally { btn.disabled = false; btn.innerText = 'حفظ التعديلات'; }
 }
 
-// ================= Audit & Settings & Notifications =================
+// ================= Audit, Settings, Notifications =================
 async function loadAudit() {
     const tbody = document.getElementById('auditTableBody');
     if(!tbody) return;
@@ -439,14 +379,10 @@ async function loadAudit() {
     const logs = getArrayData(data, 'audit');
     tbody.innerHTML = logs.map(l => `
         <tr class="border-b border-slate-700/50 hover:bg-slate-800/30">
-            <td class="font-bold text-white">${l.action}</td>
-            <td class="${l.amount > 0 ? 'text-primary' : 'text-danger'}">${l.amount > 0 ? '+' : ''}$${l.amount}</td>
-            <td class="text-slate-400">$${l.before}</td>
-            <td class="text-slate-400">$${l.after}</td>
-            <td class="text-xs text-slate-500">${new Date(l.date).toLocaleString('ar-EG')}</td>
+            <td class="font-bold text-white">${l.action}</td><td class="${l.amount > 0 ? 'text-primary' : 'text-danger'}">${l.amount > 0 ? '+' : ''}$${l.amount}</td>
+            <td class="text-slate-400">$${l.before}</td><td class="text-slate-400">$${l.after}</td><td class="text-xs text-slate-500">${new Date(l.date).toLocaleString('ar-EG')}</td>
         </tr>`).join('');
 }
-
 async function loadSettings() {
     const data = await apiCall('/admin/api/settings');
     if(data) {
@@ -456,26 +392,16 @@ async function loadSettings() {
         document.getElementById('setMaintenance').checked = data.maintenance_mode === '1';
     }
 }
-
 async function saveSettings() {
     const data = { store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' };
     const res = await apiCall('/admin/api/settings', 'POST', data);
-    if(res && res.success) { Swal.fire({icon: 'success', title: 'تم الحفظ', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'}); }
+    if(res && res.success) Swal.fire({icon: 'success', title: 'تم الحفظ', timer: 1000, showConfirmButton: false, background: '#1e293b', color: '#fff'});
 }
-
-document.getElementById('notifTarget')?.addEventListener('change', (e) => {
-    if(e.target.value === 'specific') document.getElementById('specificUserDiv').classList.remove('hidden');
-    else document.getElementById('specificUserDiv').classList.add('hidden');
-});
-
+document.getElementById('notifTarget')?.addEventListener('change', (e) => { if(e.target.value === 'specific') document.getElementById('specificUserDiv').classList.remove('hidden'); else document.getElementById('specificUserDiv').classList.add('hidden'); });
 async function sendNotification() {
-    const target = document.getElementById('notifTarget').value;
-    const specificId = document.getElementById('notifSpecificId').value;
-    const msg = document.getElementById('notifMessage').value;
-
+    const target = document.getElementById('notifTarget').value; const specificId = document.getElementById('notifSpecificId').value; const msg = document.getElementById('notifMessage').value;
     if(!msg) return Swal.fire({icon: 'warning', title: 'اكتب رسالة أولاً', background: '#1e293b', color: '#fff'});
     if(target === 'specific' && !specificId) return Swal.fire({icon: 'warning', title: 'أدخل ID المستخدم', background: '#1e293b', color: '#fff'});
-
     Swal.fire({ title: 'جاري الإرسال...', allowOutsideClick: false, background: '#1e293b', color: '#fff', didOpen: () => Swal.showLoading() });
     const res = await apiCall('/admin/api/notifications', 'POST', { target: target === 'specific' ? specificId : 'all', message: msg });
     if(res && res.success) { Swal.fire({icon: 'success', title: 'تم الإرسال', text: `إلى ${res.count} مستخدم`, background: '#1e293b', color: '#fff'}); document.getElementById('notifMessage').value = ''; }
@@ -505,14 +431,8 @@ function switchSection(sectionId, btnElement) {
     if (sectionId === 'payments') loadPayments();
     if (sectionId === 'settings') loadSettings();
 }
-
 function handleLogout() { localStorage.removeItem('admin_token'); localStorage.removeItem('token'); location.reload(); }
 window.onload = () => { 
     if (!getToken()) { document.getElementById('loginScreen').style.display = 'flex'; } 
-    else { 
-        document.getElementById('loginScreen').style.display = 'none'; 
-        switchSection('dashboard', document.querySelector('.nav-btn')); 
-        loadBadges(); 
-        setInterval(loadBadges, 30000); 
-    } 
+    else { document.getElementById('loginScreen').style.display = 'none'; switchSection('dashboard', document.querySelector('.nav-btn')); loadBadges(); setInterval(loadBadges, 30000); } 
 };

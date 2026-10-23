@@ -12,47 +12,35 @@ def api_miniapp_init():
     telegram_id = data.get("telegram_id")
     
     if not telegram_id: return jsonify({"error": "Telegram ID required"}), 400
-        
     user = User.query.filter_by(telegram_id=telegram_id).first()
     if not user:
         user = User(telegram_id=telegram_id, first_name=data.get("first_name", "مستخدم"), username=data.get("username", ""))
         db.session.add(user)
         db.session.commit()
 
-    # فحص الحظر
-    if getattr(user, 'is_banned', False):
-        return jsonify({"banned": True, "message": "حسابك محظور، يرجى التواصل مع الدعم."})
+    if getattr(user, 'is_banned', False): return jsonify({"banned": True, "message": "حسابك محظور"})
 
-    # فحص وضع الصيانة
     maint_mode = Setting.query.filter_by(key='maintenance_mode').first()
-    if maint_mode and maint_mode.value == '1':
-        return jsonify({"maintenance": True, "message": "المتجر تحت الصيانة حالياً، سنعود قريباً."})
+    if maint_mode and maint_mode.value == '1': return jsonify({"maintenance": True, "message": "المتجر تحت الصيانة"})
 
-    # جلب الإشعارات غير المقروءة
     notifications = Notification.query.filter_by(user_id=user.id, is_read=False).order_by(Notification.id.desc()).all()
     notifs_list = [{"id": n.id, "title": n.title, "message": n.message, "type": getattr(n, 'type', 'info')} for n in notifications]
-
-    # جلب إعدادات المتجر
     settings = {s.key: s.value for s in Setting.query.all()}
-    exchange_rate = float(settings.get('exchange_rate', 135))
 
     return jsonify({
         "user": {
             "id": user.id, "first_name": user.first_name, "username": user.username,
             "balance": float(user.balance), "kyc_status": getattr(user, 'kyc_status', 'unverified'),
-            "discount": float(getattr(user, 'general_discount', 0)),
-            "vip_level": getattr(user, 'vip_level', 0)
+            "discount": float(getattr(user, 'general_discount', 0)), "vip_level": getattr(user, 'vip_level', 0)
         },
         "notifications": notifs_list,
-        "settings": {"exchange_rate": exchange_rate}
+        "settings": {"exchange_rate": float(settings.get('exchange_rate', 135))}
     })
 
 @main.route("/api/miniapp/notifications/<int:id>/read", methods=["POST"])
 def api_mark_notification_read(id):
     notif = Notification.query.get(id)
-    if notif:
-        notif.is_read = True
-        db.session.commit()
+    if notif: notif.is_read = True; db.session.commit()
     return jsonify({"success": True})
 
 @main.route("/api/miniapp/products", methods=["GET"])
@@ -66,11 +54,37 @@ def api_get_products():
             "products": [{
                 "id": p.id, "name": p.name, "price": float(getattr(p, 'base_price', 0)),
                 "image": getattr(p, 'image', None), "product_type": getattr(p, 'product_type', 'fixed'),
-                "base_quantity": getattr(p, 'base_quantity', 0), "base_price": float(getattr(p, 'base_price', 0)),
+                "description": getattr(p, 'description', ''), # F-1
                 "input_type": getattr(p, 'input_type', 'id')
             } for p in products]
         })
     return jsonify({"categories": result})
+
+@main.route("/api/miniapp/payment-methods", methods=["GET"])
+def api_get_payment_methods():
+    # F-2: إرجاع طرق الدفع مع حالة KYC
+    tg_id = request.args.get("telegram_id")
+    user = User.query.filter_by(telegram_id=tg_id).first() if tg_id else None
+    methods = PaymentMethod.query.filter_by(is_active=True).all()
+    
+    result = []
+    for m in methods:
+        req_kyc = getattr(m, 'require_kyc', False)
+        is_verified = (user and getattr(user, 'kyc_status', '') == 'verified')
+        
+        item = {
+            "id": m.id, "name": m.name, "min": float(m.min_amount), "max": float(m.max_amount),
+            "fee": float(getattr(m, 'fee', 0)), "require_kyc": req_kyc, "locked": False
+        }
+        
+        if req_kyc and not is_verified:
+            item["locked"] = True
+        else:
+            item["account_number"] = m.account_number
+            item["barcode"] = getattr(m, 'barcode', None)
+            
+        result.append(item)
+    return jsonify(result)
 
 @main.route("/api/miniapp/deposit", methods=["POST"])
 def api_create_deposit():
@@ -79,9 +93,8 @@ def api_create_deposit():
     if not user or getattr(user, 'is_banned', False): return jsonify({"error": "غير مصرح"}), 403
         
     image_url = None
-    receipt_base64 = data.get("receipt_image")
-    if receipt_base64 and receipt_base64.startswith("data:image/"):
-        image_url = upload_base64_image(receipt_base64, folder="sanad/deposits")
+    if data.get("receipt_image"):
+        image_url = upload_base64_image(data.get("receipt_image"), folder="sanad/deposits")
         
     new_deposit = Deposit(
         user_id=user.id, amount=float(data.get("amount")), method=data.get("method"), 
@@ -98,23 +111,17 @@ def api_create_order():
     user = User.query.filter_by(telegram_id=data.get("telegram_id")).first()
     product = Product.query.get(data.get("product_id"))
     
-    if not user or getattr(user, 'is_banned', False) or not product:
-        return jsonify({"error": "بيانات غير صحيحة أو حساب محظور"}), 400
+    if not user or getattr(user, 'is_banned', False) or not product: return jsonify({"error": "بيانات غير صحيحة"}), 400
         
     qty = data.get("quantity", 1)
     original_price = float(getattr(product, 'base_price', 0))
-    
-    # حساب السعر الأساسي
     if getattr(product, 'product_type', 'fixed') == 'quantity' and product.base_quantity > 0:
         original_price = (float(getattr(product, 'base_price', 0)) / product.base_quantity) * qty
 
-    # تطبيق الخصم (إن وجد)
     discount_pct = float(getattr(user, 'general_discount', 0))
-    final_price = original_price - (original_price * (discount_pct / 100))
-    final_price = round(final_price, 2)
+    final_price = round(original_price - (original_price * (discount_pct / 100)), 2)
         
-    if user.balance < final_price: 
-        return jsonify({"error": "رصيدك غير كافٍ"}), 400
+    if user.balance < final_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
         
     user.balance -= final_price
     new_order = Order(
