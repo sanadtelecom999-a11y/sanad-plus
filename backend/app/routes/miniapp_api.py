@@ -1,3 +1,4 @@
+from backend.app.utils.security import get_verified_user
 from flask import request, jsonify
 from ..models.base import User, Product, Category, Order, Deposit, KYCRequest, Setting, Notification, PaymentMethod
 from ..extensions import db
@@ -9,7 +10,9 @@ from ..services.cloudinary_service import upload_base64_image
 @main.route("/api/miniapp/init", methods=["POST"])
 def api_miniapp_init():
     data = request.get_json() or {}
-    telegram_id = data.get("telegram_id")
+    verified_user = get_verified_user(data)
+    if not verified_user: return jsonify({'error': 'Invalid initData'}), 401
+    telegram_id = verified_user.get('id')
     
     if not telegram_id: return jsonify({"error": "Telegram ID required"}), 400
     user = User.query.filter_by(telegram_id=telegram_id).first()
