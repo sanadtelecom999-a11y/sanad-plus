@@ -198,4 +198,17 @@ def create_app():
             return DefaultJSONProvider.default(o)
 
     app.json = _SanadJSONProvider(app)
+    
+    # 🆕 Global Error Handler to ensure JSON is always returned
+    @app.errorhandler(500)
+    def internal_error(error):
+        db.session.rollback()
+        return jsonify({"error": "حدث خطأ داخلي في السيرفر", "code": "INTERNAL_SERVER_ERROR"}), 500
+
+    @app.errorhandler(404)
+    def not_found_error(error):
+        if request.path.startswith('/api/') or request.path.startswith('/admin/'):
+            return jsonify({"error": "المسار غير موجود", "code": "NOT_FOUND"}), 404
+        return str(error), 404
+    
     return app
