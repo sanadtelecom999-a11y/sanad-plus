@@ -1,3 +1,22 @@
+
+// [SECURITY FIX] Inject initData into all fetch requests
+const originalFetch = window.fetch;
+window.fetch = async function() {
+    let [resource, config] = arguments;
+    if (config && config.body && typeof config.body === 'string' && config.body.includes('telegram_id')) {
+        try {
+            let bodyObj = JSON.parse(config.body);
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+                bodyObj.initData = window.Telegram.WebApp.initData;
+                config.body = JSON.stringify(bodyObj);
+            }
+        } catch(e) {
+            // Ignore if body is not JSON
+        }
+    }
+    return originalFetch(resource, config);
+};
+
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor("#000000"); }
 const API_URL = 'https://sanad-plus-backend.onrender.com';
