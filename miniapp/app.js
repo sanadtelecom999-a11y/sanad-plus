@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full Logic Engine
+   SANAD PLUS+ — Full Logic Engine (Fixed Badge & Totals)
    ============================================================ */
 
 const tg = window.Telegram?.WebApp;
@@ -64,8 +64,15 @@ function getHeaders() {
 }
 
 async function loadInitialData() {
-    const [catRes] = await Promise.all([fetch(`${API_BASE}/api/categories/`)]);
+    const [catRes, depRes] = await Promise.all([
+        fetch(`${API_BASE}/api/categories/`),
+        fetch(`${API_BASE}/api/deposits/`, { headers: getHeaders() })
+    ]);
+    
     if (catRes.ok) categoriesData = await catRes.json();
+    if (depRes.ok) {
+        depositsData = await depRes.json();
+    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -75,7 +82,6 @@ function showApp() {
     document.getElementById('loadingScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     
-    // الأسماء
     const firstName = userData.first_name || 'مستخدم';
     const lastName = userData.last_name || '';
     const fullName = `${firstName} ${lastName}`.trim();
@@ -85,7 +91,7 @@ function showApp() {
     document.getElementById('profileFullName').textContent = fullName;
     document.getElementById('profileUsername').textContent = userData.username ? `@${userData.username}` : 'لا يوجد معرف';
     
-    // الصورة الشخصية
+    // الصورة
     if (tgUser?.photo_url) {
         document.getElementById('headerAvatar').innerHTML = `<img src="${tgUser.photo_url}" alt="Avatar">`;
         const profImg = document.getElementById('profileAvatarImg');
@@ -104,21 +110,25 @@ function showApp() {
     document.getElementById('profileTelegramId').textContent = `Telegram: ${userData.telegram_id}`;
     document.getElementById('referralCodeText').textContent = userData.referral_code || 'SANAD';
 
-    // حالة KYC
+    // ✅ شارة التوثيق (بجانب الاسم بتصميم تويتر)
     const isVerified = userData.is_verified || userData.kyc_status === 'verified';
-    const kycBadge = document.getElementById('kycBadge');
+    const kycBadge = document.getElementById('kycBadgeName');
     if (isVerified) {
-        kycBadge.innerHTML = `<svg viewBox="0 0 24 24" fill="#1d9bf0" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>`;
+        kycBadge.classList.remove('hidden');
+        kycBadge.innerHTML = `<svg viewBox="0 0 24 24" fill="#1d9bf0"><path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.918-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.337 2.25c-.416-.165-.866-.25-1.336-.25-2.21 0-3.918 1.79-3.918 4 0 .495.084.965.238 1.4-1.273.65-2.148 2.02-2.148 3.6 0 1.46.75 2.73 1.867 3.45-.103.36-.16.74-.16 1.13 0 2.21 1.71 3.998 3.918 3.998.47 0 .92-.084 1.336-.25C9.184 21.585 10.49 22.5 12 22.5s2.816-.917 3.337-2.25c.416.165.866.25 1.336.25 2.21 0 3.918-1.79 3.918-4 0-.39-.057-.77-.16-1.13 1.117-.72 1.867-1.99 1.867-3.45z"></path><path fill="#ffffff" d="M10.515 16.957l-3.32-3.32 1.414-1.414 1.906 1.906 4.95-4.95 1.414 1.414-6.364 6.364z"></path></svg>`;
     } else {
-        kycBadge.innerHTML = `<svg viewBox="0 0 24 24" fill="#EF4444" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+        kycBadge.classList.add('hidden');
     }
 
     // الأرصدة
     const balance = `$${parseFloat(userData.balance).toFixed(2)}`;
     document.getElementById('mainBalance').textContent = balance;
     document.getElementById('statBalance').textContent = balance;
-    // سيتم تحديث إجمالي الإيداعات عند فتح القسم
-    document.getElementById('statTotalDeposits').textContent = `...`; 
+    
+    // ✅ حساب إجمالي الإيداعات فوراً
+    let totalApproved = 0;
+    depositsData.forEach(d => { if(d.status === 'approved') totalApproved += parseFloat(d.amount); });
+    document.getElementById('statTotalDeposits').textContent = `$${totalApproved.toFixed(2)}`;
 
     renderCategories();
     lucide.createIcons();
@@ -165,7 +175,7 @@ function navigate(page) {
 }
 
 // ════════════════════════════════════════════════════════════
-// Orders & Deposits
+// Orders & Deposits (Loaders)
 // ════════════════════════════════════════════════════════════
 async function loadOrders() {
     const list = document.getElementById('ordersList');
@@ -351,53 +361,33 @@ async function submitKYC(e) {
     const idFrontFile = document.getElementById('kycIdFront').files[0];
     const selfieFile = document.getElementById('kycSelfie').files[0];
 
-    if (!idFrontFile || !selfieFile) {
-        if (tg) tg.showAlert('يرجى رفع الصور المطلوبة');
-        return;
-    }
+    if (!idFrontFile || !selfieFile) { if (tg) tg.showAlert('يرجى رفع الصور'); return; }
 
-    btn.textContent = 'جاري الإرسال...';
-    btn.disabled = true;
+    btn.textContent = 'جاري الإرسال...'; btn.disabled = true;
 
     try {
         const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
+            const reader = new FileReader(); reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error);
         });
 
         const idFrontBase64 = await toBase64(idFrontFile);
         const selfieBase64 = await toBase64(selfieFile);
 
         const res = await fetch(`${API_BASE}/api/kyc/submit`, {
-            method: 'POST',
-            headers: getHeaders(),
-            body: JSON.stringify({
-                full_name: name,
-                phone: phone,
-                address: `${gov} - ${region}`,
-                id_front_image: idFrontBase64,
-                selfie_image: selfieBase64
-            })
+            method: 'POST', headers: getHeaders(),
+            body: JSON.stringify({ full_name: name, phone: phone, address: `${gov} - ${region}`, id_front_image: idFrontBase64, selfie_image: selfieBase64 })
         });
 
         const data = await res.json();
         if (res.ok) {
             if (tg) tg.HapticFeedback.notificationOccurred('success');
             userData.kyc_status = 'pending';
-            showApp(); // تحديث الواجهة
-            closeSheets();
-            if (tg) tg.showAlert('تم إرسال طلب التوثيق بنجاح، يرجى الانتظار.');
-        } else {
-            throw new Error(data.error || 'فشل الإرسال');
-        }
-    } catch (err) {
-        if (tg) tg.showAlert(`خطأ:\n${err.message}`);
-    } finally {
-        btn.textContent = 'إرسال الطلب';
-        btn.disabled = false;
-    }
+            showApp(); closeSheets();
+            if (tg) tg.showAlert('تم إرسال طلب التوثيق بنجاح.');
+        } else { throw new Error(data.error || 'فشل الإرسال'); }
+    } catch (err) { if (tg) tg.showAlert(`خطأ:\n${err.message}`); } 
+    finally { btn.textContent = 'إرسال الطلب'; btn.disabled = false; }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -442,10 +432,8 @@ async function sendSupportMessage() {
     bubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(msg)}</span><span class="chat-time">الآن</span>`;
     container.appendChild(bubble);
     window.scrollTo(0, document.body.scrollHeight);
-
-    try {
-        await fetch(`${API_BASE}/api/support`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg }) });
-    } catch (e) { if (tg) tg.showAlert("تعذر إرسال الرسالة"); }
+    try { await fetch(`${API_BASE}/api/support`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg }) }); } 
+    catch (e) { if (tg) tg.showAlert("تعذر إرسال الرسالة"); }
 }
 
 function openReferralModal() { openSheet('referralSheet'); }
@@ -465,48 +453,30 @@ function closeSheets() {
     document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('active'));
 }
 function openDepositSheet() { openSheet('depositSheet'); }
-function openLightbox(imgSrc) {
-    document.getElementById('lightboxImg').src = imgSrc;
-    document.getElementById('lightbox').classList.remove('hidden');
-}
+function openLightbox(imgSrc) { document.getElementById('lightboxImg').src = imgSrc; document.getElementById('lightbox').classList.remove('hidden'); }
 function closeLightbox() { document.getElementById('lightbox').classList.add('hidden'); }
 
 function toggleDarkMode() {
     const isDark = document.getElementById('darkModeToggle').checked;
-    if (isDark) {
-        document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'dark');
-        if(tg) tg.setHeaderColor('#000000');
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
-        if(tg) tg.setHeaderColor('#F2F2F7');
-    }
+    if (isDark) { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'dark'); if(tg) tg.setHeaderColor('#000000'); } 
+    else { document.documentElement.setAttribute('data-theme', 'light'); localStorage.setItem('theme', 'light'); if(tg) tg.setHeaderColor('#F2F2F7'); }
 }
 
 function copyToClipboard(elementId, msg) {
     const text = document.getElementById(elementId).textContent;
     navigator.clipboard.writeText(text).then(() => {
-        if (tg) tg.HapticFeedback.notificationOccurred('success');
-        if (tg) tg.showAlert(msg);
+        if (tg) { tg.HapticFeedback.notificationOccurred('success'); tg.showAlert(msg); }
+        else { alert(msg); }
     });
 }
 
 function handleLogout() {
     if (tg) {
-        tg.showConfirm("هل أنت متأكد من تسجيل الخروج؟", (confirmed) => {
-            if (confirmed) {
-                tg.close();
-            }
-        });
-    } else {
-        if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload();
-    }
+        tg.showConfirm("هل أنت متأكد من تسجيل الخروج؟", (confirmed) => { if (confirmed) { tg.close(); } });
+    } else { if(confirm("هل أنت متأكد من تسجيل الخروج؟")) location.reload(); }
 }
 
 function escapeHTML(str) {
     if (!str) return '';
-    return String(str).replace(/[&<>"']/g, function(s) {
-        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s];
-    });
+    return String(str).replace(/[&<>"']/g, function(s) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s]; });
 }

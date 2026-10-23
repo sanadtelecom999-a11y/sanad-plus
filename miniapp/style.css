@@ -1,5 +1,5 @@
 /* ============================================================
-   SANAD PLUS+ — Full UI System
+   SANAD PLUS+ — Full UI System (Fixed Scrolling & Badges)
    ============================================================ */
 :root {
     --bg: #000000; --card-bg: #1c1c1e; --card-bg-2: #2c2c2e;
@@ -13,10 +13,15 @@
     --text-main: #000000; --text-muted: #666666; --border: rgba(0, 0, 0, 0.1);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; width: 100%; overflow: hidden; }
+
+/* 🛠️ إصلاح جذري للتمرير على الهواتف */
+html, body { height: 100dvh; width: 100%; overflow: hidden; }
 body {
     font-family: 'Cairo', sans-serif; background-color: var(--bg); color: var(--text-main);
-    display: flex; flex-direction: column; transition: background 0.3s; overscroll-behavior-y: contain;
+    transition: background 0.3s; overscroll-behavior-y: none;
+}
+#app {
+    display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
 }
 .hidden { display: none !important; }
 .text-muted { color: var(--text-muted); font-size: 14px; }
@@ -38,14 +43,19 @@ body {
 .avatar.large { width: 80px; height: 80px; font-size: 32px; }
 .avatar-wrapper { position: relative; display: inline-block; margin-bottom: 15px; }
 .avatar-img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border); }
-.kyc-badge { position: absolute; bottom: 0; right: 0; background: var(--card-bg); border-radius: 50%; padding: 4px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border: 2px solid var(--bg); }
-.kyc-badge svg { width: 16px; height: 16px; }
+
 .greeting-text { font-size: 12px; color: var(--text-muted); }
 .user-name { font-size: 16px; font-weight: 800; }
 .icon-btn { background: var(--card-bg); border: 1px solid var(--border); width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-main); }
 
-/* Main Content */
-.main-content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; min-height: 0; padding: 0 20px; padding-bottom: calc(var(--nav-height) + 30px); scrollbar-width: none; }
+/* Main Content - Touch Action Fix */
+.main-content { 
+    flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; 
+    padding: 0 20px; padding-bottom: calc(var(--nav-height) + 30px); 
+    touch-action: pan-y; /* إجبار المتصفح على قبول السحب العمودي */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; 
+}
 .main-content::-webkit-scrollbar { display: none; }
 .page { display: none; animation: fadeIn 0.3s ease; }
 .page.active { display: block; }
@@ -77,8 +87,13 @@ body {
 
 /* Profile Specifics */
 .profile-header { text-align: center; margin-top: 10px; margin-bottom: 25px; }
-.profile-name-row { display: flex; justify-content: center; align-items: center; gap: 5px; }
+
+/* ✅ تنسيق شارة التوثيق بجانب الاسم (مثل تويتر) */
+.profile-name-row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 4px; }
 .profile-name-row h2 { font-size: 22px; font-weight: 800; }
+.kyc-badge-twitter { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+.kyc-badge-twitter svg { width: 100%; height: 100%; }
+
 .username { color: var(--text-muted); font-size: 14px; }
 .sanad-id-card { background: linear-gradient(135deg, #111827, #000000); border: 1px solid #374151; border-radius: 20px; padding: 20px; position: relative; overflow: hidden; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
 .sanad-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
@@ -111,7 +126,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .empty-state p { margin-top: 15px; font-weight: 600; }
 
 /* Bottom Nav */
-.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height); padding-bottom: env(safe-area-inset-bottom); background: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; }
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-height); padding-bottom: env(safe-area-inset-bottom); background: rgba(28, 28, 30, 0.85); backdrop-filter: blur(20px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; flex-shrink: 0; }
 .nav-item { background: none; border: none; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit; font-size: 10px; font-weight: 600; transition: 0.3s; width: 60px; }
 .nav-item i { width: 24px; height: 24px; }
 .nav-item.active { color: var(--primary); }
@@ -159,12 +174,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 .btn-primary:active { transform: scale(0.96); }
 .icon-wrapper-large { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
 
-/* Referrals */
+/* Referrals & FAQ */
 .referral-box { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border: 1px solid var(--warning); padding: 15px 20px; border-radius: 16px; margin-bottom: 20px; }
 .referral-box span { font-family: monospace; font-size: 20px; font-weight: 900; color: var(--warning); }
 .referral-box button { background: none; border: none; color: var(--warning); cursor: pointer; }
-
-/* FAQ Accordion */
 .faq-list { display: flex; flex-direction: column; gap: 10px; }
 .faq-item { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .faq-question { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 14px; padding: 15px; cursor: pointer; }
