@@ -536,6 +536,7 @@ async function loadSupportTickets() {
             userBubble.className = 'chat-bubble user';
             userBubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(t.message)}</span><span class="chat-time">${new Date(t.date).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
             container.appendChild(userBubble);
+            
             if (t.reply) {
                 const adminBubble = document.createElement('div');
                 adminBubble.className = 'chat-bubble admin';

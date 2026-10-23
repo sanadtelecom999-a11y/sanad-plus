@@ -106,11 +106,12 @@ function switchSection(sectionId, btn) {
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
     if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
     
-    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'users': 'إدارة المستخدمين', 'products': 'المنتجات', 'categories': 'الأقسام', 'audit': 'التدقيق المالي', 'payments': 'طرق الدفع', 'notifications': 'الإشعارات', 'settings': 'الإعدادات', 'archive': 'الأرشيف' };
+    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'products': 'المنتجات', 'categories': 'الأقسام', 'audit': 'التدقيق المالي', 'payments': 'طرق الدفع', 'notifications': 'الإشعارات', 'settings': 'الإعدادات', 'archive': 'الأرشيف' };
     document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
     document.querySelector('aside').classList.remove('open');
 
     if (sectionId === 'inbox') loadInbox(currentInboxTab);
+    if (sectionId === 'support') loadSupportTickets();
 }
 
 function toggleSidebar() { document.querySelector('aside').classList.toggle('open'); }
@@ -169,7 +170,7 @@ async function loadInbox(type) {
             if (type === 'orders') {
                 card.innerHTML = `
                     <div class="inbox-header"><span class="text-accent font-mono text-sm">${item.order_number}</span><span class="badge bg-warning/20 text-warning px-2 py-1 rounded">$${parseFloat(item.total_price).toFixed(2)}</span></div>
-                    <div class="inbox-details"><strong>${escapeHtml(item.product_name)}</strong><br>الكمية: ${item.quantity} | المستخدم: ${escapeHtml(item.user_name || 'غير معروف')}</div>
+                    <div class="inbox-details"><strong>${escapeHtml(item.product_name)}</strong><br>الكمية: ${item.quantity} | المستخدم: ${escapeHtml(item.user_name)} <span class="text-xs text-slate-500 font-mono">(#${item.user_telegram})</span></div>
                 `;
             } else if (type === 'deposits') {
                 card.innerHTML = `
@@ -251,6 +252,12 @@ function viewDetails(type, id) {
             </div>
             <div class="rounded-xl overflow-hidden border border-slate-600">
                 ${item.proof_image ? `<img src="${item.proof_image}" class="w-full h-auto object-contain max-h-64">` : '<p class="text-center p-4">لا توجد صورة</p>'}
+            </div>
+        `;
+        body.innerHTML += `
+            <div class="mt-4">
+                <label class="modal-label">ملاحظة الإدارة (تظهر للمستخدم)</label>
+                <textarea id="adminNote" class="admin-note-input" placeholder="اكتب ملاحظتك هنا..."></textarea>
             </div>
         `;
         footer.innerHTML = `

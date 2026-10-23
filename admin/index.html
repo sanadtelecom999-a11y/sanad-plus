@@ -42,6 +42,7 @@
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
                 <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-white transition"><i data-lucide="layout-dashboard" size="20"></i> <span class="font-bold">لوحة التحكم</span></button>
                 <button onclick="switchSection('inbox', this)" class="nav-btn flex items-center justify-between p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><div class="flex items-center gap-3"><i data-lucide="inbox" size="20"></i> <span class="font-bold">الإرساليات</span></div><span class="bg-danger text-white text-xs px-2 py-0.5 rounded-full hidden" id="sidebarInboxBadge">0</span></button>
+                <button onclick="switchSection('support', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="message-square" size="20"></i> <span class="font-bold">تذاكر الدعم</span></button>
                 <button onclick="switchSection('archive', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="archive" size="20"></i> <span class="font-bold">الأرشيف الكامل</span></button>
             </nav>
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">المتجر</div>
@@ -89,6 +90,32 @@
                         <button onclick="switchInboxTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق KYC</button>
                     </div>
                     <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </section>
+
+                <!-- Support Section -->
+                <section id="section-support" class="content-section hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Ticket List -->
+                        <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
+                            <h3 class="text-xl font-bold mb-4 text-accent">التذاكر المفتوحة</h3>
+                            <div id="supportTicketsList" class="space-y-3"></div>
+                        </div>
+                        <!-- Chat Area -->
+                        <div class="glass rounded-3xl p-6 h-[70vh] flex flex-col" id="supportChatArea">
+                            <div class="flex-1 flex items-center justify-center text-slate-400" id="supportChatPlaceholder">اختر تذكرة لعرض المحادثة</div>
+                            <div id="supportChatContent" class="hidden flex-col h-full">
+                                <div class="border-b border-slate-700 pb-3 mb-4 flex justify-between items-center">
+                                    <h3 class="text-xl font-bold" id="chatUserName">اسم المستخدم</h3>
+                                    <button onclick="closeSupportTicket()" class="bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500 hover:text-white transition">إغلاق وأرشفة</button>
+                                </div>
+                                <div class="flex-1 overflow-y-auto mb-4 space-y-4" id="supportMessages"></div>
+                                <div class="flex gap-2">
+                                    <input type="text" id="supportReplyInput" class="input-field flex-1" placeholder="اكتب ردك هنا...">
+                                    <button onclick="replySupportTicket()" class="btn-primary w-auto px-6"><i data-lucide="send"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- Placeholders -->

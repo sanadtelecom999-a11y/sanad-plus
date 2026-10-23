@@ -44,3 +44,11 @@ body { font-family: 'Cairo', sans-serif; background-color: #0f172a; color: #f8fa
     aside { position: fixed; right: -100%; transition: right 0.3s ease; z-index: 100; }
     aside.open { right: 0; }
 }
+
+/* Support Chat Styles */
+.support-ticket-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; }
+.support-ticket-item:hover { border-color: #38bdf8; }
+.support-ticket-item.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+.chat-bubble { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
+.chat-bubble.user { background: #1e293b; color: #f8fafc; align-self: flex-start; border-bottom-right-radius: 2px; }
+.chat-bubble.admin { background: #38bdf8; color: #0f172a; align-self: flex-end; border-bottom-left-radius: 2px; font-weight: 600; }
