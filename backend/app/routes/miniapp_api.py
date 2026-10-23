@@ -1,4 +1,4 @@
-from backend.app.utils.security import get_verified_user
+from app.utils.security import get_verified_user
 from flask import request, jsonify
 from ..models.base import User, Product, Category, Order, Deposit, KYCRequest, Setting, Notification, PaymentMethod
 from ..extensions import db
