@@ -6,13 +6,14 @@ let allUsersData = [];
 let currentSelectedUser = null;
 let currentTicketId = null;
 let adminChatPolling = null;
+let dashboardChartInstance = null;
+let analyticsChartInstance = null;
 
+// ================= التهيئة والدخول =================
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     const token = localStorage.getItem('admin_token');
-    console.log("🔍 [Startup] Token found in storage:", token ? "YES" : "NO");
-    
-    if (!token || token === 'undefined' || token === 'null') {
+    if (!token) {
         document.getElementById('loginScreen').style.display = 'flex';
     } else {
         verifyTokenAndLogin();
@@ -20,22 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function verifyTokenAndLogin() {
-    console.log("⏳ [Verify] Checking token with server...");
     try {
         const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() });
-        console.log("📡 [Verify] Response status:", res.status);
-        
         if (res.ok) {
-            console.log("✅ [Verify] Token is valid. Entering dashboard.");
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'flex';
             showDashboard();
         } else {
-            console.warn("❌ [Verify] Token invalid or expired. Server said:", res.status);
             throw new Error('Invalid token');
         }
     } catch (e) {
-        console.error("🚨 [Verify] Error verifying token:", e.message);
         localStorage.removeItem('admin_token');
         document.getElementById('loginScreen').style.display = 'flex';
     }
@@ -49,7 +44,11 @@ window.handleLogin = async function() {
     
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
-        const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
+        const res = await fetch(`${API_BASE}/admin/login`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ username: user, password: pass }) 
+        });
         const data = await res.json();
         
         if (res.ok && data.require_otp) {
@@ -61,7 +60,7 @@ window.handleLogin = async function() {
             Swal.fire('خطأ', data.error || 'بيانات غير صحيحة', 'error'); 
         }
     } catch (e) { 
-        Swal.fire('خطأ', 'تعذر الاتصال', 'error'); 
+        Swal.fire('خطأ', 'تعذر الاتصال بالسيرفر', 'error'); 
     } finally { 
         btn.textContent = 'تسجيل الدخول'; btn.disabled = false; 
     }
@@ -74,25 +73,24 @@ window.verifyOTP = async function() {
     
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
-        const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
+        const res = await fetch(`${API_BASE}/admin/verify-otp`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) 
+        });
         const data = await res.json();
         
-        console.log("🔐 [OTP Response]:", data);
-
-        // نتحقق من وجود التوكن بأي من الأسماء المحتملة
         const receivedToken = data.token || data.access_token;
 
         if (res.ok && receivedToken) {
             localStorage.setItem('admin_token', receivedToken);
-            console.log("💾 [OTP] Token saved successfully!");
-            Swal.fire('مرحباً بك', 'تم تسجيل الدخول بنجاح', 'success');
+            Swal.fire('مرحباً بك', 'تم تسجيل الدخول', 'success');
             setTimeout(() => location.reload(), 1000);
         } else { 
-            console.error("🚨 [OTP] No token found in response:", data);
-            Swal.fire('خطأ', data.error || 'لم يتم استلام التوكن من السيرفر', 'error'); 
+            Swal.fire('خطأ', data.error || 'رمز خاطئ', 'error'); 
         } 
     } catch (e) { 
-        Swal.fire('خطأ', 'تعذر الاتصال', 'error'); 
+        Swal.fire('خطأ', 'تعذر الاتصال بالسيرفر', 'error'); 
     } finally { 
         btn.textContent = 'تأكيد الرمز'; btn.disabled = false; 
     }
@@ -101,15 +99,59 @@ window.verifyOTP = async function() {
 window.logout = function() { localStorage.removeItem('admin_token'); location.reload(); };
 window.getHeaders = function() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }; };
 
+// ================= لوحة القيادة =================
 window.showDashboard = function() {
-    loadDashboardStats(); loadAnalytics(); initChart();
+    loadDashboardStats(); 
+    loadAnalytics(); 
+    initChart();
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
+async function loadDashboardStats() {
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() });
+        document.getElementById('statOrders').innerText = data.total_orders || 0;
+        document.getElementById('statUsers').innerText = data.total_users || 0;
+        document.getElementById('statDeposits').innerText = data.total_deposits || 0;
+        document.getElementById('statRevenue').innerText = `$${(data.revenue || 0).toFixed(2)}`;
+    } catch (e) { console.error("Stats error:", e); }
+}
+
+async function loadAnalytics() {
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/analytics`, { headers: getHeaders() });
+        const ctx = document.getElementById('analyticsChart');
+        if(ctx && typeof Chart !== 'undefined') {
+            if(analyticsChartInstance) analyticsChartInstance.destroy();
+            analyticsChartInstance = new Chart(ctx, { 
+                type: 'bar', 
+                data: { 
+                    labels: ['طلبات مكتملة', 'إيداعات مرفوضة'], 
+                    datasets: [{ label: 'العدد', data: [data.completed_orders || 0, data.rejected_deposits || 0], backgroundColor: ['#10b981', '#ef4444'], borderRadius: 8 }] 
+                }, 
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } } 
+            });
+        }
+    } catch(e) { console.error("Analytics error:", e); }
+}
+
+function initChart() {
+    const ctx = document.getElementById('dashboardChart');
+    if(!ctx || typeof Chart === 'undefined') return;
+    if(dashboardChartInstance) dashboardChartInstance.destroy(); 
+    dashboardChartInstance = new Chart(ctx, { 
+        type: 'line', 
+        data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, 
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } } } 
+    });
+}
+
+// ================= التنقل =================
 window.switchSection = function(sectionId, btn) {
     document.querySelectorAll('.content-section').forEach(sec => sec.classList.add('hidden'));
     const target = document.getElementById('section-' + sectionId);
     if (target) target.classList.remove('hidden');
+    
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
     if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
     
@@ -125,38 +167,25 @@ window.switchSection = function(sectionId, btn) {
     if (sectionId === 'settings') loadSettings();
 };
 
-async function loadDashboardStats() {
-    try {
-        const data = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() });
-        document.getElementById('statOrders').innerText = data.total_orders || 0;
-        document.getElementById('statUsers').innerText = data.total_users || 0;
-        document.getElementById('statDeposits').innerText = data.total_deposits || 0;
-        document.getElementById('statRevenue').innerText = `$${(data.revenue || 0).toFixed(2)}`;
-    } catch (e) { console.error("Dashboard Stats Error:", e); }
-}
-
-function initChart() {
-    const ctx = document.getElementById('dashboardChart');
-    if(!ctx || typeof Chart === 'undefined') return;
-    new Chart(ctx, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } } });
-}
-
+// ================= الإرساليات =================
 window.switchInboxTab = function(type, btn) {
     currentInboxTab = type;
     document.querySelectorAll('#section-inbox .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
     btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
     loadInbox(type);
-}
+};
 
 async function loadInbox(type) {
     const container = document.getElementById('inboxContainer');
     container.innerHTML = '<div class="col-span-full text-center py-10"><i data-lucide="loader" class="animate-spin text-accent mx-auto mb-2"></i><p class="text-slate-400">جاري التحميل...</p></div>';
     if (typeof lucide !== 'undefined') lucide.createIcons();
     let endpoint = type === 'deposits' ? '/admin/api/deposits' : '/admin/api/orders';
+    
     try {
         const data = await safeFetch(`${API_BASE}${endpoint}`, { headers: getHeaders() });
         cachedItems[type] = data; container.innerHTML = '';
         if (!data || data.length === 0) { container.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر حالياً.</div>'; return; }
+        
         data.forEach(item => {
             const card = document.createElement('div'); card.className = 'inbox-card';
             if (type === 'orders') {
@@ -186,7 +215,7 @@ window.viewDetails = function(type, id) {
         footer.innerHTML = `<div class="flex gap-3 w-full"><button onclick="handleAction('deposits', ${item.id}, 'reject')" class="btn-reject flex-1">رفض</button><button onclick="handleAction('deposits', ${item.id}, 'approve')" class="btn-complete flex-1">قبول</button></div>`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
-}
+};
 
 window.handleAction = async function(type, id, action, extra) {
     const adminNote = document.getElementById('adminNote')?.value || '';
@@ -204,8 +233,14 @@ window.handleAction = async function(type, id, action, extra) {
             closeModal(); loadInbox(currentInboxTab); loadDashboardStats();
         } else { Swal.fire('خطأ', 'حدث خطأ', 'error'); }
     } catch (e) { Swal.fire('خطأ', 'خطأ في الاتصال', 'error'); }
-}
+};
 
+window.closeModal = function() {
+    const modal = document.getElementById('detailsModal');
+    modal.classList.add('hidden'); modal.classList.remove('flex');
+};
+
+// ================= المستخدمين =================
 async function loadUsers() {
     const tbody = document.getElementById('usersTableBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>';
@@ -228,12 +263,12 @@ window.openUserDrawer = function(id) {
     document.getElementById('banBtn').textContent = user.is_banned ? 'فك الحظر' : 'حظر المستخدم';
     document.getElementById('userDrawerOverlay').classList.remove('hidden');
     document.getElementById('userDrawer').classList.remove('translate-x-full');
-}
+};
 
 window.closeUserDrawer = function() {
     document.getElementById('userDrawerOverlay').classList.add('hidden');
     document.getElementById('userDrawer').classList.add('translate-x-full');
-}
+};
 
 window.adjustBalance = async function(action) {
     if (!currentSelectedUser) return;
@@ -246,8 +281,9 @@ window.adjustBalance = async function(action) {
         Swal.fire('تم', 'تم تعديل الرصيد', 'success');
         closeUserDrawer(); loadUsers();
     } catch (e) { Swal.fire('خطأ', 'فشل التعديل', 'error'); }
-}
+};
 
+// ================= المنتجات والأقسام والدفع =================
 async function loadProducts() {
     const tbody = document.getElementById('productsTableBody');
     tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>';
@@ -284,6 +320,7 @@ async function loadPayments() {
     } catch (e) { grid.innerHTML = `<div class="text-danger">${e.message}</div>`; }
 }
 
+// ================= الدعم والإعدادات =================
 async function loadSupportTickets() {
     const list = document.getElementById('supportTicketsList');
     list.innerHTML = '<div class="text-center py-4 text-slate-400">جاري التحميل...</div>';
@@ -304,7 +341,7 @@ window.openSupportTicket = async function(id, name) {
     loadTicketMessages(); 
     if(adminChatPolling) clearInterval(adminChatPolling);
     adminChatPolling = setInterval(loadTicketMessages, 3000);
-}
+};
 
 async function loadTicketMessages() {
     if (!currentTicketId) return;
@@ -328,7 +365,7 @@ window.replySupportTicket = async function() {
         await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) });
         loadTicketMessages();
     } catch (e) { console.error(e); }
-}
+};
 
 async function loadSettings() {
     try {
@@ -345,13 +382,9 @@ window.saveSettings = async function() {
         await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: name, support_link: link }) });
         Swal.fire('تم', 'تم حفظ الإعدادات', 'success');
     } catch (e) { Swal.fire('خطأ', 'فشل الحفظ', 'error'); }
-}
+};
 
-window.closeModal = function() {
-    const modal = document.getElementById('detailsModal');
-    modal.classList.add('hidden'); modal.classList.remove('flex');
-}
-
+// ================= دوال مساعدة =================
 async function safeFetch(url, options = {}) {
     try {
         const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_t=' + new Date().getTime(), { ...options, cache: 'no-store' });
