@@ -103,7 +103,7 @@ function startLiveUpdates() {
                 }
             }
         } catch(e) {}
-    }, 15000);
+    }, 5000);
 }
  // كل 30 ثانية
 }
