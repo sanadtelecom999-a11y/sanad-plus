@@ -4,7 +4,7 @@ let dashboardChartInstance = null;
 let currentInboxTab = 'orders';
 let cachedItems = {};
 let currentTicketId = null;
-let currentSupportTab = "open";
+let currentSupportTab = 'open';
 let adminChatPolling = null;
 let currentSelectedUser = null;
 let allUsersData = [];
@@ -37,10 +37,7 @@ async function safeFetch(url, options = {}) {
         const separator = url.includes('?') ? '&' : '?';
         const finalUrl = url + separator + '_t=' + new Date().getTime();
         
-        const res = await fetch(finalUrl, {
-            ...options,
-            cache: 'no-store'
-        });
+        const res = await fetch(finalUrl, { ...options, cache: 'no-store' });
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) throw new Error("السيرفر غير متاح");
@@ -146,7 +143,7 @@ function initChart() {
 // ================= Inbox Logic =================
 function switchInboxTab(type, btn) {
     currentInboxTab = type;
-    document.querySelectorAll('.inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
+    document.querySelectorAll('#section-inbox .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
     btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
     loadInbox(type);
 }
@@ -277,13 +274,11 @@ async function checkInboxBadge() {
 }
 
 // ================= Support Chat Logic =================
-
 function switchSupportTab(status, btn) {
     currentSupportTab = status;
     document.querySelectorAll('#section-support .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
     btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
     
-    // إخفاء المحادثة عند الانتقال للأرشيف
     document.getElementById('supportChatPlaceholder').classList.remove('hidden');
     document.getElementById('supportChatContent').classList.add('hidden');
     document.getElementById('supportChatContent').classList.remove('flex');
@@ -301,7 +296,7 @@ async function loadSupportTickets() {
     try {
         const data = await safeFetch(`${API_BASE}/admin/api/support/tickets?status=${currentSupportTab}`, { headers: getHeaders() });
         list.innerHTML = '';
-        if (data.length === 0) { list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر مفتوحة.</div>'; return; }
+        if (data.length === 0) { list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر في هذا القسم.</div>'; return; }
         
         data.forEach(t => {
             const el = document.createElement('div');
@@ -329,15 +324,15 @@ function openSupportTicket(id, name, telegram) {
     const chat = document.getElementById('supportChatContent'); chat.classList.remove('hidden'); chat.classList.add('flex');
     document.getElementById('chatUserName').textContent = `${name} (#${telegram})`;
     
-    const closeBtn = document.querySelector('#supportChatContent button[onclick="closeSupportTicket()"]');
+    const closeBtn = document.getElementById('closeTicketBtn');
+    const input = document.getElementById('supportReplyInput');
+    
     if (currentSupportTab === 'closed') {
         if (closeBtn) closeBtn.style.display = 'none';
-        document.getElementById('supportReplyInput').disabled = true;
-        document.getElementById('supportReplyInput').placeholder = "التذكرة مغلقة";
+        if (input) { input.disabled = true; input.placeholder = "التذكرة مغلقة"; }
     } else {
         if (closeBtn) closeBtn.style.display = 'block';
-        document.getElementById('supportReplyInput').disabled = false;
-        document.getElementById('supportReplyInput').placeholder = "اكتب ردك هنا...";
+        if (input) { input.disabled = false; input.placeholder = "اكتب ردك هنا..."; }
     }
     
     loadTicketMessages(); startAdminPolling();
@@ -352,7 +347,7 @@ async function loadTicketMessages() {
         data.messages.forEach(m => {
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${m.sender_type}`;
-            bubble.innerHTML = `<span class="chat-sender">${m.sender_type === 'user' ? 'المستخدم' : 'أنت'}</span><span>${escapeHtml(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
+            bubble.innerHTML = `<span class="chat-sender">${m.sender_type === 'user' ? 'المستخدم' : (m.sender_type === 'admin' ? 'أنت' : 'النظام')}</span><span>${escapeHtml(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
             container.appendChild(bubble);
         });
         container.scrollTop = container.scrollHeight;
