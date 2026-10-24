@@ -10,7 +10,9 @@ let adminChatPolling = null;
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof lucide !== 'undefined') lucide.createIcons();
     const token = localStorage.getItem('admin_token');
-    if (!token) {
+    console.log("🔍 [Startup] Token found in storage:", token ? "YES" : "NO");
+    
+    if (!token || token === 'undefined' || token === 'null') {
         document.getElementById('loginScreen').style.display = 'flex';
     } else {
         verifyTokenAndLogin();
@@ -18,16 +20,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function verifyTokenAndLogin() {
+    console.log("⏳ [Verify] Checking token with server...");
     try {
         const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() });
+        console.log("📡 [Verify] Response status:", res.status);
+        
         if (res.ok) {
+            console.log("✅ [Verify] Token is valid. Entering dashboard.");
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('dashboardScreen').style.display = 'flex';
             showDashboard();
         } else {
+            console.warn("❌ [Verify] Token invalid or expired. Server said:", res.status);
             throw new Error('Invalid token');
         }
     } catch (e) {
+        console.error("🚨 [Verify] Error verifying token:", e.message);
         localStorage.removeItem('admin_token');
         document.getElementById('loginScreen').style.display = 'flex';
     }
@@ -38,35 +46,56 @@ window.handleLogin = async function() {
     const pass = document.getElementById('loginPass').value;
     const btn = document.getElementById('loginBtn');
     if (!user || !pass) return Swal.fire('تنبيه', 'أدخل البيانات أولاً', 'warning');
+    
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
         const data = await res.json();
+        
         if (res.ok && data.require_otp) {
             currentSessionId = data.session_id;
             document.getElementById('loginStep1').classList.add('hidden');
             document.getElementById('loginStep2').classList.remove('hidden');
             Swal.fire('تم', 'تم إرسال رمز التحقق إلى تيليجرام', 'success');
-        } else { Swal.fire('خطأ', data.error || 'بيانات غير صحيحة', 'error'); }
-    } catch (e) { Swal.fire('خطأ', 'تعذر الاتصال', 'error'); } 
-    finally { btn.textContent = 'تسجيل الدخول'; btn.disabled = false; }
+        } else { 
+            Swal.fire('خطأ', data.error || 'بيانات غير صحيحة', 'error'); 
+        }
+    } catch (e) { 
+        Swal.fire('خطأ', 'تعذر الاتصال', 'error'); 
+    } finally { 
+        btn.textContent = 'تسجيل الدخول'; btn.disabled = false; 
+    }
 };
 
 window.verifyOTP = async function() {
     const code = document.getElementById('otpCode').value;
     const btn = document.getElementById('otpBtn');
     if (!code) return Swal.fire('تنبيه', 'أدخل رمز التحقق', 'warning');
+    
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
         const data = await res.json();
-        if (res.ok && data.token) {
-            localStorage.setItem('admin_token', data.token);
-            Swal.fire('مرحباً بك', 'تم تسجيل الدخول', 'success');
+        
+        console.log("🔐 [OTP Response]:", data);
+
+        // نتحقق من وجود التوكن بأي من الأسماء المحتملة
+        const receivedToken = data.token || data.access_token;
+
+        if (res.ok && receivedToken) {
+            localStorage.setItem('admin_token', receivedToken);
+            console.log("💾 [OTP] Token saved successfully!");
+            Swal.fire('مرحباً بك', 'تم تسجيل الدخول بنجاح', 'success');
             setTimeout(() => location.reload(), 1000);
-        } else { Swal.fire('خطأ', data.error || 'رمز خاطئ', 'error'); } 
-    } catch (e) { Swal.fire('خطأ', 'تعذر الاتصال', 'error'); } 
-    finally { btn.textContent = 'تأكيد الرمز'; btn.disabled = false; }
+        } else { 
+            console.error("🚨 [OTP] No token found in response:", data);
+            Swal.fire('خطأ', data.error || 'لم يتم استلام التوكن من السيرفر', 'error'); 
+        } 
+    } catch (e) { 
+        Swal.fire('خطأ', 'تعذر الاتصال', 'error'); 
+    } finally { 
+        btn.textContent = 'تأكيد الرمز'; btn.disabled = false; 
+    }
 };
 
 window.logout = function() { localStorage.removeItem('admin_token'); location.reload(); };
@@ -103,7 +132,7 @@ async function loadDashboardStats() {
         document.getElementById('statUsers').innerText = data.total_users || 0;
         document.getElementById('statDeposits').innerText = data.total_deposits || 0;
         document.getElementById('statRevenue').innerText = `$${(data.revenue || 0).toFixed(2)}`;
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Dashboard Stats Error:", e); }
 }
 
 function initChart() {
