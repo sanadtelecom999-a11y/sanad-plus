@@ -499,3 +499,101 @@ async function setDiscount() {
         loadUsers();
     } catch(e) { showToast(e.message, 'error'); }
 }
+
+// ================= Support Tickets Logic =================
+let currentTicketId = null;
+
+async function loadSupportTickets() {
+    const list = document.getElementById('supportTicketsList');
+    if (!list) return;
+    
+    list.innerHTML = '<div class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</div>';
+    lucide.createIcons();
+    
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/support/tickets`, { headers: getHeaders() });
+        list.innerHTML = '';
+        if (data.length === 0) {
+            list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر مفتوحة حالياً.</div>';
+            return;
+        }
+        data.forEach(t => {
+            const el = document.createElement('div');
+            el.className = 'support-ticket-item';
+            el.id = `ticket-${t.id}`;
+            el.onclick = () => openSupportTicket(t);
+            el.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <strong class="text-white">${escapeHtml(t.user_name)}</strong>
+                    <span class="text-xs text-slate-500 font-mono">${t.user_telegram}</span>
+                </div>
+                <div class="text-sm text-slate-400 truncate">${escapeHtml(t.message)}</div>
+                <div class="text-xs text-accent mt-2">${new Date(t.date).toLocaleDateString('ar-EG')}</div>
+            `;
+            list.appendChild(el);
+        });
+    } catch(e) { 
+        console.error("Support Error:", e);
+        list.innerHTML = `<div class="text-danger text-center p-3">خطأ: ${e.message}</div>`; 
+    }
+}
+
+function openSupportTicket(ticket) {
+    currentTicketId = ticket.id;
+    document.querySelectorAll('.support-ticket-item').forEach(el => el.classList.remove('active'));
+    const ticketEl = document.getElementById(`ticket-${ticket.id}`);
+    if (ticketEl) ticketEl.classList.add('active');
+    
+    document.getElementById('supportChatPlaceholder').classList.add('hidden');
+    const chatContent = document.getElementById('supportChatContent');
+    chatContent.classList.remove('hidden');
+    chatContent.classList.add('flex');
+    
+    document.getElementById('chatUserName').textContent = `${ticket.user_name} (#${ticket.user_telegram})`;
+    
+    const messages = document.getElementById('supportMessages');
+    messages.innerHTML = `
+        <div class="chat-bubble user">${escapeHtml(ticket.message)}</div>
+    `;
+    if (ticket.reply) {
+        messages.innerHTML += `<div class="chat-bubble admin">${escapeHtml(ticket.reply)}</div>`;
+    }
+    messages.scrollTop = messages.scrollHeight;
+}
+
+async function replySupportTicket() {
+    if (!currentTicketId) return;
+    const input = document.getElementById('supportReplyInput');
+    const reply = input.value.trim();
+    if (!reply) return;
+    
+    input.value = '';
+    input.disabled = true;
+    
+    try {
+        await safeFetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, {
+            method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply })
+        });
+        showToast('تم إرسال الرد', 'success');
+        await loadSupportTickets();
+        const ticketEl = document.getElementById(`ticket-${currentTicketId}`);
+        if(ticketEl) ticketEl.click();
+    } catch(e) { showToast(e.message, 'error'); } 
+    finally { input.disabled = false; input.focus(); }
+}
+
+async function closeSupportTicket() {
+    if (!currentTicketId) return;
+    const confirm = await Swal.fire({ title: 'إغلاق التذكرة', text: "سيتم أرشفتها ولن تظهر في القائمة.", icon: 'warning', showCancelButton: true, background: '#1e293b', color: '#fff' });
+    if (!confirm.isConfirmed) return;
+    
+    try {
+        await safeFetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
+        showToast('تم إغلاق التذكرة وأرشفتها', 'success');
+        document.getElementById('supportChatContent').classList.add('hidden');
+        document.getElementById('supportChatContent').classList.remove('flex');
+        document.getElementById('supportChatPlaceholder').classList.remove('hidden');
+        currentTicketId = null;
+        loadSupportTickets();
+    } catch(e) { showToast(e.message, 'error'); }
+}
