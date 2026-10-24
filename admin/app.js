@@ -2,10 +2,6 @@ const API_BASE = 'https://sanad-plus-backend.onrender.com';
 let currentSessionId = null, currentInboxTab = 'orders', currentSupportTab = 'open', currentTicketId = null;
 let adminChatPolling = null, ticketAbortController = null, cachedItems = {}, allUsersData = [], categoriesData = [];
 let currentSelectedUser = null, editingItemId = null, dashboardChartInstance = null, selectedInboxItems = new Set();
-let liveUpdateInterval = null;
-
-// التقاط الأخطاء العامة
-window.onerror = function(msg, url, line) { console.error(`JS Error: ${msg} at line ${line}`); return false; };
 
 document.addEventListener('DOMContentLoaded', () => { 
     if (typeof lucide !== 'undefined') lucide.createIcons(); 
@@ -21,7 +17,6 @@ async function verifyTokenAndLogin() {
             document.getElementById('loginScreen').style.display = 'none'; 
             document.getElementById('dashboardScreen').style.display = 'flex'; 
             showDashboard(); 
-            startAdminLiveUpdates(); // بدء التحديث التلقائي
         } else throw new Error(); 
     } catch (e) { 
         localStorage.removeItem('admin_token'); 
@@ -40,7 +35,7 @@ window.handleLogin = async function() {
             document.getElementById('loginStep1').classList.add('hidden'); 
             document.getElementById('loginStep2').classList.remove('hidden'); 
         } else Swal.fire('خطأ', d.error || 'بيانات غير صحيحة', 'error'); 
-    } catch(e) { Swal.fire('خطأ', 'تعذر الاتصال بالسيرفر', 'error'); }
+    } catch(e) { Swal.fire('خطأ', 'تعذر الاتصال', 'error'); }
 };
 
 window.verifyOTP = async function() { 
@@ -57,32 +52,14 @@ window.verifyOTP = async function() {
 window.logout = function() { localStorage.removeItem('admin_token'); location.reload(); };
 window.getHeaders = function() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }; };
 
-// ================= التحديث التلقائي الفوري =================
-function startAdminLiveUpdates() {
-    if(liveUpdateInterval) clearInterval(liveUpdateInterval);
-    liveUpdateInterval = setInterval(() => {
-        const activeSection = document.querySelector('.content-section.block');
-        if(!activeSection) return;
-        const id = activeSection.id;
-        
-        if (id === 'section-dashboard') { loadDashboardStats(); }
-        if (id === 'section-inbox') { loadInbox(currentInboxTab, true); }
-        if (id === 'section-users') { loadUsers(true); }
-    }, 10000); // كل 10 ثواني
-}
-
-window.showDashboard = function() { 
-    loadDashboardStats(); initChart(); 
-    if (typeof lucide !== 'undefined') lucide.createIcons(); 
-};
-
+window.showDashboard = function() { loadDashboardStats(); initChart(); if (typeof lucide !== 'undefined') lucide.createIcons(); };
 window.switchSection = function(id, btn) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden')); 
     document.getElementById('section-' + id).classList.remove('hidden');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white')); 
     if(btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
     
-    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'notifications': 'الإشعارات', 'users': 'المستخدمين', 'archive': 'الأرشيف', 'categories': 'الأقسام', 'products': 'المنتجات', 'payments': 'طرق الدفع', 'settings': 'الإعدادات' };
+    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'المستخدمين', 'archive': 'الأرشيف', 'categories': 'الأقسام', 'products': 'المنتجات', 'payments': 'طرق الدفع', 'settings': 'الإعدادات' };
     document.getElementById('page-title').innerText = titles[id] || 'لوحة التحكم';
     
     if (id === 'inbox') loadInbox(currentInboxTab); 
@@ -95,67 +72,25 @@ window.switchSection = function(id, btn) {
     if (id === 'settings') loadSettings();
 };
 
-// ================= Dashboard =================
-async function loadDashboardStats() { 
-    try { 
-        const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); 
-        document.getElementById('statOrders').innerText = d.total_orders||0; 
-        document.getElementById('statUsers').innerText = d.total_users||0; 
-        document.getElementById('statDeposits').innerText = d.total_deposits||0; 
-        document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; 
-    } catch (e) { console.error('Stats Error:', e); }
-}
+// Dashboard
+async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) { console.error(e); } }
+function initChart() { const c = document.getElementById('dashboardChart'); if(!c || typeof Chart==='undefined') return; if(dashboardChartInstance) dashboardChartInstance.destroy(); dashboardChartInstance = new Chart(c, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'المبيعات', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false } }); }
 
-function initChart() { 
-    const c = document.getElementById('dashboardChart'); 
-    if(!c || typeof Chart==='undefined') return; 
-    if(dashboardChartInstance) dashboardChartInstance.destroy(); 
-    dashboardChartInstance = new Chart(c, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'المبيعات', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false } }); 
-}
-
-// ================= Inbox =================
-window.switchInboxTab = function(type, btn) { 
-    currentInboxTab = type; 
-    document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); 
-    btn.classList.add('active'); 
-    selectedInboxItems.clear(); updateBulkUI(); loadInbox(type); 
-};
-
-async function loadInbox(type, isBackground = false) {
-    const c = document.getElementById('inboxContainer'); 
-    if(!isBackground) c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">جاري التحميل...</div>';
+// Inbox
+window.switchInboxTab = function(type, btn) { currentInboxTab = type; document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedInboxItems.clear(); loadInbox(type); };
+async function loadInbox(type) {
+    const c = document.getElementById('inboxContainer'); c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">جاري التحميل...</div>';
     let ep = type === 'deposits' ? '/admin/api/deposits' : (type === 'kyc' ? '/admin/api/kyc' : '/admin/api/orders');
-    
     try {
-        const data = await safeFetch(`${API_BASE}${ep}`, { headers: getHeaders() }); 
-        cachedItems[type] = data; c.innerHTML = '';
-        if(!data || data.length===0) { c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر حالياً.</div>'; return; }
-        
+        const data = await safeFetch(`${API_BASE}${ep}`, { headers: getHeaders() }); cachedItems[type] = data; c.innerHTML = '';
+        if(!data || data.length===0) { c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر.</div>'; return; }
         data.forEach(item => {
             const div = document.createElement('div'); div.className = 'inbox-card';
-            div.innerHTML = `<div class="flex items-center gap-3 mb-2"><input type="checkbox" class="w-5 h-5 accent-accent" onclick="toggleSelect(${item.id}, this.checked)"><div class="cursor-pointer flex-1" onclick="viewDetails('${type}', ${item.id})"><div class="flex justify-between font-bold border-b border-slate-700/50 pb-2 mb-2"><span class="text-accent font-mono">${item.order_number || item.transaction_id || ('KYC#'+item.id)}</span><span class="text-warning">${type==='orders' ? '$'+parseFloat(item.total_price).toFixed(2) : (type==='deposits' ? '$'+parseFloat(item.amount).toFixed(2) : '')}</span></div><div class="text-sm">${escapeHtml(item.product_name || item.user_name || item.full_name)}</div></div></div>`;
+            div.innerHTML = `<div class="cursor-pointer flex-1" onclick="viewDetails('${type}', ${item.id})"><div class="flex justify-between font-bold border-b border-slate-700/50 pb-2 mb-2"><span class="text-accent font-mono">${item.order_number || item.transaction_id || ('KYC#'+item.id)}</span><span class="text-warning">${type==='orders' ? '$'+parseFloat(item.total_price).toFixed(2) : (type==='deposits' ? '$'+parseFloat(item.amount).toFixed(2) : '')}</span></div><div class="text-sm">${escapeHtml(item.product_name || item.user_name || item.full_name)}</div></div>`;
             c.appendChild(div);
         });
-    } catch (e) { 
-        if(!isBackground) c.innerHTML = `<div class="col-span-full text-center py-10 text-danger">تعذر جلب البيانات: ${e.message}</div>`; 
-    }
+    } catch (e) { c.innerHTML = `<div class="col-span-full text-center py-10 text-danger">${e.message}</div>`; }
 }
-
-window.toggleSelect = function(id, checked) { if(checked) selectedInboxItems.add(id); else selectedInboxItems.delete(id); updateBulkUI(); };
-function updateBulkUI() { document.getElementById('bulkActions').classList.toggle('hidden', selectedInboxItems.size === 0); };
-
-window.bulkAction = async function(action) {
-    if(selectedInboxItems.size === 0) return;
-    const confirm = await Swal.fire({ title: 'تأكيد', text: `هل تريد ${action==='approve'?'قبول':'رفض'} ${selectedInboxItems.size} عنصر؟`, icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' });
-    if(!confirm.isConfirmed) return;
-    for(let id of selectedInboxItems) {
-        let ep = currentInboxTab === 'deposits' ? `/admin/api/deposits/${id}/${action}` : (currentInboxTab === 'kyc' ? `/admin/api/kyc/${id}/${action}` : `/admin/api/orders/${id}/status`);
-        let body = currentInboxTab === 'orders' ? { status: action === 'approve' ? 'completed' : 'failed' } : {};
-        await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-    }
-    Swal.fire('تم', 'تمت العملية', 'success'); selectedInboxItems.clear(); updateBulkUI(); loadInbox(currentInboxTab);
-};
-
 window.viewDetails = function(type, id) {
     const item = cachedItems[type].find(x => x.id === id); if (!item) return;
     document.getElementById('detailsModal').classList.remove('hidden'); document.getElementById('detailsModal').classList.add('flex');
@@ -167,36 +102,25 @@ window.viewDetails = function(type, id) {
     if (type === 'kyc') footer = `<button onclick="handleAction('kyc', ${id}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('kyc', ${id}, 'approve')" class="btn-success flex-1">قبول</button>`;
     document.getElementById('modalFooter').innerHTML = footer;
 };
-
 window.handleAction = async function(type, id, action, extra) {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
     let ep = type === 'deposits' ? `/admin/api/deposits/${id}/${action}` : (type === 'orders' ? `/admin/api/orders/${id}/status` : `/admin/api/kyc/${id}/${action}`);
-    try {
-        await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(type==='orders' ? {status: extra} : {}) });
-        closeModal(); loadInbox(currentInboxTab); loadDashboardStats();
-    } catch(e) { Swal.fire('خطأ', 'فشل تنفيذ الإجراء', 'error'); }
+    await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(type==='orders' ? {status: extra} : {}) });
+    closeModal(); loadInbox(currentInboxTab);
 };
-
 window.closeModal = function() { document.getElementById('detailsModal').classList.add('hidden'); document.getElementById('detailsModal').classList.remove('flex'); };
 
-// ================= Users =================
-async function loadUsers(isBackground = false) {
-    const t = document.getElementById('usersTableBody'); 
-    if(!isBackground) t.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>';
+// Users
+async function loadUsers() {
+    const t = document.getElementById('usersTableBody'); t.innerHTML = '<tr><td colspan="5" class="text-center py-4">جاري التحميل...</td></tr>';
     try {
         allUsersData = await safeFetch(`${API_BASE}/admin/api/users`, { headers: getHeaders() }); t.innerHTML = '';
-        if(allUsersData.length === 0) { t.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">لا يوجد مستخدمين.</td></tr>'; return; }
-        
         allUsersData.forEach(u => {
             const banIcon = u.is_banned ? `<span class="text-red-500 ml-2" title="محظور"><i data-lucide="ban" size="16"></i></span>` : '';
             t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2 px-2"><strong>${escapeHtml(u.first_name||'')}</strong> ${banIcon}</td><td class="py-2 px-2 font-mono text-slate-400">${u.telegram_id}</td><td class="py-2 px-2 text-success font-bold">$${parseFloat(u.balance).toFixed(2)}</td><td class="py-2 px-2">${u.is_banned?'<span class="text-red-400">محظور</span>':'<span class="text-green-400">نشط</span>'}</td><td class="py-2 px-2 flex gap-2"><button onclick="openUserView(${u.id})" class="text-accent"><i data-lucide="eye" size="16"></i></button><button onclick="openUserManage(${u.id})" class="bg-slate-700 px-2 py-1 rounded text-xs">إدارة</button></td></tr>`;
-        }); 
-        if(typeof lucide!=='undefined') lucide.createIcons();
-    } catch(e) { 
-        if(!isBackground) t.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">تعذر جلب المستخدمين: ${e.message}</td></tr>`; 
-    }
+        }); if(typeof lucide!=='undefined') lucide.createIcons();
+    } catch(e) { t.innerHTML = `<tr><td colspan="5" class="text-danger">${e.message}</td></tr>`; }
 }
-
 window.openUserView = async function(id) {
     const u = allUsersData.find(x=>x.id===id); if(!u) return;
     document.getElementById('userDrawerOverlay').classList.remove('hidden'); document.getElementById('userDrawer').classList.remove('translate-x-full');
@@ -211,9 +135,8 @@ window.openUserView = async function(id) {
             <h5 class="font-bold mb-2">آخر الطلبات</h5><div class="space-y-2 mb-4">${(hist.orders||[]).map(o=>`<div class="text-xs bg-slate-800 p-2 rounded flex justify-between"><span>${o.product}</span><span class="text-accent">$${o.amount}</span></div>`).join('') || '<p class="text-xs text-slate-500">لا يوجد</p>'}</div>
             <h5 class="font-bold mb-2">آخر الإيداعات</h5><div class="space-y-2">${(hist.deposits||[]).map(d=>`<div class="text-xs bg-slate-800 p-2 rounded flex justify-between"><span>${d.status}</span><span class="text-warning">$${d.amount}</span></div>`).join('') || '<p class="text-xs text-slate-500">لا يوجد</p>'}</div>
         `;
-    } catch(e) { c.innerHTML = `<p class="text-danger">تعذر جلب السجل: ${e.message}</p>`; }
+    } catch(e) { c.innerHTML = `<p class="text-danger">فشل جلب السجل</p>`; }
 };
-
 window.openUserManage = function(id) {
     const u = allUsersData.find(x=>x.id===id); if(!u) return; currentSelectedUser = u;
     document.getElementById('userDrawerOverlay').classList.remove('hidden'); document.getElementById('userDrawer').classList.remove('translate-x-full');
@@ -224,27 +147,22 @@ window.openUserManage = function(id) {
             <button onclick="toggleBan()" class="w-full ${u.is_banned?'bg-green-500/20 text-green-400':'bg-red-500/20 text-red-400'} py-3 rounded-xl font-bold">${u.is_banned?'فك الحظر':'حظر'}</button>
         </div>`;
 };
-
 window.adjustBalance = async function(action) {
     const a = parseFloat(document.getElementById('balanceAmount').value); if(!a || a<=0) return;
     const c = await Swal.fire({ title: 'تأكيد', text: `هل تريد ${action==='add'?'إضافة':'خصم'} $${a}؟`, showCancelButton: true, icon: 'warning', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    try {
-        await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/balance`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ amount: action==='add'?a:-a, note: 'Admin' }) });
-        closeUserDrawer(); loadUsers(); loadDashboardStats();
-    } catch(e) { Swal.fire('خطأ', 'فشل التعديل', 'error'); }
+    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/balance`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ amount: action==='add'?a:-a, note: 'Admin' }) });
+    closeUserDrawer(); loadUsers();
 };
-
 window.toggleBan = async function() {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    try {
-        await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders() });
-        closeUserDrawer(); loadUsers();
-    } catch(e) { Swal.fire('خطأ', 'فشل الإجراء', 'error'); }
+    // إرسال الحالة المطلوبة بشكل صريح
+    const targetState = !currentSelectedUser.is_banned;
+    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ is_banned: targetState }) });
+    closeUserDrawer(); loadUsers();
 };
-
 window.closeUserDrawer = function() { document.getElementById('userDrawerOverlay').classList.add('hidden'); document.getElementById('userDrawer').classList.add('translate-x-full'); };
 
-// ================= Support & Others =================
+// Support
 window.switchSupportTab = function(status, btn) {
     currentSupportTab = status; document.querySelectorAll('#section-support .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
     if(adminChatPolling) clearInterval(adminChatPolling); currentTicketId = null; document.getElementById('supportMessages').innerHTML = '';
@@ -253,7 +171,6 @@ window.switchSupportTab = function(status, btn) {
     document.getElementById('newChatSearch').classList.toggle('hidden', status !== 'new');
     if(status !== 'new') loadSupportTickets(); else document.getElementById('chatSearchResults').innerHTML = '';
 };
-
 async function loadSupportTickets() {
     const l = document.getElementById('supportTicketsList'); l.innerHTML = '<div class="text-center py-2 text-slate-400">تحميل...</div>';
     try {
@@ -262,7 +179,6 @@ async function loadSupportTickets() {
         data.forEach(t => l.innerHTML += `<div class="bg-dark p-3 rounded-lg cursor-pointer hover:bg-slate-800 mb-2" onclick="openSupportTicket(${t.id}, '${escapeHtml(t.user_name)}')"><div class="font-bold text-sm">${escapeHtml(t.user_name)}</div><div class="text-xs text-slate-400 truncate">${escapeHtml(t.last_message)}</div></div>`);
     } catch(e) { l.innerHTML = '<div class="text-danger">تعذر الجلب</div>'; }
 }
-
 window.searchUsersForChat = function(q) {
     const r = document.getElementById('chatSearchResults'); if(q.length < 2) { r.innerHTML=''; return; }
     const query = q.toUpperCase();
@@ -272,12 +188,10 @@ window.searchUsersForChat = function(q) {
     }).slice(0, 5);
     r.innerHTML = filtered.map(u => `<div class="bg-slate-800 p-2 rounded cursor-pointer hover:bg-slate-700 mb-1" onclick="startDirectChat(${u.id}, '${escapeHtml(u.first_name)}')">${escapeHtml(u.first_name)} (${u.telegram_id})</div>`).join('');
 };
-
 window.startDirectChat = async function(id, name) {
     currentTicketId = 'new_' + id; document.getElementById('chatUserName').innerText = `محادثة جديدة: ${name}`;
     document.getElementById('supportReplyArea').style.display = 'flex'; document.getElementById('supportMessages').innerHTML = '<div class="text-center text-slate-500 text-sm">اكتب رسالة لبدء المحادثة...</div>';
 };
-
 window.openSupportTicket = async function(id, name) {
     if(adminChatPolling) clearInterval(adminChatPolling);
     if(ticketAbortController) ticketAbortController.abort(); ticketAbortController = new AbortController();
@@ -287,7 +201,6 @@ window.openSupportTicket = async function(id, name) {
     document.getElementById('supportMessages').innerHTML = ''; loadTicketMessages();
     adminChatPolling = setInterval(loadTicketMessages, 3000);
 };
-
 async function loadTicketMessages() {
     if (!currentTicketId || String(currentTicketId).startsWith('new_')) return;
     try {
@@ -299,49 +212,143 @@ async function loadTicketMessages() {
         if(c.innerHTML !== html) { c.innerHTML = html; c.scrollTop = c.scrollHeight; }
     } catch(e) { if(e.name !== 'AbortError') console.error(e); }
 }
-
 window.replySupportTicket = async function() {
     const i = document.getElementById('supportReplyInput'); const msg = i.value.trim(); if(!msg || !currentTicketId) return; i.value = '';
     try {
         if(String(currentTicketId).startsWith('new_')) {
             const userId = currentTicketId.split('_')[1];
-            await fetch(`${API_BASE}/admin/api/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
+            const res = await fetch(`${API_BASE}/admin/api/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
+            if(!res.ok) throw new Error();
             Swal.fire('تم', 'تم فتح المحادثة', 'success'); switchSupportTab('open', document.querySelectorAll('#section-support .tab-btn')[0]);
         } else {
             await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) }); loadTicketMessages();
         }
-    } catch(e) { Swal.fire('خطأ', 'فشل الإرسال', 'error'); }
+    } catch(e) { Swal.fire('خطأ', 'فشل الإرسال، تأكد من السيرفر', 'error'); }
 };
-
 window.insertQuickReply = function(text) { document.getElementById('supportReplyInput').value = text; };
-
 window.closeSupportTicket = async function() {
     const c = await Swal.fire({ title: 'إغلاق', icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    try {
-        await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
-        switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
-    } catch(e) { Swal.fire('خطأ', 'فشل الإغلاق', 'error'); }
+    await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
+    switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
 };
 
-// Products, Categories, Payments, Settings (Generic functions to avoid empty screens)
-async function loadProducts() { const t = document.getElementById('productsTableBody'); try { const d = await safeFetch(`${API_BASE}/admin/api/products`, { headers: getHeaders() }); t.innerHTML = d.map(p=>`<tr class="border-b border-slate-700/50"><td class="py-2"><img src="${p.image||''}" class="w-10 h-10 rounded"></td><td class="py-2">${p.name}</td><td class="py-2">$${p.base_price}</td><td class="py-2"><button class="text-red-400">حذف</button></td></tr>`).join(''); } catch(e) { t.innerHTML = '<tr><td colspan="4" class="text-danger">خطأ في الجلب</td></tr>'; } }
-async function loadCategories() { const g = document.getElementById('categoriesGrid'); try { const d = await safeFetch(`${API_BASE}/admin/api/categories`, { headers: getHeaders() }); g.innerHTML = d.map(c=>`<div class="glass p-4 rounded-xl text-center"><img src="${c.image||''}" class="w-16 h-16 rounded mx-auto mb-2"><h4>${c.name}</h4></div>`).join(''); } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } }
-async function loadPayments() { const g = document.getElementById('paymentsGrid'); try { const d = await safeFetch(`${API_BASE}/admin/api/payment-methods`, { headers: getHeaders() }); g.innerHTML = d.map(p=>`<div class="glass p-4 rounded-xl"><h4 class="font-bold mb-2">${p.name}</h4><p class="text-sm text-slate-400 mb-1">${p.account}</p></div>`).join(''); } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } }
-async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; document.getElementById('setMaintenance').checked = d.maintenance_mode === '1'; } catch(e){} }
-async function loadArchive() { document.getElementById('archiveContainer').innerHTML = '<div class="text-slate-400">الأرشيف يعمل بشكل صحيح (فارغ حالياً).</div>'; }
+// Products, Categories, Payments (Real implementations)
+async function loadProducts() { 
+    const t = document.getElementById('productsTableBody'); 
+    try { 
+        const d = await safeFetch(`${API_BASE}/admin/api/products`, { headers: getHeaders() }); 
+        t.innerHTML = d.map(p=>`<tr class="border-b border-slate-700/50"><td class="py-2"><img src="${p.image||''}" class="w-10 h-10 rounded object-cover"></td><td class="py-2">${p.name}</td><td class="py-2">${p.category_id}</td><td class="py-2">$${p.base_price}</td><td class="py-2"><button onclick="deleteItem('products', ${p.id})" class="text-red-400"><i data-lucide="trash" size="16"></i></button></td></tr>`).join(''); 
+    } catch(e) { t.innerHTML = '<tr><td colspan="5" class="text-danger">خطأ في الجلب</td></tr>'; } 
+}
+async function loadCategories() { 
+    const g = document.getElementById('categoriesGrid'); 
+    try { 
+        categoriesData = await safeFetch(`${API_BASE}/admin/api/categories`, { headers: getHeaders() }); 
+        g.innerHTML = categoriesData.map(c=>`<div class="glass p-4 rounded-xl text-center relative"><button onclick="deleteItem('categories', ${c.id})" class="absolute top-2 left-2 text-red-400"><i data-lucide="trash" size="16"></i></button><img src="${c.image||''}" class="w-16 h-16 rounded mx-auto mb-2 object-cover"><h4>${c.name}</h4></div>`).join(''); 
+    } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } 
+}
+async function loadPayments() { 
+    const g = document.getElementById('paymentsGrid'); 
+    try { 
+        const d = await safeFetch(`${API_BASE}/admin/api/payment-methods`, { headers: getHeaders() }); 
+        g.innerHTML = d.map(p=>`<div class="glass p-4 rounded-xl relative"><button onclick="deleteItem('payments', ${p.id})" class="absolute top-2 left-2 text-red-400"><i data-lucide="trash" size="16"></i></button><h4 class="font-bold mb-2">${p.name}</h4><p class="text-sm text-slate-400 mb-1">الحساب: ${p.account}</p></div>`).join(''); 
+    } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } 
+}
 
-window.openFormModal = function() { Swal.fire('تنبيه', 'سيتم تفعيل هذه الميزة قريباً', 'info'); };
-window.closeFormModal = function() { document.getElementById('formModal').classList.add('hidden'); };
-window.sendNotification = async function() { const m = document.getElementById('notifMessage').value; if(!m) return; await fetch(`${API_BASE}/admin/api/notifications`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ target: 'all', message: m }) }); Swal.fire('تم', 'تم الإرسال', 'success'); };
-window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' }) }); Swal.fire('تم', 'حفظ', 'success'); };
+// Real Modals
+window.openFormModal = async function(type, id = null) {
+    editingItemId = id;
+    document.getElementById('formModal').classList.remove('hidden'); document.getElementById('formModal').classList.add('flex');
+    const title = document.getElementById('formTitle'), body = document.getElementById('formBody'), saveBtn = document.getElementById('formSaveBtn');
+    
+    if (type === 'category') {
+        title.innerText = id ? 'تعديل قسم' : 'إضافة قسم';
+        body.innerHTML = `<div><label class="block mb-2 text-slate-400">اسم القسم</label><input type="text" id="catName" class="input-field mb-4"></div><div><label class="block mb-2 text-slate-400">صورة القسم</label><input type="file" id="catImageFile" accept="image/*" class="input-field mb-4 bg-slate-800"></div>`;
+        saveBtn.onclick = () => saveItem('categories');
+    } else if (type === 'product') {
+        if (categoriesData.length === 0) await loadCategories();
+        title.innerText = id ? 'تعديل منتج' : 'إضافة منتج';
+        let catOptions = categoriesData.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        body.innerHTML = `<div><label class="block mb-2 text-slate-400">اسم المنتج</label><input type="text" id="prodName" class="input-field mb-4"></div><div><label class="block mb-2 text-slate-400">القسم</label><select id="prodCat" class="input-field mb-4">${catOptions}</select></div><div><label class="block mb-2 text-slate-400">السعر ($)</label><input type="number" id="prodPrice" class="input-field mb-4"></div><div><label class="block mb-2 text-slate-400">صورة المنتج</label><input type="file" id="prodImageFile" accept="image/*" class="input-field bg-slate-800"></div>`;
+        saveBtn.onclick = () => saveItem('products');
+    } else if (type === 'payment') {
+        title.innerText = id ? 'تعديل طريقة دفع' : 'إضافة طريقة دفع';
+        body.innerHTML = `<div><label class="block mb-2 text-slate-400">اسم الطريقة</label><input type="text" id="payName" class="input-field mb-4"></div><div><label class="block mb-2 text-slate-400">رقم الحساب</label><input type="text" id="payAccount" class="input-field mb-4"></div><div class="grid grid-cols-2 gap-2"><div><label class="block mb-2 text-slate-400">الحد الأدنى</label><input type="number" id="payMin" class="input-field mb-4" value="0"></div><div><label class="block mb-2 text-slate-400">الحد الأقصى</label><input type="number" id="payMax" class="input-field mb-4" value="0"></div></div>`;
+        saveBtn.onclick = () => saveItem('payments');
+    }
+};
+window.closeFormModal = function() { document.getElementById('formModal').classList.add('hidden'); document.getElementById('formModal').classList.remove('flex'); };
+
+window.saveItem = async function(type) {
+    const btn = document.getElementById('formSaveBtn'); btn.textContent = 'جاري الحفظ...'; btn.disabled = true;
+    let url = `${API_BASE}/admin/api/${type}`, method = editingItemId ? 'PUT' : 'POST';
+    if(editingItemId) url += `/${editingItemId}`;
+    let body = {};
+    try {
+        if (type === 'categories') {
+            body.name = document.getElementById('catName').value;
+            const file = document.getElementById('catImageFile').files[0];
+            if(file) body.image = await fileToBase64(file);
+        } else if (type === 'products') {
+            body.name = document.getElementById('prodName').value;
+            body.category_id = parseInt(document.getElementById('prodCat').value);
+            body.base_price = parseFloat(document.getElementById('prodPrice').value);
+            const file = document.getElementById('prodImageFile').files[0];
+            if(file) body.image = await fileToBase64(file);
+        } else if (type === 'payments') {
+            body.name = document.getElementById('payName').value;
+            body.account = document.getElementById('payAccount').value;
+            body.min_amount = parseFloat(document.getElementById('payMin').value);
+            body.max_amount = parseFloat(document.getElementById('payMax').value);
+        }
+        const res = await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(body) });
+        if(res.ok) {
+            Swal.fire({ title: 'تم', icon: 'success', timer: 1500, showConfirmButton: false });
+            closeFormModal();
+            if(type === 'categories') loadCategories();
+            if(type === 'products') loadProducts();
+            if(type === 'payments') loadPayments();
+        } else throw new Error();
+    } catch(e) { Swal.fire('خطأ', 'حدث خطأ أثناء الحفظ', 'error'); }
+    finally { btn.textContent = 'حفظ'; btn.disabled = false; }
+};
+
+window.deleteItem = async function(type, id) {
+    const confirm = await Swal.fire({ title: 'حذف', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background: '#1e293b', color: '#fff' });
+    if (!confirm.isConfirmed) return;
+    try {
+        await fetch(`${API_BASE}/admin/api/${type}/${id}`, { method: 'DELETE', headers: getHeaders() });
+        Swal.fire({ title: 'تم', icon: 'success', timer: 1000, showConfirmButton: false });
+        if(type === 'categories') loadCategories();
+        if(type === 'products') loadProducts();
+        if(type === 'payments') loadPayments();
+    } catch(e) { Swal.fire('خطأ', 'فشل الحذف', 'error'); }
+};
+
+// Settings & Archive
+async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; document.getElementById('setMaintenance').checked = d.maintenance_mode === '1'; } catch(e){} }
+window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' }) }); Swal.fire('تم', 'حفظ الإعدادات', 'success'); };
+
+async function loadArchive() {
+    const c = document.getElementById('archiveContainer');
+    c.innerHTML = '<div class="text-center text-slate-400">جاري الجلب...</div>';
+    try {
+        const d = await safeFetch(`${API_BASE}/admin/api/archive`, { headers: getHeaders() });
+        if ((!d.categories || d.categories.length === 0) && (!d.products || d.products.length === 0)) {
+            c.innerHTML = '<div class="glass p-6 rounded-3xl text-center text-slate-400">لا توجد عناصر مؤرشفة.</div>'; return;
+        }
+        let html = '';
+        if (d.categories && d.categories.length > 0) html += `<div class="glass p-6 rounded-3xl"><h4 class="text-accent mb-4 font-bold">أقسام مؤرشفة</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + d.categories.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><h5 class="mb-2">${x.name}</h5><button onclick="restoreItem('categories', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
+        if (d.products && d.products.length > 0) html += `<div class="glass p-6 rounded-3xl mt-4"><h4 class="text-accent mb-4 font-bold">منتجات مؤرشفة</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + d.products.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><img src="${x.image||''}" class="w-12 h-12 rounded mx-auto mb-2"><h5 class="mb-2">${x.name}</h5><button onclick="restoreItem('products', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
+        c.innerHTML = html;
+    } catch(e) { c.innerHTML = `<div class="text-danger text-center">تعذر جلب الأرشيف.</div>`; }
+}
+window.restoreItem = async function(type, id) {
+    await fetch(`${API_BASE}/admin/api/${type}/${id}/restore`, { method: 'POST', headers: getHeaders() });
+    Swal.fire('تم', 'تم الاسترجاع', 'success'); loadArchive();
+}
 
 // Utils
-async function safeFetch(url, opt={}) { 
-    try {
-        const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); 
-        const d = await r.json(); 
-        if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`); 
-        return d; 
-    } catch(e) { throw e; }
-}
+function fileToBase64(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); }); }
+async function safeFetch(url, opt={}) { try { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; } catch(e) { throw e; } }
 function escapeHtml(t) { return !t ? '' : String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }

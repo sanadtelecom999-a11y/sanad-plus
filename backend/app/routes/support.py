@@ -147,3 +147,31 @@ def admin_close_ticket(id):
     db.session.commit()
     
     return jsonify({"success": True})
+
+
+@admin_bp.route('/start-chat', methods=['POST'])
+def start_admin_chat():
+    from flask import request, jsonify
+    from ..models import db, User
+    from ..models.support import SupportTicket, SupportMessage
+    from ..utils.security import admin_required
+    
+    @admin_required
+    def _inner():
+        data = request.json
+        user_id = data.get('user_id')
+        message = data.get('message')
+        user = User.query.get(user_id)
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
+        if not ticket:
+            ticket = SupportTicket(user_id=user_id, status='open')
+            db.session.add(ticket)
+            db.session.commit()
+            
+        msg = SupportMessage(ticket_id=ticket.id, sender_type='admin', message=message)
+        db.session.add(msg)
+        db.session.commit()
+        return jsonify({"success": True, "ticket_id": ticket.id}), 200
+    return _inner()
