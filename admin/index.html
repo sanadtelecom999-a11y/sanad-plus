@@ -28,15 +28,15 @@
         .btn-primary { background: #38bdf8; color: #0f172a; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; }
         .btn-primary:hover { background: #0ea5e9; }
         .btn-success { background: #10b981; color: white; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; }
-        .inbox-tab.active { background: #38bdf8; color: #0f172a; }
+        .btn-danger { background: #ef4444; color: white; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer; }
+        .tab-btn { padding: 0.5rem 1.5rem; border-radius: 0.75rem; font-weight: bold; cursor: pointer; border: none; background: transparent; color: #94a3b8; transition: 0.2s; }
+        .tab-btn.active { background: #38bdf8; color: #0f172a; }
         .nav-btn.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-right: 3px solid #38bdf8; }
-        .inbox-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 1.5rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; cursor: pointer; }
-        .inbox-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.25rem; }
-        .admin-note-input { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.5rem; resize: vertical; min-height: 80px; outline: none; }
-        .btn-reject { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; padding: 0.75rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
-        .btn-complete { background: #10b981; color: white; border: none; padding: 0.75rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
-        .drawer-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .inbox-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 1rem; padding: 1rem; cursor: pointer; transition: 0.2s; }
+        .inbox-card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+        .inbox-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
         .table-row:hover { background: rgba(56, 189, 248, 0.05); }
+        .modal-overlay { background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row font-sans">
@@ -111,8 +111,9 @@
                 <!-- 2. Inbox -->
                 <section id="section-inbox" class="content-section hidden">
                     <div class="flex gap-2 mb-6">
-                        <button onclick="switchInboxTab('orders', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold bg-accent text-dark active">الطلبات</button>
-                        <button onclick="switchInboxTab('deposits', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold text-slate-400">الإيداعات</button>
+                        <button onclick="switchInboxTab('orders', this)" class="tab-btn active">الطلبات</button>
+                        <button onclick="switchInboxTab('deposits', this)" class="tab-btn">الإيداعات</button>
+                        <button onclick="switchInboxTab('kyc', this)" class="tab-btn">طلبات التوثيق</button>
                     </div>
                     <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 </section>
@@ -124,7 +125,7 @@
                         <div class="overflow-x-auto">
                             <table class="w-full text-right text-sm">
                                 <thead class="text-slate-400 border-b border-slate-700">
-                                    <tr><th class="pb-3 px-2">المستخدم</th><th class="pb-3 px-2">الآيدي</th><th class="pb-3 px-2">الرصيد</th><th class="pb-3 px-2">الحالة</th><th class="pb-3 px-2">إجراءات</th></tr>
+                                    <tr><th class="pb-3 px-2">المستخدم</th><th class="pb-3 px-2">الآيدي</th><th class="pb-3 px-2">الرصيد</th><th class="pb-3 px-2">الحالة</th><th class="pb-3 px-2 text-center">إجراءات</th></tr>
                                 </thead>
                                 <tbody id="usersTableBody" class="divide-y divide-slate-700/50"></tbody>
                             </table>
@@ -135,10 +136,13 @@
                 <!-- 4. Products -->
                 <section id="section-products" class="content-section hidden">
                     <div class="glass rounded-3xl p-6">
-                        <h3 class="text-xl font-bold mb-6">المنتجات</h3>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold">المنتجات</h3>
+                            <button onclick="openFormModal('product')" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة منتج</button>
+                        </div>
                         <table class="w-full text-right text-sm">
                             <thead class="text-slate-400 border-b border-slate-700">
-                                <tr><th class="pb-3 px-2">المنتج</th><th class="pb-3 px-2">القسم</th><th class="pb-3 px-2">السعر</th><th class="pb-3 px-2">إجراءات</th></tr>
+                                <tr><th class="pb-3 px-2">الصورة</th><th class="pb-3 px-2">المنتج</th><th class="pb-3 px-2">القسم</th><th class="pb-3 px-2">السعر</th><th class="pb-3 px-2">إجراءات</th></tr>
                             </thead>
                             <tbody id="productsTableBody" class="divide-y divide-slate-700/50"></tbody>
                         </table>
@@ -147,23 +151,37 @@
 
                 <!-- 5. Categories -->
                 <section id="section-categories" class="content-section hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold">الأقسام</h3>
+                        <button onclick="openFormModal('category')" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة قسم</button>
+                    </div>
                     <div id="categoriesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
                 </section>
                 
                 <!-- 6. Payments -->
                 <section id="section-payments" class="content-section hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold">طرق الدفع</h3>
+                        <button onclick="openFormModal('payment')" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة طريقة</button>
+                    </div>
                     <div id="paymentsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
                 </section>
 
                 <!-- 7. Support -->
                 <section id="section-support" class="content-section hidden">
+                    <div class="flex gap-2 mb-6">
+                        <button onclick="switchSupportTab('open', this)" class="tab-btn active">التذاكر المفتوحة</button>
+                        <button onclick="switchSupportTab('closed', this)" class="tab-btn">الأرشيف</button>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
-                            <h3 class="text-xl font-bold mb-4 text-accent">التذاكر</h3>
                             <div id="supportTicketsList" class="space-y-3"></div>
                         </div>
                         <div class="glass rounded-3xl p-6 h-[70vh] flex flex-col">
-                            <div class="border-b border-slate-700 pb-3 mb-4"><h3 id="chatUserName" class="text-xl font-bold">اختر تذكرة</h3></div>
+                            <div class="border-b border-slate-700 pb-3 mb-4 flex justify-between items-center">
+                                <h3 id="chatUserName" class="text-xl font-bold">اختر تذكرة</h3>
+                                <button onclick="closeSupportTicket()" id="closeTicketBtn" class="hidden bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500 hover:text-white transition">إغلاق وأرشفة</button>
+                            </div>
                             <div class="flex-1 overflow-y-auto mb-4 space-y-4" id="supportMessages"></div>
                             <div class="flex gap-2" id="supportReplyArea" style="display:none;">
                                 <input type="text" id="supportReplyInput" class="input-field flex-1" placeholder="اكتب ردك هنا...">
@@ -179,19 +197,24 @@
                         <h3 class="text-xl font-bold mb-4 text-accent">إعدادات المتجر</h3>
                         <div class="mb-4"><label class="block text-slate-400 mb-2">اسم المتجر</label><input type="text" id="setStoreName" class="input-field"></div>
                         <div class="mb-4"><label class="block text-slate-400 mb-2">رابط الدعم</label><input type="text" id="setSupportLink" class="input-field"></div>
+                        <div class="mb-4"><label class="block text-slate-400 mb-2">سعر صرف الليرة السورية (ل.س لكل 1$)</label><input type="number" id="setExchangeRate" class="input-field"></div>
                         <button onclick="saveSettings()" class="btn-success w-full mt-4">حفظ الإعدادات</button>
                     </div>
                 </section>
                 
-                <!-- 9. Archive & 10. Audit (Placeholders) -->
-                <section id="section-archive" class="content-section hidden"><div class="glass p-6 rounded-3xl text-center">الأرشيف قيد التحديث...</div></section>
-                <section id="section-audit" class="content-section hidden"><div class="glass p-6 rounded-3xl text-center">التدقيق قيد التحديث...</div></section>
+                <!-- 9. Archive -->
+                <section id="section-archive" class="content-section hidden">
+                    <h3 class="text-xl font-bold mb-6">الأرشيف</h3>
+                    <div id="archiveContainer" class="space-y-6">
+                        <!-- سيتم تعبئتها ديناميكياً -->
+                    </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <!-- النوافذ المنبثقة (Modals) -->
-    <div id="detailsModal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center backdrop-blur-sm p-4">
+    <!-- نافذة التفاصيل (Modal) -->
+    <div id="detailsModal" class="fixed inset-0 modal-overlay z-[100] hidden items-center justify-center p-4">
         <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]" style="background:#1e293b;">
             <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
                 <h3 id="modalTitle" class="text-xl font-bold">تفاصيل</h3>
@@ -202,37 +225,35 @@
         </div>
     </div>
 
-    <!-- User Drawer -->
-    <div id="userDrawerOverlay" class="fixed inset-0 drawer-overlay z-[90] hidden" onclick="closeUserDrawer()"></div>
+    <!-- نافذة الإضافة/التعديل (Form Modal) -->
+    <div id="formModal" class="fixed inset-0 modal-overlay z-[100] hidden items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-3xl border border-slate-700 overflow-hidden" style="background:#1e293b;">
+            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
+                <h3 id="formTitle" class="text-xl font-bold">إضافة</h3>
+                <button onclick="closeFormModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div id="formBody" class="p-6 overflow-y-auto text-slate-300 space-y-4"></div>
+            <div class="p-5 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+                <button onclick="closeFormModal()" class="px-4 py-2 rounded-xl text-slate-300 hover:bg-slate-700">إلغاء</button>
+                <button id="formSaveBtn" class="btn-primary">حفظ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- قائمة المستخدم الجانبية (Drawer) -->
+    <div id="userDrawerOverlay" class="fixed inset-0 bg-black/60 z-[90] hidden" onclick="closeUserDrawer()"></div>
     <div id="userDrawer" class="fixed top-0 right-0 h-full w-96 glass border-l border-slate-700 z-[100] transform translate-x-full transition-transform duration-300 overflow-y-auto" style="background:#1e293b;">
         <div class="p-6">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-bold">ملف المستخدم</h3>
                 <button onclick="closeUserDrawer()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
             </div>
-            <div class="text-center mb-6">
-                <div class="w-20 h-20 rounded-full bg-accent/20 text-accent flex items-center justify-center text-3xl font-bold mx-auto mb-3" id="drawerAvatar">U</div>
-                <h4 class="text-xl font-bold" id="drawerName">اسم المستخدم</h4>
-                <p class="text-slate-400 font-mono" id="drawerId">123456789</p>
-            </div>
-            <div class="mb-6 p-4 bg-dark rounded-xl border border-slate-700 text-center">
-                <span class="text-xs text-slate-400 block mb-1">الرصيد الحالي</span>
-                <strong class="text-2xl text-success" id="drawerBalance">$0.00</strong>
-            </div>
-            <div class="space-y-4">
-                <div class="bg-dark rounded-xl p-4 border border-slate-700">
-                    <label class="text-sm text-slate-400 mb-2 block">تعديل الرصيد (بالدولار)</label>
-                    <input type="number" id="balanceAmount" class="input-field py-2 text-center mb-2" placeholder="المبلغ">
-                    <div class="flex gap-2">
-                        <button onclick="adjustBalance('add')" class="flex-1 bg-success text-white py-2 rounded-lg font-bold text-sm">+ إضافة</button>
-                        <button onclick="adjustBalance('subtract')" class="flex-1 bg-danger text-white py-2 rounded-lg font-bold text-sm">- خصم</button>
-                    </div>
-                </div>
-                <button onclick="toggleBan()" id="banBtn" class="w-full bg-red-500/20 text-red-400 py-3 rounded-xl font-bold">حظر المستخدم</button>
+            <div id="userDetailsContent">
+                <!-- سيتم تعبئتها ديناميكياً -->
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=1000"></script>
+    <script src="app.js?v=2000"></script>
 </body>
 </html>
