@@ -8,19 +8,39 @@ let currentSupportTab = 'open';
 let adminChatPolling = null;
 let currentSelectedUser = null;
 let allUsersData = [];
+let currentArchiveTab = 'orders'; // الفئة الحالية للأرشيف
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (!localStorage.getItem('admin_token')) {
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('loginScreen').style.display = 'flex';
+    // 1. التحقق الأمني الصارم: لا تفتح اللوحة إلا إذا كان التوكن صالحاً
+    const token = localStorage.getItem('admin_token');
+    if (!token) {
+        showLoginScreen();
     } else {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('dashboardScreen').classList.remove('hidden');
-        document.getElementById('dashboardScreen').style.display = 'flex';
-        showDashboard();
+        verifyTokenAndLogin();
     }
 });
+
+// دالة التحقق من التوكن مع السيرفر
+async function verifyTokenAndLogin() {
+    try {
+        const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() });
+        if (res.ok) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('dashboardScreen').style.display = 'flex';
+            showDashboard();
+        } else {
+            throw new Error('Invalid token');
+        }
+    } catch (e) {
+        localStorage.removeItem('admin_token');
+        showLoginScreen();
+    }
+}
+
+function showLoginScreen() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('dashboardScreen').style.display = 'none';
+}
 
 function showToast(message, type = 'error') {
     let container = document.getElementById('toastContainer');
@@ -91,8 +111,6 @@ function logout() { localStorage.removeItem('admin_token'); location.reload(); }
 function getHeaders() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }; }
 
 function showDashboard() {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('dashboardScreen').style.display = 'flex';
     loadDashboardStats();
     initChart();
     checkInboxBadge();
@@ -105,12 +123,15 @@ function switchSection(sectionId, btn) {
     if (target) target.classList.remove('hidden');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
     if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
-    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين' };
+    
+    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'archive': 'الأرشيف الكامل' };
     document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
     document.querySelector('aside').classList.remove('open');
+    
     if (sectionId === 'inbox') loadInbox(currentInboxTab);
     if (sectionId === 'support') loadSupportTickets();
     if (sectionId === 'users') loadUsers();
+    if (sectionId === 'archive') loadArchiveData(currentArchiveTab);
 }
 
 function toggleSidebar() { document.querySelector('aside').classList.toggle('open'); }
@@ -135,6 +156,67 @@ function initChart() {
         data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
     });
+}
+
+// ================= Archive Logic =================
+function switchArchiveTab(type, btn) {
+    currentArchiveTab = type;
+    document.querySelectorAll('#section-archive .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
+    btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
+    loadArchiveData(type);
+}
+
+async function loadArchiveData(type) {
+    const tbody = document.getElementById('archiveTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
+    lucide.createIcons();
+    
+    let endpoint = type === 'orders' ? '/admin/api/archive/orders' : type === 'deposits' ? '/admin/api/archive/deposits' : '/admin/api/archive/kyc';
+    
+    try {
+        const data = await safeFetch(`${API_BASE}${endpoint}`, { headers: getHeaders() });
+        tbody.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا توجد بيانات في الأرشيف.</td></tr>';
+            return;
+        }
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+            if (type === 'orders') {
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-accent">${item.order_number}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.user_name)}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.product_name)}</td>
+                    <td class="py-3 px-4 font-bold text-white">$${parseFloat(item.total_price).toFixed(2)}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-1 rounded text-xs ${item.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${item.status}</span></td>
+                    <td class="py-3 px-4 text-slate-400 text-sm">${new Date(item.created_at).toLocaleString('ar-EG')}</td>
+                `;
+            } else if (type === 'deposits') {
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-accent">${item.transaction_id}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.user_name)}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.method)}</td>
+                    <td class="py-3 px-4 font-bold text-white">$${parseFloat(item.amount).toFixed(2)}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-1 rounded text-xs ${item.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span></td>
+                    <td class="py-3 px-4 text-slate-400 text-sm">${new Date(item.created_at).toLocaleString('ar-EG')}</td>
+                `;
+            } else {
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-accent">KYC-${item.id}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.full_name)}</td>
+                    <td class="py-3 px-4">${escapeHtml(item.phone)}</td>
+                    <td class="py-3 px-4">-</td>
+                    <td class="py-3 px-4"><span class="px-2 py-1 rounded text-xs ${item.status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">${item.status === 'approved' ? 'مقبول' : 'مرفوض'}</span></td>
+                    <td class="py-3 px-4 text-slate-400 text-sm">${new Date(item.submitted_at).toLocaleString('ar-EG')}</td>
+                `;
+            }
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">${e.message}</td></tr>`;
+    }
 }
 
 // ================= Inbox =================
