@@ -1,7 +1,7 @@
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
 let currentSessionId = null, currentInboxTab = 'orders', currentSupportTab = 'open', currentTicketId = null;
 let adminChatPolling = null, ticketAbortController = null, cachedItems = {}, allUsersData = [], categoriesData = [];
-let currentSelectedUser = null, editingItemId = null, dashboardChartInstance = null, selectedInboxItems = new Set();
+let currentSelectedUser = null, editingItemId = null, dashboardChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => { 
     if (typeof lucide !== 'undefined') lucide.createIcons(); 

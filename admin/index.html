@@ -61,7 +61,6 @@
         <main class="flex-1 h-full overflow-y-auto relative">
             <header class="sticky top-0 z-20 glass flex justify-between items-center p-4 border-b border-slate-700/50"><h2 id="page-title" class="text-2xl font-bold">لوحة التحكم</h2></header>
             <div class="p-4 md:p-8">
-                
                 <section id="section-dashboard" class="content-section block">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                         <div class="glass rounded-3xl p-6 border-r-4 border-r-accent"><h3 class="text-slate-400 text-sm">الطلبات</h3><div class="text-3xl font-bold" id="statOrders">0</div></div>
@@ -132,11 +131,11 @@
         </main>
     </div>
 
-    <!-- Modals -->
     <div id="detailsModal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center p-4"><div class="glass w-full max-w-lg rounded-3xl flex flex-col max-h-[90vh]" style="background:#1e293b;"><div class="flex justify-between p-5 border-b border-slate-700"><h3 id="modalTitle" class="text-xl font-bold"></h3><button onclick="closeModal()"><i data-lucide="x"></i></button></div><div id="modalBody" class="p-6 overflow-y-auto space-y-4"></div><div id="modalFooter" class="p-5 border-t border-slate-700 flex gap-3"></div></div></div>
     <div id="formModal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center p-4"><div class="glass w-full max-w-md rounded-3xl" style="background:#1e293b;"><div class="flex justify-between p-5 border-b border-slate-700"><h3 id="formTitle" class="text-xl font-bold"></h3><button onclick="closeFormModal()"><i data-lucide="x"></i></button></div><div id="formBody" class="p-6 space-y-4"></div><div class="p-5 border-t border-slate-700 flex justify-end gap-3"><button onclick="closeFormModal()" class="px-4 py-2 text-slate-300">إلغاء</button><button id="formSaveBtn" class="btn-primary">حفظ</button></div></div></div>
     <div id="userDrawerOverlay" class="fixed inset-0 bg-black/60 z-[90] hidden" onclick="closeUserDrawer()"></div>
     <div id="userDrawer" class="fixed top-0 right-0 h-full w-96 glass border-l border-slate-700 z-[100] transform translate-x-full transition-transform duration-300 overflow-y-auto" style="background:#1e293b;"><div class="p-6"><div class="flex justify-between mb-6"><h3 id="drawerTitle" class="text-2xl font-bold">ملف المستخدم</h3><button onclick="closeUserDrawer()"><i data-lucide="x"></i></button></div><div id="userDetailsContent"></div></div></div>
-    <script src="app.js?v=5000"></script>
+    
+    <script src="app.js?v=9000"></script>
 </body>
 </html>
