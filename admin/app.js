@@ -951,20 +951,3 @@ async function loadAuditLog() {
     } catch(e) { tbody.innerHTML = `<tr><td colspan="5" class="text-danger">${e.message}</td></tr>`; }
 }
 
-function exportData(type) {
-        const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
-        const data = await res.json();
-        if (res.ok) {
-            showToast('تمت العملية بنجاح', 'success');
-            document.getElementById('detailsModal').classList.add('hidden');
-            if(type === 'orders') loadInbox('orders');
-            if(type === 'deposits') loadInbox('deposits');
-            if(type === 'kyc') loadInbox('kyc');
-        } else {
-            showToast(data.error || 'حدث خطأ', 'error');
-        }
-    } catch (error) {
-        console.error(error);
-        showToast('خطأ في الاتصال بالسيرفر', 'error');
-    }
-}
