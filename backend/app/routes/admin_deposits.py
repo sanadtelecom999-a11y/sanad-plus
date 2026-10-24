@@ -95,27 +95,39 @@ def admin_reject_deposit(deposit_id):
 # === إصلاح مسار المحادثة المباشرة ===
 from ..models import SupportTicket, SupportMessage, db, User
 
+
+
+# === إصلاح مسار المحادثة المباشرة ===
 @admin_bp.route('/support/start-chat', methods=['POST'])
 @admin_required
 def start_admin_chat():
+    from ..models import SupportTicket, SupportMessage, db, User
+    from flask import request, jsonify
     data = request.json
     user_id = data.get('user_id')
     message = data.get('message')
-    if not user_id or not message:
-        return jsonify({"error": "Missing data"}), 400
+    if not user_id or not message: return jsonify({"error": "Missing data"}), 400
     try:
         user = User.query.get(user_id)
         if not user: return jsonify({"error": "User not found"}), 404
-        
         ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
         if not ticket:
             ticket = SupportTicket(user_id=user_id, status='open')
             db.session.add(ticket)
             db.session.commit()
-            
         msg = SupportMessage(ticket_id=ticket.id, sender_type='admin', message=message)
         db.session.add(msg)
         db.session.commit()
         return jsonify({"success": True, "ticket_id": ticket.id}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+# === مسار جلب سجل التدقيق ===
+@admin_bp.route('/audit', methods=['GET'])
+@admin_required
+def get_audit_log():
+    from ..models import FinancialAuditLog
+    from flask import jsonify
+    try:
+        logs = FinancialAuditLog.query.order_by(FinancialAuditLog.created_at.desc()).limit(100).all()
+        return jsonify([{"id": l.id, "action": l.action, "amount": float(l.amount) if l.amount else 0, "user_id": l.user_id, "date": l.created_at.isoformat()} for l in logs]), 200
+    except Exception as e: return jsonify({"error": str(e)}), 500

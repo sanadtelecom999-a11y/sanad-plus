@@ -14,9 +14,9 @@ window.showDashboard = function() { loadDashboardStats(); initChart(); if (typeo
 window.switchSection = function(id, btn) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden')); document.getElementById('section-' + id).classList.remove('hidden');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white')); if(btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
-    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'notifications': 'الإشعارات', 'users': 'المستخدمين', 'archive': 'الأرشيف', 'categories': 'الأقسام', 'products': 'المنتجات', 'payments': 'طرق الدفع', 'settings': 'الإعدادات' };
+    const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'notifications': 'الإشعارات', 'users': 'المستخدمين', 'archive': 'الأرشيف', 'categories': 'الأقسام', 'products': 'المنتجات', 'payments': 'طرق الدفع', 'coupons': 'كوبونات الخصم', 'audit': 'سجل التدقيق', 'settings': 'الإعدادات' };
     document.getElementById('page-title').innerText = titles[id];
-    if (id === 'inbox') loadInbox(currentInboxTab); if (id === 'users') loadUsers(); if (id === 'products') loadProducts(); if (id === 'categories') loadCategories(); if (id === 'payments') loadPayments(); if (id === 'support') switchSupportTab(currentSupportTab, document.querySelectorAll('#section-support .tab-btn')[0]); if (id === 'archive') loadArchive(); if (id === 'settings') loadSettings();
+    if (id === 'inbox') loadInbox(currentInboxTab); if (id === 'users') loadUsers(); if (id === 'products') loadProducts(); if (id === 'categories') loadCategories(); if (id === 'payments') loadPayments(); if (id === 'support') switchSupportTab(currentSupportTab, document.querySelectorAll('#section-support .tab-btn')[0]); if (id === 'archive') loadArchive(); if (id === 'settings') loadSettings(); if (id === 'coupons') loadCoupons(); if (id === 'audit') loadAudit();
 };
 
 async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) {} }
@@ -47,7 +47,7 @@ window.bulkAction = async function(action) {
         let body = currentInboxTab === 'orders' ? { status: action === 'approve' ? 'completed' : 'failed' } : {};
         await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
     }
-    Swal.fire('تم', 'تمت العملية الجماعية', 'success'); selectedInboxItems.clear(); updateBulkUI(); loadInbox(currentInboxTab);
+    Swal.fire('تم', 'تمت العملية', 'success'); selectedInboxItems.clear(); updateBulkUI(); loadInbox(currentInboxTab);
 };
 
 window.viewDetails = function(type, id) {
@@ -83,7 +83,7 @@ window.openUserView = async function(id) {
     const u = allUsersData.find(x=>x.id===id); if(!u) return;
     document.getElementById('userDrawerOverlay').classList.remove('hidden'); document.getElementById('userDrawer').classList.remove('translate-x-full');
     document.getElementById('drawerTitle').innerText = 'ملف المستخدم';
-    const c = document.getElementById('userDetailsContent'); c.innerHTML = '<div class="text-center py-4 text-slate-400">جاري جلب السجل...</div>';
+    const c = document.getElementById('userDetailsContent'); c.innerHTML = '<div class="text-center py-4 text-slate-400">جاري السجل...</div>';
     const sn = `SN-${String(u.telegram_id).padStart(6,'0')}`;
     try {
         const hist = await safeFetch(`${API_BASE}/admin/api/users/${id}/history`, { headers: getHeaders() }).catch(()=>({orders:[], deposits:[]}));
@@ -172,7 +172,7 @@ window.replySupportTicket = async function() {
     if(String(currentTicketId).startsWith('new_')) {
         const userId = currentTicketId.split('_')[1];
         await fetch(`${API_BASE}/admin/api/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
-        Swal.fire('تم', 'تم إرسال الرسالة وفتح المحادثة', 'success'); switchSupportTab('open', document.querySelectorAll('#section-support .tab-btn')[0]);
+        Swal.fire('تم', 'تم فتح المحادثة', 'success'); switchSupportTab('open', document.querySelectorAll('#section-support .tab-btn')[0]);
     } else {
         await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) }); loadTicketMessages();
     }
@@ -184,6 +184,32 @@ window.closeSupportTicket = async function() {
     switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
 };
 
+// Coupons & Audit
+window.openCouponModal = function() {
+    document.getElementById('formModal').classList.remove('hidden'); document.getElementById('formModal').classList.add('flex');
+    document.getElementById('formTitle').innerText = 'إضافة كوبون';
+    document.getElementById('formBody').innerHTML = `<input type="text" id="cCode" class="input-field mb-2" placeholder="الكود"><input type="number" id="cDisc" class="input-field mb-2" placeholder="القيمة"><select id="cType" class="input-field"><option value="percentage">نسبة %</option><option value="fixed">ثابت $</option></select>`;
+    document.getElementById('formSaveBtn').onclick = async () => {
+        await fetch(`${API_BASE}/admin/api/coupons`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ code: document.getElementById('cCode').value, discount: document.getElementById('cDisc').value, type: document.getElementById('cType').value }) });
+        closeFormModal(); loadCoupons();
+    };
+};
+async function loadCoupons() {
+    const t = document.getElementById('couponsTableBody'); t.innerHTML = '';
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/coupons`, { headers: getHeaders() });
+        data.forEach(c => t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2">${c.code}</td><td class="py-2">${c.discount}</td><td class="py-2">${c.type==='percentage'?'%':'$'}</td><td class="py-2"><button onclick="deleteCoupon(${c.id})" class="text-red-400">حذف</button></td></tr>`);
+    } catch(e) { console.error(e); }
+}
+window.deleteCoupon = async (id) => { await fetch(`${API_BASE}/admin/api/coupons/${id}`, {method:'DELETE', headers:getHeaders()}); loadCoupons(); };
+async function loadAudit() {
+    const t = document.getElementById('auditTableBody'); t.innerHTML = '';
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/audit`, { headers: getHeaders() });
+        data.forEach(l => t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2">${l.user_id}</td><td class="py-2">${l.action}</td><td class="py-2 ${l.amount>0?'text-green-400':'text-red-400'}">${l.amount}</td><td class="py-2 text-slate-400 text-xs">${new Date(l.date).toLocaleString('ar-EG')}</td></tr>`);
+    } catch(e) { console.error(e); }
+}
+
 window.sendNotification = async function() {
     const t = document.getElementById('notifTarget').value, u = document.getElementById('notifUserId').value, m = document.getElementById('notifMessage').value;
     if(!m) return;
@@ -191,8 +217,9 @@ window.sendNotification = async function() {
     Swal.fire('تم', 'تم الإرسال', 'success');
 };
 document.getElementById('notifTarget')?.addEventListener('change', (e) => document.getElementById('notifUserId').classList.toggle('hidden', e.target.value !== 'specific'));
-async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; } catch(e){} }
-window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value }) }); Swal.fire('تم', 'حفظ', 'success'); };
+async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; document.getElementById('setMaintenance').checked = d.maintenance_mode === '1' || d.maintenance_mode === true; } catch(e){} }
+window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' }) }); Swal.fire('تم', 'حفظ', 'success'); };
 
+// Utils
 async function safeFetch(url, opt={}) { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || 'Error'); return d; }
 function escapeHtml(t) { return !t ? '' : String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
