@@ -36,7 +36,7 @@
         </div>
     </div>
 
-    <!-- لوحة التحكم -->
+    <!-- لوحة التحكم الرئيسية -->
     <div id="dashboardScreen" class="hidden flex w-full h-full">
         
         <!-- القائمة الجانبية -->
@@ -104,12 +104,10 @@
                 <!-- 3. تذاكر الدعم -->
                 <section id="section-support" class="content-section hidden">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- قائمة التذاكر -->
                         <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
                             <h3 class="text-xl font-bold mb-4 text-accent">التذاكر المفتوحة</h3>
                             <div id="supportTicketsList" class="space-y-3"></div>
                         </div>
-                        <!-- منطقة المحادثة -->
                         <div class="glass rounded-3xl p-6 h-[70vh] flex flex-col" id="supportChatArea">
                             <div class="flex-1 flex items-center justify-center text-slate-400" id="supportChatPlaceholder">اختر تذكرة لعرض المحادثة</div>
                             <div id="supportChatContent" class="hidden flex-col h-full">
@@ -154,7 +152,7 @@
                     </div>
                 </section>
 
-                <!-- Placeholders for other sections -->
+                <!-- 5. أقسام قيد التطوير -->
                 <section id="section-archive" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأرشيف (قيد التطوير)</div></section>
                 <section id="section-categories" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأقسام (قيد التطوير)</div></section>
                 <section id="section-products" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المنتجات (قيد التطوير)</div></section>
@@ -223,7 +221,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=4.0"></script>
+    <script src="app.js?v=5.0"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
