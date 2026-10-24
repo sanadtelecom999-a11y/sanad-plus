@@ -3,7 +3,6 @@ let currentSessionId = null, currentInboxTab = 'orders', currentSupportTab = 'op
 let adminChatPolling = null, ticketAbortController = null, cachedItems = {}, allUsersData = [], categoriesData = [];
 let currentSelectedUser = null, editingItemId = null, dashboardChartInstance = null, selectedInboxItems = new Set();
 
-// Init & Auth (Same as before)
 document.addEventListener('DOMContentLoaded', () => { if (typeof lucide !== 'undefined') lucide.createIcons(); const t = localStorage.getItem('admin_token'); if (!t) document.getElementById('loginScreen').style.display = 'flex'; else verifyTokenAndLogin(); });
 async function verifyTokenAndLogin() { try { const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); if (res.ok) { document.getElementById('loginScreen').style.display = 'none'; document.getElementById('dashboardScreen').style.display = 'flex'; showDashboard(); } else throw new Error(); } catch (e) { localStorage.removeItem('admin_token'); document.getElementById('loginScreen').style.display = 'flex'; } }
 window.handleLogin = async function() { const u = document.getElementById('loginUser').value, p = document.getElementById('loginPass').value; if(!u||!p) return; const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); const d = await res.json(); if (res.ok && d.require_otp) { currentSessionId = d.session_id; document.getElementById('loginStep1').classList.add('hidden'); document.getElementById('loginStep2').classList.remove('hidden'); } else Swal.fire('خطأ', d.error || 'بيانات غير صحيحة', 'error'); };
@@ -11,7 +10,6 @@ window.verifyOTP = async function() { const c = document.getElementById('otpCode
 window.logout = function() { localStorage.removeItem('admin_token'); location.reload(); };
 window.getHeaders = function() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }; };
 
-// Navigation
 window.showDashboard = function() { loadDashboardStats(); initChart(); if (typeof lucide !== 'undefined') lucide.createIcons(); };
 window.switchSection = function(id, btn) {
     document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden')); document.getElementById('section-' + id).classList.remove('hidden');
@@ -21,11 +19,9 @@ window.switchSection = function(id, btn) {
     if (id === 'inbox') loadInbox(currentInboxTab); if (id === 'users') loadUsers(); if (id === 'products') loadProducts(); if (id === 'categories') loadCategories(); if (id === 'payments') loadPayments(); if (id === 'support') switchSupportTab(currentSupportTab, document.querySelectorAll('#section-support .tab-btn')[0]); if (id === 'archive') loadArchive(); if (id === 'settings') loadSettings();
 };
 
-// Dashboard (Same)
 async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) {} }
 function initChart() { const c = document.getElementById('dashboardChart'); if(!c || typeof Chart==='undefined') return; if(dashboardChartInstance) dashboardChartInstance.destroy(); dashboardChartInstance = new Chart(c, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'المبيعات', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false } }); }
 
-// Inbox with Bulk Selection
 window.switchInboxTab = function(type, btn) { currentInboxTab = type; document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedInboxItems.clear(); updateBulkUI(); loadInbox(type); };
 async function loadInbox(type) {
     const c = document.getElementById('inboxContainer'); c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">جاري التحميل...</div>';
@@ -54,7 +50,6 @@ window.bulkAction = async function(action) {
     Swal.fire('تم', 'تمت العملية الجماعية', 'success'); selectedInboxItems.clear(); updateBulkUI(); loadInbox(currentInboxTab);
 };
 
-// Details Modal
 window.viewDetails = function(type, id) {
     const item = cachedItems[type].find(x => x.id === id); if (!item) return;
     document.getElementById('detailsModal').classList.remove('hidden'); document.getElementById('detailsModal').classList.add('flex');
@@ -74,13 +69,13 @@ window.handleAction = async function(type, id, action, extra) {
 };
 window.closeModal = function() { document.getElementById('detailsModal').classList.add('hidden'); document.getElementById('detailsModal').classList.remove('flex'); };
 
-// Users (With History & Manage)
 async function loadUsers() {
     const t = document.getElementById('usersTableBody'); t.innerHTML = '<tr><td colspan="5" class="text-center py-4">جاري التحميل...</td></tr>';
     try {
         allUsersData = await safeFetch(`${API_BASE}/admin/api/users`, { headers: getHeaders() }); t.innerHTML = '';
         allUsersData.forEach(u => {
-            t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2 px-2">${escapeHtml(u.first_name||'')}</td><td class="py-2 px-2 font-mono text-slate-400">${u.telegram_id}</td><td class="py-2 px-2 text-success font-bold">$${parseFloat(u.balance).toFixed(2)}</td><td class="py-2 px-2">${u.is_banned?'محظور':'نشط'}</td><td class="py-2 px-2 flex gap-2"><button onclick="openUserView(${u.id})" class="text-accent"><i data-lucide="eye" size="16"></i></button><button onclick="openUserManage(${u.id})" class="bg-slate-700 px-2 py-1 rounded text-xs">إدارة</button></td></tr>`;
+            const banIcon = u.is_banned ? `<span class="text-red-500 ml-2" title="محظور"><i data-lucide="ban" size="16"></i></span>` : '';
+            t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2 px-2"><strong>${escapeHtml(u.first_name||'')}</strong> ${banIcon}</td><td class="py-2 px-2 font-mono text-slate-400">${u.telegram_id}</td><td class="py-2 px-2 text-success font-bold">$${parseFloat(u.balance).toFixed(2)}</td><td class="py-2 px-2">${u.is_banned?'<span class="text-red-400">محظور</span>':'<span class="text-green-400">نشط</span>'}</td><td class="py-2 px-2 flex gap-2"><button onclick="openUserView(${u.id})" class="text-accent"><i data-lucide="eye" size="16"></i></button><button onclick="openUserManage(${u.id})" class="bg-slate-700 px-2 py-1 rounded text-xs">إدارة</button></td></tr>`;
         }); if(typeof lucide!=='undefined') lucide.createIcons();
     } catch(e) { t.innerHTML = `<tr><td colspan="5" class="text-danger">${e.message}</td></tr>`; }
 }
@@ -123,7 +118,6 @@ window.toggleBan = async function() {
 };
 window.closeUserDrawer = function() { document.getElementById('userDrawerOverlay').classList.add('hidden'); document.getElementById('userDrawer').classList.add('translate-x-full'); };
 
-// Support (Strict Abort & Direct Chat)
 window.switchSupportTab = function(status, btn) {
     currentSupportTab = status; document.querySelectorAll('#section-support .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
     if(adminChatPolling) clearInterval(adminChatPolling); currentTicketId = null; document.getElementById('supportMessages').innerHTML = '';
@@ -142,7 +136,11 @@ async function loadSupportTickets() {
 }
 window.searchUsersForChat = function(q) {
     const r = document.getElementById('chatSearchResults'); if(q.length < 2) { r.innerHTML=''; return; }
-    const filtered = allUsersData.filter(u => u.first_name?.includes(q) || String(u.telegram_id).includes(q)).slice(0, 5);
+    const query = q.toUpperCase();
+    const filtered = allUsersData.filter(u => {
+        const sn = `SN-${String(u.telegram_id).padStart(6,'0')}`;
+        return (u.first_name||'').includes(q) || String(u.telegram_id).includes(q) || (u.username||'').includes(q) || sn.includes(query);
+    }).slice(0, 5);
     r.innerHTML = filtered.map(u => `<div class="bg-slate-800 p-2 rounded cursor-pointer hover:bg-slate-700 mb-1" onclick="startDirectChat(${u.id}, '${escapeHtml(u.first_name)}')">${escapeHtml(u.first_name)} (${u.telegram_id})</div>`).join('');
 };
 window.startDirectChat = async function(id, name) {
@@ -186,7 +184,6 @@ window.closeSupportTicket = async function() {
     switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
 };
 
-// Notifications & Settings
 window.sendNotification = async function() {
     const t = document.getElementById('notifTarget').value, u = document.getElementById('notifUserId').value, m = document.getElementById('notifMessage').value;
     if(!m) return;
@@ -197,6 +194,5 @@ document.getElementById('notifTarget')?.addEventListener('change', (e) => docume
 async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; } catch(e){} }
 window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value }) }); Swal.fire('تم', 'حفظ', 'success'); };
 
-// Utils
 async function safeFetch(url, opt={}) { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || 'Error'); return d; }
 function escapeHtml(t) { return !t ? '' : String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
