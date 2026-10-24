@@ -18,7 +18,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- Fonts & Custom CSS -->
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
     
     <style>
@@ -41,8 +41,6 @@
         .chat-bubble.user { background: #1e293b; color: #f8fafc; align-self: flex-start; border-bottom-right-radius: 2px; }
         .chat-bubble.admin { background: #38bdf8; color: #0f172a; align-self: flex-end; border-bottom-left-radius: 2px; font-weight: 600; }
         .chat-bubble.system { background: rgba(245, 158, 11, 0.1); border: 1px dashed #f59e0b; color: #f8fafc; align-self: center; text-align: center; font-size: 13px; }
-        .chat-bubble .chat-sender { display: block; font-size: 11px; margin-bottom: 4px; font-weight: bold; opacity: 0.8; }
-        .chat-bubble .chat-time { display: block; font-size: 10px; margin-top: 4px; text-align: left; opacity: 0.6; }
         .inbox-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 1.5rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; transition: 0.2s; cursor: pointer; }
         .inbox-card:hover { border-color: #38bdf8; }
         .inbox-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.25rem; }
@@ -61,12 +59,12 @@
         .user-row { display: flex; align-items: center; gap: 10px; }
         .user-avatar-small { width: 36px; height: 36px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; color: #38bdf8; font-weight: bold; }
         .cat-card { background: #1e293b; border: 1px solid #334155; border-radius: 1.5rem; padding: 1rem; text-align: center; position: relative; }
-        .prod-img { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; margin: auto; }
+        .payment-card { background: #1e293b; border: 1px solid #334155; border-radius: 1rem; padding: 1rem; position: relative; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row bg-dark text-white font-sans">
 
-    <!-- شاشة تسجيل الدخول -->
+    <!-- شاشة تسجيل الدخول (ظاهرة افتراضياً) -->
     <div id="loginScreen" class="fixed inset-0 bg-dark z-50 flex items-center justify-center">
         <div class="glass p-8 rounded-3xl w-96 text-center border-t-4 border-t-accent">
             <div class="text-accent font-bold text-3xl mb-2 tracking-wider">SANAD+</div>
@@ -105,6 +103,7 @@
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
                 <button onclick="switchSection('categories', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="layers" size="20"></i> <span class="font-bold">الأقسام</span></button>
                 <button onclick="switchSection('products', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="package" size="20"></i> <span class="font-bold">المنتجات</span></button>
+                <button onclick="switchSection('payments', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="wallet" size="20"></i> <span class="font-bold">طرق الدفع</span></button>
             </nav>
 
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">التسويق والنظام</div>
@@ -146,6 +145,7 @@
                         <button onclick="switchInboxTab('deposits', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الإيداعات</button>
                         <button onclick="switchInboxTab('orders', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition bg-accent text-dark active">الطلبات</button>
                         <button onclick="switchInboxTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق KYC</button>
+                        <button onclick="switchInboxTab('services', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">طلبات الخدمة</button>
                     </div>
                     <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 </section>
@@ -201,10 +201,13 @@
 
                 <!-- 5. الأرشيف -->
                 <section id="section-archive" class="content-section hidden">
-                    <div class="flex gap-2 mb-6">
-                        <button onclick="switchArchiveTab('orders', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition bg-accent text-dark active">الطلبات المؤرشفة</button>
-                        <button onclick="switchArchiveTab('deposits', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الإيداعات المؤرشفة</button>
-                        <button onclick="switchArchiveTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق المؤرشف</button>
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex gap-2">
+                            <button onclick="switchArchiveTab('orders', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition bg-accent text-dark active">الطلبات المؤرشفة</button>
+                            <button onclick="switchArchiveTab('deposits', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الإيداعات المؤرشفة</button>
+                            <button onclick="switchArchiveTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق المؤرشف</button>
+                        </div>
+                        <button onclick="exportArchive()" class="bg-primary text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="download" size="18"></i> تصدير Excel</button>
                     </div>
                     <div class="glass rounded-3xl p-6 overflow-x-auto">
                         <table class="w-full text-right">
@@ -241,7 +244,16 @@
                     </div>
                 </section>
 
-                <!-- 8. الإشعارات -->
+                <!-- 8. طرق الدفع -->
+                <section id="section-payments" class="content-section hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">إدارة طرق الدفع</h3>
+                        <button onclick="openPaymentModal()" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة طريقة</button>
+                    </div>
+                    <div id="paymentsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </section>
+
+                <!-- 9. الإشعارات -->
                 <section id="section-notifications" class="content-section hidden">
                     <div class="glass rounded-3xl p-6 max-w-2xl">
                         <h3 class="text-xl font-bold mb-4 text-accent">إرسال إشعار للمستخدمين</h3>
@@ -260,11 +272,14 @@
                             <label class="block text-slate-400 mb-2">نص الإشعار</label>
                             <textarea id="notifMessage" class="input-field" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
                         </div>
-                        <button onclick="sendNotification()" class="btn-primary">إرسال الآن</button>
+                        <div class="flex gap-3">
+                            <button onclick="previewNotification()" class="flex-1 bg-slate-700 text-white font-bold py-3 rounded-xl hover:bg-slate-600">معاينة</button>
+                            <button onclick="sendNotification()" class="flex-1 bg-accent text-dark font-bold py-3 rounded-xl hover:bg-sky-400">إرسال الآن</button>
+                        </div>
                     </div>
                 </section>
 
-                <!-- 9. الإعدادات -->
+                <!-- 10. الإعدادات -->
                 <section id="section-settings" class="content-section hidden">
                     <div class="glass rounded-3xl p-6 max-w-2xl">
                         <h3 class="text-xl font-bold mb-4 text-accent">إعدادات المتجر</h3>
@@ -282,7 +297,7 @@
                     </div>
                 </section>
 
-                <!-- 10. التدقيق المالي -->
+                <!-- 11. التدقيق المالي -->
                 <section id="section-audit" class="content-section hidden">
                     <div class="glass rounded-3xl p-6 overflow-x-auto">
                         <h3 class="text-xl font-bold mb-4 text-white">سجل الحركات المالية</h3>
@@ -354,22 +369,21 @@
         </div>
     </div>
 
-    <!-- Product & Category Modal (Reusable) -->
+    <!-- Form Modal (Reusable) -->
     <div id="formModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
                 <h3 id="formTitle" class="text-xl font-bold text-white">إضافة</h3>
                 <button onclick="closeFormModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
             </div>
-            <div id="formBody" class="p-6 overflow-y-auto text-slate-300 space-y-4">
-                <!-- Dynamic -->
-            </div>
+            <div id="formBody" class="p-6 overflow-y-auto text-slate-300 space-y-4"></div>
             <div class="p-5 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
                 <button onclick="closeFormModal()" class="px-4 py-2 rounded-xl text-slate-300 font-bold hover:bg-slate-700">إلغاء</button>
                 <button id="formSaveBtn" class="bg-accent text-dark px-6 py-2 rounded-xl font-bold hover:bg-sky-400">حفظ</button>
             </div>
         </div>
     </div>
+
 
     <script>
         // ================= Global Error Catcher =================
@@ -388,12 +402,14 @@
         let cachedItems = {};
         let cachedCategories = [];
         let cachedProducts = [];
+        let cachedPayments = [];
+        let currentArchiveData = []; // للتصدير
         let currentSelectedUser = null;
         let currentTicketId = null;
         let adminChatPolling = null;
         let allUsersData = [];
 
-        // ================= Initialization =================
+        // ================= Initialization & Security =================
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('admin_token');
             if (!token) {
@@ -410,8 +426,11 @@
                     document.getElementById('loginScreen').style.display = 'none';
                     document.getElementById('dashboardScreen').style.display = 'flex';
                     showDashboard();
-                } else { throw new Error('Invalid token'); }
+                } else {
+                    throw new Error('Invalid token');
+                }
             } catch (e) {
+                console.warn("Session expired or invalid.");
                 localStorage.removeItem('admin_token');
                 showLoginScreen();
             }
@@ -504,7 +523,7 @@
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
             if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
             
-            const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'archive': 'الأرشيف الكامل', 'categories': 'إدارة الأقسام', 'products': 'إدارة المنتجات', 'notifications': 'الإشعارات', 'settings': 'الإعدادات', 'audit': 'التدقيق المالي' };
+            const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'archive': 'الأرشيف الكامل', 'categories': 'إدارة الأقسام', 'products': 'إدارة المنتجات', 'payments': 'طرق الدفع', 'notifications': 'الإشعارات', 'settings': 'الإعدادات', 'audit': 'التدقيق المالي' };
             document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
             document.querySelector('aside').classList.remove('open');
             
@@ -514,6 +533,7 @@
             if (sectionId === 'archive') loadArchiveData(currentArchiveTab);
             if (sectionId === 'categories') loadCategories();
             if (sectionId === 'products') loadProducts();
+            if (sectionId === 'payments') loadPayments();
             if (sectionId === 'settings') loadSettings();
             if (sectionId === 'audit') loadAuditLog();
         }
@@ -557,6 +577,7 @@
             let endpoint = type === 'orders' ? '/admin/api/archive/orders' : type === 'deposits' ? '/admin/api/archive/deposits' : '/admin/api/archive/kyc';
             try {
                 const data = await safeFetch(`${API_BASE}${endpoint}`, { headers: getHeaders() });
+                currentArchiveData = data;
                 tbody.innerHTML = '';
                 if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا توجد بيانات في الأرشيف.</td></tr>'; return; }
                 data.forEach(item => {
@@ -571,6 +592,32 @@
                     tbody.appendChild(tr);
                 });
             } catch (e) { tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">${e.message}</td></tr>`; }
+        }
+
+        function exportArchive() {
+            if(currentArchiveData.length === 0) return showToast('لا توجد بيانات للتصدير', 'error');
+            
+            // تحويل البيانات إلى CSV بسيط
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF لدعم العربية
+            let headers = ["المرجع", "المستخدم", "التفاصيل", "المبلغ", "الحالة", "التاريخ"];
+            csvContent += headers.join(",") + "\n";
+            
+            currentArchiveData.forEach(row => {
+                let r = [];
+                if(currentArchiveTab === 'orders') r = [row.order_number, row.user_name, row.product_name, row.total_price, row.status, new Date(row.created_at).toLocaleString()];
+                else if(currentArchiveTab === 'deposits') r = [row.transaction_id, row.user_name, row.method, row.amount, row.status, new Date(row.created_at).toLocaleString()];
+                else r = [`KYC-${row.id}`, row.full_name, row.phone, "-", row.status, new Date(row.submitted_at).toLocaleString()];
+                
+                csvContent += r.map(v => `"${v}"`).join(",") + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `sanad_archive_${currentArchiveTab}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // ================= Inbox =================
@@ -863,7 +910,7 @@
             } catch(e) { showToast(e.message, 'error'); }
         }
 
-        // ================= Products & Categories =================
+        // ================= Categories =================
         async function loadCategories() {
             const grid = document.getElementById('categoriesGrid');
             grid.innerHTML = '<div class="col-span-full text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</div>';
@@ -926,11 +973,16 @@
             } catch(e) { showToast(e.message, 'error'); }
         }
 
+        // ================= Products =================
         async function loadProducts() {
             const tbody = document.getElementById('productsTableBody');
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
             try {
+                if(cachedCategories.length === 0) {
+                    const cats = await safeFetch(`${API_BASE}/admin/api/categories`, { headers: getHeaders() });
+                    cachedCategories = cats;
+                }
                 const data = await safeFetch(`${API_BASE}/admin/api/products`, { headers: getHeaders() });
                 cachedProducts = data;
                 tbody.innerHTML = '';
@@ -942,7 +994,10 @@
                         <tr>
                             <td class="py-3 px-4 flex items-center gap-3">
                                 <img src="${p.image || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover">
-                                <span class="font-bold text-white">${escapeHtml(p.name)}</span>
+                                <div>
+                                    <span class="font-bold text-white block">${escapeHtml(p.name)}</span>
+                                    <span class="text-xs text-slate-500">${p.product_type === 'bundle' ? 'باقات' : (p.product_type === 'dynamic' ? 'سعر متغير' : 'سعر ثابت')}</span>
+                                </div>
                             </td>
                             <td class="py-3 px-4">${cat ? escapeHtml(cat.name) : 'غير معروف'}</td>
                             <td class="py-3 px-4 font-bold text-success">$${parseFloat(p.base_price).toFixed(2)}</td>
@@ -964,9 +1019,44 @@
                 <div><label class="text-sm text-slate-400 block mb-2">اسم المنتج</label><input type="text" id="prodName" class="input-field"></div>
                 <div><label class="text-sm text-slate-400 block mb-2">القسم</label><select id="prodCat" class="input-field">${catOptions}</select></div>
                 <div><label class="text-sm text-slate-400 block mb-2">الوصف</label><textarea id="prodDesc" class="input-field"></textarea></div>
-                <div><label class="text-sm text-slate-400 block mb-2">السعر ($)</label><input type="number" id="prodPrice" class="input-field" value="0"></div>
+                <div><label class="text-sm text-slate-400 block mb-2">المدخلات المطلوبة</label>
+                    <select id="prodInputType" class="input-field">
+                        <option value="id">ID اللاعب</option>
+                        <option value="account_id">ID الحساب</option>
+                        <option value="phone">رقم الهاتف</option>
+                        <option value="url">رابط (URL)</option>
+                    </select>
+                </div>
+                <div><label class="text-sm text-slate-400 block mb-2">نوع التسعير</label>
+                    <select id="prodPricingType" class="input-field">
+                        <option value="fixed">سعر ثابت</option>
+                        <option value="dynamic">متغير حسب الكمية</option>
+                    </select>
+                </div>
+                <div id="fixedPriceFields">
+                    <label class="text-sm text-slate-400 block mb-2">السعر الثابت ($)</label>
+                    <input type="number" id="prodPrice" class="input-field" value="0">
+                </div>
+                <div id="dynamicPriceFields" class="hidden bg-slate-800/50 p-3 rounded-lg">
+                    <label class="text-sm text-slate-400 block mb-2">الكمية الأساسية (مثال: 100)</label>
+                    <input type="number" id="prodBaseQty" class="input-field mb-2" value="1">
+                    <label class="text-sm text-slate-400 block mb-2">سعر الكمية الأساسية ($)</label>
+                    <input type="number" id="prodBasePrice" class="input-field" value="1">
+                </div>
                 <div><label class="text-sm text-slate-400 block mb-2">صورة المنتج</label><input type="file" id="prodImage" class="input-field bg-slate-800" accept="image/*"></div>
             `;
+            
+            // إظهار/إخفاء حقول التسعير
+            document.getElementById('prodPricingType').addEventListener('change', (e) => {
+                if(e.target.value === 'fixed') {
+                    document.getElementById('fixedPriceFields').classList.remove('hidden');
+                    document.getElementById('dynamicPriceFields').classList.add('hidden');
+                } else {
+                    document.getElementById('fixedPriceFields').classList.add('hidden');
+                    document.getElementById('dynamicPriceFields').classList.remove('hidden');
+                }
+            });
+
             document.getElementById('formSaveBtn').onclick = saveProduct;
             document.getElementById('formModal').classList.remove('hidden');
         }
@@ -975,10 +1065,21 @@
             const name = document.getElementById('prodName').value;
             const category_id = document.getElementById('prodCat').value;
             const description = document.getElementById('prodDesc').value;
-            const base_price = parseFloat(document.getElementById('prodPrice').value) || 0;
+            const input_type = document.getElementById('prodInputType').value;
+            const pricing_type = document.getElementById('prodPricingType').value;
             const fileInput = document.getElementById('prodImage');
             
             if(!name) return showToast('أدخل اسم المنتج', 'error');
+            
+            let base_price = 0;
+            let base_quantity = 0;
+
+            if (pricing_type === 'fixed') {
+                base_price = parseFloat(document.getElementById('prodPrice').value) || 0;
+            } else {
+                base_quantity = parseInt(document.getElementById('prodBaseQty').value) || 1;
+                base_price = parseFloat(document.getElementById('prodBasePrice').value) || 0;
+            }
             
             let imageBase64 = null;
             if (fileInput.files.length > 0) {
@@ -991,7 +1092,7 @@
             }
 
             try {
-                await safeFetch(`${API_BASE}/admin/api/products`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ name, category_id, description, base_price, image: imageBase64 }) });
+                await safeFetch(`${API_BASE}/admin/api/products`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ name, category_id, description, input_type, base_price, base_quantity, product_type: pricing_type, image: imageBase64 }) });
                 showToast('تم إضافة المنتج', 'success'); closeFormModal(); loadProducts();
             } catch(e) { showToast(e.message, 'error'); }
         }
@@ -1007,17 +1108,102 @@
 
         function closeFormModal() { document.getElementById('formModal').classList.add('hidden'); }
 
+        // ================= Payments =================
+        async function loadPayments() {
+            const grid = document.getElementById('paymentsGrid');
+            grid.innerHTML = '<div class="col-span-full text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            try {
+                const data = await safeFetch(`${API_BASE}/admin/api/payment-methods`, { headers: getHeaders() });
+                cachedPayments = data;
+                grid.innerHTML = '';
+                if(data.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد طرق دفع.</div>'; return; }
+                
+                data.forEach(p => {
+                    grid.innerHTML += `
+                        <div class="payment-card">
+                            <div class="flex justify-between items-start mb-3">
+                                <h4 class="font-bold text-white text-lg">${escapeHtml(p.name)}</h4>
+                                <button onclick="deletePayment(${p.id})" class="text-danger hover:bg-red-500/20 p-1 rounded"><i data-lucide="trash-2" size="18"></i></button>
+                            </div>
+                            <p class="text-sm text-slate-400 mb-1">رقم الحساب: <span class="text-white font-mono">${escapeHtml(p.account)}</span></p>
+                            <p class="text-sm text-slate-400 mb-1">الحد الأدنى: <span class="text-white font-mono">$${parseFloat(p.min_amount).toFixed(2)}</span></p>
+                            <p class="text-sm text-slate-400 mb-1">الحد الأقصى: <span class="text-white font-mono">$${parseFloat(p.max_amount).toFixed(2)}</span></p>
+                            <p class="text-sm text-slate-400 mb-1">العمولة: <span class="text-warning font-mono">${parseFloat(p.fee).toFixed(2)}%</span></p>
+                            ${p.requires_kyc ? '<span class="inline-block mt-2 bg-warning/20 text-warning text-xs px-2 py-1 rounded">تتطلب توثيق</span>' : '<span class="inline-block mt-2 bg-success/20 text-success text-xs px-2 py-1 rounded">متاحة للجميع</span>'}
+                        </div>
+                    `;
+                });
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } catch(e) { grid.innerHTML = `<div class="text-danger">${e.message}</div>`; }
+        }
+
+        function openPaymentModal() {
+            document.getElementById('formTitle').innerText = 'إضافة طريقة دفع';
+            document.getElementById('formBody').innerHTML = `
+                <div><label class="text-sm text-slate-400 block mb-2">اسم البنك/المحفظة</label><input type="text" id="payName" class="input-field" placeholder="مثال: شام كاش"></div>
+                <div><label class="text-sm text-slate-400 block mb-2">رقم الحساب</label><input type="text" id="payAccount" class="input-field"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="text-sm text-slate-400 block mb-2">الحد الأدنى ($)</label><input type="number" id="payMin" class="input-field" value="0"></div>
+                    <div><label class="text-sm text-slate-400 block mb-2">الحد الأقصى ($)</label><input type="number" id="payMax" class="input-field" value="0"></div>
+                </div>
+                <div><label class="text-sm text-slate-400 block mb-2">العمولة (%)</label><input type="number" id="payFee" class="input-field" value="0"></div>
+                <div class="flex items-center gap-3 bg-slate-800/50 p-3 rounded-lg">
+                    <input type="checkbox" id="payRequireKyc" class="w-5 h-5 accent-accent">
+                    <label for="payRequireKyc" class="text-white font-bold cursor-pointer">تتطلب توثيق هوية (KYC)</label>
+                </div>
+            `;
+            document.getElementById('formSaveBtn').onclick = savePayment;
+            document.getElementById('formModal').classList.remove('hidden');
+        }
+
+        async function savePayment() {
+            const name = document.getElementById('payName').value;
+            const account = document.getElementById('payAccount').value;
+            const min_amount = parseFloat(document.getElementById('payMin').value) || 0;
+            const max_amount = parseFloat(document.getElementById('payMax').value) || 0;
+            const fee = parseFloat(document.getElementById('payFee').value) || 0;
+            const requires_kyc = document.getElementById('payRequireKyc').checked;
+
+            if(!name || !account) return showToast('أكمل البيانات المطلوبة', 'error');
+
+            try {
+                await safeFetch(`${API_BASE}/admin/api/payment-methods`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ name, account, min_amount, max_amount, fee, requires_kyc }) });
+                showToast('تم إضافة طريقة الدفع', 'success'); closeFormModal(); loadPayments();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function deletePayment(id) {
+            const confirm = await Swal.fire({ title: 'حذف طريقة الدفع', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonText: 'حذف', background: '#1e293b', color: '#fff' });
+            if(!confirm.isConfirmed) return;
+            try {
+                await safeFetch(`${API_BASE}/admin/api/payment-methods/${id}`, { method: 'DELETE', headers: getHeaders() });
+                showToast('تم الحذف', 'success'); loadPayments();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
         // ================= Notifications & Settings =================
         document.getElementById('notifTarget')?.addEventListener('change', (e) => {
             if(e.target.value === 'specific') document.getElementById('specificUserDiv').classList.remove('hidden');
             else document.getElementById('specificUserDiv').classList.add('hidden');
         });
 
+        function previewNotification() {
+            const message = document.getElementById('notifMessage').value;
+            if(!message) return showToast('اكتب رسالة أولاً', 'error');
+            Swal.fire({
+                title: 'معاينة الإشعار',
+                html: `<div style="background:#1e293b; padding:15px; border-radius:10px; text-align:right;"><strong style="color:#38bdf8; display:block; margin-bottom:5px;">إشعار إداري</strong><p style="color:white; margin:0;">${escapeHtml(message)}</p></div>`,
+                background: '#0f172a', color: '#fff', confirmButtonColor: '#38bdf8'
+            });
+        }
+
         async function sendNotification() {
             const target = document.getElementById('notifTarget').value;
             const specificId = document.getElementById('notifSpecificId').value;
             const message = document.getElementById('notifMessage').value;
             if(!message) return showToast('اكتب رسالة أولاً', 'error');
+            if(target === 'specific' && !specificId) return showToast('أدخل آيدي المستخدم', 'error');
             
             try {
                 await safeFetch(`${API_BASE}/admin/api/notifications`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ target: target === 'specific' ? specificId : 'all', message, title: 'إشعار إداري' }) });
