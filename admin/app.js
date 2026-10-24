@@ -1,8 +1,16 @@
-
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
-let currentSessionId = null, currentInboxTab = 'orders', currentSupportTab = 'open', currentTicketId = null;
-let adminChatPolling = null, ticketAbortController = null, cachedItems = {}, allUsersData = [], categoriesData = [];
-let currentSelectedUser = null, editingItemId = null, dashboardChartInstance = null;
+let currentSessionId = null;
+let currentInboxTab = 'orders';
+let currentSupportTab = 'open';
+let currentTicketId = null;
+let adminChatPolling = null;
+let ticketAbortController = null;
+let cachedItems = {};
+let allUsersData = [];
+let categoriesData = [];
+let currentSelectedUser = null;
+let editingItemId = null;
+let dashboardChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => { 
     if (typeof lucide !== 'undefined') lucide.createIcons(); 

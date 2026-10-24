@@ -521,26 +521,3 @@ def admin_reject_order(order_id):
 
 
 
-# === مسار المحادثة الآمن ===
-@admin_bp.route('/support/start-chat', methods=['POST'])
-def start_admin_chat():
-    from flask import request, jsonify
-    from ..models import db, User
-    try:
-        from ..models.support import SupportTicket, SupportMessage
-        data = request.json
-        user_id = data.get('user_id')
-        message = data.get('message')
-        
-        ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
-        if not ticket:
-            ticket = SupportTicket(user_id=user_id, status='open')
-            db.session.add(ticket)
-            db.session.commit()
-            
-        msg = SupportMessage(ticket_id=ticket.id, sender_type='admin', message=message)
-        db.session.add(msg)
-        db.session.commit()
-        return jsonify({"success": True, "ticket_id": ticket.id}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
