@@ -132,6 +132,13 @@ async function loadDashboardStats() {
 function initChart() {
     const ctx = document.getElementById('dashboardChart');
     if(!ctx) return;
+    
+    // حماية: إذا لم يتم تحميل Chart.js، لا تتوقف الصفحة
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js failed to load');
+        return;
+    }
+
     if(dashboardChartInstance) dashboardChartInstance.destroy(); 
     dashboardChartInstance = new Chart(ctx, {
         type: 'line',
