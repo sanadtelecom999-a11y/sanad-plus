@@ -1,4 +1,4 @@
-from ..blueprints import admin_bp
+from ..blueprints import admin_bp, main_bp, bot_bp
 # ============================================================
 # 🎛️ Admin Routes — v18.1 (Optimized: joinedload + cache)
 # ============================================================

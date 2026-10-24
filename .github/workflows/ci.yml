@@ -6,16 +6,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Install dependencies
-        run: pip install flake8
-      - name: Check Python Syntax
-        run: flake8 backend/ bot/ --count --select=E9,F63,F7,F82 --show-source --statistics
-      - name: Test App Import (Catch NameErrors)
-        run: python -c "import sys; sys.path.append('backend'); from app import create_app; create_app()"
+        with: { python-version: '3.13' }
+      - run: pip install flake8 pytest
+      - name: Syntax + undefined names
+        run: flake8 backend/ bot/ --select=E9,F63,F7,F82 --show-source
+      - name: Compile all
+        run: find backend bot -name "*.py" -not -path "*/__pycache__/*" -exec python -m py_compile {} \;
+      - name: Import blueprints + routes
+        run: |
+          cd backend
+          python -c "import app.blueprints"
+          for f in $(find . -path ./__pycache__ -prune -o -name "*.py" -print); do
+            mod=$(echo "$f" | sed 's|^\./||; s|/|.|g; s|\.py$||; s|\.__init__$||')
+            python -c "import $mod" || { echo "FAIL: $mod"; exit 1; }
+          done
+      - name: Run Pytest
+        run: pytest tests/ -v
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Check JS Syntax
-        run: node --check admin/app.js
+        with: { node-version: '20' }
+      - run: node --check admin/app.js

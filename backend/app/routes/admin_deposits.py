@@ -1,4 +1,4 @@
-from ..blueprints import admin_bp
+from ..blueprints import admin_bp, main_bp, bot_bp
 from sqlalchemy.orm import joinedload
 from decimal import Decimal
 from datetime import datetime, timezone
