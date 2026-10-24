@@ -327,14 +327,53 @@ window.deleteItem = async function(type, id) {
 async function loadSettings() { try { const d = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() }); document.getElementById('setStoreName').value = d.store_name||''; document.getElementById('setSupportLink').value = d.support_link||''; document.getElementById('setExchangeRate').value = d.exchange_rate||132; document.getElementById('setMaintenance').checked = d.maintenance_mode === '1'; } catch(e){} }
 window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' }) }); Swal.fire('تم', 'حفظ الإعدادات', 'success'); };
 
+
 async function loadArchive() {
     const c = document.getElementById('archiveContainer');
     c.innerHTML = '<div class="text-center text-slate-400">جاري الجلب...</div>';
     try {
         const d = await safeFetch(`${API_BASE}/admin/api/archive`, { headers: getHeaders() });
-        if ((!d.categories || d.categories.length === 0) && (!d.products || d.products.length === 0)) {
-            c.innerHTML = '<div class="glass p-6 rounded-3xl text-center text-slate-400">لا توجد عناصر مؤرشفة.</div>'; return;
+        
+        // طباعة البيانات في الكونسول لمعرفة شكلها الحقيقي
+        console.log("Archive API Response:", d);
+
+        let cats = [];
+        let prods = [];
+
+        // محاولة قراءة البيانات بأي هيكل يرسله السيرفر
+        if (Array.isArray(d)) {
+            // إذا كان السيرفر يرسل مصفوفة مباشرة
+            cats = d.filter(x => x.type === 'category' || x.parent_id === null);
+            prods = d.filter(x => x.type === 'product' || x.category_id !== undefined);
+        } else if (typeof d === 'object') {
+            // إذا كان السيرفر يرسل كائن يحتوي على مصفوفات
+            cats = d.categories || d.cats || d.archived_categories || [];
+            prods = d.products || d.prods || d.archived_products || [];
         }
+
+        if (cats.length === 0 && prods.length === 0) {
+            // في حال كانت البيانات موجودة لكن التسميات مختلفة، نعرضها كـ JSON
+            c.innerHTML = `<div class="glass p-6 rounded-3xl text-center text-slate-400">تم جلب البيانات لكن الهيكل غير معروف.<br><pre class="text-left text-xs mt-4" dir="ltr">${JSON.stringify(d, null, 2)}</pre></div>`; 
+            return;
+        }
+
+        let html = '';
+        if (cats.length > 0) {
+            html += `<div class="glass p-6 rounded-3xl mb-6"><h4 class="text-accent mb-4 font-bold">أقسام مؤرشفة (${cats.length})</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + 
+                cats.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><h5 class="mb-2">${x.name || 'قسم'}</h5><button onclick="restoreItem('categories', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
+        }
+        
+        if (prods.length > 0) {
+            html += `<div class="glass p-6 rounded-3xl"><h4 class="text-accent mb-4 font-bold">منتجات مؤرشفة (${prods.length})</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + 
+                prods.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><img src="${x.image||''}" class="w-12 h-12 rounded mx-auto mb-2 object-cover"><h5 class="mb-2">${x.name || 'منتج'}</h5><button onclick="restoreItem('products', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
+        }
+        
+        c.innerHTML = html;
+    } catch(e) { 
+        console.error(e);
+        c.innerHTML = `<div class="text-danger text-center">تعذر جلب الأرشيف: ${e.message}</div>`; 
+    }
+}
         let html = '';
         if (d.categories && d.categories.length > 0) html += `<div class="glass p-6 rounded-3xl"><h4 class="text-accent mb-4 font-bold">أقسام مؤرشفة</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + d.categories.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><h5 class="mb-2">${x.name}</h5><button onclick="restoreItem('categories', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
         if (d.products && d.products.length > 0) html += `<div class="glass p-6 rounded-3xl mt-4"><h4 class="text-accent mb-4 font-bold">منتجات مؤرشفة</h4><div class="grid grid-cols-2 md:grid-cols-4 gap-4">` + d.products.map(x => `<div class="bg-dark p-4 rounded-xl text-center border border-slate-700"><img src="${x.image||''}" class="w-12 h-12 rounded mx-auto mb-2"><h5 class="mb-2">${x.name}</h5><button onclick="restoreItem('products', ${x.id})" class="bg-success text-white px-2 py-1 rounded text-xs">استرجاع</button></div>`).join('') + `</div></div>`;
