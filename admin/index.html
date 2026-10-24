@@ -86,7 +86,7 @@
                         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
                         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-primary"><h3 class="text-slate-400 text-sm mb-1">الإيرادات المحققة</h3><div class="text-3xl font-bold text-white" id="statRevenue">$0.00</div></div>
                         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3><div class="text-3xl font-bold text-white" id="statDeposits">0</div></div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer hover:scale-105 transition" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[7])"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer hover:scale-105 transition" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[8])"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
                     </div>
                     <div class="glass rounded-3xl p-6 h-80"><canvas id="dashboardChart"></canvas></div>
                 </section>
@@ -105,7 +105,7 @@
                 <section id="section-support" class="content-section hidden">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
-                            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-accent">التذاكر المفتوحة</h3><button onclick="loadSupportTickets()" class="text-slate-400 hover:text-white transition"><i data-lucide="refresh-cw" size="18"></i></button></div>
+                            <h3 class="text-xl font-bold mb-4 text-accent">التذاكر المفتوحة</h3>
                             <div id="supportTicketsList" class="space-y-3"></div>
                         </div>
                         <div class="glass rounded-3xl p-6 h-[70vh] flex flex-col" id="supportChatArea">
@@ -152,7 +152,7 @@
                     </div>
                 </section>
 
-                <!-- 5. أقسام قيد التطوير -->
+                <!-- Placeholders for other sections -->
                 <section id="section-archive" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأرشيف (قيد التطوير)</div></section>
                 <section id="section-categories" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأقسام (قيد التطوير)</div></section>
                 <section id="section-products" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المنتجات (قيد التطوير)</div></section>
@@ -221,7 +221,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=15.0
+    <script src="app.js?v=99.0"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
