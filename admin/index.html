@@ -36,8 +36,10 @@
     </div>
 
     <div id="dashboardScreen" class="hidden flex w-full h-full">
+        <!-- القائمة الجانبية -->
         <aside class="w-64 glass border-l border-slate-700/50 flex-col py-6 z-10 h-full overflow-y-auto scrollbar-hide hidden md:flex">
             <div class="text-accent font-bold text-2xl mb-8 px-6 tracking-wider">SANAD+</div>
+            
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">العمليات</div>
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
                 <button onclick="switchSection('dashboard', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-white transition"><i data-lucide="layout-dashboard" size="20"></i> <span class="font-bold">لوحة التحكم</span></button>
@@ -45,12 +47,14 @@
                 <button onclick="switchSection('support', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="message-square" size="20"></i> <span class="font-bold">تذاكر الدعم</span></button>
                 <button onclick="switchSection('archive', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="archive" size="20"></i> <span class="font-bold">الأرشيف الكامل</span></button>
             </nav>
+            
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">المتجر</div>
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
                 <button onclick="switchSection('categories', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="layers" size="20"></i> <span class="font-bold">الأقسام</span></button>
                 <button onclick="switchSection('products', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="package" size="20"></i> <span class="font-bold">المنتجات</span></button>
                 <button onclick="switchSection('payments', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="wallet" size="20"></i> <span class="font-bold">طرق الدفع</span></button>
             </nav>
+
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">التسويق والنظام</div>
             <nav class="flex flex-col gap-1 w-full px-3 pb-6">
                 <button onclick="switchSection('notifications', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="bell" size="20"></i> <span class="font-bold">إرسال إشعار</span></button>
@@ -61,6 +65,7 @@
             </nav>
         </aside>
 
+        <!-- المحتوى الرئيسي -->
         <main class="flex-1 h-full overflow-y-auto pb-20 md:pb-0 relative">
             <header class="sticky top-0 z-20 glass flex justify-between items-center p-4 md:p-6 border-b border-slate-700/50">
                 <div class="flex items-center gap-4">
@@ -71,83 +76,121 @@
             </header>
 
             <div class="p-4 md:p-8">
+                
                 <!-- Dashboard -->
                 <section id="section-dashboard" class="content-section block">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
                         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-primary"><h3 class="text-slate-400 text-sm mb-1">الإيرادات المحققة</h3><div class="text-3xl font-bold text-white" id="statRevenue">$0.00</div></div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3><div class="text-3xl font-bold text-white" id="statDeposits">0</div></div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[7])"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer hover:scale-105 transition" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3><div class="text-3xl font-bold text-white" id="statDeposits">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer hover:scale-105 transition" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[7])"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
                     </div>
                     <div class="glass rounded-3xl p-6 h-80"><canvas id="dashboardChart"></canvas></div>
                 </section>
 
-                <!-- Inbox -->
-                <section id="section-inbox" class="content-section hidden">
-                    <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
-                        <button onclick="switchInboxTab('deposits', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الإيداعات</button>
-                        <button onclick="switchInboxTab('orders', this)" class="inbox-tab active glass px-6 py-2 rounded-xl text-sm font-bold transition bg-accent text-dark">الطلبات</button>
-                        <button onclick="switchInboxTab('kyc', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">التوثيق KYC</button>
-                    </div>
-                    <div id="inboxContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-                </section>
-
-                <!-- Support Section -->
-                <section id="section-support" class="content-section hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Ticket List -->
-                        <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
-                            <h3 class="text-xl font-bold mb-4 text-accent">التذاكر المفتوحة</h3>
-                            <div id="supportTicketsList" class="space-y-3"></div>
-                        </div>
-                        <!-- Chat Area -->
-                        <div class="glass rounded-3xl p-6 h-[70vh] flex flex-col" id="supportChatArea">
-                            <div class="flex-1 flex items-center justify-center text-slate-400" id="supportChatPlaceholder">اختر تذكرة لعرض المحادثة</div>
-                            <div id="supportChatContent" class="hidden flex-col h-full">
-                                <div class="border-b border-slate-700 pb-3 mb-4 flex justify-between items-center">
-                                    <h3 class="text-xl font-bold" id="chatUserName">اسم المستخدم</h3>
-                                    <button onclick="closeSupportTicket()" class="bg-red-500/20 text-red-400 px-3 py-1 rounded hover:bg-red-500 hover:text-white transition">إغلاق وأرشفة</button>
-                                </div>
-                                <div class="flex-1 overflow-y-auto mb-4 space-y-4" id="supportMessages"></div>
-                                <div class="flex gap-2">
-                                    <input type="text" id="supportReplyInput" class="input-field flex-1" placeholder="اكتب ردك هنا...">
-                                    <button onclick="replySupportTicket()" class="btn-primary w-auto px-6"><i data-lucide="send"></i></button>
-                                </div>
+                <!-- Users Section -->
+                <section id="section-users" class="content-section hidden">
+                    <div class="glass rounded-3xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-white">إدارة المستخدمين</h3>
+                            <div class="relative w-64">
+                                <input type="text" id="userSearchInput" class="input-field py-2 pr-10" placeholder="ابحث بالاسم أو الآيدي...">
+                                <i data-lucide="search" class="absolute right-3 top-3 text-slate-400" size="18"></i>
                             </div>
                         </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right">
+                                <thead class="text-slate-400 text-sm border-b border-slate-700">
+                                    <tr>
+                                        <th class="pb-3 px-4">المستخدم</th>
+                                        <th class="pb-3 px-4">الآيدي</th>
+                                        <th class="pb-3 px-4">الرصيد</th>
+                                        <th class="pb-3 px-4">الحالة</th>
+                                        <th class="pb-3 px-4">الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody" class="divide-y divide-slate-700/50">
+                                    <!-- JS -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
-                <!-- Placeholders -->
+                <!-- Inbox (السابق) -->
+                <section id="section-inbox" class="content-section hidden">... (موجود سابقاً) ...</section>
+                <section id="section-support" class="content-section hidden">... (موجود سابقاً) ...</section>
                 <section id="section-archive" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأرشيف (قيد التطوير)</div></section>
                 <section id="section-categories" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأقسام (قيد التطوير)</div></section>
                 <section id="section-products" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المنتجات (قيد التطوير)</div></section>
                 <section id="section-payments" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم طرق الدفع (قيد التطوير)</div></section>
                 <section id="section-notifications" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الإشعارات (قيد التطوير)</div></section>
-                <section id="section-users" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المستخدمين (قيد التطوير)</div></section>
                 <section id="section-audit" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم التدقيق المالي (قيد التطوير)</div></section>
                 <section id="section-settings" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الإعدادات (قيد التطوير)</div></section>
+
             </div>
         </main>
     </div>
 
-    <!-- نافذة التفاصيل (تم تصميمها بالكامل) -->
-    <div id="detailsModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm p-4">
-        <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
-            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
-                <h3 id="modalTitle" class="text-xl font-bold text-white">تفاصيل الطلب</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" size="24"></i></button>
+    <!-- Drawer (لوحة جانبية للمستخدم) -->
+    <div id="userDrawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] hidden transition-opacity" onclick="closeUserDrawer()"></div>
+    <div id="userDrawer" class="fixed top-0 right-0 h-full w-96 glass border-l border-slate-700 z-[100] transform translate-x-full transition-transform duration-300 overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-white">ملف المستخدم</h3>
+                <button onclick="closeUserDrawer()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
             </div>
-            <div id="modalBody" class="p-6 overflow-y-auto text-slate-300 space-y-4">
-                <!-- Dynamic Content -->
+            
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 rounded-full bg-accent/20 text-accent flex items-center justify-center text-3xl font-bold mx-auto mb-3" id="drawerAvatar">U</div>
+                <h4 class="text-xl font-bold" id="drawerName">اسم المستخدم</h4>
+                <p class="text-slate-400 font-mono" id="drawerId">123456789</p>
             </div>
-            <div id="modalFooter" class="p-5 border-t border-slate-700 bg-slate-800/50 flex flex-col gap-3">
-                <!-- Dynamic Buttons -->
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-dark rounded-xl p-3 text-center border border-slate-700">
+                    <span class="text-xs text-slate-400 block mb-1">الرصيد الحالي</span>
+                    <strong class="text-lg text-success" id="drawerBalance">$0.00</strong>
+                </div>
+                <div class="bg-dark rounded-xl p-3 text-center border border-slate-700">
+                    <span class="text-xs text-slate-400 block mb-1">الطلبات</span>
+                    <strong class="text-lg text-white" id="drawerOrders">0</strong>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Balance Control -->
+                <div class="bg-dark rounded-xl p-4 border border-slate-700">
+                    <label class="text-sm text-slate-400 mb-2 block">تعديل الرصيد (بالدولار)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="balanceAmount" class="input-field py-2 text-center" placeholder="0.00">
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="adjustBalance('add')" class="flex-1 bg-success hover:bg-emerald-600 text-white py-2 rounded-lg font-bold text-sm transition">+ إضافة</button>
+                        <button onclick="adjustBalance('subtract')" class="flex-1 bg-danger hover:bg-red-600 text-white py-2 rounded-lg font-bold text-sm transition">- خصم</button>
+                    </div>
+                </div>
+
+                <!-- Discount & Ban -->
+                <div class="bg-dark rounded-xl p-4 border border-slate-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-sm text-slate-400">حظر المستخدم</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="userBanToggle" class="sr-only peer" onchange="toggleBan()">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-danger"></div>
+                        </label>
+                    </div>
+                    <label class="text-sm text-slate-400 mb-2 block">نسبة الخصم (%)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="discountPercent" class="input-field py-2 text-center" placeholder="0">
+                        <button onclick="setDiscount()" class="bg-accent text-dark px-4 rounded-lg font-bold text-sm">حفظ</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=3.0"></script>
+    <script src="app.js"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>

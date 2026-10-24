@@ -111,6 +111,7 @@ function switchSection(sectionId, btn) {
     document.querySelector('aside').classList.remove('open');
 
     if (sectionId === 'inbox') loadInbox(currentInboxTab);
+    if (sectionId === 'users') loadUsers();
     if (sectionId === 'support') loadSupportTickets();
 }
 
@@ -358,3 +359,143 @@ async function checkInboxBadge() {
 }
 
 function escapeHtml(text) { if (!text) return ''; return String(text).replace(/[&<>"']/g, function(m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); }
+
+// ================= Users Logic =================
+let currentSelectedUser = null;
+let allUsersData = [];
+
+async function loadUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
+    lucide.createIcons();
+    
+    try {
+        const data = await safeFetch(`${API_BASE}/admin/api/users`, { headers: getHeaders() });
+        allUsersData = data;
+        renderUsersTable(data);
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-danger">${e.message}</td></tr>`;
+    }
+}
+
+function renderUsersTable(users) {
+    const tbody = document.getElementById('usersTableBody');
+    tbody.innerHTML = '';
+    
+    if (users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">لا يوجد مستخدمون مطابقون.</td></tr>';
+        return;
+    }
+
+    users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => openUserDrawer(u);
+        tr.innerHTML = `
+            <td class="py-3 px-4">
+                <div class="user-row">
+                    <div class="user-avatar-small">${(u.first_name || 'U')[0]}</div>
+                    <span class="font-bold text-white">${escapeHtml(u.first_name || 'مستخدم')}</span>
+                </div>
+            </td>
+            <td class="py-3 px-4 font-mono text-sm text-slate-400">${u.telegram_id}</td>
+            <td class="py-3 px-4 font-bold ${u.balance < 0 ? 'text-danger' : 'text-success'}">$${parseFloat(u.balance).toFixed(2)}</td>
+            <td class="py-3 px-4">
+                ${u.is_banned ? '<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs font-bold">محظور</span>' : '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold">نشط</span>'}
+            </td>
+            <td class="py-3 px-4">
+                <button class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">إدارة</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+}
+
+// البحث
+document.getElementById('userSearchInput')?.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allUsersData.filter(u => 
+        (u.first_name || '').toLowerCase().includes(q) || 
+        (u.username || '').toLowerCase().includes(q) || 
+        String(u.telegram_id).includes(q)
+    );
+    renderUsersTable(filtered);
+});
+
+// Drawer Logic
+function openUserDrawer(user) {
+    currentSelectedUser = user;
+    document.getElementById('drawerAvatar').textContent = (user.first_name || 'U')[0];
+    document.getElementById('drawerName').textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'مستخدم';
+    document.getElementById('drawerId').textContent = user.telegram_id;
+    document.getElementById('drawerBalance').textContent = `$${parseFloat(user.balance).toFixed(2)}`;
+    document.getElementById('drawerOrders').textContent = user.orders_count || 0;
+    document.getElementById('userBanToggle').checked = user.is_banned;
+    document.getElementById('discountPercent').value = user.general_discount || 0;
+    document.getElementById('balanceAmount').value = '';
+    
+    document.getElementById('userDrawerOverlay').classList.remove('hidden');
+    document.getElementById('userDrawer').classList.remove('translate-x-full');
+}
+
+function closeUserDrawer() {
+    document.getElementById('userDrawerOverlay').classList.add('hidden');
+    document.getElementById('userDrawer').classList.add('translate-x-full');
+    currentSelectedUser = null;
+}
+
+// Actions
+async function adjustBalance(action) {
+    if (!currentSelectedUser) return;
+    const amountInput = document.getElementById('balanceAmount').value;
+    const amount = parseFloat(amountInput);
+    if (!amount || amount <= 0) return showToast('أدخل مبلغاً صحيحاً', 'error');
+
+    const finalAmount = action === 'add' ? amount : -amount;
+    const actionText = action === 'add' ? 'إضافة' : 'خصم';
+
+    const confirm = await Swal.fire({
+        title: 'تأكيد', text: `هل تريد ${actionText} $${amount} من رصيد ${currentSelectedUser.first_name}؟`, icon: 'warning',
+        showCancelButton: true, confirmButtonColor: action === 'add' ? '#10b981' : '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء',
+        background: '#1e293b', color: '#fff'
+    });
+    if (!confirm.isConfirmed) return;
+
+    try {
+        await safeFetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/balance`, {
+            method: 'POST', headers: getHeaders(), body: JSON.stringify({ amount: finalAmount, note: `${actionText} يدوي من لوحة التحكم` })
+        });
+        showToast(`تم ${actionText} الرصيد بنجاح`, 'success');
+        // تحديث الرصيد في اللوحة الجانبية فوراً
+        currentSelectedUser.balance = parseFloat(currentSelectedUser.balance) + finalAmount;
+        document.getElementById('drawerBalance').textContent = `$${currentSelectedUser.balance.toFixed(2)}`;
+        document.getElementById('balanceAmount').value = '';
+        loadUsers(); // تحديث الجدول في الخلفية
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function toggleBan() {
+    if (!currentSelectedUser) return;
+    const isBanned = document.getElementById('userBanToggle').checked;
+    try {
+        await safeFetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method: 'POST', headers: getHeaders() });
+        currentSelectedUser.is_banned = isBanned;
+        showToast(isBanned ? 'تم حظر المستخدم' : 'تم فك الحظر', 'success');
+        loadUsers();
+    } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function setDiscount() {
+    if (!currentSelectedUser) return;
+    const percent = parseFloat(document.getElementById('discountPercent').value) || 0;
+    if (percent < 0 || percent > 100) return showToast('النسبة يجب أن تكون بين 0 و 100', 'error');
+    
+    try {
+        await safeFetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/discounts/general`, {
+            method: 'POST', headers: getHeaders(), body: JSON.stringify({ percent })
+        });
+        currentSelectedUser.general_discount = percent;
+        showToast('تم حفظ نسبة الخصم', 'success');
+        loadUsers();
+    } catch(e) { showToast(e.message, 'error'); }
+}
