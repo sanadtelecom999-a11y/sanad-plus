@@ -281,3 +281,20 @@ def admin_delete_product_discount(user_id, discount_id):
 # ============================================================
 # Categories — 🆕 v18.1: cached + eager
 # ============================================================
+@admin_bp.route('/users/<int:user_id>/history', methods=['GET'])
+@admin_required
+def get_user_history(user_id):
+    try:
+        from ..models import Order, Deposit, User
+        user = User.query.get(user_id)
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).limit(10).all()
+        deposits = Deposit.query.filter_by(user_id=user_id).order_by(Deposit.created_at.desc()).limit(10).all()
+        
+        return jsonify({
+            "orders": [{"id": o.id, "product": o.product_name if hasattr(o, 'product_name') else 'منتج', "amount": float(o.total_price), "status": o.status, "date": o.created_at.isoformat()} for o in orders],
+            "deposits": [{"id": d.id, "amount": float(d.amount), "status": d.status, "date": d.created_at.isoformat()} for d in deposits]
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

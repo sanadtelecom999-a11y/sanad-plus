@@ -81,46 +81,31 @@ function getHeaders() { return { 'Content-Type': 'application/json', 'Authorizat
 // ================= Live Updates (Maintenance & Notifications) =================
 let liveUpdateInterval = null;
 
-function startLiveUpdates() {
-    if (liveUpdateInterval) clearInterval(liveUpdateInterval);
-    
-    liveUpdateInterval = setInterval(async () => {
-        try {
-            // نستخدم دالة init لجلب حالة الصيانة والإشعارات
-            const res = await fetch(`${API_BASE}/api/miniapp/init`, {
-                method: 'POST', 
-                headers: getHeaders(),
-                body: JSON.stringify({ telegram_id: userData.telegram_id })
-            });
-            const data = await res.json();
-            
-            // 1. فحص الصيانة
-            if (data.maintenance) {
-                document.getElementById('maintenanceOverlay').classList.remove('hidden');
-                document.getElementById('maintenanceOverlay').classList.add('flex');
-            }
-            
-            // 2. فحص الحظر
-            if (data.banned) {
-                document.getElementById('bannedOverlay').classList.remove('hidden');
-                document.getElementById('bannedOverlay').classList.add('flex');
-            }
 
-            // 3. فحص الإشعارات الجديدة
+function startLiveUpdates() {
+    setInterval(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/miniapp/init`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ telegram_id: userData.telegram_id }) });
+            const data = await res.json();
+            if (data.maintenance) document.getElementById('maintenanceOverlay').classList.remove('hidden');
+            if (data.banned) document.getElementById('bannedOverlay').classList.remove('hidden');
+
+            // إشعارات جديدة
             if (data.notifications && data.notifications.length > 0) {
-                const latestNotif = data.notifications[0];
-                // نتحقق إذا كان هذا الإشعار جديداً لم نره من قبل
-                const lastSeenId = localStorage.getItem('last_notif_id');
-                if (lastSeenId !== String(latestNotif.id)) {
-                    localStorage.setItem('last_notif_id', String(latestNotif.id));
-                    showNotification(latestNotif);
+                const latest = data.notifications[0];
+                if (localStorage.getItem('last_notif_id') !== String(latest.id)) {
+                    localStorage.setItem('last_notif_id', String(latest.id));
+                    // عرض الإشعار للمستخدم (Toast)
+                    showToast(latest.message, 'info');
+                    // إضافة نقطة حمراء على أيقونة الدعم
+                    const supportBtn = document.querySelector('.top-header .icon-btn');
+                    if(supportBtn) supportBtn.innerHTML = '<span style="position:absolute;top:0;right:0;width:10px;height:10px;background:red;border-radius:50%;"></span>' + supportBtn.innerHTML;
                 }
             }
-
-        } catch(e) {
-            console.warn("Live update failed:", e);
-        }
-    }, 30000); // كل 30 ثانية
+        } catch(e) {}
+    }, 15000);
+}
+ // كل 30 ثانية
 }
 
 async function loadInitialData() {
@@ -489,68 +474,57 @@ function openFAQModal() { openSheet('faqSheet'); }
 function openSupportModal() { openSheet('supportModalSheet'); }
 
 // ================= Support Chat Logic (Real-time) =================
-function renderChatMessages(messages, isClosed = false) {
+
+function renderChatMessages(messages, isClosed = false, closedAt = null) {
     const container = document.getElementById('chatContainer');
     const input = document.getElementById('supportInput');
     const btn = document.getElementById('sendBtn');
 
-    // إذا لم تكن هناك رسائل (مستخدم جديد)
+    // التحقق من مرور 5 دقائق بعد الإغلاق
+    if (isClosed && closedAt) {
+        const closedTime = new Date(closedAt).getTime();
+        const now = new Date().getTime();
+        if (now - closedTime > 5 * 60 * 1000) {
+            container.innerHTML = '<div class="welcome-support-card"><div class="welcome-title">تم إنهاء المحادثة</div><div class="welcome-text">لبدء محادثة جديدة، يرجى إرسال رسالة جديدة.</div></div>';
+            input.disabled = false; btn.disabled = false;
+            input.placeholder = "اكتب رسالة لفتح تذكرة جديدة...";
+            return;
+        }
+    }
+
     if (messages.length === 0) {
-        container.innerHTML = ''; // لا نعرض شيئاً، فقط حقل الكتابة
-        input.disabled = false; btn.disabled = false;
-        input.placeholder = "اكتب رسالتك هنا...";
-        return;
+        container.innerHTML = ''; input.disabled = false; btn.disabled = false; return;
     }
 
     container.innerHTML = '';
-    
     messages.forEach((m, index) => {
-        // إذا كانت هذه أول رسالة للمستخدم، نعرض رسالة الترحيب بعدها
         if (index === 0 && m.sender_type === 'user') {
-            const userBubble = document.createElement('div');
-            userBubble.className = `chat-bubble user`;
-            userBubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
-            container.appendChild(userBubble);
-            
-            const welcomeBubble = document.createElement('div');
-            welcomeBubble.className = `chat-bubble system`;
-            welcomeBubble.innerHTML = `<span class="chat-sender">دعم SANAD+</span><span>أهلاً بك. تم استلام رسالتك وسيتم الرد عليك في أقرب وقت ممكن.<br>في هذه الأثناء، يرجى كتابة تفاصيل المشكلة الإضافية ليتم خدمتك بشكل أسرع.</span>`;
-            container.appendChild(welcomeBubble);
+            container.innerHTML += `<div class="chat-bubble user"><span class="chat-sender">أنت</span><span>${escapeHTML(m.message)}</span></div>`;
+            container.innerHTML += `<div class="chat-bubble system"><span class="chat-sender">دعم SANAD+</span><span>أهلاً بك. تم استلام رسالتك وسيتم الرد قريباً.</span></div>`;
             return;
         }
-
-        // عرض باقي الرسائل
         if (m.sender_type === 'system') {
-            const sysBubble = document.createElement('div');
-            sysBubble.className = `chat-bubble system`;
-            sysBubble.innerHTML = `<span>${escapeHTML(m.message)}</span>`;
-            container.appendChild(sysBubble);
+            container.innerHTML += `<div class="chat-bubble system"><span>${escapeHTML(m.message)}</span></div>`;
         } else {
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${m.sender_type}`;
-            bubble.innerHTML = `<span class="chat-sender">${m.sender_type === 'user' ? 'أنت' : 'إدارة سند بلس'}</span><span>${escapeHTML(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
-            container.appendChild(bubble);
+            const name = m.sender_type === 'user' ? 'أنت' : 'إدارة سند بلس';
+            container.innerHTML += `<div class="chat-bubble ${m.sender_type}"><span class="chat-sender">${name}</span><span>${escapeHTML(m.message)}</span></div>`;
         }
     });
 
-    // التحقق من حالة الإغلاق
     if (isClosed) {
         input.disabled = true; btn.disabled = true;
-        input.placeholder = "المحادثة مغلقة. سيتم فتح تذكرة جديدة بعد ساعة.";
-        input.style.textAlign = 'center';
+        input.placeholder = "المحادثة مغلقة. سيتم إخفاؤها قريباً...";
     } else {
         input.disabled = false; btn.disabled = false;
         input.placeholder = "اكتب رسالتك هنا...";
-        input.style.textAlign = 'right';
     }
-
     window.scrollTo(0, document.body.scrollHeight);
 }
 
 async function loadSupportChat() {
     try {
         const data = await safeFetch(`${API_BASE}/api/support`, { headers: getHeaders() });
-        renderChatMessages(data.messages, data.is_closed);
+        renderChatMessages(data.messages, data.is_closed, data.closed_at);
     } catch (e) { console.error(e); }
 }
 

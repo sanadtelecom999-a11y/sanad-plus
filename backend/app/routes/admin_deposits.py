@@ -90,3 +90,30 @@ def admin_reject_deposit(deposit_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@admin_bp.route('/support/start-chat', methods=['POST'])
+@admin_required
+def start_admin_chat():
+    data = request.json
+    user_id = data.get('user_id')
+    message = data.get('message')
+    if not user_id or not message:
+        return jsonify({"error": "Missing data"}), 400
+    try:
+        from ..models import SupportTicket, SupportMessage, db, User
+        user = User.query.get(user_id)
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        # البحث عن تذكرة مفتوحة أو إنشاء جديدة
+        ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
+        if not ticket:
+            ticket = SupportTicket(user_id=user_id, status='open')
+            db.session.add(ticket)
+            db.session.commit()
+            
+        msg = SupportMessage(ticket_id=ticket.id, sender_type='admin', message=message)
+        db.session.add(msg)
+        db.session.commit()
+        return jsonify({"success": True, "ticket_id": ticket.id}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
