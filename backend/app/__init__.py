@@ -14,7 +14,7 @@ from .models.base import (
     PaymentMethod, KYCRequest, Notification, Transaction,
     Setting, AdminActivity, ServiceRequest,
     Coupon, CouponUsage, Referral, FinancialAuditLog,
-    AdminOTPSession, JWTBlacklist, UserProductDiscount, SupportTicket
+    AdminOTPSession, JWTBlacklist, UserProductDiscount, SupportTicket, SupportMessage
 )
 
 # ============================================================

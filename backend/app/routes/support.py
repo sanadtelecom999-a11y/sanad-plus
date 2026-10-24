@@ -18,26 +18,23 @@ def send_support_message():
     
     if not message: return jsonify({"error": "الرسالة فارغة"}), 400
 
-    # البحث عن تذكرة مفتوحة للمستخدم أو إنشاء واحدة
     ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
     if not ticket:
         ticket = SupportTicket(user_id=user_id, status='open')
         db.session.add(ticket)
         db.session.commit()
         
-        # إشعار الأدمن برسالة جديدة لأول مرة
         admin_ids_str = os.getenv("TELEGRAM_ADMIN_IDS", "")
         admin_ids = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip()]
         if admin_ids:
             send_telegram_notification(admin_ids[0], f"🎫 تذكرة دعم جديدة من المستخدم #{user_id}")
     
-    # إضافة الرسالة
     new_msg = SupportMessage(ticket_id=ticket.id, sender_type='user', message=message)
     ticket.updated_at = datetime.now(timezone.utc)
     db.session.add(new_msg)
     db.session.commit()
     
-    return jsonify({"status": "ok", "message_id": new_msg.id}), 201
+    return jsonify({"status": "ok"}), 201
 
 @main.route('/api/support', methods=['GET'])
 @jwt_required()
@@ -49,10 +46,7 @@ def get_support_messages():
         return jsonify({"ticket_id": None, "messages": []}), 200
         
     messages = [{
-        "id": m.id,
-        "sender_type": m.sender_type,
-        "message": m.message,
-        "created_at": m.created_at.isoformat()
+        "id": m.id, "sender_type": m.sender_type, "message": m.message, "created_at": m.created_at.isoformat()
     } for m in ticket.messages]
     
     return jsonify({"ticket_id": ticket.id, "messages": messages}), 200
@@ -70,11 +64,8 @@ def admin_get_tickets():
         user = User.query.get(t.user_id)
         last_msg = t.messages[-1] if t.messages else None
         result.append({
-            "id": t.id,
-            "user_name": user.first_name if user else "مستخدم",
-            "user_telegram": user.telegram_id if user else "",
-            "last_message": last_msg.message if last_msg else "",
-            "updated_at": t.updated_at.isoformat() if t.updated_at else t.created_at.isoformat()
+            "id": t.id, "user_name": user.first_name if user else "مستخدم", "user_telegram": user.telegram_id if user else "",
+            "last_message": last_msg.message if last_msg else "", "updated_at": t.updated_at.isoformat() if t.updated_at else t.created_at.isoformat()
         })
     return jsonify(result)
 
@@ -83,17 +74,9 @@ def admin_get_tickets():
 @handle_errors
 def admin_get_ticket_messages(id):
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
-    
     ticket = SupportTicket.query.get(id)
     if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
-    
-    messages = [{
-        "id": m.id,
-        "sender_type": m.sender_type,
-        "message": m.message,
-        "created_at": m.created_at.isoformat()
-    } for m in ticket.messages]
-    
+    messages = [{"id": m.id, "sender_type": m.sender_type, "message": m.message, "created_at": m.created_at.isoformat()} for m in ticket.messages]
     return jsonify({"ticket_id": ticket.id, "messages": messages})
 
 @main.route('/admin/api/support/tickets/<int:id>/reply', methods=['POST'])
@@ -101,7 +84,6 @@ def admin_get_ticket_messages(id):
 @handle_errors
 def admin_reply_ticket(id):
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
-    
     data = request.get_json()
     reply = data.get('reply', '').strip()
     if not reply: return jsonify({"error": "الرد مطلوب"}), 400
@@ -113,7 +95,6 @@ def admin_reply_ticket(id):
     ticket.updated_at = datetime.now(timezone.utc)
     db.session.add(new_msg)
     db.session.commit()
-    
     return jsonify({"success": True})
 
 @main.route('/admin/api/support/tickets/<int:id>/close', methods=['POST'])
@@ -121,10 +102,8 @@ def admin_reply_ticket(id):
 @handle_errors
 def admin_close_ticket(id):
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
-    
     ticket = SupportTicket.query.get(id)
     if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
-    
     ticket.status = 'closed'
     db.session.commit()
     return jsonify({"success": True})
