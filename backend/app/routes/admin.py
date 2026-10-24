@@ -517,3 +517,43 @@ def admin_reject_order(order_id):
     db.session.commit()
     invalidate_admin("orders")
     return jsonify({"status": "rejected", "order_id": order.id}), 200
+
+
+# === Safe Chat Route ===
+@admin_bp.route('/support/start-chat', methods=['POST'])
+@admin_required
+def start_admin_chat():
+    from flask import request, jsonify
+    from ..models import db, User
+    from ..models.support import SupportTicket, SupportMessage
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        message = data.get('message')
+        user = User.query.get(user_id)
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        ticket = SupportTicket.query.filter_by(user_id=user_id, status='open').first()
+        if not ticket:
+            ticket = SupportTicket(user_id=user_id, status='open')
+            db.session.add(ticket)
+            db.session.commit()
+            
+        msg = SupportMessage(ticket_id=ticket.id, sender_type='admin', message=message)
+        db.session.add(msg)
+        db.session.commit()
+        return jsonify({"success": True, "ticket_id": ticket.id}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# === Audit Log Route ===
+@admin_bp.route('/audit', methods=['GET'])
+@admin_required
+def get_audit_log():
+    from flask import jsonify
+    from ..models import FinancialAuditLog
+    try:
+        logs = FinancialAuditLog.query.order_by(FinancialAuditLog.created_at.desc()).limit(100).all()
+        return jsonify([{"id": l.id, "action": l.action, "amount": float(l.amount) if l.amount else 0, "user_id": l.user_id, "date": l.created_at.isoformat()} for l in logs]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

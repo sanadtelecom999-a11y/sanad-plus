@@ -73,11 +73,11 @@ window.switchSection = function(id, btn) {
 };
 
 // Dashboard
-async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) { console.error(e); } }
+async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) {} }
 function initChart() { const c = document.getElementById('dashboardChart'); if(!c || typeof Chart==='undefined') return; if(dashboardChartInstance) dashboardChartInstance.destroy(); dashboardChartInstance = new Chart(c, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'المبيعات', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false } }); }
 
 // Inbox
-window.switchInboxTab = function(type, btn) { currentInboxTab = type; document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); selectedInboxItems.clear(); loadInbox(type); };
+window.switchInboxTab = function(type, btn) { currentInboxTab = type; document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); loadInbox(type); };
 async function loadInbox(type) {
     const c = document.getElementById('inboxContainer'); c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">جاري التحميل...</div>';
     let ep = type === 'deposits' ? '/admin/api/deposits' : (type === 'kyc' ? '/admin/api/kyc' : '/admin/api/orders');
@@ -155,7 +155,6 @@ window.adjustBalance = async function(action) {
 };
 window.toggleBan = async function() {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    // إرسال الحالة المطلوبة بشكل صريح
     const targetState = !currentSelectedUser.is_banned;
     await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ is_banned: targetState }) });
     closeUserDrawer(); loadUsers();
@@ -232,7 +231,7 @@ window.closeSupportTicket = async function() {
     switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
 };
 
-// Products, Categories, Payments (Real implementations)
+// Products, Categories, Payments
 async function loadProducts() { 
     const t = document.getElementById('productsTableBody'); 
     try { 
@@ -255,7 +254,6 @@ async function loadPayments() {
     } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } 
 }
 
-// Real Modals
 window.openFormModal = async function(type, id = null) {
     editingItemId = id;
     document.getElementById('formModal').classList.remove('hidden'); document.getElementById('formModal').classList.add('flex');
