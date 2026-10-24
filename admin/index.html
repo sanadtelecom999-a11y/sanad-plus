@@ -103,6 +103,10 @@
 
                 <!-- 3. تذاكر الدعم -->
                 <section id="section-support" class="content-section hidden">
+                    <div class="flex gap-2 mb-6">
+                        <button onclick="switchSupportTab('open', this)" class="inbox-tab active glass px-6 py-2 rounded-xl text-sm font-bold transition bg-accent text-dark">التذاكر المفتوحة</button>
+                        <button onclick="switchSupportTab('closed', this)" class="inbox-tab glass px-6 py-2 rounded-xl text-sm font-bold transition text-slate-400">الأرشيف</button>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="glass rounded-3xl p-6 h-[70vh] overflow-y-auto">
                             <h3 class="text-xl font-bold mb-4 text-accent">التذاكر المفتوحة</h3>
@@ -221,7 +225,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=99.0"></script>
+    <script src="app.js?v=20.0
     <script>lucide.createIcons();</script>
 </body>
 </html>

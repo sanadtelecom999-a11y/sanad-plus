@@ -209,3 +209,16 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 .welcome-title { font-size: 18px; font-weight: 800; color: var(--text-main); margin-bottom: 10px; }
 .welcome-text { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+
+.chat-bubble.system {
+    background: rgba(245, 158, 11, 0.1) !important;
+    border: 1px dashed var(--warning) !important;
+    color: var(--text-main) !important;
+    align-self: center !important;
+    text-align: center;
+    font-size: 13px;
+    max-width: 90%;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 10px auto;
+}

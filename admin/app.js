@@ -4,6 +4,7 @@ let dashboardChartInstance = null;
 let currentInboxTab = 'orders';
 let cachedItems = {};
 let currentTicketId = null;
+let currentSupportTab = "open";
 let adminChatPolling = null;
 let currentSelectedUser = null;
 let allUsersData = [];
@@ -276,6 +277,21 @@ async function checkInboxBadge() {
 }
 
 // ================= Support Chat Logic =================
+
+function switchSupportTab(status, btn) {
+    currentSupportTab = status;
+    document.querySelectorAll('#section-support .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
+    btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
+    
+    // إخفاء المحادثة عند الانتقال للأرشيف
+    document.getElementById('supportChatPlaceholder').classList.remove('hidden');
+    document.getElementById('supportChatContent').classList.add('hidden');
+    document.getElementById('supportChatContent').classList.remove('flex');
+    currentTicketId = null; stopAdminPolling();
+    
+    loadSupportTickets();
+}
+
 async function loadSupportTickets() {
     const list = document.getElementById('supportTicketsList');
     if (!list) return;
@@ -283,7 +299,7 @@ async function loadSupportTickets() {
     lucide.createIcons();
     
     try {
-        const data = await safeFetch(`${API_BASE}/admin/api/support/tickets`, { headers: getHeaders() });
+        const data = await safeFetch(`${API_BASE}/admin/api/support/tickets?status=${currentSupportTab}`, { headers: getHeaders() });
         list.innerHTML = '';
         if (data.length === 0) { list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر مفتوحة.</div>'; return; }
         
@@ -294,7 +310,10 @@ async function loadSupportTickets() {
             el.innerHTML = `
                 <div class="flex justify-between items-center mb-1"><strong class="text-white">${escapeHtml(t.user_name)}</strong><span class="text-xs text-slate-500 font-mono">${t.user_telegram}</span></div>
                 <div class="text-sm text-slate-400 truncate">${escapeHtml(t.last_message)}</div>
-                <div class="text-xs text-accent mt-2">${new Date(t.updated_at).toLocaleDateString('ar-EG')}</div>
+                <div class="flex justify-between items-center mt-2">
+                    <div class="text-xs text-accent">${new Date(t.updated_at).toLocaleDateString('ar-EG')}</div>
+                    ${t.status === 'closed' ? '<span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">مغلقة</span>' : ''}
+                </div>
             `;
             list.appendChild(el);
         });
@@ -309,6 +328,17 @@ function openSupportTicket(id, name, telegram) {
     document.getElementById('supportChatPlaceholder').classList.add('hidden');
     const chat = document.getElementById('supportChatContent'); chat.classList.remove('hidden'); chat.classList.add('flex');
     document.getElementById('chatUserName').textContent = `${name} (#${telegram})`;
+    
+    const closeBtn = document.querySelector('#supportChatContent button[onclick="closeSupportTicket()"]');
+    if (currentSupportTab === 'closed') {
+        if (closeBtn) closeBtn.style.display = 'none';
+        document.getElementById('supportReplyInput').disabled = true;
+        document.getElementById('supportReplyInput').placeholder = "التذكرة مغلقة";
+    } else {
+        if (closeBtn) closeBtn.style.display = 'block';
+        document.getElementById('supportReplyInput').disabled = false;
+        document.getElementById('supportReplyInput').placeholder = "اكتب ردك هنا...";
+    }
     
     loadTicketMessages(); startAdminPolling();
 }
@@ -358,7 +388,8 @@ async function closeSupportTicket() {
         document.getElementById('supportChatContent').classList.add('hidden');
         document.getElementById('supportChatContent').classList.remove('flex');
         document.getElementById('supportChatPlaceholder').classList.remove('hidden');
-        currentTicketId = null; stopAdminPolling(); loadSupportTickets();
+        currentTicketId = null; stopAdminPolling(); 
+        switchSupportTab('closed', document.querySelectorAll('#section-support .inbox-tab')[1]);
     } catch(e) { showToast(e.message, 'error'); }
 }
 

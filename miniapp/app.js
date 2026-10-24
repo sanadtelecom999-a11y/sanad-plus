@@ -441,33 +441,68 @@ function openFAQModal() { openSheet('faqSheet'); }
 function openSupportModal() { openSheet('supportModalSheet'); }
 
 // ================= Support Chat Logic (Real-time) =================
-function renderChatMessages(messages) {
+function renderChatMessages(messages, isClosed = false) {
     const container = document.getElementById('chatContainer');
+    const input = document.getElementById('supportInput');
+    const btn = document.getElementById('sendBtn');
+
+    // إذا لم تكن هناك رسائل (مستخدم جديد)
     if (messages.length === 0) {
-        container.innerHTML = `
-            <div class="welcome-support-card">
-                <div class="welcome-icon"><i data-lucide="headset" size="32"></i></div>
-                <h3 class="welcome-title">أهلاً بك في دعم SANAD+</h3>
-                <p class="welcome-text">تم فتح تذكرة دعم جديدة.<br>سيتم الرد عليك في أقرب وقت ممكن.<br>في هذه الأثناء يرجى كتابة المشكلة بالتفصيل ليتم خدمتك بشكل أسرع.</p>
-            </div>
-        `;
-        lucide.createIcons();
+        container.innerHTML = ''; // لا نعرض شيئاً، فقط حقل الكتابة
+        input.disabled = false; btn.disabled = false;
+        input.placeholder = "اكتب رسالتك هنا...";
         return;
     }
+
     container.innerHTML = '';
-    messages.forEach(m => {
-        const bubble = document.createElement('div');
-        bubble.className = `chat-bubble ${m.sender_type}`;
-        bubble.innerHTML = `<span class="chat-sender">${m.sender_type === 'user' ? 'أنت' : 'إدارة سند بلس'}</span><span>${escapeHTML(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
-        container.appendChild(bubble);
+    
+    messages.forEach((m, index) => {
+        // إذا كانت هذه أول رسالة للمستخدم، نعرض رسالة الترحيب بعدها
+        if (index === 0 && m.sender_type === 'user') {
+            const userBubble = document.createElement('div');
+            userBubble.className = `chat-bubble user`;
+            userBubble.innerHTML = `<span class="chat-sender">أنت</span><span>${escapeHTML(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
+            container.appendChild(userBubble);
+            
+            const welcomeBubble = document.createElement('div');
+            welcomeBubble.className = `chat-bubble system`;
+            welcomeBubble.innerHTML = `<span class="chat-sender">دعم SANAD+</span><span>أهلاً بك. تم استلام رسالتك وسيتم الرد عليك في أقرب وقت ممكن.<br>في هذه الأثناء، يرجى كتابة تفاصيل المشكلة الإضافية ليتم خدمتك بشكل أسرع.</span>`;
+            container.appendChild(welcomeBubble);
+            return;
+        }
+
+        // عرض باقي الرسائل
+        if (m.sender_type === 'system') {
+            const sysBubble = document.createElement('div');
+            sysBubble.className = `chat-bubble system`;
+            sysBubble.innerHTML = `<span>${escapeHTML(m.message)}</span>`;
+            container.appendChild(sysBubble);
+        } else {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${m.sender_type}`;
+            bubble.innerHTML = `<span class="chat-sender">${m.sender_type === 'user' ? 'أنت' : 'إدارة سند بلس'}</span><span>${escapeHTML(m.message)}</span><span class="chat-time">${new Date(m.created_at).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</span>`;
+            container.appendChild(bubble);
+        }
     });
+
+    // التحقق من حالة الإغلاق
+    if (isClosed) {
+        input.disabled = true; btn.disabled = true;
+        input.placeholder = "المحادثة مغلقة. سيتم فتح تذكرة جديدة بعد ساعة.";
+        input.style.textAlign = 'center';
+    } else {
+        input.disabled = false; btn.disabled = false;
+        input.placeholder = "اكتب رسالتك هنا...";
+        input.style.textAlign = 'right';
+    }
+
     window.scrollTo(0, document.body.scrollHeight);
 }
 
 async function loadSupportChat() {
     try {
         const data = await safeFetch(`${API_BASE}/api/support`, { headers: getHeaders() });
-        renderChatMessages(data.messages);
+        renderChatMessages(data.messages, data.is_closed);
     } catch (e) { console.error(e); }
 }
 
@@ -487,6 +522,7 @@ function stopChatPolling() { if (chatPollingInterval) { clearInterval(chatPollin
 
 async function sendSupportMessage() {
     const input = document.getElementById('supportInput');
+    if (input.disabled) return;
     const msg = input.value.trim(); if (!msg) return;
     input.value = ''; input.disabled = true;
     try {
