@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await authenticate();
         await loadInitialData();
         showApp();
+        startLiveUpdates();
     } catch (error) {
         console.error(error);
         document.getElementById('loadingScreen').classList.add('hidden');
@@ -75,6 +76,52 @@ async function authenticate() {
 }
 
 function getHeaders() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }; }
+
+
+// ================= Live Updates (Maintenance & Notifications) =================
+let liveUpdateInterval = null;
+
+function startLiveUpdates() {
+    if (liveUpdateInterval) clearInterval(liveUpdateInterval);
+    
+    liveUpdateInterval = setInterval(async () => {
+        try {
+            // نستخدم دالة init لجلب حالة الصيانة والإشعارات
+            const res = await fetch(`${API_BASE}/api/miniapp/init`, {
+                method: 'POST', 
+                headers: getHeaders(),
+                body: JSON.stringify({ telegram_id: userData.telegram_id })
+            });
+            const data = await res.json();
+            
+            // 1. فحص الصيانة
+            if (data.maintenance) {
+                document.getElementById('maintenanceOverlay').classList.remove('hidden');
+                document.getElementById('maintenanceOverlay').classList.add('flex');
+            }
+            
+            // 2. فحص الحظر
+            if (data.banned) {
+                document.getElementById('bannedOverlay').classList.remove('hidden');
+                document.getElementById('bannedOverlay').classList.add('flex');
+            }
+
+            // 3. فحص الإشعارات الجديدة
+            if (data.notifications && data.notifications.length > 0) {
+                const latestNotif = data.notifications[0];
+                // نتحقق إذا كان هذا الإشعار جديداً لم نره من قبل
+                const lastSeenId = localStorage.getItem('last_notif_id');
+                if (lastSeenId !== String(latestNotif.id)) {
+                    localStorage.setItem('last_notif_id', String(latestNotif.id));
+                    showNotification(latestNotif);
+                }
+            }
+
+        } catch(e) {
+            console.warn("Live update failed:", e);
+        }
+    }, 30000); // كل 30 ثانية
+}
 
 async function loadInitialData() {
     try {
@@ -251,6 +298,7 @@ async function submitOrder(e) {
         closeSheets();
         userData.balance -= parseFloat(data.total_price);
         showApp();
+        startLiveUpdates();
         showToast(`تم الطلب بنجاح! رقم: ${data.order_number}`, 'success');
     } catch (err) { showToast(err.message, 'error'); } 
     finally { btn.textContent = 'شراء الآن'; btn.disabled = false; }
