@@ -952,23 +952,19 @@ async function loadAuditLog() {
 }
 
 function exportData(type) {
-    if(type === 'users' && allUsersData.length > 0) {
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
-        csvContent += "الاسم,الآيدي,الرصيد,الحالة\n";
-        allUsersData.forEach(u => { 
-            csvContent += `"${u.first_name}","${u.telegram_id}","${u.balance}","${u.is_banned ? 'محظور' : 'نشط'}"\n`; 
-        });
-        const link = document.createElement("a"); 
-        link.setAttribute("href", encodeURI(csvContent)); 
-        link.setAttribute("download", "users.csv"); 
-        document.body.appendChild(link); 
-        link.click(); 
-        document.body.removeChild(link);
+        const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('تمت العملية بنجاح', 'success');
+            document.getElementById('detailsModal').classList.add('hidden');
+            if(type === 'orders') loadInbox('orders');
+            if(type === 'deposits') loadInbox('deposits');
+            if(type === 'kyc') loadInbox('kyc');
+        } else {
+            showToast(data.error || 'حدث خطأ', 'error');
+        }
+    } catch (error) {
+        console.error(error);
+        showToast('خطأ في الاتصال بالسيرفر', 'error');
     }
 }
-
-function closeFormModal() { document.getElementById('formModal').classList.add('hidden'); }
-
-// ================= Helpers =================
-function escapeHtml(text) { if (!text) return ''; return String(text).replace(/[&<>"']/g, function(m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); }
-if (typeof lucide !== 'undefined') lucide.createIcons();
