@@ -282,3 +282,30 @@ def admin_get_audit_v3():
     if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
     logs = FinancialAuditLog.query.order_by(FinancialAuditLog.id.desc()).limit(50).all()
     return jsonify([{"id": l.id, "action": l.action, "amount": float(l.amount) if l.amount else 0, "before": float(l.balance_before) if l.balance_before else 0, "after": float(l.balance_after) if l.balance_after else 0, "date": l.created_at.isoformat()} for l in logs])
+
+# 6. الإحصائيات المتقدمة (Analytics)
+@main.route("/admin/api/analytics", methods=["GET"])
+@jwt_required()
+@handle_errors
+def admin_get_analytics():
+    if not is_admin_user(get_jwt_identity()): return jsonify({"error": "غير مصرح"}), 403
+    
+    # 1. أكثر 5 منتجات مبيعاً (من الطلبات المكتملة)
+    top_products = db.session.query(
+        Product.name, db.func.count(Order.id).label('count')
+    ).join(Order, Product.id == Order.product_id).filter(Order.status == 'completed')     .group_by(Product.id).order_by(db.text('count DESC')).limit(5).all()
+
+    # 2. أكثر 5 مستخدمين من حيث إجمالي الشراء
+    top_users = db.session.query(
+        User.first_name, db.func.sum(Order.total_price).label('total')
+    ).join(Order, User.id == Order.user_id).filter(Order.status == 'completed')     .group_by(User.id).order_by(db.text('total DESC')).limit(5).all()
+
+    # 3. عدد الإيداعات المرفوضة
+    rejected_deposits = Deposit.query.filter_by(status='rejected').count()
+
+    return jsonify({
+        "top_products": [{"name": p[0], "count": p[1]} for p in top_products],
+        "top_users": [{"name": u[0] or "مستخدم", "total": float(u[1] or 0)} for u in top_users],
+        "rejected_deposits": rejected_deposits
+    })
+
