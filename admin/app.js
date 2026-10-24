@@ -36,9 +36,7 @@ async function safeFetch(url, options = {}) {
     try {
         const separator = url.includes('?') ? '&' : '?';
         const finalUrl = url + separator + '_t=' + new Date().getTime();
-        
         const res = await fetch(finalUrl, { ...options, cache: 'no-store' });
-        
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) throw new Error("السيرفر غير متاح");
         const data = await res.json();
@@ -47,14 +45,12 @@ async function safeFetch(url, options = {}) {
     } catch (error) { throw error; }
 }
 
-// ================= Login & Auth =================
+// ================= Auth =================
 async function handleLogin() {
     const user = document.getElementById('loginUser').value;
     const pass = document.getElementById('loginPass').value;
     const btn = document.getElementById('loginBtn');
-    
     if (!user || !pass) return showToast('أدخل البيانات أولاً', 'error');
-    
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
@@ -73,7 +69,6 @@ async function verifyOTP() {
     const code = document.getElementById('otpCode').value;
     const btn = document.getElementById('otpBtn');
     if (!code) return showToast('أدخل رمز التحقق', 'error');
-    
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
@@ -103,14 +98,11 @@ function switchSection(sectionId, btn) {
     document.querySelectorAll('.content-section').forEach(sec => sec.classList.add('hidden'));
     const target = document.getElementById('section-' + sectionId);
     if (target) target.classList.remove('hidden');
-    
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
     if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
-    
     const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين' };
     document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
     document.querySelector('aside').classList.remove('open');
-
     if (sectionId === 'inbox') loadInbox(currentInboxTab);
     if (sectionId === 'support') loadSupportTickets();
     if (sectionId === 'users') loadUsers();
@@ -131,14 +123,7 @@ async function loadDashboardStats() {
 
 function initChart() {
     const ctx = document.getElementById('dashboardChart');
-    if(!ctx) return;
-    
-    // حماية: إذا لم يتم تحميل Chart.js، لا تتوقف الصفحة
-    if (typeof Chart === 'undefined') {
-        console.warn('Chart.js failed to load');
-        return;
-    }
-
+    if(!ctx || typeof Chart === 'undefined') return;
     if(dashboardChartInstance) dashboardChartInstance.destroy(); 
     dashboardChartInstance = new Chart(ctx, {
         type: 'line',
@@ -147,7 +132,7 @@ function initChart() {
     });
 }
 
-// ================= Inbox Logic =================
+// ================= Inbox =================
 function switchInboxTab(type, btn) {
     currentInboxTab = type;
     document.querySelectorAll('#section-inbox .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
@@ -160,35 +145,26 @@ async function loadInbox(type) {
     container.innerHTML = '<div class="col-span-full text-center py-10"><i data-lucide="loader" class="animate-spin text-accent mx-auto mb-2"></i><p class="text-slate-400">جاري التحميل...</p></div>';
     lucide.createIcons();
     let endpoint = type === 'deposits' ? '/admin/api/deposits' : type === 'orders' ? '/admin/api/orders' : '/admin/api/kyc';
-
     try {
         const data = await safeFetch(`${API_BASE}${endpoint}`, { headers: getHeaders() });
         cachedItems[type] = data;
         container.innerHTML = '';
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر في هذا القسم حالياً.</div>';
-            return;
-        }
+        if (!data || data.length === 0) { container.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر حالياً.</div>'; return; }
         data.forEach(item => {
             const card = document.createElement('div');
-            card.className = 'inbox-card';
-            card.id = `inbox-card-${item.id}`;
+            card.className = 'inbox-card'; card.id = `inbox-card-${item.id}`;
             card.onclick = () => viewDetails(type, item.id);
-            
             if (type === 'orders') {
-                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">${item.order_number}</span><span class="badge bg-warning/20 text-warning px-2 py-1 rounded">$${parseFloat(item.total_price).toFixed(2)}</span></div><div class="inbox-details"><strong>${escapeHtml(item.product_name)}</strong><br>الكمية: ${item.quantity} | المستخدم: ${escapeHtml(item.user_name)} <span class="text-xs text-slate-500 font-mono">(#${item.user_telegram})</span></div>`;
+                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">${item.order_number}</span><span class="badge bg-warning/20 text-warning px-2 py-1 rounded">$${parseFloat(item.total_price).toFixed(2)}</span></div><div class="inbox-details"><strong>${escapeHtml(item.product_name)}</strong><br>الكمية: ${item.quantity} | ${escapeHtml(item.user_name)} <span class="text-xs text-slate-500 font-mono">(#${item.user_telegram})</span></div>`;
             } else if (type === 'deposits') {
-                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">${item.transaction_id}</span><span class="badge bg-success/20 text-success px-2 py-1 rounded">$${parseFloat(item.amount).toFixed(2)}</span></div><div class="inbox-details"><strong>إيداع جديد</strong><br>المستخدم: ${escapeHtml(item.user_name)}</div>`;
+                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">${item.transaction_id}</span><span class="badge bg-success/20 text-success px-2 py-1 rounded">$${parseFloat(item.amount).toFixed(2)}</span></div><div class="inbox-details"><strong>إيداع</strong><br>${escapeHtml(item.user_name)}</div>`;
             } else {
-                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">KYC #${item.id}</span></div><div class="inbox-details"><strong>${escapeHtml(item.full_name)}</strong><br>الهاتف: ${escapeHtml(item.phone)}</div>`;
+                card.innerHTML = `<div class="inbox-header"><span class="text-accent font-mono text-sm">KYC #${item.id}</span></div><div class="inbox-details"><strong>${escapeHtml(item.full_name)}</strong><br>${escapeHtml(item.phone)}</div>`;
             }
             container.appendChild(card);
         });
         lucide.createIcons();
-    } catch (e) {
-        container.innerHTML = `<div class="col-span-full text-center py-10 text-danger flex flex-col items-center justify-center"><i data-lucide="wifi-off" size="48" class="mb-4"></i><p class="font-bold mb-2">${e.message}</p><button onclick="loadInbox('${type}')" class="btn-primary" style="width:auto; padding:10px 20px;">إعادة المحاولة</button></div>`;
-        lucide.createIcons();
-    }
+    } catch (e) { container.innerHTML = `<div class="col-span-full text-center py-10 text-danger">${e.message}</div>`; }
 }
 
 function viewDetails(type, id) {
@@ -204,33 +180,15 @@ function viewDetails(type, id) {
         title.textContent = `تفاصيل الطلب: ${item.order_number}`;
         let deliveryStr = '';
         try { const parsed = typeof item.delivery_data === 'string' ? JSON.parse(item.delivery_data) : item.delivery_data; deliveryStr = Object.values(parsed).join(', '); } catch(e) { deliveryStr = item.delivery_data || ''; }
-
-        body.innerHTML = `
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div><span class="text-slate-500 text-xs block">المستخدم</span> <strong class="text-white">${escapeHtml(item.user_name)}</strong></div>
-                <div><span class="text-slate-500 text-xs block">الآيدي</span> <strong class="text-white font-mono">${item.user_telegram || '-'}</strong></div>
-                <div><span class="text-slate-500 text-xs block">المنتج</span> <strong class="text-white">${escapeHtml(item.product_name)}</strong></div>
-                <div><span class="text-slate-500 text-xs block">الكمية</span> <strong class="text-white">${item.quantity}</strong></div>
-                <div><span class="text-slate-500 text-xs block">الإجمالي</span> <strong class="text-success text-lg">$${parseFloat(item.total_price).toFixed(2)}</strong></div>
-            </div>
-            <div><label class="modal-label">بيانات الاستلام</label><div class="copy-input-group"><input type="text" id="deliveryDataInput" class="copy-input" value="${escapeHtml(deliveryStr)}" readonly><button onclick="copyToClipboard('deliveryDataInput')" class="copy-btn"><i data-lucide="copy" size="18"></i></button></div></div>
-            <div><label class="modal-label">ملاحظة الإدارة (تظهر للمستخدم)</label><textarea id="adminNote" class="admin-note-input" placeholder="اكتب ملاحظتك هنا..."></textarea></div>
-        `;
-        footer.innerHTML = `<div class="modal-actions"><button onclick="handleAction('orders', ${item.id}, 'status', 'failed')" class="btn-reject">رفض وإرجاع المبلغ</button><button onclick="handleAction('orders', ${item.id}, 'status', 'completed')" class="btn-complete">إكمال الطلب</button></div>`;
+        body.innerHTML = `<div class="grid grid-cols-2 gap-4 mb-4"><div><span class="text-slate-500 text-xs block">المستخدم</span> <strong class="text-white">${escapeHtml(item.user_name)}</strong></div><div><span class="text-slate-500 text-xs block">الآيدي</span> <strong class="text-white font-mono">${item.user_telegram || '-'}</strong></div><div><span class="text-slate-500 text-xs block">المنتج</span> <strong class="text-white">${escapeHtml(item.product_name)}</strong></div><div><span class="text-slate-500 text-xs block">الكمية</span> <strong class="text-white">${item.quantity}</strong></div><div><span class="text-slate-500 text-xs block">الإجمالي</span> <strong class="text-success text-lg">$${parseFloat(item.total_price).toFixed(2)}</strong></div></div><div><label class="modal-label">بيانات الاستلام</label><div class="copy-input-group"><input type="text" id="deliveryDataInput" class="copy-input" value="${escapeHtml(deliveryStr)}" readonly><button onclick="copyToClipboard('deliveryDataInput')" class="copy-btn"><i data-lucide="copy" size="18"></i></button></div></div><div><label class="modal-label">ملاحظة الإدارة</label><textarea id="adminNote" class="admin-note-input" placeholder="اكتب ملاحظتك هنا..."></textarea></div>`;
+        footer.innerHTML = `<div class="modal-actions"><button onclick="handleAction('orders', ${item.id}, 'status', 'failed')" class="btn-reject">رفض</button><button onclick="handleAction('orders', ${item.id}, 'status', 'completed')" class="btn-complete">إكمال</button></div>`;
     } else if (type === 'deposits') {
         title.textContent = `إيصال إيداع: ${item.transaction_id}`;
-        body.innerHTML = `
-            <div class="space-y-2 mb-4"><p><strong>المستخدم:</strong> ${escapeHtml(item.user_name)} (${item.user_telegram})</p><p><strong>المبلغ:</strong> $${parseFloat(item.amount).toFixed(2)}</p><p><strong>اسم المرسل:</strong> ${escapeHtml(item.sender_name || 'غير محدد')}</p></div>
-            <div class="rounded-xl overflow-hidden border border-slate-600">${item.proof_image ? `<img src="${item.proof_image}" class="w-full h-auto object-contain max-h-64">` : '<p class="text-center p-4">لا توجد صورة</p>'}</div>
-            <div class="mt-4"><label class="modal-label">ملاحظة الإدارة (تظهر للمستخدم)</label><textarea id="adminNote" class="admin-note-input" placeholder="اكتب ملاحظتك هنا..."></textarea></div>
-        `;
-        footer.innerHTML = `<button onclick="handleAction('deposits', ${item.id}, 'approve')" class="btn-action btn-approve">قبول الإيداع</button><button onclick="handleAction('deposits', ${item.id}, 'reject')" class="btn-action btn-reject">رفض الإيداع</button>`;
+        body.innerHTML = `<div class="space-y-2 mb-4"><p><strong>المستخدم:</strong> ${escapeHtml(item.user_name)} (${item.user_telegram})</p><p><strong>المبلغ:</strong> $${parseFloat(item.amount).toFixed(2)}</p><p><strong>اسم المرسل:</strong> ${escapeHtml(item.sender_name || 'غير محدد')}</p></div><div class="rounded-xl overflow-hidden border border-slate-600">${item.proof_image ? `<img src="${item.proof_image}" class="w-full h-auto object-contain max-h-64">` : '<p class="text-center p-4">لا توجد صورة</p>'}</div><div class="mt-4"><label class="modal-label">ملاحظة الإدارة</label><textarea id="adminNote" class="admin-note-input" placeholder="اكتب ملاحظتك هنا..."></textarea></div>`;
+        footer.innerHTML = `<button onclick="handleAction('deposits', ${item.id}, 'approve')" class="btn-action btn-approve">قبول</button><button onclick="handleAction('deposits', ${item.id}, 'reject')" class="btn-action btn-reject">رفض</button>`;
     } else {
         title.textContent = `طلب توثيق #${item.id}`;
-        body.innerHTML = `
-            <div class="space-y-2 mb-4"><p><strong>الاسم:</strong> ${escapeHtml(item.full_name)}</p><p><strong>الهاتف:</strong> ${escapeHtml(item.phone)}</p><p><strong>العنوان:</strong> ${escapeHtml(item.address)}</p></div>
-            <div class="rounded-xl overflow-hidden border border-slate-600">${item.selfie_image ? `<img src="${item.selfie_image}" class="w-full h-auto object-contain max-h-64">` : '<p class="text-center p-4">لا توجد صورة</p>'}</div>
-        `;
+        body.innerHTML = `<div class="space-y-2 mb-4"><p><strong>الاسم:</strong> ${escapeHtml(item.full_name)}</p><p><strong>الهاتف:</strong> ${escapeHtml(item.phone)}</p><p><strong>العنوان:</strong> ${escapeHtml(item.address)}</p></div><div class="rounded-xl overflow-hidden border border-slate-600">${item.selfie_image ? `<img src="${item.selfie_image}" class="w-full h-auto object-contain max-h-64">` : '<p class="text-center p-4">لا توجد صورة</p>'}</div>`;
         footer.innerHTML = `<button onclick="handleAction('kyc', ${item.id}, 'approve')" class="btn-action btn-approve">قبول</button><button onclick="handleAction('kyc', ${item.id}, 'reject')" class="btn-action btn-reject">رفض</button>`;
     }
     lucide.createIcons();
@@ -243,28 +201,23 @@ function copyToClipboard(elementId) {
 
 async function handleAction(type, id, action, extra) {
     const adminNote = document.getElementById('adminNote')?.value || '';
-    const confirm = await Swal.fire({ title: 'تأكيد الإجراء', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
+    const confirm = await Swal.fire({ title: 'تأكيد', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonColor: '#10b981', cancelButtonColor: '#ef4444', confirmButtonText: 'نعم', cancelButtonText: 'إلغاء', background: '#1e293b', color: '#fff' });
     if (!confirm.isConfirmed) return;
-
     const card = document.getElementById(`inbox-card-${id}`);
     if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
-
     let endpoint = ''; let body = { admin_note: adminNote };
     if (type === 'deposits') endpoint = `/admin/api/deposits/${id}/${action}`;
     else if (type === 'orders') { endpoint = `/admin/api/orders/${id}/status`; body.status = extra; }
     else if (type === 'kyc') endpoint = `/admin/api/kyc/${id}/${action}`;
-
     try {
         const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
         const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) throw new Error("السيرفر غير متاح حالياً.");
+        if (!contentType || !contentType.includes("application/json")) throw new Error("السيرفر غير متاح.");
         const data = await res.json();
         if (res.ok) {
             closeModal(); showToast('تمت العملية بنجاح', 'success'); if (card) card.remove();
             loadDashboardStats(); checkInboxBadge();
-        } else {
-            showToast(data.error || 'حدث خطأ', 'error'); if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; }
-        }
+        } else { showToast(data.error || 'حدث خطأ', 'error'); if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; } }
     } catch (e) { showToast(e.message, 'error'); if (card) { card.style.opacity = '1'; card.style.pointerEvents = 'auto'; } }
 }
 
@@ -280,17 +233,15 @@ async function checkInboxBadge() {
     } catch(e) {}
 }
 
-// ================= Support Chat Logic =================
+// ================= Support =================
 function switchSupportTab(status, btn) {
     currentSupportTab = status;
     document.querySelectorAll('#section-support .inbox-tab').forEach(b => { b.classList.remove('active', 'bg-accent', 'text-dark'); b.classList.add('glass', 'text-slate-400'); });
     btn.classList.remove('glass', 'text-slate-400'); btn.classList.add('active', 'bg-accent', 'text-dark');
-    
     document.getElementById('supportChatPlaceholder').classList.remove('hidden');
     document.getElementById('supportChatContent').classList.add('hidden');
     document.getElementById('supportChatContent').classList.remove('flex');
     currentTicketId = null; stopAdminPolling();
-    
     loadSupportTickets();
 }
 
@@ -299,24 +250,15 @@ async function loadSupportTickets() {
     if (!list) return;
     list.innerHTML = '<div class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</div>';
     lucide.createIcons();
-    
     try {
         const data = await safeFetch(`${API_BASE}/admin/api/support/tickets?status=${currentSupportTab}`, { headers: getHeaders() });
         list.innerHTML = '';
-        if (data.length === 0) { list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر في هذا القسم.</div>'; return; }
-        
+        if (data.length === 0) { list.innerHTML = '<div class="text-center py-4 text-slate-400">لا توجد تذاكر.</div>'; return; }
         data.forEach(t => {
             const el = document.createElement('div');
             el.className = 'support-ticket-item'; el.id = `ticket-${t.id}`;
             el.onclick = () => openSupportTicket(t.id, t.user_name, t.user_telegram);
-            el.innerHTML = `
-                <div class="flex justify-between items-center mb-1"><strong class="text-white">${escapeHtml(t.user_name)}</strong><span class="text-xs text-slate-500 font-mono">${t.user_telegram}</span></div>
-                <div class="text-sm text-slate-400 truncate">${escapeHtml(t.last_message)}</div>
-                <div class="flex justify-between items-center mt-2">
-                    <div class="text-xs text-accent">${new Date(t.updated_at).toLocaleDateString('ar-EG')}</div>
-                    ${t.status === 'closed' ? '<span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">مغلقة</span>' : ''}
-                </div>
-            `;
+            el.innerHTML = `<div class="flex justify-between items-center mb-1"><strong class="text-white">${escapeHtml(t.user_name)}</strong><span class="text-xs text-slate-500 font-mono">${t.user_telegram}</span></div><div class="text-sm text-slate-400 truncate">${escapeHtml(t.last_message)}</div><div class="flex justify-between items-center mt-2"><div class="text-xs text-accent">${new Date(t.updated_at).toLocaleDateString('ar-EG')}</div>${t.status === 'closed' ? '<span class="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">مغلقة</span>' : ''}</div>`;
             list.appendChild(el);
         });
     } catch(e) { list.innerHTML = `<div class="text-danger text-sm p-3">${e.message}</div>`; }
@@ -326,14 +268,11 @@ function openSupportTicket(id, name, telegram) {
     currentTicketId = id;
     document.querySelectorAll('.support-ticket-item').forEach(el => el.classList.remove('active'));
     const el = document.getElementById(`ticket-${id}`); if (el) el.classList.add('active');
-    
     document.getElementById('supportChatPlaceholder').classList.add('hidden');
     const chat = document.getElementById('supportChatContent'); chat.classList.remove('hidden'); chat.classList.add('flex');
     document.getElementById('chatUserName').textContent = `${name} (#${telegram})`;
-    
     const closeBtn = document.getElementById('closeTicketBtn');
     const input = document.getElementById('supportReplyInput');
-    
     if (currentSupportTab === 'closed') {
         if (closeBtn) closeBtn.style.display = 'none';
         if (input) { input.disabled = true; input.placeholder = "التذكرة مغلقة"; }
@@ -341,7 +280,6 @@ function openSupportTicket(id, name, telegram) {
         if (closeBtn) closeBtn.style.display = 'block';
         if (input) { input.disabled = false; input.placeholder = "اكتب ردك هنا..."; }
     }
-    
     loadTicketMessages(); startAdminPolling();
 }
 
@@ -382,7 +320,7 @@ async function replySupportTicket() {
 
 async function closeSupportTicket() {
     if (!currentTicketId) return;
-    const confirm = await Swal.fire({ title: 'إغلاق التذكرة', text: "سيتم أرشفتها ولن تظهر في القائمة.", icon: 'warning', showCancelButton: true, confirmButtonText: 'إغلاق', background: '#1e293b', color: '#fff' });
+    const confirm = await Swal.fire({ title: 'إغلاق التذكرة', text: "سيتم أرشفتها.", icon: 'warning', showCancelButton: true, confirmButtonText: 'إغلاق', background: '#1e293b', color: '#fff' });
     if (!confirm.isConfirmed) return;
     try {
         await safeFetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
@@ -395,7 +333,7 @@ async function closeSupportTicket() {
     } catch(e) { showToast(e.message, 'error'); }
 }
 
-// ================= Users Logic =================
+// ================= Users =================
 async function loadUsers() {
     const tbody = document.getElementById('usersTableBody');
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
@@ -411,13 +349,7 @@ function renderUsersTable(users) {
     if (users.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">لا يوجد مستخدمون.</td></tr>'; return; }
     users.forEach(u => {
         const tr = document.createElement('tr'); tr.onclick = () => openUserDrawer(u);
-        tr.innerHTML = `
-            <td class="py-3 px-4"><div class="user-row"><div class="user-avatar-small">${(u.first_name || 'U')[0]}</div><span class="font-bold text-white">${escapeHtml(u.first_name || 'مستخدم')}</span></div></td>
-            <td class="py-3 px-4 font-mono text-sm text-slate-400">${u.telegram_id}</td>
-            <td class="py-3 px-4 font-bold ${u.balance < 0 ? 'text-danger' : 'text-success'}">$${parseFloat(u.balance).toFixed(2)}</td>
-            <td class="py-3 px-4">${u.is_banned ? '<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs font-bold">محظور</span>' : '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold">نشط</span>'}</td>
-            <td class="py-3 px-4"><button class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">إدارة</button></td>
-        `;
+        tr.innerHTML = `<td class="py-3 px-4"><div class="user-row"><div class="user-avatar-small">${(u.first_name || 'U')[0]}</div><span class="font-bold text-white">${escapeHtml(u.first_name || 'مستخدم')}</span></div></td><td class="py-3 px-4 font-mono text-sm text-slate-400">${u.telegram_id}</td><td class="py-3 px-4 font-bold ${u.balance < 0 ? 'text-danger' : 'text-success'}">$${parseFloat(u.balance).toFixed(2)}</td><td class="py-3 px-4">${u.is_banned ? '<span class="bg-red-500/20 text-red-400 px-2 py-1 rounded text-xs font-bold">محظور</span>' : '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold">نشط</span>'}</td><td class="py-3 px-4"><button class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition">إدارة</button></td>`;
         tbody.appendChild(tr);
     });
     lucide.createIcons();
