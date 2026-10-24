@@ -524,13 +524,22 @@ class UserProductDiscount(db.Model):
         Index('idx_upd_user', 'user_id'),
         Index('idx_upd_product', 'product_id'),
     )
+
 class SupportTicket(db.Model):
     __tablename__ = 'support_tickets'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='open') # open, answered, closed
-    admin_reply = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), default='open') # open, closed
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = db.relationship('User', backref='support_tickets')
+    messages = db.relationship('SupportMessage', backref='ticket', cascade='all, delete-orphan', order_by='SupportMessage.created_at')
+
+class SupportMessage(db.Model):
+    __tablename__ = 'support_messages'
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey('support_tickets.id'), nullable=False)
+    sender_type = db.Column(db.String(10), nullable=False) # 'user' or 'admin'
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
