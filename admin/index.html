@@ -33,7 +33,7 @@
         .btn-success { width: 100%; background: #10b981; color: white; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; }
         .btn-success:hover { background: #059669; }
         .inbox-tab.active { background: #38bdf8; color: #0f172a; }
-        .nav-btn.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .nav-btn.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-right: 3px solid #38bdf8; }
         .support-ticket-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; }
         .support-ticket-item:hover { border-color: #38bdf8; }
         .support-ticket-item.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
@@ -60,6 +60,8 @@
         .btn-reject-action { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
         .user-row { display: flex; align-items: center; gap: 10px; }
         .user-avatar-small { width: 36px; height: 36px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; color: #38bdf8; font-weight: bold; }
+        .cat-card { background: #1e293b; border: 1px solid #334155; border-radius: 1.5rem; padding: 1rem; text-align: center; position: relative; }
+        .prod-img { width: 50px; height: 50px; border-radius: 12px; object-fit: cover; margin: auto; }
     </style>
 </head>
 <body class="h-screen overflow-hidden flex flex-col md:flex-row bg-dark text-white font-sans">
@@ -103,7 +105,6 @@
             <nav class="flex flex-col gap-1 w-full px-3 mb-6">
                 <button onclick="switchSection('categories', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="layers" size="20"></i> <span class="font-bold">الأقسام</span></button>
                 <button onclick="switchSection('products', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="package" size="20"></i> <span class="font-bold">المنتجات</span></button>
-                <button onclick="switchSection('payments', this)" class="nav-btn flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/50 text-slate-400 transition"><i data-lucide="wallet" size="20"></i> <span class="font-bold">طرق الدفع</span></button>
             </nav>
 
             <div class="px-4 mb-2 text-xs text-slate-500 font-bold">التسويق والنظام</div>
@@ -131,10 +132,10 @@
                 <!-- 1. لوحة القيادة -->
                 <section id="section-dashboard" class="content-section block">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent cursor-pointer" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-accent"><h3 class="text-slate-400 text-sm mb-1">إجمالي الطلبات</h3><div class="text-3xl font-bold text-white" id="statOrders">0</div></div>
                         <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-primary"><h3 class="text-slate-400 text-sm mb-1">الإيرادات المحققة</h3><div class="text-3xl font-bold text-white" id="statRevenue">$0.00</div></div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning cursor-pointer" onclick="switchSection('inbox', document.querySelectorAll('.nav-btn')[1])"><h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3><div class="text-3xl font-bold text-white" id="statDeposits">0</div></div>
-                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500 cursor-pointer" onclick="switchSection('users', document.querySelectorAll('.nav-btn')[8])"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-warning"><h3 class="text-slate-400 text-sm mb-1">الإيداعات المعتمدة</h3><div class="text-3xl font-bold text-white" id="statDeposits">0</div></div>
+                        <div class="glass bento-card rounded-3xl p-6 border-r-4 border-r-emerald-500"><h3 class="text-slate-400 text-sm mb-1">إجمالي المستخدمين</h3><div class="text-3xl font-bold text-white" id="statUsers">0</div></div>
                     </div>
                     <div class="glass rounded-3xl p-6 h-80"><canvas id="dashboardChart"></canvas></div>
                 </section>
@@ -208,33 +209,97 @@
                     <div class="glass rounded-3xl p-6 overflow-x-auto">
                         <table class="w-full text-right">
                             <thead class="text-slate-400 text-sm border-b border-slate-700">
-                                <tr>
-                                    <th class="pb-3 px-4">المرجع</th>
-                                    <th class="pb-3 px-4">المستخدم</th>
-                                    <th class="pb-3 px-4">التفاصيل</th>
-                                    <th class="pb-3 px-4">المبلغ</th>
-                                    <th class="pb-3 px-4">الحالة</th>
-                                    <th class="pb-3 px-4">التاريخ</th>
-                                </tr>
+                                <tr><th class="pb-3 px-4">المرجع</th><th class="pb-3 px-4">المستخدم</th><th class="pb-3 px-4">التفاصيل</th><th class="pb-3 px-4">المبلغ</th><th class="pb-3 px-4">الحالة</th><th class="pb-3 px-4">التاريخ</th></tr>
                             </thead>
                             <tbody id="archiveTableBody" class="divide-y divide-slate-700/50"></tbody>
                         </table>
                     </div>
                 </section>
 
-                <!-- Placeholders -->
-                <section id="section-categories" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الأقسام (قيد التطوير)</div></section>
-                <section id="section-products" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم المنتجات (قيد التطوير)</div></section>
-                <section id="section-payments" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم طرق الدفع (قيد التطوير)</div></section>
-                <section id="section-notifications" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الإشعارات (قيد التطوير)</div></section>
-                <section id="section-audit" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم التدقيق المالي (قيد التطوير)</div></section>
-                <section id="section-settings" class="content-section hidden"><div class="text-center text-slate-400 py-20">قسم الإعدادات (قيد التطوير)</div></section>
+                <!-- 6. الأقسام -->
+                <section id="section-categories" class="content-section hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">إدارة الأقسام</h3>
+                        <button onclick="openCategoryModal()" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة قسم</button>
+                    </div>
+                    <div id="categoriesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                </section>
+
+                <!-- 7. المنتجات -->
+                <section id="section-products" class="content-section hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white">إدارة المنتجات</h3>
+                        <button onclick="openProductModal()" class="bg-accent text-dark px-4 py-2 rounded-xl font-bold flex items-center gap-2"><i data-lucide="plus" size="18"></i> إضافة منتج</button>
+                    </div>
+                    <div class="glass rounded-3xl p-6 overflow-x-auto">
+                        <table class="w-full text-right">
+                            <thead class="text-slate-400 text-sm border-b border-slate-700">
+                                <tr><th class="pb-3 px-4">المنتج</th><th class="pb-3 px-4">القسم</th><th class="pb-3 px-4">السعر</th><th class="pb-3 px-4">إجراءات</th></tr>
+                            </thead>
+                            <tbody id="productsTableBody" class="divide-y divide-slate-700/50"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 8. الإشعارات -->
+                <section id="section-notifications" class="content-section hidden">
+                    <div class="glass rounded-3xl p-6 max-w-2xl">
+                        <h3 class="text-xl font-bold mb-4 text-accent">إرسال إشعار للمستخدمين</h3>
+                        <div class="mb-4">
+                            <label class="block text-slate-400 mb-2">المستهدف</label>
+                            <select id="notifTarget" class="input-field">
+                                <option value="all">جميع المستخدمين</option>
+                                <option value="specific">مستخدم محدد (ID)</option>
+                            </select>
+                        </div>
+                        <div class="mb-4 hidden" id="specificUserDiv">
+                            <label class="block text-slate-400 mb-2">Telegram ID</label>
+                            <input type="text" id="notifSpecificId" class="input-field" placeholder="123456789">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-slate-400 mb-2">نص الإشعار</label>
+                            <textarea id="notifMessage" class="input-field" rows="4" placeholder="اكتب رسالتك هنا..."></textarea>
+                        </div>
+                        <button onclick="sendNotification()" class="btn-primary">إرسال الآن</button>
+                    </div>
+                </section>
+
+                <!-- 9. الإعدادات -->
+                <section id="section-settings" class="content-section hidden">
+                    <div class="glass rounded-3xl p-6 max-w-2xl">
+                        <h3 class="text-xl font-bold mb-4 text-accent">إعدادات المتجر</h3>
+                        <div class="mb-4"><label class="block text-slate-400 mb-2">اسم المتجر</label><input type="text" id="setStoreName" class="input-field"></div>
+                        <div class="mb-4"><label class="block text-slate-400 mb-2">رابط الدعم</label><input type="text" id="setSupportLink" class="input-field"></div>
+                        <div class="mb-4"><label class="block text-slate-400 mb-2">سعر صرف الليرة السورية</label><input type="number" id="setExchangeRate" class="input-field"></div>
+                        <div class="flex items-center justify-between bg-slate-800/50 p-4 rounded-xl mb-6">
+                            <span class="font-bold text-white">وضع الصيانة</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="setMaintenance" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-danger"></div>
+                            </label>
+                        </div>
+                        <button onclick="saveSettings()" class="btn-success">حفظ الإعدادات</button>
+                    </div>
+                </section>
+
+                <!-- 10. التدقيق المالي -->
+                <section id="section-audit" class="content-section hidden">
+                    <div class="glass rounded-3xl p-6 overflow-x-auto">
+                        <h3 class="text-xl font-bold mb-4 text-white">سجل الحركات المالية</h3>
+                        <table class="w-full text-right">
+                            <thead class="text-slate-400 text-sm border-b border-slate-700">
+                                <tr><th class="pb-3 px-4">العملية</th><th class="pb-3 px-4">المبلغ</th><th class="pb-3 px-4">الرصيد قبل</th><th class="pb-3 px-4">الرصيد بعد</th><th class="pb-3 px-4">التاريخ</th></tr>
+                            </thead>
+                            <tbody id="auditTableBody" class="divide-y divide-slate-700/50"></tbody>
+                        </table>
+                    </div>
+                </section>
 
             </div>
         </main>
     </div>
 
-    <!-- Modal Details -->
+    <!-- Modals -->
     <div id="detailsModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm p-4">
         <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
             <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
@@ -246,7 +311,6 @@
         </div>
     </div>
 
-    <!-- Drawer Details -->
     <div id="userDrawerOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] hidden transition-opacity" onclick="closeUserDrawer()"></div>
     <div id="userDrawer" class="fixed top-0 right-0 h-full w-96 glass border-l border-slate-700 z-[100] transform translate-x-full transition-transform duration-300 overflow-y-auto">
         <div class="p-6">
@@ -290,6 +354,23 @@
         </div>
     </div>
 
+    <!-- Product & Category Modal (Reusable) -->
+    <div id="formModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center backdrop-blur-sm p-4">
+        <div class="glass w-full max-w-lg rounded-3xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800/50">
+                <h3 id="formTitle" class="text-xl font-bold text-white">إضافة</h3>
+                <button onclick="closeFormModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" size="24"></i></button>
+            </div>
+            <div id="formBody" class="p-6 overflow-y-auto text-slate-300 space-y-4">
+                <!-- Dynamic -->
+            </div>
+            <div class="p-5 border-t border-slate-700 bg-slate-800/50 flex justify-end gap-3">
+                <button onclick="closeFormModal()" class="px-4 py-2 rounded-xl text-slate-300 font-bold hover:bg-slate-700">إلغاء</button>
+                <button id="formSaveBtn" class="bg-accent text-dark px-6 py-2 rounded-xl font-bold hover:bg-sky-400">حفظ</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ================= Global Error Catcher =================
         window.onerror = function(msg, url, line) {
@@ -302,13 +383,15 @@
         let currentSessionId = null;
         let dashboardChartInstance = null;
         let currentInboxTab = 'orders';
-        let cachedItems = {};
-        let currentTicketId = null;
         let currentSupportTab = 'open';
-        let adminChatPolling = null;
-        let currentSelectedUser = null;
-        let allUsersData = [];
         let currentArchiveTab = 'orders';
+        let cachedItems = {};
+        let cachedCategories = [];
+        let cachedProducts = [];
+        let currentSelectedUser = null;
+        let currentTicketId = null;
+        let adminChatPolling = null;
+        let allUsersData = [];
 
         // ================= Initialization =================
         document.addEventListener('DOMContentLoaded', () => {
@@ -327,9 +410,7 @@
                     document.getElementById('loginScreen').style.display = 'none';
                     document.getElementById('dashboardScreen').style.display = 'flex';
                     showDashboard();
-                } else {
-                    throw new Error('Invalid token');
-                }
+                } else { throw new Error('Invalid token'); }
             } catch (e) {
                 localStorage.removeItem('admin_token');
                 showLoginScreen();
@@ -423,7 +504,7 @@
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-slate-700/50', 'text-white'));
             if (btn) btn.classList.add('active', 'bg-slate-700/50', 'text-white');
             
-            const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'archive': 'الأرشيف الكامل' };
+            const titles = { 'dashboard': 'لوحة التحكم', 'inbox': 'الإرساليات', 'support': 'تذاكر الدعم', 'users': 'إدارة المستخدمين', 'archive': 'الأرشيف الكامل', 'categories': 'إدارة الأقسام', 'products': 'إدارة المنتجات', 'notifications': 'الإشعارات', 'settings': 'الإعدادات', 'audit': 'التدقيق المالي' };
             document.getElementById('page-title').innerText = titles[sectionId] || 'لوحة التحكم';
             document.querySelector('aside').classList.remove('open');
             
@@ -431,6 +512,10 @@
             if (sectionId === 'support') loadSupportTickets();
             if (sectionId === 'users') loadUsers();
             if (sectionId === 'archive') loadArchiveData(currentArchiveTab);
+            if (sectionId === 'categories') loadCategories();
+            if (sectionId === 'products') loadProducts();
+            if (sectionId === 'settings') loadSettings();
+            if (sectionId === 'audit') loadAuditLog();
         }
 
         function toggleSidebar() { document.querySelector('aside').classList.toggle('open'); }
@@ -469,16 +554,11 @@
             const tbody = document.getElementById('archiveTableBody');
             tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            
             let endpoint = type === 'orders' ? '/admin/api/archive/orders' : type === 'deposits' ? '/admin/api/archive/deposits' : '/admin/api/archive/kyc';
-            
             try {
                 const data = await safeFetch(`${API_BASE}${endpoint}`, { headers: getHeaders() });
                 tbody.innerHTML = '';
-                if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا توجد بيانات في الأرشيف.</td></tr>';
-                    return;
-                }
+                if (!data || data.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا توجد بيانات في الأرشيف.</td></tr>'; return; }
                 data.forEach(item => {
                     const tr = document.createElement('tr');
                     if (type === 'orders') {
@@ -783,9 +863,218 @@
             } catch(e) { showToast(e.message, 'error'); }
         }
 
+        // ================= Products & Categories =================
+        async function loadCategories() {
+            const grid = document.getElementById('categoriesGrid');
+            grid.innerHTML = '<div class="col-span-full text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            try {
+                const data = await safeFetch(`${API_BASE}/admin/api/categories`, { headers: getHeaders() });
+                cachedCategories = data;
+                grid.innerHTML = '';
+                if(data.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد أقسام.</div>'; return; }
+                
+                data.forEach(c => {
+                    grid.innerHTML += `
+                        <div class="cat-card">
+                            <img src="${c.image || 'https://via.placeholder.com/60'}" class="w-16 h-16 rounded-xl mx-auto mb-3 object-cover">
+                            <h4 class="font-bold text-white mb-2">${escapeHtml(c.name)}</h4>
+                            <button onclick="deleteCategory(${c.id})" class="text-danger text-xs bg-red-500/10 px-3 py-1 rounded hover:bg-red-500/20">حذف</button>
+                        </div>
+                    `;
+                });
+            } catch(e) { grid.innerHTML = `<div class="text-danger">${e.message}</div>`; }
+        }
+
+        function openCategoryModal() {
+            document.getElementById('formTitle').innerText = 'إضافة قسم جديد';
+            document.getElementById('formBody').innerHTML = `
+                <div><label class="text-sm text-slate-400 block mb-2">اسم القسم</label><input type="text" id="catName" class="input-field"></div>
+                <div><label class="text-sm text-slate-400 block mb-2">صورة القسم</label><input type="file" id="catImage" class="input-field bg-slate-800" accept="image/*"></div>
+            `;
+            document.getElementById('formSaveBtn').onclick = saveCategory;
+            document.getElementById('formModal').classList.remove('hidden');
+        }
+
+        async function saveCategory() {
+            const name = document.getElementById('catName').value;
+            const fileInput = document.getElementById('catImage');
+            if(!name) return showToast('أدخل اسم القسم', 'error');
+            
+            let imageBase64 = null;
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                imageBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            try {
+                await safeFetch(`${API_BASE}/admin/api/categories`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ name, image: imageBase64 }) });
+                showToast('تم إضافة القسم', 'success'); closeFormModal(); loadCategories();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function deleteCategory(id) {
+            const confirm = await Swal.fire({ title: 'حذف القسم', text: "سيتم حذف القسم ومنتجاته", icon: 'warning', showCancelButton: true, confirmButtonText: 'حذف', background: '#1e293b', color: '#fff' });
+            if(!confirm.isConfirmed) return;
+            try {
+                await safeFetch(`${API_BASE}/admin/api/categories/${id}`, { method: 'DELETE', headers: getHeaders() });
+                showToast('تم الحذف', 'success'); loadCategories();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function loadProducts() {
+            const tbody = document.getElementById('productsTableBody');
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            try {
+                const data = await safeFetch(`${API_BASE}/admin/api/products`, { headers: getHeaders() });
+                cachedProducts = data;
+                tbody.innerHTML = '';
+                if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-10 text-slate-400">لا توجد منتجات.</td></tr>'; return; }
+                
+                data.forEach(p => {
+                    const cat = cachedCategories.find(c => c.id === p.category_id);
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="py-3 px-4 flex items-center gap-3">
+                                <img src="${p.image || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-lg object-cover">
+                                <span class="font-bold text-white">${escapeHtml(p.name)}</span>
+                            </td>
+                            <td class="py-3 px-4">${cat ? escapeHtml(cat.name) : 'غير معروف'}</td>
+                            <td class="py-3 px-4 font-bold text-success">$${parseFloat(p.base_price).toFixed(2)}</td>
+                            <td class="py-3 px-4">
+                                <button onclick="deleteProduct(${p.id})" class="text-danger bg-red-500/10 px-3 py-1 rounded hover:bg-red-500/20">حذف</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="text-danger">${e.message}</td></tr>`; }
+        }
+
+        function openProductModal() {
+            if(cachedCategories.length === 0) return showToast('أضف قسماً أولاً', 'error');
+            document.getElementById('formTitle').innerText = 'إضافة منتج جديد';
+            let catOptions = cachedCategories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            
+            document.getElementById('formBody').innerHTML = `
+                <div><label class="text-sm text-slate-400 block mb-2">اسم المنتج</label><input type="text" id="prodName" class="input-field"></div>
+                <div><label class="text-sm text-slate-400 block mb-2">القسم</label><select id="prodCat" class="input-field">${catOptions}</select></div>
+                <div><label class="text-sm text-slate-400 block mb-2">الوصف</label><textarea id="prodDesc" class="input-field"></textarea></div>
+                <div><label class="text-sm text-slate-400 block mb-2">السعر ($)</label><input type="number" id="prodPrice" class="input-field" value="0"></div>
+                <div><label class="text-sm text-slate-400 block mb-2">صورة المنتج</label><input type="file" id="prodImage" class="input-field bg-slate-800" accept="image/*"></div>
+            `;
+            document.getElementById('formSaveBtn').onclick = saveProduct;
+            document.getElementById('formModal').classList.remove('hidden');
+        }
+
+        async function saveProduct() {
+            const name = document.getElementById('prodName').value;
+            const category_id = document.getElementById('prodCat').value;
+            const description = document.getElementById('prodDesc').value;
+            const base_price = parseFloat(document.getElementById('prodPrice').value) || 0;
+            const fileInput = document.getElementById('prodImage');
+            
+            if(!name) return showToast('أدخل اسم المنتج', 'error');
+            
+            let imageBase64 = null;
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                imageBase64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            try {
+                await safeFetch(`${API_BASE}/admin/api/products`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ name, category_id, description, base_price, image: imageBase64 }) });
+                showToast('تم إضافة المنتج', 'success'); closeFormModal(); loadProducts();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function deleteProduct(id) {
+            const confirm = await Swal.fire({ title: 'حذف المنتج', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonText: 'حذف', background: '#1e293b', color: '#fff' });
+            if(!confirm.isConfirmed) return;
+            try {
+                await safeFetch(`${API_BASE}/admin/api/products/${id}`, { method: 'DELETE', headers: getHeaders() });
+                showToast('تم الحذف', 'success'); loadProducts();
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        function closeFormModal() { document.getElementById('formModal').classList.add('hidden'); }
+
+        // ================= Notifications & Settings =================
+        document.getElementById('notifTarget')?.addEventListener('change', (e) => {
+            if(e.target.value === 'specific') document.getElementById('specificUserDiv').classList.remove('hidden');
+            else document.getElementById('specificUserDiv').classList.add('hidden');
+        });
+
+        async function sendNotification() {
+            const target = document.getElementById('notifTarget').value;
+            const specificId = document.getElementById('notifSpecificId').value;
+            const message = document.getElementById('notifMessage').value;
+            if(!message) return showToast('اكتب رسالة أولاً', 'error');
+            
+            try {
+                await safeFetch(`${API_BASE}/admin/api/notifications`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ target: target === 'specific' ? specificId : 'all', message, title: 'إشعار إداري' }) });
+                showToast('تم إرسال الإشعار بنجاح', 'success');
+                document.getElementById('notifMessage').value = '';
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function loadSettings() {
+            try {
+                const data = await safeFetch(`${API_BASE}/admin/api/settings`, { headers: getHeaders() });
+                document.getElementById('setStoreName').value = data.store_name || 'SANAD+';
+                document.getElementById('setSupportLink').value = data.support_link || '';
+                document.getElementById('setExchangeRate').value = data.exchange_rate || 132;
+                document.getElementById('setMaintenance').checked = data.maintenance_mode === '1';
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        async function saveSettings() {
+            const data = {
+                store_name: document.getElementById('setStoreName').value,
+                support_link: document.getElementById('setSupportLink').value,
+                exchange_rate: document.getElementById('setExchangeRate').value,
+                maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0'
+            };
+            try {
+                await safeFetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+                showToast('تم حفظ الإعدادات', 'success');
+            } catch(e) { showToast(e.message, 'error'); }
+        }
+
+        // ================= Audit =================
+        async function loadAuditLog() {
+            const tbody = document.getElementById('auditTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400"><i data-lucide="loader" class="animate-spin mx-auto mb-2"></i>جاري التحميل...</td></tr>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            try {
+                const data = await safeFetch(`${API_BASE}/admin/api/audit`, { headers: getHeaders() });
+                tbody.innerHTML = '';
+                if(data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-slate-400">لا توجد حركات.</td></tr>'; return; }
+                
+                data.forEach(l => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="py-3 px-4">${escapeHtml(l.action)}</td>
+                            <td class="py-3 px-4 font-bold ${l.amount > 0 ? 'text-success' : 'text-danger'}">${l.amount > 0 ? '+' : ''}$${Math.abs(l.amount).toFixed(2)}</td>
+                            <td class="py-3 px-4">$${parseFloat(l.before).toFixed(2)}</td>
+                            <td class="py-3 px-4">$${parseFloat(l.after).toFixed(2)}</td>
+                            <td class="py-3 px-4 text-sm text-slate-400">${new Date(l.date).toLocaleString('ar-EG')}</td>
+                        </tr>
+                    `;
+                });
+            } catch(e) { tbody.innerHTML = `<tr><td colspan="5" class="text-danger">${e.message}</td></tr>`; }
+        }
+
+        // ================= Helpers =================
         function escapeHtml(text) { if (!text) return ''; return String(text).replace(/[&<>"']/g, function(m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]; }); }
-        
-        // تشغيل الأيقونات عند فتح الصفحة
         if (typeof lucide !== 'undefined') lucide.createIcons();
     </script>
 </body>
