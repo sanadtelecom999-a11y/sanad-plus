@@ -72,7 +72,7 @@ window.verifyOTP = async function() {
 window.logout = function() { localStorage.removeItem('admin_token'); location.reload(); };
 window.getHeaders = function() { return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }; };
 
-// ================= التنقل والواجهة =================
+// ================= التنقل =================
 window.showDashboard = function() {
     loadDashboardStats(); initChart();
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -115,7 +115,7 @@ function initChart() {
     dashboardChartInstance = new Chart(ctx, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'حركة المبيعات ($)', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { x: { ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } } } });
 }
 
-// ================= الإرساليات (Orders, Deposits, KYC) =================
+// ================= الإرساليات =================
 window.switchInboxTab = function(type, btn) {
     currentInboxTab = type;
     document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active'));
@@ -199,8 +199,8 @@ async function loadUsers() {
                 <td class="py-3 px-2 text-success font-bold">$${parseFloat(u.balance).toFixed(2)}</td>
                 <td class="py-3 px-2">${u.is_banned ? '<span class="text-red-400">محظور</span>' : '<span class="text-green-400">نشط</span>'}</td>
                 <td class="py-3 px-2 text-center flex justify-center gap-2">
-                    <button onclick="openUserDrawer(${u.id})" class="text-accent hover:text-white" title="عرض"><i data-lucide="eye" size="18"></i></button>
-                    <button onclick="openUserDrawer(${u.id})" class="bg-slate-700 px-3 py-1 rounded text-xs">إدارة</button>
+                    <button onclick="openUserView(${u.id})" class="text-accent hover:text-white" title="عرض التفاصيل"><i data-lucide="eye" size="18"></i></button>
+                    <button onclick="openUserManage(${u.id})" class="bg-slate-700 px-3 py-1 rounded text-xs hover:bg-slate-600">إدارة</button>
                 </td>
             </tr>`;
         });
@@ -208,51 +208,77 @@ async function loadUsers() {
     } catch (e) { tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">${e.message}</td></tr>`; }
 }
 
-window.openUserDrawer = async function(id) {
+window.openUserView = async function(id) {
     const user = allUsersData.find(u => u.id === id); if(!user) return;
-    currentSelectedUser = user;
-    
     const content = document.getElementById('userDetailsContent');
+    
     content.innerHTML = '<div class="text-center py-10 text-slate-400">جاري جلب التفاصيل...</div>';
     document.getElementById('userDrawerOverlay').classList.remove('hidden');
     document.getElementById('userDrawer').classList.remove('translate-x-full');
 
     try {
-        // جلب تفاصيل المستخدم الكاملة (إحصائيات، توثيق، الخ)
-        const details = await safeFetch(`${API_BASE}/admin/api/users/${id}/details`, { headers: getHeaders() }).catch(() => null);
+        // جلب التفاصيل الإحصائية من السيرفر
+        const details = await safeFetch(`${API_BASE}/admin/api/users/${id}/details`, { headers: getHeaders() }).catch(() => ({}));
+        const snId = `SN-${String(user.telegram_id).padStart(6, '0')}`;
         
         content.innerHTML = `
             <div class="text-center mb-6">
                 <div class="w-20 h-20 rounded-full bg-accent/20 text-accent flex items-center justify-center text-3xl font-bold mx-auto mb-3">${(user.first_name || 'U')[0]}</div>
                 <h4 class="text-xl font-bold">${escapeHtml(user.first_name || 'مستخدم')}</h4>
-                <p class="text-slate-400 font-mono">${user.telegram_id}</p>
+                <p class="text-slate-400 font-mono" dir="ltr">@${escapeHtml(user.username || 'لا يوجد')}</p>
+                <p class="text-accent font-mono text-lg font-bold mt-1">${snId}</p>
+                <p class="text-slate-500 font-mono text-sm mt-1">${user.telegram_id}</p>
                 ${user.kyc_status === 'verified' ? '<span class="inline-block mt-2 bg-success/20 text-success px-3 py-1 rounded-full text-xs">موثق ✓</span>' : '<span class="inline-block mt-2 bg-slate-700 text-slate-300 px-3 py-1 rounded-full text-xs">غير موثق</span>'}
             </div>
 
             <div class="grid grid-cols-2 gap-3 mb-6">
-                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">الرصيد</span><strong class="text-lg text-success">$${parseFloat(user.balance).toFixed(2)}</strong></div>
-                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">الطلبات</span><strong class="text-lg">${details?.total_orders || 0}</strong></div>
-                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">الإيداعات</span><strong class="text-lg">${details?.total_deposits || 0}</strong></div>
-                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700 col-span-2"><span class="text-xs text-slate-400 block mb-1">أكثر منتج تم شراؤه</span><strong class="text-sm text-accent">${details?.favorite_product || 'لا يوجد'}</strong></div>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-dark rounded-xl p-4 border border-slate-700">
-                    <label class="text-sm text-slate-400 mb-2 block">تعديل الرصيد (بالدولار)</label>
-                    <input type="number" id="balanceAmount" class="input-field mb-3 text-center" placeholder="0.00">
-                    <div class="flex gap-2">
-                        <button onclick="adjustBalance('add')" class="flex-1 btn-success py-2 text-sm">+ إضافة</button>
-                        <button onclick="adjustBalance('subtract')" class="flex-1 btn-danger py-2 text-sm">- خصم</button>
-                    </div>
-                </div>
-                <button onclick="toggleBan()" class="w-full ${user.is_banned ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} py-3 rounded-xl font-bold">
-                    ${user.is_banned ? 'فك الحظر' : 'حظر المستخدم'}
-                </button>
+                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">الرصيد الحالي</span><strong class="text-lg text-success">$${parseFloat(user.balance).toFixed(2)}</strong></div>
+                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">إجمالي الطلبات</span><strong class="text-lg">${details.total_orders || 0}</strong></div>
+                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700"><span class="text-xs text-slate-400 block mb-1">إجمالي الإيداعات</span><strong class="text-lg">${details.total_deposits || 0}</strong></div>
+                <div class="bg-dark p-3 rounded-xl text-center border border-slate-700 col-span-2"><span class="text-xs text-slate-400 block mb-1">المنتج الأكثر طلباً</span><strong class="text-sm text-accent">${escapeHtml(details.favorite_product || 'لا يوجد')}</strong></div>
             </div>
         `;
     } catch(e) {
         content.innerHTML += `<p class="text-danger text-center mt-4">تعذر جلب بعض التفاصيل الإضافية</p>`;
     }
+};
+
+window.openUserManage = function(id) {
+    const user = allUsersData.find(u => u.id === id); if(!user) return;
+    currentSelectedUser = user;
+    const content = document.getElementById('userDetailsContent');
+    
+    content.innerHTML = `
+        <div class="text-center mb-6">
+            <h4 class="text-xl font-bold">${escapeHtml(user.first_name || 'مستخدم')}</h4>
+            <p class="text-slate-400 font-mono text-sm">${user.telegram_id}</p>
+        </div>
+
+        <div class="space-y-4">
+            <div class="bg-dark rounded-xl p-4 border border-slate-700">
+                <label class="text-sm text-slate-400 mb-2 block">تعديل الرصيد (بالدولار)</label>
+                <input type="number" id="balanceAmount" class="input-field mb-3 text-center" placeholder="0.00">
+                <div class="flex gap-2">
+                    <button onclick="adjustBalance('add')" class="flex-1 btn-success py-2 text-sm">+ إضافة</button>
+                    <button onclick="adjustBalance('subtract')" class="flex-1 btn-danger py-2 text-sm">- خصم</button>
+                </div>
+            </div>
+
+            <div class="bg-dark rounded-xl p-4 border border-slate-700">
+                <label class="text-sm text-slate-400 mb-2 block">خصم خاص (%)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="discountPercent" class="input-field text-center" placeholder="0" value="${user.general_discount || 0}">
+                    <button onclick="setUserDiscount()" class="bg-accent text-dark px-4 rounded-xl font-bold">حفظ</button>
+                </div>
+            </div>
+
+            <button onclick="toggleBan()" class="w-full ${user.is_banned ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} py-3 rounded-xl font-bold">
+                ${user.is_banned ? 'فك الحظر (تفعيل الحساب)' : 'حظر المستخدم'}
+            </button>
+        </div>
+    `;
+    document.getElementById('userDrawerOverlay').classList.remove('hidden');
+    document.getElementById('userDrawer').classList.remove('translate-x-full');
 };
 
 window.closeUserDrawer = function() {
@@ -265,7 +291,6 @@ window.adjustBalance = async function(action) {
     const amount = parseFloat(document.getElementById('balanceAmount').value);
     if (!amount || amount <= 0) return Swal.fire('تنبيه', 'أدخل مبلغاً صحيحاً', 'warning');
     
-    // تأكيد ثنائي
     const step1 = await Swal.fire({ title: 'تأكيد', text: `هل تريد ${action === 'add' ? 'إضافة' : 'خصم'} $${amount}؟`, icon: 'warning', showCancelButton: true, confirmButtonText: 'متابعة', background: '#1e293b', color: '#fff' });
     if (!step1.isConfirmed) return;
     
@@ -278,6 +303,16 @@ window.adjustBalance = async function(action) {
         Swal.fire('تم', 'تم تعديل الرصيد', 'success');
         closeUserDrawer(); loadUsers();
     } catch (e) { Swal.fire('خطأ', 'فشل التعديل', 'error'); }
+};
+
+window.setUserDiscount = async function() {
+    if (!currentSelectedUser) return;
+    const percent = parseFloat(document.getElementById('discountPercent').value) || 0;
+    try {
+        await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/discount`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ percent }) });
+        Swal.fire('تم', 'تم حفظ الخصم', 'success');
+        closeUserDrawer();
+    } catch (e) { Swal.fire('خطأ', 'فشل الحفظ', 'error'); }
 };
 
 window.toggleBan = async function() {
@@ -352,7 +387,7 @@ async function loadPayments() {
     } catch (e) { grid.innerHTML = `<div class="text-danger">${e.message}</div>`; }
 }
 
-// ================= النوافذ المنبثقة للإضافة والتعديل =================
+// ================= النوافذ المنبثقة (مع رفع الصور) =================
 window.openFormModal = async function(type, id = null) {
     editingItemId = id;
     const title = document.getElementById('formTitle');
@@ -363,17 +398,20 @@ window.openFormModal = async function(type, id = null) {
 
     if (type === 'category') {
         title.innerText = id ? 'تعديل قسم' : 'إضافة قسم';
-        body.innerHTML = `<div><label class="block mb-2 text-slate-400">اسم القسم</label><input type="text" id="catName" class="input-field mb-4"></div><div><label class="block mb-2 text-slate-400">رابط الصورة</label><input type="text" id="catImage" class="input-field" placeholder="URL"></div>`;
+        body.innerHTML = `
+            <div><label class="block mb-2 text-slate-400">اسم القسم</label><input type="text" id="catName" class="input-field mb-4"></div>
+            <div><label class="block mb-2 text-slate-400">صورة القسم</label><input type="file" id="catImageFile" accept="image/*" class="input-field mb-4 bg-slate-800"></div>
+        `;
         saveBtn.onclick = () => saveItem('categories');
     } else if (type === 'product') {
-        if (categoriesData.length === 0) await loadCategories(); // جلب الأقسام إذا لم تكن موجودة
+        if (categoriesData.length === 0) await loadCategories(); 
         title.innerText = id ? 'تعديل منتج' : 'إضافة منتج';
         let catOptions = categoriesData.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
         body.innerHTML = `
             <div><label class="block mb-2 text-slate-400">اسم المنتج</label><input type="text" id="prodName" class="input-field mb-4"></div>
             <div><label class="block mb-2 text-slate-400">القسم</label><select id="prodCat" class="input-field mb-4">${catOptions}</select></div>
             <div><label class="block mb-2 text-slate-400">السعر ($)</label><input type="number" id="prodPrice" class="input-field mb-4"></div>
-            <div><label class="block mb-2 text-slate-400">رابط الصورة</label><input type="text" id="prodImage" class="input-field" placeholder="URL"></div>
+            <div><label class="block mb-2 text-slate-400">صورة المنتج</label><input type="file" id="prodImageFile" accept="image/*" class="input-field bg-slate-800"></div>
         `;
         saveBtn.onclick = () => saveItem('products');
     } else if (type === 'payment') {
@@ -403,11 +441,26 @@ window.saveItem = async function(type) {
     if(editingItemId) url += `/${editingItemId}`;
     
     let body = {};
-    if (type === 'categories') body = { name: document.getElementById('catName').value, image: document.getElementById('catImage').value };
-    else if (type === 'products') body = { name: document.getElementById('prodName').value, category_id: document.getElementById('prodCat').value, base_price: document.getElementById('prodPrice').value, image: document.getElementById('prodImage').value };
-    else if (type === 'payments') body = { name: document.getElementById('payName').value, account: document.getElementById('payAccount').value, min_amount: document.getElementById('payMin').value, max_amount: document.getElementById('payMax').value };
-
     try {
+        if (type === 'categories') {
+            body.name = document.getElementById('catName').value;
+            const file = document.getElementById('catImageFile').files[0];
+            if(file) body.image = await fileToBase64(file);
+        } 
+        else if (type === 'products') {
+            body.name = document.getElementById('prodName').value;
+            body.category_id = document.getElementById('prodCat').value;
+            body.base_price = document.getElementById('prodPrice').value;
+            const file = document.getElementById('prodImageFile').files[0];
+            if(file) body.image = await fileToBase64(file);
+        }
+        else if (type === 'payments') {
+            body.name = document.getElementById('payName').value;
+            body.account = document.getElementById('payAccount').value;
+            body.min_amount = document.getElementById('payMin').value;
+            body.max_amount = document.getElementById('payMax').value;
+        }
+
         const res = await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(body) });
         if(res.ok) {
             Swal.fire({ title: 'تم', icon: 'success', timer: 1500, showConfirmButton: false });
@@ -432,7 +485,7 @@ window.deleteItem = async function(type, id) {
     } catch(e) { Swal.fire('خطأ', 'فشل الحذف', 'error'); }
 };
 
-// ================= الدعم الفني =================
+// ================= الدعم الفني (التحديث الفوري) =================
 window.switchSupportTab = function(status, btn) {
     currentSupportTab = status;
     document.querySelectorAll('#section-support .tab-btn').forEach(b => b.classList.remove('active'));
@@ -465,20 +518,27 @@ window.openSupportTicket = async function(id, name) {
     
     loadTicketMessages(); 
     if(adminChatPolling) clearInterval(adminChatPolling);
-    adminChatPolling = setInterval(loadTicketMessages, 3000);
+    adminChatPolling = setInterval(loadTicketMessages, 3000); // تحديث كل 3 ثواني
 };
 
 async function loadTicketMessages() {
     if (!currentTicketId) return;
     try {
         const data = await safeFetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}`, { headers: getHeaders() });
-        const container = document.getElementById('supportMessages'); container.innerHTML = '';
+        const container = document.getElementById('supportMessages'); 
+        
+        // التحقق مما إذا كانت هناك رسائل جديدة لتجنب الوميض
+        let newHtml = '';
         data.messages.forEach(m => {
             const align = m.sender_type === 'admin' ? 'items-end' : 'items-start';
             const bg = m.sender_type === 'admin' ? 'bg-accent text-dark' : (m.sender_type === 'system' ? 'bg-warning text-dark text-center w-full' : 'bg-slate-700 text-white');
-            container.innerHTML += `<div class="flex flex-col ${align}"><div class="${bg} p-3 rounded-2xl max-w-[80%] text-sm">${escapeHtml(m.message)}</div></div>`;
+            newHtml += `<div class="flex flex-col ${align}"><div class="${bg} p-3 rounded-2xl max-w-[80%] text-sm">${escapeHtml(m.message)}</div></div>`;
         });
-        container.scrollTop = container.scrollHeight;
+        
+        if(container.innerHTML !== newHtml) {
+            container.innerHTML = newHtml;
+            container.scrollTop = container.scrollHeight;
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -563,6 +623,15 @@ window.saveSettings = async function() {
 
 // ================= دوال مساعدة =================
 window.closeModal = function() { document.getElementById('detailsModal').classList.add('hidden'); document.getElementById('detailsModal').classList.remove('flex'); };
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
 
 async function safeFetch(url, options = {}) {
     try {
