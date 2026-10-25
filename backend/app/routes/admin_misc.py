@@ -1,15 +1,17 @@
-from flask import jsonify
+from flask import jsonify, request
 from flask_jwt_extended import jwt_required
 from ..blueprints import admin_bp
-from ..models import SupportTicket, Category, Product, Deposit, Order, KYCRequest
+from ..extensions import db
+from ..models import SupportTicket, Category, Product, Deposit, Order, KYCRequest, PaymentMethod, SupportMessage
 
 @admin_bp.route('/inbox/counts', methods=['GET'])
 @jwt_required()
 def get_inbox_counts():
-    d = Deposit.query.filter_by(status='pending').count()
-    o = Order.query.filter_by(status='pending').count()
-    k = KYCRequest.query.filter_by(status='pending').count()
-    return jsonify({"deposits": d, "orders": o, "kyc": k}), 200
+    return jsonify({
+        "deposits": Deposit.query.filter_by(status='pending').count(),
+        "orders": Order.query.filter_by(status='pending').count(),
+        "kyc": KYCRequest.query.filter_by(status='pending').count()
+    }), 200
 
 @admin_bp.route('/support/tickets', methods=['GET'])
 @jwt_required()
@@ -21,6 +23,16 @@ def get_tickets():
         "status": t.status, "updated_at": t.updated_at.isoformat() if t.updated_at else "",
         "last_message": t.messages[-1].message if t.messages else "لا توجد رسائل"
     } for t in tickets]), 200
+
+@admin_bp.route('/support/tickets/<int:ticket_id>', methods=['GET'])
+@jwt_required()
+def get_ticket_messages(ticket_id):
+    t = db.session.get(SupportTicket, ticket_id)
+    if not t: return jsonify({"error": "Not found"}), 404
+    return jsonify({
+        "id": t.id,
+        "messages": [{"sender_type": m.sender_type, "message": m.message, "created_at": m.created_at.isoformat()} for m in t.messages]
+    }), 200
 
 @admin_bp.route('/archive', methods=['GET'])
 @jwt_required()

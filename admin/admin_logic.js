@@ -55,7 +55,7 @@ async function handleLogin() {
     if (!user || !pass) return showToast('أدخل البيانات أولاً', 'error');
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
-        const res = await fetch(`${API_BASE}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
+        const res = await fetch(`${API_BASE}/api/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
         const data = await res.json();
         if (res.ok && data.require_otp) {
             currentSessionId = data.session_id;
@@ -73,7 +73,7 @@ async function verifyOTP() {
     if (!code) return showToast('أدخل رمز التحقق', 'error');
     btn.textContent = 'جاري التحقق...'; btn.disabled = true;
     try {
-        const res = await fetch(`${API_BASE}/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
+        const res = await fetch(`${API_BASE}/api/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
         const data = await res.json();
         if (res.ok && data.token) {
             localStorage.setItem('admin_token', data.token);

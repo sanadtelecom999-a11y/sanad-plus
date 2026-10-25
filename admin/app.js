@@ -37,7 +37,7 @@ window.handleLogin = async function() {
     const u = document.getElementById('loginUser').value, p = document.getElementById('loginPass').value; 
     if(!u||!p) return; 
     try {
-        const res = await fetch(`${API_BASE}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); 
+        const res = await fetch(`${API_BASE}/api/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); 
         const d = await res.json(); 
         if (res.ok && d.require_otp) { 
             currentSessionId = d.session_id; 
@@ -50,7 +50,7 @@ window.handleLogin = async function() {
 window.verifyOTP = async function() { 
     const c = document.getElementById('otpCode').value; 
     try {
-        const res = await fetch(`${API_BASE}/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: c }) }); 
+        const res = await fetch(`${API_BASE}/api/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: c }) }); 
         const d = await res.json(); 
         const t = d.token || d.access_token; 
         if (res.ok && t) { localStorage.setItem('admin_token', t); location.reload(); } 
