@@ -7,25 +7,16 @@ from ..models import Category, Product
 @admin_bp.route('/categories', methods=['GET'])
 @jwt_required()
 def get_categories():
-    return jsonify([{"id": c.id, "name": c.name} for c in Category.query.all()]), 200
-
-@admin_bp.route('/categories', methods=['POST'])
-@jwt_required()
-def add_category():
-    c = Category(name=request.json['name'])
-    db.session.add(c)
-    db.session.commit()
-    return jsonify({"id": c.id}), 201
+    cats = Category.query.filter_by(deleted_at=None).all()
+    return jsonify([{"id": c.id, "name": c.name, "image": c.image, "is_active": c.is_active} for c in cats]), 200
 
 @admin_bp.route('/products', methods=['GET'])
 @jwt_required()
 def get_products():
-    return jsonify([{"id": p.id, "name": p.name, "base_price": float(p.base_price)} for p in Product.query.all()]), 200
-
-@admin_bp.route('/products', methods=['POST'])
-@jwt_required()
-def add_product():
-    p = Product(category_id=request.json['category_id'], name=request.json['name'], base_price=request.json['base_price'])
-    db.session.add(p)
-    db.session.commit()
-    return jsonify({"id": p.id}), 201
+    prods = Product.query.filter_by(deleted_at=None).all()
+    return jsonify([{
+        "id": p.id, "name": p.name, "base_price": float(p.base_price or 0),
+        "base_quantity": p.base_quantity, "unit_name": p.unit_name, "image": p.image,
+        "category_id": p.category_id, "category_name": p.category.name if p.category else "غير محدد",
+        "is_active": p.is_active
+    } for p in prods]), 200
