@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SANAD PLUS+ | المتجر</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="loadingScreen" class="loading-screen">
+        <div class="skeleton" style="height: 60px; margin-bottom: 20px;"></div>
+        <div class="skeleton" style="height: 180px; border-radius: 24px; margin-bottom: 20px;"></div>
+    </div>
+
+    <div id="app" class="app-container hidden">
+        
+        <header class="top-header">
+            <div class="user-greeting" onclick="navigate('profile')">
+                <div class="avatar" id="headerAvatar">S</div>
+                <div>
+                    <div class="greeting-text">مرحباً بك،</div>
+                    <div class="user-name" id="headerUserName">جاري التحميل...</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="navigate('support')"><i data-lucide="message-square"></i></button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            
+            <section id="page-home" class="page active">
+                <div class="balance-card">
+                    <div class="balance-header">
+                        <span class="card-label">الرصيد الإجمالي</span>
+                        <i data-lucide="wifi" class="contactless-icon"></i>
+                    </div>
+                    <div class="balance-amount" id="mainBalance">$0.00</div>
+                    <div class="balance-footer">
+                        <span id="userSanadId">SANAD ID: ****</span>
+                        <span class="status-badge">نشط</span>
+                    </div>
+                    <div class="floating-dollar">$</div>
+                </div>
+
+                <div class="search-bar">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" placeholder="ابحث عن منتج...">
+                </div>
+
+                <div class="section-header"><h3>الأقسام</h3></div>
+                <div id="categoriesGrid" class="categories-grid"></div>
+            </section>
+
+            <section id="page-products" class="page">
+                <div class="section-header">
+                    <button onclick="navigate('home')" style="background:none;border:none;color:var(--primary);font-size:16px;font-weight:bold;cursor:pointer;">عودة</button>
+                    <h3 id="productsPageTitle">المنتجات</h3>
+                </div>
+                <div id="productsGrid" class="categories-grid"></div>
+            </section>
+
+            <section id="page-orders" class="page">
+                <div class="section-header"><h3>طلباتي</h3></div>
+                <div id="ordersList" class="orders-list">
+                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
+                </div>
+            </section>
+
+            <section id="page-deposits" class="page">
+                <div class="section-header"><h3>سجل الإيداعات</h3></div>
+                <div id="depositsList" class="orders-list">
+                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
+                </div>
+            </section>
+
+            <!-- صفحة طرق الدفع الجديدة -->
+            <section id="page-deposit-methods" class="page">
+                <div class="section-header"><h3>اختر طريقة الدفع</h3></div>
+                <div class="payment-methods-list" id="paymentMethodsList"></div>
+            </section>
+
+            <section id="page-profile" class="page">
+                <div class="profile-header">
+                    <div class="avatar-wrapper">
+                        <img id="profileAvatarImg" class="avatar-img hidden" src="" alt="Avatar">
+                        <div class="avatar large" id="profileAvatarFallback">S</div>
+                    </div>
+                    <div class="profile-name-row">
+                        <h2 id="profileFullName">المستخدم</h2>
+                        <div id="kycBadgeName" class="kyc-badge-twitter hidden"></div>
+                    </div>
+                    <div class="username" id="profileUsername">@username</div>
+                </div>
+
+                <div class="sanad-id-card">
+                    <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
+                    <div class="sanad-number-row">
+                        <span id="profileSanadId">SN-000000</span>
+                        <i data-lucide="copy" size="18" onclick="copyText(document.getElementById('profileSanadId').textContent, 'تم نسخ معرف سند')"></i>
+                    </div>
+                    <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-box"><span>الرصيد</span><strong id="statBalance">$0.00</strong></div>
+                    <div class="stat-box"><span>إجمالي الإيداعات</span><strong id="statTotalDeposits">$0.00</strong></div>
+                </div>
+
+                <div class="menu-list">
+                    <div class="menu-item" onclick="openKYCModal()"><i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openReferralModal()"><i data-lucide="gift" class="text-warning"></i> <span>الإحالات</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openFAQModal()"><i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                    <div class="menu-item" onclick="openSupportModal()"><i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span><i data-lucide="chevron-left" class="chevron"></i></div>
+                </div>
+
+                <div class="menu-list" style="margin-top: 15px;">
+                    <div class="menu-item">
+                        <i data-lucide="moon" class="text-warning"></i> <span>الوضع الليلي</span>
+                        <label class="toggle-switch"><input type="checkbox" id="darkModeToggle" checked onchange="toggleDarkMode()"><span class="slider"></span></label>
+                    </div>
+                    <div class="menu-item text-danger" onclick="handleLogout()"><i data-lucide="log-out"></i> <span>تسجيل الخروج</span></div>
+                </div>
+            </section>
+
+            <section id="page-support" class="page" style="padding-bottom: 80px;">
+                <div class="section-header"><h3>محادثة الدعم</h3></div>
+                <div id="chatContainer" class="chat-container"></div>
+                <div class="chat-input-wrapper">
+                    <input type="text" id="supportInput" placeholder="اكتب رسالتك هنا...">
+                    <button onclick="sendSupportMessage()" id="sendBtn"><i data-lucide="send"></i></button>
+                </div>
+            </section>
+
+        </main>
+
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="navigate('home')" data-page="home"><i data-lucide="home"></i><span>الرئيسية</span></button>
+            <button class="nav-item" onclick="navigate('orders')" data-page="orders"><i data-lucide="list"></i><span>طلباتي</span></button>
+            <!-- تم تغيير هذا الزر ليفتح صفحة كاملة -->
+            <button class="nav-item center-btn" onclick="navigate('deposit-methods')"><div class="center-btn-inner"><i data-lucide="zap"></i></div></button>
+            <button class="nav-item" onclick="navigate('deposits')" data-page="deposits"><i data-lucide="wallet"></i><span>إيداعات</span></button>
+            <button class="nav-item" onclick="navigate('profile')" data-page="profile"><i data-lucide="user"></i><span>حسابي</span></button>
+        </nav>
+
+        <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
+
+        <div class="bottom-sheet" id="paymentDetailsSheet">
+            <div class="sheet-grabber"></div>
+            <div id="paymentDetailsContent"></div>
+        </div>
+
+        <div class="bottom-sheet" id="productPurchaseSheet">
+            <div class="sheet-grabber"></div>
+            <div id="productPurchaseContent"></div>
+        </div>
+
+        <div class="bottom-sheet" id="orderDetailsSheet"><div class="sheet-grabber"></div><div id="orderDetailsContent"></div></div>
+        <div class="bottom-sheet" id="depositDetailsSheet"><div class="sheet-grabber"></div><div id="depositDetailsContent"></div></div>
+        <div class="bottom-sheet" id="kycSheet"><div class="sheet-grabber"></div><div id="kycContent"></div></div>
+
+        <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()"><img id="lightboxImg" src="" alt="إثبات"></div>
+
+    </div>
+
+    <script src="app.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+admin/admin_logic.js:41:        const res = await fetch(finalUrl, { ...options, cache: 'no-store' });
+admin/admin_logic.js:58:        const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
+admin/admin_logic.js:76:        const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: code }) });
+admin/admin_logic.js:215:        const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) });
+admin/admin_logic.js:229:        const res = await fetch(`${API_BASE}/admin/api/inbox/counts`, { headers: getHeaders() });
+admin/app.js:24:        const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); 
+admin/app.js:40:        const res = await fetch(`${API_BASE}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); 
+admin/app.js:53:        const res = await fetch(`${API_BASE}/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: c }) }); 
+admin/app.js:115:    await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(type==='orders' ? {status: extra} : {}) });
+admin/app.js:159:    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/balance`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ amount: action==='add'?a:-a, note: 'Admin' }) });
+admin/app.js:165:    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ is_banned: targetState }) });
+admin/app.js:211:        const res = await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}`, { headers: getHeaders(), signal: ticketAbortController.signal });
+admin/app.js:224:            const res = await fetch(`${API_BASE}/admin/api/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
+admin/app.js:228:            await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) }); loadTicketMessages();
+admin/app.js:235:    await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
+admin/app.js:306:        const res = await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(body) });
+admin/app.js:322:        await fetch(`${API_BASE}/admin/api/${type}/${id}`, { method: 'DELETE', headers: getHeaders() });
+admin/app.js:331:window.saveSettings = async function() { await fetch(`${API_BASE}/admin/api/settings`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ store_name: document.getElementById('setStoreName').value, support_link: document.getElementById('setSupportLink').value, exchange_rate: document.getElementById('setExchangeRate').value, maintenance_mode: document.getElementById('setMaintenance').checked ? '1' : '0' }) }); Swal.fire('تم', 'حفظ الإعدادات', 'success'); };
+admin/app.js:358:    await fetch(`${API_BASE}/admin/api/${type}/${id}/restore`, { method: 'POST', headers: getHeaders() });
+admin/app.js:363:async function safeFetch(url, opt={}) { try { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; } catch(e) { throw e; } }
+miniapp/app.js:38:        const res = await fetch(finalUrl, {
+miniapp/app.js:88:            const res = await fetch(`${API_BASE}/api/miniapp/init`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ telegram_id: userData.telegram_id }) });
+miniapp/app.js:114:            fetch(`${API_BASE}/api/categories/`), fetch(`${API_BASE}/api/products/`),
+miniapp/app.js:115:            fetch(`${API_BASE}/api/payment-methods/`), fetch(`${API_BASE}/api/deposits/`, { headers: getHeaders() })

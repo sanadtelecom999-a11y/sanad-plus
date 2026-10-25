@@ -1,0 +1,38 @@
+body { font-family: 'Cairo', sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; }
+.glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+.bento-card { transition: transform 0.2s ease; }
+.bento-card:hover { transform: translateY(-2px); }
+.input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.75rem; outline: none; transition: 0.2s; }
+.input-field:focus { border-color: #38bdf8; }
+.btn-primary { width: 100%; background: #38bdf8; color: #0f172a; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; }
+.btn-primary:hover { background: #0ea5e9; }
+.btn-success { width: 100%; background: #10b981; color: white; font-weight: bold; padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer; }
+.btn-success:hover { background: #059669; }
+.inbox-tab.active { background: #38bdf8; color: #0f172a; }
+.nav-btn.active { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+.support-ticket-item { background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; }
+.support-ticket-item:hover { border-color: #38bdf8; }
+.support-ticket-item.active { border-color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+.chat-bubble { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 10px; font-size: 14px; }
+.chat-bubble.user { background: #1e293b; color: #f8fafc; align-self: flex-start; border-bottom-right-radius: 2px; }
+.chat-bubble.admin { background: #38bdf8; color: #0f172a; align-self: flex-end; border-bottom-left-radius: 2px; font-weight: 600; }
+.chat-bubble.system { background: rgba(245, 158, 11, 0.1); border: 1px dashed #f59e0b; color: #f8fafc; align-self: center; text-align: center; font-size: 13px; }
+.chat-bubble .chat-sender { display: block; font-size: 11px; margin-bottom: 4px; font-weight: bold; opacity: 0.8; }
+.chat-bubble .chat-time { display: block; font-size: 10px; margin-top: 4px; text-align: left; opacity: 0.6; }
+.inbox-card { background: rgba(30, 41, 59, 0.7); border: 1px solid #334155; border-radius: 1.5rem; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; transition: 0.2s; cursor: pointer; }
+.inbox-card:hover { border-color: #38bdf8; }
+.inbox-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.75rem; margin-bottom: 0.25rem; }
+.inbox-details { font-size: 0.85rem; color: #94a3b8; line-height: 1.6; }
+.inbox-details strong { color: #f8fafc; font-size: 1rem; }
+.copy-input-group { display: flex; background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; overflow: hidden; }
+.copy-input { flex: 1; background: transparent; border: none; padding: 0.75rem; color: #38bdf8; font-family: monospace; font-size: 1.1rem; font-weight: bold; outline: none; }
+.copy-btn { background: #1e293b; border: none; color: #94a3b8; padding: 0 1rem; cursor: pointer; }
+.admin-note-input { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 0.75rem; border-radius: 0.5rem; font-family: inherit; resize: vertical; min-height: 80px; outline: none; }
+.modal-actions { display: flex; gap: 10px; width: 100%; }
+.btn-reject { flex: 1; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; padding: 0.75rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
+.btn-complete { flex: 1; background: #10b981; color: white; border: none; padding: 0.75rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; }
+.btn-action { flex: 1; padding: 0.5rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.85rem; border: none; cursor: pointer; }
+.btn-approve { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+.btn-reject-action { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+.user-row { display: flex; align-items: center; gap: 10px; }
+.user-avatar-small { width: 36px; height: 36px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; color: #38bdf8; font-weight: bold; }

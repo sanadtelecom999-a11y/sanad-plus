@@ -1,0 +1,315 @@
+=== TABLE: admin_activities ===
+  id | integer | Nullable: NO | Default: nextval('admin_activities_id_seq'::regclass)
+  admin_id | integer | Nullable: YES | Default: None
+  action | character varying | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> admin_activities.id
+
+=== TABLE: admin_otp_sessions ===
+  id | integer | Nullable: NO | Default: nextval('admin_otp_sessions_id_seq'::regclass)
+  session_id | character varying | Nullable: NO | Default: None
+  code_hash | character varying | Nullable: NO | Default: None
+  attempts | integer | Nullable: YES | Default: None
+  ip_address | character varying | Nullable: YES | Default: None
+  expires_at | timestamp with time zone | Nullable: NO | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> admin_otp_sessions.id
+
+=== TABLE: categories ===
+  id | integer | Nullable: NO | Default: nextval('categories_id_seq'::regclass)
+  name | character varying | Nullable: NO | Default: None
+  description | text | Nullable: YES | Default: None
+  image | text | Nullable: YES | Default: None
+  is_active | boolean | Nullable: YES | Default: None
+  display_order | integer | Nullable: YES | Default: None
+  deleted_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> categories.id
+
+=== TABLE: coupon_usages ===
+  id | integer | Nullable: NO | Default: nextval('coupon_usages_id_seq'::regclass)
+  coupon_id | integer | Nullable: NO | Default: None
+  user_id | integer | Nullable: NO | Default: None
+  order_id | integer | Nullable: YES | Default: None
+  used_at | timestamp without time zone | Nullable: YES | Default: None
+  discount_applied | numeric | Nullable: YES | Default: 0
+  CONSTRAINT: PRIMARY KEY on id -> coupon_usages.id
+  CONSTRAINT: FOREIGN KEY on coupon_id -> coupons.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+  CONSTRAINT: FOREIGN KEY on order_id -> orders.id
+  CONSTRAINT: UNIQUE on coupon_id -> coupon_usages.coupon_id
+  CONSTRAINT: UNIQUE on coupon_id -> coupon_usages.user_id
+  CONSTRAINT: UNIQUE on user_id -> coupon_usages.coupon_id
+  CONSTRAINT: UNIQUE on user_id -> coupon_usages.user_id
+
+=== TABLE: coupons ===
+  id | integer | Nullable: NO | Default: nextval('coupons_id_seq'::regclass)
+  code | character varying | Nullable: NO | Default: None
+  description | character varying | Nullable: YES | Default: None
+  discount_type | character varying | Nullable: YES | Default: None
+  discount_value | numeric | Nullable: NO | Default: None
+  min_amount | numeric | Nullable: YES | Default: None
+  max_discount | numeric | Nullable: YES | Default: None
+  max_uses | integer | Nullable: YES | Default: None
+  used_count | integer | Nullable: YES | Default: None
+  expires_at | timestamp without time zone | Nullable: YES | Default: None
+  is_active | boolean | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  deleted_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> coupons.id
+  CONSTRAINT: UNIQUE on code -> coupons.code
+
+=== TABLE: deposits ===
+  id | integer | Nullable: NO | Default: nextval('deposits_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  amount | numeric | Nullable: NO | Default: None
+  currency | character varying | Nullable: YES | Default: None
+  method | character varying | Nullable: YES | Default: None
+  proof_image | text | Nullable: YES | Default: None
+  account_number | character varying | Nullable: YES | Default: None
+  sender_name | character varying | Nullable: YES | Default: None
+  txid | character varying | Nullable: YES | Default: None
+  transaction_id | character varying | Nullable: YES | Default: None
+  fee | numeric | Nullable: YES | Default: None
+  status | character varying | Nullable: YES | Default: None
+  admin_note | text | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  method_id | integer | Nullable: YES | Default: None
+  idempotency_key | character varying | Nullable: YES | Default: None
+  reviewed_by | integer | Nullable: YES | Default: None
+  reviewed_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> deposits.id
+  CONSTRAINT: UNIQUE on transaction_id -> deposits.transaction_id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+  CONSTRAINT: UNIQUE on idempotency_key -> deposits.idempotency_key
+
+=== TABLE: financial_audit_log ===
+  id | integer | Nullable: NO | Default: nextval('financial_audit_log_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  action | character varying | Nullable: NO | Default: None
+  amount | numeric | Nullable: NO | Default: None
+  balance_before | numeric | Nullable: NO | Default: None
+  balance_after | numeric | Nullable: NO | Default: None
+  reference_type | character varying | Nullable: YES | Default: None
+  reference_id | integer | Nullable: YES | Default: None
+  admin_id | integer | Nullable: YES | Default: None
+  ip_address | character varying | Nullable: YES | Default: None
+  user_agent | text | Nullable: YES | Default: None
+  note | text | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> financial_audit_log.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: jwt_blacklist ===
+  id | integer | Nullable: NO | Default: nextval('jwt_blacklist_id_seq'::regclass)
+  jti | character varying | Nullable: NO | Default: None
+  expires_at | timestamp with time zone | Nullable: NO | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> jwt_blacklist.id
+
+=== TABLE: kyc_requests ===
+  id | integer | Nullable: NO | Default: nextval('kyc_requests_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  full_name | character varying | Nullable: NO | Default: None
+  phone | character varying | Nullable: NO | Default: None
+  address | character varying | Nullable: YES | Default: None
+  selfie_image | text | Nullable: YES | Default: None
+  status | character varying | Nullable: YES | Default: None
+  admin_note | text | Nullable: YES | Default: None
+  submitted_at | timestamp without time zone | Nullable: YES | Default: None
+  reviewed_at | timestamp without time zone | Nullable: YES | Default: None
+  reviewed_by | integer | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> kyc_requests.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: notifications ===
+  id | integer | Nullable: NO | Default: nextval('notifications_id_seq'::regclass)
+  user_id | integer | Nullable: YES | Default: None
+  title | character varying | Nullable: YES | Default: None
+  message | text | Nullable: YES | Default: None
+  is_read | boolean | Nullable: YES | Default: None
+  type | character varying | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> notifications.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: orders ===
+  id | integer | Nullable: NO | Default: nextval('orders_id_seq'::regclass)
+  order_number | character varying | Nullable: NO | Default: None
+  user_id | integer | Nullable: NO | Default: None
+  product_id | integer | Nullable: NO | Default: None
+  quantity | integer | Nullable: NO | Default: None
+  unit_price | numeric | Nullable: NO | Default: None
+  total_price | numeric | Nullable: NO | Default: None
+  discount_amount | numeric | Nullable: YES | Default: None
+  coupon_code | character varying | Nullable: YES | Default: None
+  status | character varying | Nullable: YES | Default: None
+  payment_method | character varying | Nullable: YES | Default: None
+  delivery_data | text | Nullable: YES | Default: None
+  idempotency_key | character varying | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  updated_at | timestamp without time zone | Nullable: YES | Default: None
+  is_rated | boolean | Nullable: YES | Default: false
+  reviewed_by | integer | Nullable: YES | Default: None
+  can_cancel_until | timestamp without time zone | Nullable: YES | Default: None
+  cancelled_at | timestamp without time zone | Nullable: YES | Default: None
+  completed_at | timestamp without time zone | Nullable: YES | Default: None
+  failed_at | timestamp without time zone | Nullable: YES | Default: None
+  admin_note | text | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> orders.id
+  CONSTRAINT: UNIQUE on order_number -> orders.order_number
+  CONSTRAINT: UNIQUE on idempotency_key -> orders.idempotency_key
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+  CONSTRAINT: FOREIGN KEY on product_id -> products.id
+
+=== TABLE: payment_methods ===
+  id | integer | Nullable: NO | Default: nextval('payment_methods_id_seq'::regclass)
+  name | character varying | Nullable: NO | Default: None
+  description | character varying | Nullable: YES | Default: None
+  account_name | character varying | Nullable: YES | Default: None
+  account | text | Nullable: YES | Default: None
+  icon | text | Nullable: YES | Default: None
+  qr_image | text | Nullable: YES | Default: None
+  min_amount | numeric | Nullable: YES | Default: None
+  fee | numeric | Nullable: YES | Default: None
+  requires_kyc | boolean | Nullable: YES | Default: None
+  is_active | boolean | Nullable: YES | Default: None
+  deleted_at | timestamp without time zone | Nullable: YES | Default: None
+  max_amount | numeric | Nullable: YES | Default: 500.0000
+  fee_type | character varying | Nullable: YES | Default: 'percentage'::character varying
+  CONSTRAINT: PRIMARY KEY on id -> payment_methods.id
+
+=== TABLE: product_bundles ===
+  id | integer | Nullable: NO | Default: nextval('product_bundles_id_seq'::regclass)
+  product_id | integer | Nullable: NO | Default: None
+  name | character varying | Nullable: NO | Default: None
+  quantity | integer | Nullable: NO | Default: None
+  price_usd | numeric | Nullable: NO | Default: None
+  is_active | boolean | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> product_bundles.id
+  CONSTRAINT: FOREIGN KEY on product_id -> products.id
+
+=== TABLE: products ===
+  id | integer | Nullable: NO | Default: nextval('products_id_seq'::regclass)
+  category_id | integer | Nullable: NO | Default: None
+  name | character varying | Nullable: NO | Default: None
+  description | text | Nullable: YES | Default: None
+  image | text | Nullable: YES | Default: None
+  product_type | character varying | Nullable: YES | Default: None
+  base_quantity | integer | Nullable: YES | Default: None
+  base_price | numeric | Nullable: NO | Default: None
+  unit_name | character varying | Nullable: YES | Default: None
+  input_type | character varying | Nullable: YES | Default: None
+  custom_input_label | character varying | Nullable: YES | Default: None
+  stock | integer | Nullable: YES | Default: None
+  is_bundle | boolean | Nullable: YES | Default: None
+  is_active | boolean | Nullable: YES | Default: None
+  rating_sum | integer | Nullable: YES | Default: 0
+  rating_count | integer | Nullable: YES | Default: 0
+  max_quantity | integer | Nullable: YES | Default: 0
+  deleted_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> products.id
+  CONSTRAINT: FOREIGN KEY on category_id -> categories.id
+
+=== TABLE: referrals ===
+  id | integer | Nullable: NO | Default: nextval('referrals_id_seq'::regclass)
+  referrer_id | integer | Nullable: NO | Default: None
+  referred_user_id | integer | Nullable: NO | Default: None
+  reward_amount | numeric | Nullable: YES | Default: None
+  status | character varying | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  completed_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> referrals.id
+
+=== TABLE: service_requests ===
+  id | integer | Nullable: NO | Default: nextval('service_requests_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  service_name | character varying | Nullable: YES | Default: None
+  description | text | Nullable: YES | Default: None
+  estimated_price | numeric | Nullable: YES | Default: None
+  status | character varying | Nullable: YES | Default: None
+  admin_response | text | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  admin_id | integer | Nullable: YES | Default: None
+  updated_at | timestamp without time zone | Nullable: YES | Default: now()
+  CONSTRAINT: PRIMARY KEY on id -> service_requests.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: settings ===
+  id | integer | Nullable: NO | Default: nextval('settings_id_seq'::regclass)
+  key | character varying | Nullable: NO | Default: None
+  value | text | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> settings.id
+  CONSTRAINT: UNIQUE on key -> settings.key
+
+=== TABLE: support_messages ===
+  id | integer | Nullable: NO | Default: nextval('support_messages_id_seq'::regclass)
+  ticket_id | integer | Nullable: NO | Default: None
+  sender_type | character varying | Nullable: NO | Default: None
+  message | text | Nullable: NO | Default: None
+  created_at | timestamp with time zone | Nullable: YES | Default: CURRENT_TIMESTAMP
+  CONSTRAINT: PRIMARY KEY on id -> support_messages.id
+  CONSTRAINT: FOREIGN KEY on ticket_id -> support_tickets.id
+
+=== TABLE: support_tickets ===
+  id | integer | Nullable: NO | Default: nextval('support_tickets_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  status | character varying | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  updated_at | timestamp with time zone | Nullable: YES | Default: CURRENT_TIMESTAMP
+  CONSTRAINT: PRIMARY KEY on id -> support_tickets.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: transactions ===
+  id | integer | Nullable: NO | Default: nextval('transactions_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  type | character varying | Nullable: YES | Default: None
+  amount | numeric | Nullable: NO | Default: None
+  balance_after | numeric | Nullable: YES | Default: None
+  reference_type | character varying | Nullable: YES | Default: None
+  reference_id | integer | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> transactions.id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+
+=== TABLE: user_product_discounts ===
+  id | integer | Nullable: NO | Default: nextval('user_product_discounts_id_seq'::regclass)
+  user_id | integer | Nullable: NO | Default: None
+  product_id | integer | Nullable: NO | Default: None
+  discount_percent | numeric | Nullable: NO | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  CONSTRAINT: PRIMARY KEY on id -> user_product_discounts.id
+  CONSTRAINT: UNIQUE on user_id -> user_product_discounts.product_id
+  CONSTRAINT: UNIQUE on user_id -> user_product_discounts.user_id
+  CONSTRAINT: UNIQUE on product_id -> user_product_discounts.product_id
+  CONSTRAINT: UNIQUE on product_id -> user_product_discounts.user_id
+  CONSTRAINT: FOREIGN KEY on user_id -> users.id
+  CONSTRAINT: FOREIGN KEY on product_id -> products.id
+
+=== TABLE: users ===
+  id | integer | Nullable: NO | Default: nextval('users_id_seq'::regclass)
+  telegram_id | bigint | Nullable: NO | Default: None
+  username | character varying | Nullable: YES | Default: None
+  first_name | character varying | Nullable: YES | Default: None
+  last_name | character varying | Nullable: YES | Default: None
+  balance | numeric | Nullable: YES | Default: None
+  kyc_status | character varying | Nullable: YES | Default: None
+  is_verified | boolean | Nullable: YES | Default: None
+  role | character varying | Nullable: YES | Default: None
+  is_banned | boolean | Nullable: YES | Default: None
+  vip_level | integer | Nullable: YES | Default: None
+  referral_code | character varying | Nullable: YES | Default: None
+  referred_by | bigint | Nullable: YES | Default: None
+  referral_earnings | numeric | Nullable: YES | Default: None
+  referral_count | integer | Nullable: YES | Default: None
+  created_at | timestamp without time zone | Nullable: YES | Default: None
+  allow_negative_balance | boolean | Nullable: YES | Default: true
+  max_negative_balance | numeric | Nullable: YES | Default: 0
+  updated_at | timestamp without time zone | Nullable: YES | Default: now()
+  referred_by_id | integer | Nullable: YES | Default: None
+  general_discount | numeric | Nullable: YES | Default: 0.0
+  notify_marketing | boolean | Nullable: YES | Default: true
+  CONSTRAINT: PRIMARY KEY on id -> users.id
+  CONSTRAINT: UNIQUE on telegram_id -> users.telegram_id
+  CONSTRAINT: UNIQUE on referral_code -> users.referral_code
+  CONSTRAINT: FOREIGN KEY on referred_by_id -> users.id
+
