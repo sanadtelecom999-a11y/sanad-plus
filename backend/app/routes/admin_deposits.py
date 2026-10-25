@@ -2,25 +2,35 @@ from flask import jsonify
 from flask_jwt_extended import jwt_required
 from ..blueprints import admin_bp
 from ..extensions import db
-from ..models import User, Deposit, FinancialAuditLog
+from ..models import Deposit, Order, KYCRequest, User
 
 @admin_bp.route('/deposits', methods=['GET'])
 @jwt_required()
 def get_deposits():
-    deposits = Deposit.query.order_by(Deposit.created_at.desc()).all()
-    return jsonify([{"id": d.id, "user_id": d.user_id, "amount": float(d.amount), "status": d.status} for d in deposits]), 200
+    deposits = Deposit.query.filter_by(status='pending').order_by(Deposit.created_at.desc()).all()
+    return jsonify([{
+        "id": d.id, "user_name": d.user.first_name if d.user else "مستخدم",
+        "user_telegram": d.user.telegram_id if d.user else "",
+        "amount": float(d.amount), "transaction_id": f"DEP-{d.id}", "status": d.status
+    } for d in deposits]), 200
 
-@admin_bp.route('/deposits/<int:deposit_id>/approve', methods=['POST'])
+@admin_bp.route('/orders', methods=['GET'])
 @jwt_required()
-def approve_deposit(deposit_id):
-    deposit = db.session.query(Deposit).with_for_update().filter_by(id=deposit_id).first()
-    if not deposit or deposit.status != 'pending': return jsonify({"error": "Invalid"}), 400
-    user = db.session.query(User).with_for_update().filter_by(id=deposit.user_id).first()
-    if not user: return jsonify({"error": "User not found"}), 404
-    
-    before = float(user.balance or 0)
-    user.balance = before + float(deposit.amount)
-    deposit.status = 'approved'
-    db.session.add(FinancialAuditLog(user_id=user.id, action='deposit_approved', amount=float(deposit.amount), balance_before=before, balance_after=float(user.balance)))
-    db.session.commit()
-    return jsonify({"success": True, "new_balance": float(user.balance)}), 200
+def get_orders():
+    orders = Order.query.filter_by(status='pending').order_by(Order.created_at.desc()).all()
+    return jsonify([{
+        "id": o.id, "order_number": o.order_number,
+        "user_name": o.user.first_name if o.user else "مستخدم",
+        "user_telegram": o.user.telegram_id if o.user else "",
+        "product_name": "منتج", "quantity": 1, "total_price": float(o.total_price), 
+        "status": o.status, "created_at": o.created_at.isoformat() if o.created_at else ""
+    } for o in orders]), 200
+
+@admin_bp.route('/kyc', methods=['GET'])
+@jwt_required()
+def get_kyc():
+    kyc = KYCRequest.query.filter_by(status='pending').all()
+    return jsonify([{
+        "id": k.id, "full_name": k.full_name, "phone": k.phone,
+        "status": k.status, "user_telegram": k.user.telegram_id if k.user else ""
+    } for k in kyc]), 200
