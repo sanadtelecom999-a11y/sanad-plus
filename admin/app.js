@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function verifyTokenAndLogin() { 
     try { 
-        const res = await fetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); 
+        const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: getHeaders() }); 
         if (res.ok) { 
             document.getElementById('loginScreen').style.display = 'none'; 
             document.getElementById('dashboardScreen').style.display = 'flex'; 
@@ -81,13 +81,13 @@ window.switchSection = function(id, btn) {
     if (id === 'settings') loadSettings();
 };
 
-async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/admin/api/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) {} }
+async function loadDashboardStats() { try { const d = await safeFetch(`${API_BASE}/api/admin/stats`, { headers: getHeaders() }); document.getElementById('statOrders').innerText = d.total_orders||0; document.getElementById('statUsers').innerText = d.total_users||0; document.getElementById('statDeposits').innerText = d.total_deposits||0; document.getElementById('statRevenue').innerText = `$${(d.revenue||0).toFixed(2)}`; } catch (e) {} }
 function initChart() { const c = document.getElementById('dashboardChart'); if(!c || typeof Chart==='undefined') return; if(dashboardChartInstance) dashboardChartInstance.destroy(); dashboardChartInstance = new Chart(c, { type: 'line', data: { labels: ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'], datasets: [{ label: 'المبيعات', data: [12, 19, 3, 5, 2, 3, 10], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }, options: { responsive: true, maintainAspectRatio: false } }); }
 
 window.switchInboxTab = function(type, btn) { currentInboxTab = type; document.querySelectorAll('#section-inbox .tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); loadInbox(type); };
 async function loadInbox(type) {
     const c = document.getElementById('inboxContainer'); c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">جاري التحميل...</div>';
-    let ep = type === 'deposits' ? '/admin/api/deposits' : (type === 'kyc' ? '/admin/api/kyc' : '/admin/api/orders');
+    let ep = type === 'deposits' ? '/api/admin/deposits' : (type === 'kyc' ? '/api/admin/kyc' : '/api/admin/orders');
     try {
         const data = await safeFetch(`${API_BASE}${ep}`, { headers: getHeaders() }); cachedItems[type] = data; c.innerHTML = '';
         if(!data || data.length===0) { c.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400">لا توجد عناصر.</div>'; return; }
@@ -111,7 +111,7 @@ window.viewDetails = function(type, id) {
 };
 window.handleAction = async function(type, id, action, extra) {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    let ep = type === 'deposits' ? `/admin/api/deposits/${id}/${action}` : (type === 'orders' ? `/admin/api/orders/${id}/status` : `/admin/api/kyc/${id}/${action}`);
+    let ep = type === 'deposits' ? `/api/admin/deposits/${id}/${action}` : (type === 'orders' ? `/api/admin/orders/${id}/status` : `/api/admin/kyc/${id}/${action}`);
     await fetch(`${API_BASE}${ep}`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(type==='orders' ? {status: extra} : {}) });
     closeModal(); loadInbox(currentInboxTab);
 };
@@ -120,7 +120,7 @@ window.closeModal = function() { document.getElementById('detailsModal').classLi
 async function loadUsers() {
     const t = document.getElementById('usersTableBody'); t.innerHTML = '<tr><td colspan="5" class="text-center py-4">جاري التحميل...</td></tr>';
     try {
-        allUsersData = await safeFetch(`${API_BASE}/admin/api/users`, { headers: getHeaders() }); t.innerHTML = '';
+        allUsersData = await safeFetch(`${API_BASE}/api/admin/users`, { headers: getHeaders() }); t.innerHTML = '';
         allUsersData.forEach(u => {
             const banIcon = u.is_banned ? `<span class="text-red-500 ml-2" title="محظور"><i data-lucide="ban" size="16"></i></span>` : '';
             t.innerHTML += `<tr class="border-b border-slate-700/50"><td class="py-2 px-2"><strong>${escapeHtml(u.first_name||'')}</strong> ${banIcon}</td><td class="py-2 px-2 font-mono text-slate-400">${u.telegram_id}</td><td class="py-2 px-2 text-success font-bold">$${parseFloat(u.balance).toFixed(2)}</td><td class="py-2 px-2">${u.is_banned?'<span class="text-red-400">محظور</span>':'<span class="text-green-400">نشط</span>'}</td><td class="py-2 px-2 flex gap-2"><button onclick="openUserView(${u.id})" class="text-accent"><i data-lucide="eye" size="16"></i></button><button onclick="openUserManage(${u.id})" class="bg-slate-700 px-2 py-1 rounded text-xs">إدارة</button></td></tr>`;
@@ -134,7 +134,7 @@ window.openUserView = async function(id) {
     const c = document.getElementById('userDetailsContent'); c.innerHTML = '<div class="text-center py-4 text-slate-400">جاري السجل...</div>';
     const sn = `SN-${String(u.telegram_id).padStart(6,'0')}`;
     try {
-        const hist = await safeFetch(`${API_BASE}/admin/api/users/${id}/history`, { headers: getHeaders() }).catch(()=>({orders:[], deposits:[]}));
+        const hist = await safeFetch(`${API_BASE}/api/admin/users/${id}/history`, { headers: getHeaders() }).catch(()=>({orders:[], deposits:[]}));
         c.innerHTML = `
             <div class="text-center mb-4"><div class="w-16 h-16 rounded-full bg-accent/20 text-accent flex items-center justify-center text-2xl mx-auto mb-2">${(u.first_name||'U')[0]}</div><h4 class="font-bold text-lg">${escapeHtml(u.first_name||'')}</h4><p class="text-slate-400 font-mono text-sm">${u.telegram_id}</p><p class="text-accent font-mono font-bold">${sn}</p></div>
             <div class="bg-dark p-3 rounded-xl mb-4 border border-slate-700 text-center"><span class="text-sm text-slate-400">الرصيد</span><h3 class="text-2xl font-bold text-success">$${parseFloat(u.balance).toFixed(2)}</h3></div>
@@ -156,13 +156,13 @@ window.openUserManage = function(id) {
 window.adjustBalance = async function(action) {
     const a = parseFloat(document.getElementById('balanceAmount').value); if(!a || a<=0) return;
     const c = await Swal.fire({ title: 'تأكيد', text: `هل تريد ${action==='add'?'إضافة':'خصم'} $${a}؟`, showCancelButton: true, icon: 'warning', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/balance`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ amount: action==='add'?a:-a, note: 'Admin' }) });
+    await fetch(`${API_BASE}/api/admin/users/${currentSelectedUser.id}/balance`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ amount: action==='add'?a:-a, note: 'Admin' }) });
     closeUserDrawer(); loadUsers();
 };
 window.toggleBan = async function() {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
     const targetState = !currentSelectedUser.is_banned;
-    await fetch(`${API_BASE}/admin/api/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ is_banned: targetState }) });
+    await fetch(`${API_BASE}/api/admin/users/${currentSelectedUser.id}/ban`, { method:'POST', headers: getHeaders(), body: JSON.stringify({ is_banned: targetState }) });
     closeUserDrawer(); loadUsers();
 };
 window.closeUserDrawer = function() { document.getElementById('userDrawerOverlay').classList.add('hidden'); document.getElementById('userDrawer').classList.add('translate-x-full'); };
@@ -178,7 +178,7 @@ window.switchSupportTab = function(status, btn) {
 async function loadSupportTickets() {
     const l = document.getElementById('supportTicketsList'); l.innerHTML = '<div class="text-center py-2 text-slate-400">تحميل...</div>';
     try {
-        const data = await safeFetch(`${API_BASE}/admin/api/support/tickets?status=${currentSupportTab}`, { headers: getHeaders() });
+        const data = await safeFetch(`${API_BASE}/api/admin/support/tickets?status=${currentSupportTab}`, { headers: getHeaders() });
         l.innerHTML = data.length ? '' : '<div class="text-center py-2 text-slate-400">فارغ</div>';
         data.forEach(t => l.innerHTML += `<div class="bg-dark p-3 rounded-lg cursor-pointer hover:bg-slate-800 mb-2" onclick="openSupportTicket(${t.id}, '${escapeHtml(t.user_name)}')"><div class="font-bold text-sm">${escapeHtml(t.user_name)}</div><div class="text-xs text-slate-400 truncate">${escapeHtml(t.last_message)}</div></div>`);
     } catch(e) { l.innerHTML = '<div class="text-danger">تعذر الجلب</div>'; }
@@ -208,7 +208,7 @@ window.openSupportTicket = async function(id, name) {
 async function loadTicketMessages() {
     if (!currentTicketId || String(currentTicketId).startsWith('new_')) return;
     try {
-        const res = await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}`, { headers: getHeaders(), signal: ticketAbortController.signal });
+        const res = await fetch(`${API_BASE}/api/admin/support/tickets/${currentTicketId}`, { headers: getHeaders(), signal: ticketAbortController.signal });
         if (!res.ok) return;
         const data = await res.json();
         const c = document.getElementById('supportMessages'); let html = '';
@@ -221,39 +221,39 @@ window.replySupportTicket = async function() {
     try {
         if(String(currentTicketId).startsWith('new_')) {
             const userId = currentTicketId.split('_')[1];
-            const res = await fetch(`${API_BASE}/admin/api/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
+            const res = await fetch(`${API_BASE}/api/admin/support/start-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ user_id: parseInt(userId), message: msg }) });
             if(!res.ok) throw new Error();
             Swal.fire('تم', 'تم فتح المحادثة', 'success'); switchSupportTab('open', document.querySelectorAll('#section-support .tab-btn')[0]);
         } else {
-            await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) }); loadTicketMessages();
+            await fetch(`${API_BASE}/api/admin/support/tickets/${currentTicketId}/reply`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ reply: msg }) }); loadTicketMessages();
         }
     } catch(e) { Swal.fire('خطأ', 'فشل الإرسال، تأكد من السيرفر', 'error'); }
 };
 window.insertQuickReply = function(text) { document.getElementById('supportReplyInput').value = text; };
 window.closeSupportTicket = async function() {
     const c = await Swal.fire({ title: 'إغلاق', icon: 'warning', showCancelButton: true, background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
-    await fetch(`${API_BASE}/admin/api/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
+    await fetch(`${API_BASE}/api/admin/support/tickets/${currentTicketId}/close`, { method: 'POST', headers: getHeaders() });
     switchSupportTab('closed', document.querySelectorAll('#section-support .tab-btn')[1]);
 };
 
 async function loadProducts() { 
     const t = document.getElementById('productsTableBody'); 
     try { 
-        const d = await safeFetch(`${API_BASE}/admin/api/products`, { headers: getHeaders() }); 
+        const d = await safeFetch(`${API_BASE}/api/admin/products`, { headers: getHeaders() }); 
         t.innerHTML = d.map(p=>`<tr class="border-b border-slate-700/50"><td class="py-2"><img src="${p.image||''}" class="w-10 h-10 rounded object-cover"></td><td class="py-2">${p.name}</td><td class="py-2">${p.category_id}</td><td class="py-2">$${p.base_price}</td><td class="py-2"><button onclick="deleteItem('products', ${p.id})" class="text-red-400"><i data-lucide="trash" size="16"></i></button></td></tr>`).join(''); 
     } catch(e) { t.innerHTML = '<tr><td colspan="5" class="text-danger">خطأ في الجلب</td></tr>'; } 
 }
 async function loadCategories() { 
     const g = document.getElementById('categoriesGrid'); 
     try { 
-        categoriesData = await safeFetch(`${API_BASE}/admin/api/categories`, { headers: getHeaders() }); 
+        categoriesData = await safeFetch(`${API_BASE}/api/admin/categories`, { headers: getHeaders() }); 
         g.innerHTML = categoriesData.map(c=>`<div class="glass p-4 rounded-xl text-center relative"><button onclick="deleteItem('categories', ${c.id})" class="absolute top-2 left-2 text-red-400"><i data-lucide="trash" size="16"></i></button><img src="${c.image||''}" class="w-16 h-16 rounded mx-auto mb-2 object-cover"><h4>${c.name}</h4></div>`).join(''); 
     } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } 
 }
 async function loadPayments() { 
     const g = document.getElementById('paymentsGrid'); 
     try { 
-        const d = await safeFetch(`${API_BASE}/admin/api/payment-methods`, { headers: getHeaders() }); 
+        const d = await safeFetch(`${API_BASE}/api/admin/payment-methods`, { headers: getHeaders() }); 
         g.innerHTML = d.map(p=>`<div class="glass p-4 rounded-xl relative"><button onclick="deleteItem('payments', ${p.id})" class="absolute top-2 left-2 text-red-400"><i data-lucide="trash" size="16"></i></button><h4 class="font-bold mb-2">${p.name}</h4><p class="text-sm text-slate-400 mb-1">الحساب: ${p.account}</p></div>`).join(''); 
     } catch(e) { g.innerHTML = '<div class="text-danger">خطأ في الجلب</div>'; } 
 }
@@ -283,7 +283,7 @@ window.closeFormModal = function() { document.getElementById('formModal').classL
 
 window.saveItem = async function(type) {
     const btn = document.getElementById('formSaveBtn'); btn.textContent = 'جاري الحفظ...'; btn.disabled = true;
-    let url = `${API_BASE}/admin/api/${type}`, method = editingItemId ? 'PUT' : 'POST';
+    let url = `${API_BASE}/api/admin/${type}`, method = editingItemId ? 'PUT' : 'POST';
     if(editingItemId) url += `/${editingItemId}`;
     let body = {};
     try {
@@ -319,7 +319,7 @@ window.deleteItem = async function(type, id) {
     const confirm = await Swal.fire({ title: 'حذف', text: "هل أنت متأكد؟", icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background: '#1e293b', color: '#fff' });
     if (!confirm.isConfirmed) return;
     try {
-        await fetch(`${API_BASE}/admin/api/${type}/${id}`, { method: 'DELETE', headers: getHeaders() });
+        await fetch(`${API_BASE}/api/admin/${type}/${id}`, { method: 'DELETE', headers: getHeaders() });
         Swal.fire({ title: 'تم', icon: 'success', timer: 1000, showConfirmButton: false });
         if(type === 'categories') loadCategories();
         if(type === 'products') loadProducts();
@@ -334,7 +334,7 @@ async function loadArchive() {
     const c = document.getElementById('archiveContainer');
     c.innerHTML = '<div class="text-center text-slate-400">جاري الجلب...</div>';
     try {
-        const d = await safeFetch(`${API_BASE}/admin/api/archive`, { headers: getHeaders() });
+        const d = await safeFetch(`${API_BASE}/api/admin/archive`, { headers: getHeaders() });
         
         let cats = d.categories || d.archived_categories || [];
         let prods = d.products || d.archived_products || [];
@@ -355,7 +355,7 @@ async function loadArchive() {
     } catch(e) { c.innerHTML = `<div class="text-danger text-center">تعذر جلب الأرشيف.</div>`; }
 }
 window.restoreItem = async function(type, id) {
-    await fetch(`${API_BASE}/admin/api/${type}/${id}/restore`, { method: 'POST', headers: getHeaders() });
+    await fetch(`${API_BASE}/api/admin/${type}/${id}/restore`, { method: 'POST', headers: getHeaders() });
     Swal.fire('تم', 'تم الاسترجاع', 'success'); loadArchive();
 }
 
