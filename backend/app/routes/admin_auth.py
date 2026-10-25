@@ -11,6 +11,7 @@ from ..models import AdminOTPSession
 def admin_login():
     data = request.json or {}
     password = data.get('password')
+    print(f'DEBUG LOGIN: Received=\"{password}\" | Expected=\"{current_app.config.get(\"ADMIN_PASSWORD\")}\"', flush=True)
     if not password or password != current_app.config['ADMIN_PASSWORD']:
         return jsonify({"error": "بيانات غير صحيحة"}), 401
         
