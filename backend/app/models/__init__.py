@@ -59,6 +59,7 @@ class Order(db.Model):
     total_price = db.Column(MONEY, nullable=False)
     status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=_now)
+    user = db.relationship('User', foreign_keys=[user_id])
 
 class Deposit(db.Model):
     __tablename__ = 'deposits'
@@ -67,6 +68,19 @@ class Deposit(db.Model):
     amount = db.Column(MONEY, nullable=False)
     status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=_now)
+    user = db.relationship('User', foreign_keys=[user_id])
+
+class KYCRequest(db.Model):
+    __tablename__ = 'kyc_requests'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    full_name = db.Column(db.String(100), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    address = db.Column(db.String(255))
+    selfie_image = db.Column(db.Text)
+    status = db.Column(db.String(20), default='pending', index=True)
+    submitted_at = db.Column(db.DateTime, default=_now)
+    user = db.relationship('User', foreign_keys=[user_id])
 
 class FinancialAuditLog(db.Model):
     __tablename__ = 'financial_audit_log'
@@ -105,7 +119,7 @@ class SupportMessage(db.Model):
     sender_type = db.Column(db.String(10), nullable=False)
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=_now)
-
+    ticket = db.relationship('SupportTicket', backref='messages')
 
 class AdminActivity(db.Model):
     __tablename__ = 'admin_activities'
