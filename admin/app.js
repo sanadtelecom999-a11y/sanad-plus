@@ -362,3 +362,79 @@ window.restoreItem = async function(type, id) {
 function fileToBase64(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); }); }
 async function safeFetch(url, opt={}) { try { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; } catch(e) { throw e; } }
 function escapeHtml(t) { return !t ? '' : String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+
+// ================= ⚡ الإشعارات الفورية (Polling) =================
+let lastCheckCount = 0;
+function startRealtimeNotifications() {
+    setInterval(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/inbox/counts`, { headers: getHeaders() });
+            if (res.ok) {
+                const data = await res.json();
+                const total = (data.deposits || 0) + (data.orders || 0) + (data.kyc || 0);
+                
+                if (total > lastCheckCount && lastCheckCount !== 0) {
+                    showToast(`🔔 لديك ${total - lastCheckCount} إشعار جديد!`, 'info');
+                    try {
+                        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+                        audio.play();
+                    } catch(e) {}
+                }
+                lastCheckCount = total;
+            }
+        } catch(e) {}
+    }, 30000); // كل 30 ثانية
+}
+
+// ================= 📊 تصدير Excel =================
+function exportToExcel(filename, data) {
+    if (typeof XLSX === 'undefined') return showToast('مكتبة Excel لم تُحمل', 'error');
+    if (!data || !data.length) return showToast('لا توجد بيانات للتصدير', 'warning');
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    showToast('تم تصدير الملف بنجاح', 'success');
+}
+
+window.exportUsersExcel = () => exportToExcel('users', allUsersData);
+
+// ================= 📑 الترقيم (Pagination) =================
+let currentProductPage = 1;
+async function loadProductsPage(page = 1) {
+    currentProductPage = page;
+    const res = await fetch(`${API_BASE}/api/admin/products?page=${page}&limit=10`, { headers: getHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    const tbody = document.getElementById('productsTableBody');
+    tbody.innerHTML = data.items.map(p => `
+        <tr>
+            <td><img src="${p.image || ''}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;"></td>
+            <td>${p.name}</td>
+            <td>${p.category_name}</td>
+            <td>$${p.base_price}</td>
+            <td>${p.base_quantity} ${p.unit_name}</td>
+            <td><button class="bg-red-500 text-white px-2 py-1 rounded" onclick="deleteProduct(${p.id})">حذف</button></td>
+        </tr>
+    `).join('');
+
+    let paginationHtml = `<div style="display:flex; justify-content:center; gap:10px; margin-top:15px;">`;
+    if (data.current_page > 1) paginationHtml += `<button class="btn-outline" onclick="loadProductsPage(${data.current_page - 1})">السابق</button>`;
+    paginationHtml += `<span style="display:flex;align-items:center;">صفحة ${data.current_page} من ${data.pages}</span>`;
+    if (data.current_page < data.pages) paginationHtml += `<button class="btn-outline" onclick="loadProductsPage(${data.current_page + 1})">التالي</button>`;
+    paginationHtml += `</div>`;
+    
+    const oldPag = document.getElementById('productPagination');
+    if (oldPag) oldPag.remove();
+    const div = document.createElement('div');
+    div.id = 'productPagination';
+    div.innerHTML = paginationHtml;
+    tbody.parentElement.parentElement.appendChild(div);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(startRealtimeNotifications, 5000);
+});
