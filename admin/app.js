@@ -37,7 +37,7 @@ window.handleLogin = async function() {
     const u = document.getElementById('loginUser').value, p = document.getElementById('loginPass').value; 
     if(!u||!p) return; 
     try {
-        const res = await fetch(`${API_BASE}/api/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); 
+        const res = await fetch(`${API_BASE}/api/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) }); 
         const d = await res.json(); 
         if (res.ok && d.require_otp) { 
             currentSessionId = d.session_id; 
@@ -50,7 +50,7 @@ window.handleLogin = async function() {
 window.verifyOTP = async function() { 
     const c = document.getElementById('otpCode').value; 
     try {
-        const res = await fetch(`${API_BASE}/api/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: c }) }); 
+        const res = await fetch(`${API_BASE}/api/admin/verify-otp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: currentSessionId, otp_code: c }) }); 
         const d = await res.json(); 
         const t = d.token || d.access_token; 
         if (res.ok && t) { localStorage.setItem('admin_token', t); location.reload(); } 
@@ -98,17 +98,47 @@ async function loadInbox(type) {
         });
     } catch (e) { c.innerHTML = `<div class="col-span-full text-center py-10 text-danger">${e.message}</div>`; }
 }
-window.viewDetails = function(type, id) {
-    const item = cachedItems[type].find(x => x.id === id); if (!item) return;
-    document.getElementById('detailsModal').classList.remove('hidden'); document.getElementById('detailsModal').classList.add('flex');
-    document.getElementById('modalTitle').textContent = `تفاصيل ${type}`;
-    document.getElementById('modalBody').innerHTML = `<pre class="text-xs text-slate-400 whitespace-pre-wrap" dir="ltr">${JSON.stringify(item, null, 2)}</pre>`;
-    let footer = '';
-    if (type === 'orders') footer = `<button onclick="handleAction('orders', ${id}, 'status', 'failed')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('orders', ${id}, 'status', 'completed')" class="btn-success flex-1">إكمال</button>`;
-    if (type === 'deposits') footer = `<button onclick="handleAction('deposits', ${id}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('deposits', ${id}, 'approve')" class="btn-success flex-1">قبول</button>`;
-    if (type === 'kyc') footer = `<button onclick="handleAction('kyc', ${id}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('kyc', ${id}, 'approve')" class="btn-success flex-1">قبول</button>`;
-    document.getElementById('modalFooter').innerHTML = footer;
-};
+window.viewDetails = async function(type, id) {
+    const modal = document.getElementById('detailsModal');
+    const title = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    title.textContent = 'جاري تحميل التفاصيل...';
+    body.textContent = 'يرجى الانتظار';
+    footer.innerHTML = '';
+
+    try {
+        let item = (cachedItems[type] || []).find(x => Number(x.id) === Number(id));
+        if (type === 'orders') {
+            item = await safeFetch(`${API_BASE}/api/admin/orders/${id}/full`, { headers: getHeaders() });
+        }
+        if (!item) throw new Error('لم يتم العثور على تفاصيل العنصر.');
+
+        title.textContent = type === 'orders' ? `تفاصيل الطلب: ${item.order_number || id}` : type === 'deposits' ? `تفاصيل الإيداع: ${item.transaction_id || id}` : `طلب توثيق #${id}`;
+
+        body.replaceChildren();
+        const pre = document.createElement('pre');
+        pre.className = 'text-xs text-slate-300 whitespace-pre-wrap';
+        pre.dir = 'auto';
+        pre.textContent = JSON.stringify(item, null, 2);
+        body.appendChild(pre);
+
+        if (type === 'orders') {
+            footer.innerHTML = `<button onclick="handleAction('orders', ${Number(id)}, 'status', 'failed')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('orders', ${Number(id)}, 'status', 'completed')" class="btn-success flex-1">إكمال</button>`;
+        } else if (type === 'deposits') {
+            footer.innerHTML = `<button onclick="handleAction('deposits', ${Number(id)}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('deposits', ${Number(id)}, 'approve')" class="btn-success flex-1">قبول</button>`;
+        } else if (type === 'kyc') {
+            footer.innerHTML = `<button onclick="handleAction('kyc', ${Number(id)}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('kyc', ${Number(id)}, 'approve')" class="btn-success flex-1">قبول</button>`;
+        }
+    } catch (error) {
+        title.textContent = 'تعذر تحميل التفاصيل';
+        body.textContent = error.message;
+        footer.innerHTML = '';
+    }
+};;
 window.handleAction = async function(type, id, action, extra) {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
     let ep = type === 'deposits' ? `/api/admin/deposits/${id}/${action}` : (type === 'orders' ? `/api/admin/orders/${id}/status` : `/api/admin/kyc/${id}/${action}`);
@@ -360,31 +390,28 @@ window.restoreItem = async function(type, id) {
 }
 
 function fileToBase64(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); }); }
-async function safeFetch(url, opt={}) { try { const r = await fetch(url + (url.includes('?')?'&':'?') + '_t=' + Date.now(), { ...opt, cache: 'no-store' }); const d = await r.json(); if(!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; } catch(e) { throw e; } }
-function escapeHtml(t) { return !t ? '' : String(t).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-
-// ================= ⚡ الإشعارات الفورية (Polling) =================
-let lastCheckCount = 0;
-function startRealtimeNotifications() {
-    setInterval(async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/admin/inbox/counts`, { headers: getHeaders() });
-            if (res.ok) {
-                const data = await res.json();
-                const total = (data.deposits || 0) + (data.orders || 0) + (data.kyc || 0);
-                
-                if (total > lastCheckCount && lastCheckCount !== 0) {
-                    showToast(`🔔 لديك ${total - lastCheckCount} إشعار جديد!`, 'info');
-                    try {
-                        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-                        audio.play();
-                    } catch(e) {}
-                }
-                lastCheckCount = total;
-            }
-        } catch(e) {}
-    }, 30000); // كل 30 ثانية
+async function safeFetch(url, opt = {}) {
+    const separator = url.includes('?') ? '&' : '?';
+    const requestUrl = `${url}${separator}_t=${Date.now()}`;
+    let response;
+    try {
+        response = await fetch(requestUrl, { ...opt, cache: 'no-store' });
+    } catch (error) {
+        throw new Error('تعذر الاتصال بالخادم. تحقق من الإنترنت أو من حالة الخدمة.');
+    }
+    const contentType = response.headers.get('content-type') || '';
+    let data;
+    if (contentType.includes('application/json')) {
+        try { data = await response.json(); } catch { throw new Error(`استجابة JSON غير صالحة (HTTP ${response.status})`); }
+    } else {
+        const text = await response.text();
+        data = null;
+        if (response.ok) throw new Error('أعاد الخادم استجابة غير متوقعة بدلاً من JSON.');
+        const message = response.status === 401 ? 'انتهت جلسة الإدارة.' : response.status === 403 ? 'ليست لديك صلاحية.' : response.status === 404 ? 'المسار غير موجود.' : `فشل الطلب برمز HTTP ${response.status}.`;
+        throw new Error(message);
+    }
+    if (!response.ok) throw new Error(data?.error || data?.message || `فشل الطلب برمز HTTP ${response.status}.`);
+    return data;
 }
 
 // ================= 📊 تصدير Excel =================

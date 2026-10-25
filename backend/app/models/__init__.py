@@ -53,13 +53,34 @@ class Product(db.Model):
 
 class Order(db.Model):
     __tablename__ = 'orders'
+
     id = db.Column(db.Integer, primary_key=True)
     order_number = db.Column(db.String(50), unique=True, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    total_price = db.Column(MONEY, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_price = db.Column(db.Numeric(14, 4), nullable=False)
+    total_price = db.Column(db.Numeric(14, 4), nullable=False)
+    discount_amount = db.Column(db.Numeric(14, 4))
+    coupon_code = db.Column(db.String(100))
     status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=_now)
+    payment_method = db.Column(db.String(100))
+    delivery_data = db.Column(db.Text)
+    idempotency_key = db.Column(db.String(255), unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime)
+    is_rated = db.Column(db.Boolean)
+    reviewed_by = db.Column(db.Integer)
+    can_cancel_until = db.Column(db.DateTime)
+    cancelled_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    failed_at = db.Column(db.DateTime)
+    admin_note = db.Column(db.Text)
+
     user = db.relationship('User', foreign_keys=[user_id])
+    product = db.relationship('Product', foreign_keys=[product_id])
+
+
 
 class Deposit(db.Model):
     __tablename__ = 'deposits'
