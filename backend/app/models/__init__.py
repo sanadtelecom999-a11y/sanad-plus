@@ -28,23 +28,16 @@ class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
-    description = db.Column(db.Text)
-    image = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
-    display_order = db.Column(db.Integer, default=0)
-    deleted_at = db.Column(db.DateTime)
 
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.Integer, primary_key=True)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=False)
     name = db.Column(db.String, nullable=False)
-    description = db.Column(db.Text)
-    image = db.Column(db.Text)
     base_price = db.Column(db.Numeric, nullable=False)
     stock = db.Column(db.Integer)
     is_active = db.Column(db.Boolean, default=True)
-    deleted_at = db.Column(db.DateTime)
 
 class Order(db.Model):
     __tablename__ = 'orders'

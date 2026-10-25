@@ -8,22 +8,18 @@ def create_app(config_object="config.Config"):
 
     db.init_app(app)
     jwt.init_app(app)
+    # ����� CORS ��������� ��������
     cors.init_app(app, resources={r"/api/*": {"origins": ["https://sanad-plus-admi.vercel.app", "https://sanad-plus.vercel.app"]}})
 
-    # 1. استيراد المسارات أولاً (لتضيف نفسها إلى الـ Blueprints)
-    from .routes import admin_auth  # noqa: F401
+    from .routes import admin_auth, admin_dashboard, admin_users, admin_deposits, admin_settings, admin_products
 
-    # 2. ثم تسجيل الـ Blueprints
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(bot_bp)
 
     @app.errorhandler(404)
-    def not_found(e):
-        return jsonify({"code": "NOT_FOUND", "error": "المسار غير موجود"}), 404
-
+    def not_found(e): return jsonify({"error": "Not found"}), 404
     @app.errorhandler(500)
-    def server_error(e):
-        return jsonify({"code": "SERVER_ERROR", "error": "خطأ داخلي"}), 500
+    def server_error(e): return jsonify({"error": "Internal server error"}), 500
 
     return app
