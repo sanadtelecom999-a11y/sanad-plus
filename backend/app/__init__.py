@@ -7,7 +7,7 @@ def create_app(config_object="config.Config"):
     app.config.from_object(config_object)
     db.init_app(app)
     jwt.init_app(app)
-    cors.init_app(app, resources={r"/api/*": {"origins": ["https://sanad-plus-admi.vercel.app", "https://sanad-plus.vercel.app"]}})
+    cors.init_app(app, resources={r"/api/*": {"origins": ["https://sanad-plus.pages.dev", "https://sanad-plus-admin.pages.dev"]}})
     from .routes import admin_auth, admin_dashboard, admin_users, admin_deposits, admin_settings, admin_products
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
