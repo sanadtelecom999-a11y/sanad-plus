@@ -98,47 +98,7 @@ async function loadInbox(type) {
         });
     } catch (e) { c.innerHTML = `<div class="col-span-full text-center py-10 text-danger">${e.message}</div>`; }
 }
-window.viewDetails = async function(type, id) {
-    const modal = document.getElementById('detailsModal');
-    const title = document.getElementById('modalTitle');
-    const body = document.getElementById('modalBody');
-    const footer = document.getElementById('modalFooter');
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    title.textContent = 'جاري تحميل التفاصيل...';
-    body.textContent = 'يرجى الانتظار';
-    footer.innerHTML = '';
-
-    try {
-        let item = (cachedItems[type] || []).find(x => Number(x.id) === Number(id));
-        if (type === 'orders') {
-            item = await safeFetch(`${API_BASE}/api/admin/orders/${id}/full`, { headers: getHeaders() });
-        }
-        if (!item) throw new Error('لم يتم العثور على تفاصيل العنصر.');
-
-        title.textContent = type === 'orders' ? `تفاصيل الطلب: ${item.order_number || id}` : type === 'deposits' ? `تفاصيل الإيداع: ${item.transaction_id || id}` : `طلب توثيق #${id}`;
-
-        body.replaceChildren();
-        const pre = document.createElement('pre');
-        pre.className = 'text-xs text-slate-300 whitespace-pre-wrap';
-        pre.dir = 'auto';
-        pre.textContent = JSON.stringify(item, null, 2);
-        body.appendChild(pre);
-
-        if (type === 'orders') {
-            footer.innerHTML = `<button onclick="handleAction('orders', ${Number(id)}, 'status', 'failed')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('orders', ${Number(id)}, 'status', 'completed')" class="btn-success flex-1">إكمال</button>`;
-        } else if (type === 'deposits') {
-            footer.innerHTML = `<button onclick="handleAction('deposits', ${Number(id)}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('deposits', ${Number(id)}, 'approve')" class="btn-success flex-1">قبول</button>`;
-        } else if (type === 'kyc') {
-            footer.innerHTML = `<button onclick="handleAction('kyc', ${Number(id)}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('kyc', ${Number(id)}, 'approve')" class="btn-success flex-1">قبول</button>`;
-        }
-    } catch (error) {
-        title.textContent = 'تعذر تحميل التفاصيل';
-        body.textContent = error.message;
-        footer.innerHTML = '';
-    }
-};;
+;;
 window.handleAction = async function(type, id, action, extra) {
     const c = await Swal.fire({ title: 'تأكيد', icon: 'warning', showCancelButton: true, confirmButtonText: 'نعم', background:'#1e293b', color:'#fff' }); if(!c.isConfirmed) return;
     let ep = type === 'deposits' ? `/api/admin/deposits/${id}/${action}` : (type === 'orders' ? `/api/admin/orders/${id}/status` : `/api/admin/kyc/${id}/${action}`);
@@ -390,29 +350,7 @@ window.restoreItem = async function(type, id) {
 }
 
 function fileToBase64(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); }); }
-async function safeFetch(url, opt = {}) {
-    const separator = url.includes('?') ? '&' : '?';
-    const requestUrl = `${url}${separator}_t=${Date.now()}`;
-    let response;
-    try {
-        response = await fetch(requestUrl, { ...opt, cache: 'no-store' });
-    } catch (error) {
-        throw new Error('تعذر الاتصال بالخادم. تحقق من الإنترنت أو من حالة الخدمة.');
-    }
-    const contentType = response.headers.get('content-type') || '';
-    let data;
-    if (contentType.includes('application/json')) {
-        try { data = await response.json(); } catch { throw new Error(`استجابة JSON غير صالحة (HTTP ${response.status})`); }
-    } else {
-        const text = await response.text();
-        data = null;
-        if (response.ok) throw new Error('أعاد الخادم استجابة غير متوقعة بدلاً من JSON.');
-        const message = response.status === 401 ? 'انتهت جلسة الإدارة.' : response.status === 403 ? 'ليست لديك صلاحية.' : response.status === 404 ? 'المسار غير موجود.' : `فشل الطلب برمز HTTP ${response.status}.`;
-        throw new Error(message);
-    }
-    if (!response.ok) throw new Error(data?.error || data?.message || `فشل الطلب برمز HTTP ${response.status}.`);
-    return data;
-}
+
 
 // ================= 📊 تصدير Excel =================
 function exportToExcel(filename, data) {
@@ -465,3 +403,101 @@ async function loadProductsPage(page = 1) {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(startRealtimeNotifications, 5000);
 });
+
+
+// ================= ⚡ دوال الواجهة الجديدة والمضمونة =================
+
+async function safeFetch(url, options = {}) {
+    try {
+        const res = await fetch(url, { ...options, headers: { ...getHeaders(), ...options.headers } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+    } catch (e) {
+        console.error("Fetch Error:", url, e);
+        throw e;
+    }
+}
+
+window.viewDetails = async function(type, id) {
+    const modal = document.getElementById('detailsModal');
+    const title = document.getElementById('modalTitle');
+    const body = document.getElementById('modalBody');
+    const footer = document.getElementById('modalFooter');
+    
+    if(!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    title.textContent = 'جاري التحميل...';
+    body.innerHTML = '<div class="text-center py-4"><i data-lucide="loader" class="animate-spin inline-block"></i></div>';
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+    footer.innerHTML = '';
+
+    try {
+        let item;
+        if (type === 'orders') {
+            item = await safeFetch(`${API_BASE}/api/admin/orders/${id}/full`);
+            title.textContent = `تفاصيل الطلب: ${item.order_number}`;
+            body.innerHTML = `
+                <div class="space-y-4 text-sm text-slate-300">
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>المستخدم:</strong> ${item.user.first_name} (${item.user.telegram_id})</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>المنتج:</strong> ${item.product.name} (الكمية: ${item.quantity})</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>السعر:</strong> $${item.total_price}</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>الحالة:</strong> ${item.status_arabic}</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>بيانات التسليم:</strong> ${item.delivery_data}</div>
+                </div>
+            `;
+            footer.innerHTML = `<div class="flex gap-2 w-full"><button onclick="handleAction('orders', ${id}, 'status', 'failed')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('orders', ${id}, 'status', 'completed')" class="btn-success flex-1">إكمال</button></div>`;
+        } 
+        else if (type === 'deposits') {
+            item = (cachedItems[type] || []).find(x => x.id === id);
+            title.textContent = `تفاصيل الإيداع`;
+            body.innerHTML = `
+                <div class="space-y-4 text-sm text-slate-300">
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>المستخدم:</strong> ${item.user_name} (${item.user_telegram})</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>المبلغ:</strong> $${item.amount}</div>
+                    <div class="bg-slate-800 p-3 rounded-lg"><strong>رقم العملية:</strong> ${item.transaction_id}</div>
+                </div>
+            `;
+            footer.innerHTML = `<div class="flex gap-2 w-full"><button onclick="handleAction('deposits', ${id}, 'reject')" class="btn-danger flex-1">رفض</button><button onclick="handleAction('deposits', ${id}, 'approve')" class="btn-success flex-1">قبول</button></div>`;
+        }
+    } catch (e) {
+        title.textContent = 'خطأ';
+        body.innerHTML = `<div class="text-red-400 text-center">${e.message}</div>`;
+    }
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.loadSupportTickets = async function() {
+    const list = document.getElementById('supportTicketsList');
+    if(!list) return;
+    list.innerHTML = '<div class="text-center py-4">جاري التحميل...</div>';
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/support/tickets`);
+        if(!data || data.length === 0) { list.innerHTML = '<div class="text-center text-slate-400">لا توجد تذاكر.</div>'; return; }
+        list.innerHTML = data.map(t => `
+            <div class="inbox-card mb-2" onclick="openSupportTicket(${t.id}, '${t.user_name}', '${t.user_telegram}')">
+                <div class="flex justify-between font-bold text-white mb-1"><span>${t.user_name}</span><span class="text-xs text-slate-400">${t.user_telegram}</span></div>
+                <div class="text-sm text-slate-400 truncate">${t.last_message}</div>
+            </div>
+        `).join('');
+    } catch(e) { list.innerHTML = `<div class="text-red-400">${e.message}</div>`; }
+};
+
+window.loadArchiveData = async function() {
+    const list = document.getElementById('archiveList');
+    if(!list) return;
+    list.innerHTML = '<div class="text-center py-4">جاري التحميل...</div>';
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/archive`);
+        let html = '';
+        if(data.categories?.length) {
+            html += `<h4 class="font-bold text-white mt-4 mb-2">الأقسام المؤرشفة</h4>` + data.categories.map(c => `<div class="inbox-card mb-2">${c.name}</div>`).join('');
+        }
+        if(data.products?.length) {
+            html += `<h4 class="font-bold text-white mt-4 mb-2">المنتجات المؤرشفة</h4>` + data.products.map(p => `<div class="inbox-card mb-2">${p.name} (${p.category_name})</div>`).join('');
+        }
+        if(!html) html = '<div class="text-center text-slate-400">الأرشيف فارغ.</div>';
+        list.innerHTML = html;
+    } catch(e) { list.innerHTML = `<div class="text-red-400">${e.message}</div>`; }
+};

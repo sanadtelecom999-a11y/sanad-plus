@@ -22,13 +22,9 @@ def get_orders():
         "id": o.id, "order_number": o.order_number,
         "user_name": o.user.first_name if o.user else "مستخدم",
         "user_telegram": o.user.telegram_id if o.user else "",
-        "product_name": o.product.name if o.product else "منتج غير متاح",
-        "product_image": o.product.image if o.product else None,
-        "quantity": o.quantity, "unit_price": float(o.unit_price or 0),
-        "total_price": float(o.total_price or 0), "discount_amount": float(o.discount_amount or 0),
-        "coupon_code": o.coupon_code, "payment_method": o.payment_method,
-        "delivery_data": o.delivery_data, "status": o.status, "status_arabic": o.status,
-        "admin_note": o.admin_note, "created_at": o.created_at.isoformat() if o.created_at else ""
+        "product_name": o.product.name if o.product else "منتج", 
+        "quantity": o.quantity, "total_price": float(o.total_price or 0), 
+        "status": o.status, "created_at": o.created_at.isoformat() if o.created_at else ""
     } for o in orders]), 200
 
 @admin_bp.route('/orders/<int:order_id>/full', methods=['GET'])
@@ -37,27 +33,12 @@ def get_order_full(order_id):
     o = db.session.get(Order, order_id)
     if not o: return jsonify({"error": "الطلب غير موجود"}), 404
     return jsonify({
-        "id": o.id, "order_number": o.order_number,
-        "user": {
-            "first_name": o.user.first_name if o.user else "",
-            "last_name": o.user.last_name if o.user else "",
-            "telegram_id": o.user.telegram_id if o.user else "",
-            "username": o.user.username if o.user else "",
-        },
-        "product": {
-            "id": o.product.id if o.product else None,
-            "name": o.product.name if o.product else "منتج غير متاح",
-            "image": o.product.image if o.product else None,
-        },
-        "quantity": o.quantity, "unit_price": float(o.unit_price or 0),
-        "total_price": float(o.total_price or 0), "discount_amount": float(o.discount_amount or 0),
-        "coupon_code": o.coupon_code, "payment_method": o.payment_method,
-        "delivery_data": o.delivery_data, "status": o.status, "status_arabic": o.status,
-        "admin_note": o.admin_note, "created_at": o.created_at.isoformat() if o.created_at else "",
-        "updated_at": o.updated_at.isoformat() if o.updated_at else "",
-        "completed_at": o.completed_at.isoformat() if o.completed_at else "",
-        "failed_at": o.failed_at.isoformat() if o.failed_at else "",
-        "cancelled_at": o.cancelled_at.isoformat() if o.cancelled_at else "",
+        "order_number": o.order_number,
+        "user": {"first_name": o.user.first_name if o.user else "", "telegram_id": o.user.telegram_id if o.user else ""},
+        "product": {"name": o.product.name if o.product else "منتج"}, 
+        "quantity": o.quantity, "total_price": float(o.total_price or 0),
+        "status": o.status, "status_arabic": o.status, "delivery_data": o.delivery_data or "لا يوجد",
+        "created_at": o.created_at.isoformat() if o.created_at else ""
     }), 200
 
 @admin_bp.route('/kyc', methods=['GET'])
