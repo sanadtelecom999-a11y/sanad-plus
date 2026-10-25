@@ -11,8 +11,12 @@ from ..models import AdminOTPSession
 def admin_login():
     data = request.json or {}
     password = data.get('password')
-    print(f'DEBUG LOGIN: Received=\"{password}\" | Expected=\"{current_app.config.get(\"ADMIN_PASSWORD\")}\"', flush=True)
-    if not password or password != current_app.config['ADMIN_PASSWORD']:
+    expected = current_app.config.get('ADMIN_PASSWORD', 'admin123')
+    
+    # طباعة بسيطة جداً للتشخيص
+    print(f"LOGIN_ATTEMPT: Received='{password}' | Expected='{expected}'", flush=True)
+
+    if not password or password != expected:
         return jsonify({"error": "بيانات غير صحيحة"}), 401
         
     session_id = str(uuid.uuid4())
@@ -24,6 +28,7 @@ def admin_login():
     )
     db.session.add(session)
     db.session.commit()
+    
     print(f"\n[OTP] {otp_code}\n", flush=True)
     return jsonify({"success": True, "session_id": session_id}), 200
 
