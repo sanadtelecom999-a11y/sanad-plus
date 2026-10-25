@@ -44,4 +44,4 @@ def verify_otp():
     token = create_access_token(identity="admin_user")
     db.session.delete(session)
     db.session.commit()
-    return jsonify({"access_token": token}), 200
+    return jsonify({"token": token, "access_token": token}), 200
