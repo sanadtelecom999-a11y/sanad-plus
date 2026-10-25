@@ -105,3 +105,11 @@ class SupportMessage(db.Model):
     sender_type = db.Column(db.String(10), nullable=False)
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=_now)
+
+
+class AdminActivity(db.Model):
+    __tablename__ = 'admin_activities'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer)
+    action = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=_now)
