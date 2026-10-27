@@ -151,3 +151,130 @@ def stats():
             "revenue_chart": [120, 250, 180, 300, 220, 400, 350]
         })
 
+
+
+# ============================================================
+# المرحلة 2: الإرساليات (Inbox)
+# ============================================================
+
+@admin_bp.route("/inbox/counts", methods=["GET"])
+@admin_required
+def inbox_counts():
+    try:
+        from app.models import Order, Deposit, KYC
+        from app import db
+        # محاولة جلب عدد المعلقات فقط
+        orders = db.session.query(Order).filter(Order.status.in_(['pending', 'معلق'])).count()
+        deposits = db.session.query(Deposit).filter(Deposit.status.in_(['pending', 'معلق'])).count()
+        kyc = db.session.query(KYC).filter(KYC.status.in_(['pending', 'معلق'])).count()
+        return jsonify({"orders": orders, "deposits": deposits, "kyc": kyc})
+    except Exception as e:
+        print("Counts Error:", e, flush=True)
+        return jsonify({"orders": 0, "deposits": 0, "kyc": 0})
+
+@admin_bp.route("/orders", methods=["GET"])
+@admin_required
+def get_orders():
+    try:
+        from app.models import Order
+        from app import db
+        orders = db.session.query(Order).filter(Order.status.in_(['pending', 'معلق'])).all()
+        return jsonify([{
+            "id": o.id, "order_number": getattr(o, 'order_number', f'ORD-{o.id}'),
+            "user_name": getattr(o.user, 'first_name', 'مستخدم') if hasattr(o, 'user') else 'مستخدم',
+            "product_name": getattr(o.product, 'name', 'منتج') if hasattr(o, 'product') else 'منتج',
+            "total_price": float(getattr(o, 'total_price', 0)), "status": "pending"
+        } for o in orders])
+    except Exception as e:
+        print("Orders Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/deposits", methods=["GET"])
+@admin_required
+def get_deposits():
+    try:
+        from app.models import Deposit
+        from app import db
+        deposits = db.session.query(Deposit).filter(Deposit.status.in_(['pending', 'معلق'])).all()
+        return jsonify([{
+            "id": d.id, "amount": float(getattr(d, 'amount', 0)),
+            "user_name": getattr(d.user, 'first_name', 'مستخدم') if hasattr(d, 'user') else 'مستخدم',
+            "transaction_id": getattr(d, 'transaction_id', f'DEP-{d.id}'), "status": "pending"
+        } for d in deposits])
+    except Exception as e:
+        return jsonify([])
+
+@admin_bp.route("/kyc", methods=["GET"])
+@admin_required
+def get_kyc():
+    try:
+        from app.models import KYC
+        from app import db
+        kycs = db.session.query(KYC).filter(KYC.status.in_(['pending', 'معلق'])).all()
+        return jsonify([{
+            "id": k.id, "full_name": getattr(k, 'full_name', 'غير محدد'),
+            "phone": getattr(k, 'phone', 'غير محدد'),
+            "user_name": getattr(k.user, 'first_name', 'مستخدم') if hasattr(k, 'user') else 'مستخدم',
+            "status": "pending"
+        } for k in kycs])
+    except Exception as e:
+        return jsonify([])
+
+# مسارات التفاصيل (Modal)
+@admin_bp.route("/<string:item_type>/<int:item_id>/full", methods=["GET"])
+@admin_required
+def get_item_full(item_type, item_id):
+    try:
+        from app.models import Order, Deposit, KYC
+        from app import db
+        
+        if item_type == 'orders':
+            item = db.session.get(Order, item_id)
+            if not item: return jsonify({"error": "غير موجود"}), 404
+            return jsonify({"id": item.id, "title": f"طلب #{item.id}", "details": {"السعر": getattr(item, 'total_price', 0), "الحالة": "معلق"}})
+            
+        elif item_type == 'deposits':
+            item = db.session.get(Deposit, item_id)
+            if not item: return jsonify({"error": "غير موجود"}), 404
+            return jsonify({"id": item.id, "title": f"إيداع #{item.id}", "details": {"المبلغ": getattr(item, 'amount', 0), "رقم العملية": getattr(item, 'transaction_id', '')}, "image": getattr(item, 'receipt_image', '')})
+            
+        elif item_type == 'kyc':
+            item = db.session.get(KYC, item_id)
+            if not item: return jsonify({"error": "غير موجود"}), 404
+            return jsonify({"id": item.id, "title": f"توثيق #{item.id}", "details": {"الاسم": getattr(item, 'full_name', '')}, "image": getattr(item, 'id_image', '')})
+            
+        return jsonify({"error": "نوع غير معروف"}), 400
+    except Exception as e:
+        print("Details Error:", e, flush=True)
+        return jsonify({"error": str(e)}), 500
+
+# مسارات القبول والرفض
+@admin_bp.route("/<string:item_type>/<int:item_id>/<string:action>", methods=["POST"])
+@admin_required
+def handle_item_action(item_type, item_id, action):
+    if action not in ['approve', 'reject']:
+        return jsonify({"error": "إجراء غير صالح"}), 400
+    
+    try:
+        from app.models import Order, Deposit, KYC
+        from app import db
+        
+        model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
+        if not model: return jsonify({"error": "نوع غير معروف"}), 400
+        
+        item = db.session.get(model, item_id)
+        if not item: return jsonify({"error": "العنصر غير موجود"}), 404
+        
+        # تحديث الحالة
+        new_status = 'approved' if action == 'approve' else 'rejected'
+        item.status = new_status
+        
+        # (اختياري) إذا كان إيداعاً معتمداً، يمكن إضافة الرصيد للمستخدم هنا
+        # if item_type == 'deposits' and action == 'approve':
+        #     item.user.balance += item.amount
+            
+        db.session.commit()
+        return jsonify({"success": True, "new_status": new_status})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

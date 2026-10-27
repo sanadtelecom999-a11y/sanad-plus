@@ -1,3 +1,4 @@
+import { renderInbox } from './sections/inbox.js';
 import { renderDashboard } from './sections/dashboard.js';
 import { CONFIG } from './config.js';
 import { isAuthenticated } from './core/token.js';
@@ -16,9 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+
+function handleRoute() {
+  if (!isAuthenticated()) return;
+  const hash = window.location.hash || '#dashboard';
+  if (hash === '#inbox') {
+    renderInbox();
+  } else {
+    renderDashboard();
+  }
+}
+
+window.addEventListener('hashchange', handleRoute);
+
 function renderAuthState() {
   const authed = isAuthenticated();
-  if (authed) { renderDashboard(); }
+  if (authed) { handleRoute(); }
   document.getElementById('login-screen').style.display = authed ? 'none' : 'flex';
   document.getElementById('app-shell').style.display = authed ? 'flex' : 'none';
   if (!authed) resetLoginForm();

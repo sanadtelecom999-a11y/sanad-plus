@@ -56,6 +56,7 @@ async function safeFetch(path, { method = 'GET', body, requiresAuth = true } = {
 }
 
 export const api = {
+  safeFetch,
   login: (password) =>
     safeFetch('/api/admin/login', { method: 'POST', body: { password }, requiresAuth: false }),
   verifyOtp: (session_id, otp_code) =>
