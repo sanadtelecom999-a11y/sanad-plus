@@ -1,3 +1,4 @@
+import { renderSettings } from './sections/settings.js';
 import { renderSupport } from './sections/support.js';
 import { renderArchive } from './sections/archive.js';
 import { renderStore } from './sections/store.js';
@@ -27,6 +28,8 @@ function handleRoute() {
   const hash = window.location.hash || '#dashboard';
   if (hash === '#support') {
     renderSupport();
+  } else if (hash === '#settings') {
+    renderSettings();
   } else if (hash === '#archive') {
     renderArchive();
   } else if (hash === '#store') {
