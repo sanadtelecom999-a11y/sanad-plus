@@ -49,7 +49,8 @@ async function safeFetch(path, { method = 'GET', body, requiresAuth = true } = {
     if (err.name === 'AbortError') {
       return { ok: false, error: 'انتهت مهلة الطلب' };
     }
-    return { ok: false, error: 'فشل الاتصال بالسيرفر' };
+    console.error('Fetch Error:', err);
+      return { ok: false, error: 'فشل الاتصال (قد يكون السيرفر مستيقظاً، جرب التحديث)' };
   } finally {
     clearTimeout(timeoutId);
   }

@@ -680,26 +680,25 @@ def get_archive(item_type):
         model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
         if not model: return jsonify([])
         
-        # البحث عن العناصر المحذوفة (soft delete)
-        query = db.session.query(model)
-        if hasattr(model, 'deleted_at'):
-            query = query.filter(model.deleted_at.isnot(None))
-        else:
-            query = query.filter(model.status.in_(['archived', 'cancelled', 'rejected', 'مرفوض']))
-            
-        items = query.all()
+        # جلب كل العناصر ثم الفلترة برمجياً لتجنب أخطاء SQL إذا كانت الأعمدة مفقودة
+        items = db.session.query(model).all()
         
         res = []
         for i in items:
-            res.append({
-                "id": i.id,
-                "title": f"{item_type} #{i.id}",
-                "user_name": getattr(i.user, 'first_name', 'مستخدم') if hasattr(i, 'user') and i.user else 'مستخدم',
-                "details": f"الحالة: {getattr(i, 'status', '')}"
-            })
+            status = str(getattr(i, 'status', '')).lower()
+            is_deleted = getattr(i, 'deleted_at', None) is not None
+            
+            if is_deleted or status in ['archived', 'cancelled', 'rejected', 'مرفوض', 'ملغي', 'مؤرشف']:
+                res.append({
+                    "id": i.id,
+                    "title": f"{item_type} #{i.id}",
+                    "user_name": getattr(i.user, 'first_name', 'مستخدم') if hasattr(i, 'user') and i.user else 'مستخدم',
+                    "details": f"الحالة: {getattr(i, 'status', 'غير محدد')}"
+                })
         return jsonify(res)
     except Exception as e:
-        print("Archive Error:", e, flush=True)
+        import traceback
+        print("Archive Error:", traceback.format_exc(), flush=True)
         return jsonify([])
 
 @admin_bp.route("/archive/<string:item_type>/<int:item_id>/restore", methods=["POST"])
@@ -718,10 +717,11 @@ def restore_archive(item_type, item_id):
         if hasattr(item, 'deleted_at'):
             item.deleted_at = None
         if hasattr(item, 'status'):
-            item.status = 'pending' # إعادة للحالة المعلقة
+            item.status = 'pending'
             
         db.session.commit()
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
