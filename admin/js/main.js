@@ -1,3 +1,4 @@
+import { renderStore } from './sections/store.js';
 import { renderUsers } from './sections/users.js';
 import { renderInbox } from './sections/inbox.js';
 import { renderDashboard } from './sections/dashboard.js';
@@ -22,7 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleRoute() {
   if (!isAuthenticated()) return;
   const hash = window.location.hash || '#dashboard';
-  if (hash === '#users') {
+  if (hash === '#store') {
+    renderStore();
+  } else if (hash === '#users') {
     renderUsers();
   } else if (hash === '#inbox') {
     renderInbox();

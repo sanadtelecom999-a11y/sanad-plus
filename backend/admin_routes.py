@@ -344,3 +344,52 @@ def ban_user(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ============================================================
+# المرحلة 4: المتجر (Products)
+# ============================================================
+
+@admin_bp.route("/products", methods=["GET"])
+@admin_required
+def get_products():
+    try:
+        from app.models import Product
+        from app import db
+        
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 10, type=int)
+        
+        # محاولة استخدام الترقيم الخاص بـ SQLAlchemy
+        pagination = db.session.query(Product).paginate(page=page, per_page=limit, error_out=False)
+        products = pagination.items
+        
+        items = []
+        for p in products:
+            items.append({
+                "id": p.id,
+                "name": getattr(p, 'name', 'منتج بدون اسم'),
+                "image": getattr(p, 'image', ''),
+                "category_name": getattr(p.category, 'name', 'عام') if hasattr(p, 'category') and p.category else 'عام',
+                "base_price": float(getattr(p, 'base_price', 0.0)),
+                "base_quantity": int(getattr(p, 'base_quantity', 1)),
+                "unit_name": getattr(p, 'unit_name', 'قطعة')
+            })
+            
+        return jsonify({
+            "items": items,
+            "total": pagination.total,
+            "pages": pagination.pages,
+            "current_page": pagination.page
+        })
+    except Exception as e:
+        print("Products Error:", e, flush=True)
+        # في حال عدم وجود جدول أو ترقيم، نرسل أول 10 منتجات
+        try:
+            from app.models import Product
+            from app import db
+            products = db.session.query(Product).limit(limit).all()
+            items = [{"id": p.id, "name": getattr(p, 'name', 'منتج'), "image": getattr(p, 'image', ''), "category_name": "عام", "base_price": float(getattr(p, 'base_price', 0)), "base_quantity": 1, "unit_name": "قطعة"} for p in products]
+            return jsonify({"items": items, "total": len(items), "pages": 1, "current_page": 1})
+        except:
+            return jsonify({"items": [], "total": 0, "pages": 0, "current_page": 1})
