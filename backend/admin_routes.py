@@ -461,3 +461,108 @@ def manage_product(product_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ============================================================
+# المرحلة 4.3: الأقسام وطرق الدفع
+# ============================================================
+
+@admin_bp.route("/categories", methods=["POST"])
+@admin_required
+def create_category():
+    data = request.get_json(silent=True) or {}
+    try:
+        from app.models import Category
+        from app import db
+        new_cat = Category(name=data.get('name', 'قسم جديد'), image=data.get('image', ''))
+        db.session.add(new_cat)
+        db.session.commit()
+        return jsonify({"success": True, "id": new_cat.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/categories/<int:cat_id>", methods=["PUT", "DELETE"])
+@admin_required
+def manage_category(cat_id):
+    try:
+        from app.models import Category
+        from app import db
+        cat = db.session.get(Category, cat_id)
+        if not cat: return jsonify({"error": "القسم غير موجود"}), 404
+        
+        if request.method == 'DELETE':
+            db.session.delete(cat)
+            db.session.commit()
+            return jsonify({"success": True})
+        if request.method == 'PUT':
+            data = request.get_json(silent=True) or {}
+            if 'name' in data: cat.name = data['name']
+            if 'image' in data: cat.image = data['image']
+            db.session.commit()
+            return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/payment-methods", methods=["GET"])
+@admin_required
+def get_payment_methods():
+    try:
+        from app.models import PaymentMethod
+        from app import db
+        pms = db.session.query(PaymentMethod).all()
+        return jsonify([{
+            "id": p.id,
+            "name": getattr(p, 'name', ''),
+            "account": getattr(p, 'account', ''),
+            "min_amount": float(getattr(p, 'min_amount', 0.0)),
+            "max_amount": float(getattr(p, 'max_amount', 0.0))
+        } for p in pms])
+    except Exception as e:
+        return jsonify([])
+
+@admin_bp.route("/payment-methods", methods=["POST"])
+@admin_required
+def create_payment_method():
+    data = request.get_json(silent=True) or {}
+    try:
+        from app.models import PaymentMethod
+        from app import db
+        pm = PaymentMethod(
+            name=data.get('name', ''),
+            account=data.get('account', ''),
+            min_amount=float(data.get('min_amount', 0)),
+            max_amount=float(data.get('max_amount', 0))
+        )
+        db.session.add(pm)
+        db.session.commit()
+        return jsonify({"success": True, "id": pm.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/payment-methods/<int:pm_id>", methods=["PUT", "DELETE"])
+@admin_required
+def manage_payment_method(pm_id):
+    try:
+        from app.models import PaymentMethod
+        from app import db
+        pm = db.session.get(PaymentMethod, pm_id)
+        if not pm: return jsonify({"error": "طريقة الدفع غير موجودة"}), 404
+        
+        if request.method == 'DELETE':
+            db.session.delete(pm)
+            db.session.commit()
+            return jsonify({"success": True})
+        if request.method == 'PUT':
+            data = request.get_json(silent=True) or {}
+            if 'name' in data: pm.name = data['name']
+            if 'account' in data: pm.account = data['account']
+            if 'min_amount' in data: pm.min_amount = float(data['min_amount'])
+            if 'max_amount' in data: pm.max_amount = float(data['max_amount'])
+            db.session.commit()
+            return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
