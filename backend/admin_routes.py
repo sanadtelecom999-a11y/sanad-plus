@@ -278,3 +278,69 @@ def handle_item_action(item_type, item_id, action):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ============================================================
+# المرحلة 3: إدارة المستخدمين (Users)
+# ============================================================
+
+@admin_bp.route("/users", methods=["GET"])
+@admin_required
+def get_users():
+    try:
+        from app.models import User
+        from app import db
+        users = db.session.query(User).all()
+        return jsonify([{
+            "id": u.id,
+            "telegram_id": str(getattr(u, 'telegram_id', '')),
+            "first_name": getattr(u, 'first_name', 'مستخدم'),
+            "balance": float(getattr(u, 'balance', 0.0)),
+            "is_banned": bool(getattr(u, 'is_banned', False))
+        } for u in users])
+    except Exception as e:
+        print("Users Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/users/<int:user_id>/balance", methods=["POST"])
+@admin_required
+def update_balance(user_id):
+    data = request.get_json(silent=True) or {}
+    amount = data.get("amount")
+    
+    if amount is None:
+        return jsonify({"error": "المبلغ مطلوب"}), 400
+        
+    try:
+        from app.models import User
+        from app import db
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({"error": "المستخدم غير موجود"}), 404
+            
+        user.balance = float(user.balance) + float(amount)
+        db.session.commit()
+        return jsonify({"success": True, "new_balance": user.balance})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/users/<int:user_id>/ban", methods=["POST"])
+@admin_required
+def ban_user(user_id):
+    data = request.get_json(silent=True) or {}
+    is_banned = data.get("is_banned")
+    
+    try:
+        from app.models import User
+        from app import db
+        user = db.session.get(User, user_id)
+        if not user:
+            return jsonify({"error": "المستخدم غير موجود"}), 404
+            
+        user.is_banned = bool(is_banned)
+        db.session.commit()
+        return jsonify({"success": True, "is_banned": user.is_banned})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

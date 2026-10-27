@@ -1,3 +1,4 @@
+import { renderUsers } from './sections/users.js';
 import { renderInbox } from './sections/inbox.js';
 import { renderDashboard } from './sections/dashboard.js';
 import { CONFIG } from './config.js';
@@ -21,7 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleRoute() {
   if (!isAuthenticated()) return;
   const hash = window.location.hash || '#dashboard';
-  if (hash === '#inbox') {
+  if (hash === '#users') {
+    renderUsers();
+  } else if (hash === '#inbox') {
     renderInbox();
   } else {
     renderDashboard();
