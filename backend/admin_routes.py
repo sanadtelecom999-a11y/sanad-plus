@@ -24,6 +24,37 @@ OTP_TTL_MINUTES = 5
 MAX_OTP_ATTEMPTS = 5
 
 
+
+def log_admin_action(action, target_type, target_id, details=""):
+    """تسجيل الإجراءات الإدارية في سجل التدقيق"""
+    try:
+        from app.extensions import db
+        from sqlalchemy import text
+        import datetime
+        
+        # إنشاء جدول سجل التدقيق إذا لم يكن موجوداً
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS admin_audit_logs (
+                id SERIAL PRIMARY KEY,
+                admin_name VARCHAR(50) DEFAULT 'Admin',
+                action VARCHAR(100),
+                target_type VARCHAR(50),
+                target_id INT,
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        
+        db.session.execute(text("""
+            INSERT INTO admin_audit_logs (action, target_type, target_id, details)
+            VALUES (:action, :target_type, :target_id, :details)
+        """), {"action": action, "target_type": target_type, "target_id": target_id, "details": details})
+        
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("Audit Log Error:", e, flush=True)
+
 def _utcnow():
     return datetime.now(timezone.utc)
 
@@ -261,33 +292,40 @@ def handle_item_action(item_type, item_id, action):
         return jsonify({"error": "إجراء غير صالح"}), 400
     
     try:
-        from app.models import Order, Deposit, KYC
+        from app.models import Order, Deposit, KYC, User
         from app import db
         
         model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
         if not model: return jsonify({"error": "نوع غير معروف"}), 400
         
-        item = db.session.get(model, item_id)
+        # قفل السجل لمنع التعديل المتزامن
+        item = db.session.query(model).filter_by(id=item_id).with_for_update().first()
         if not item: return jsonify({"error": "العنصر غير موجود"}), 404
         
-        # تحديث الحالة
+        # منع التكرار (Idempotency): إذا كان معالجا مسبقاً، نرفض الطلب
+        if getattr(item, 'status', '') in ['approved', 'rejected']:
+            return jsonify({"error": "تمت معالجة هذا العنصر مسبقاً"}), 400
+        
         new_status = 'approved' if action == 'approve' else 'rejected'
         item.status = new_status
         
-        # (اختياري) إذا كان إيداعاً معتمداً، يمكن إضافة الرصيد للمستخدم هنا
-        # if item_type == 'deposits' and action == 'approve':
-        #     item.user.balance += item.amount
+        # العمليات المالية: إذا كان إيداعاً وتم قبوله، نضيف الرصيد
+        if item_type == 'deposits' and action == 'approve':
+            # جلب المستخدم وقفل رصيده
+            user = db.session.query(User).filter_by(id=item.user_id).with_for_update().first()
+            if user:
+                old_balance = float(user.balance)
+                user.balance = old_balance + float(item.amount)
+                log_admin_action("قبول إيداع", "deposit", item_id, f"إضافة {item.amount} للمستخدم {user.id}. الرصيد: {old_balance} -> {user.balance}")
+        
+        if action == 'reject':
+            log_admin_action("رفض عنصر", item_type, item_id, "تم رفض العنصر")
             
         db.session.commit()
         return jsonify({"success": True, "new_status": new_status})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
-# ============================================================
-# المرحلة 3: إدارة المستخدمين (Users)
-# ============================================================
 
 @admin_bp.route("/users", methods=["GET"])
 @admin_required
@@ -319,12 +357,20 @@ def update_balance(user_id):
     try:
         from app.models import User
         from app import db
-        user = db.session.get(User, user_id)
+        
+        # استخدام with_for_update لقفل الصف أثناء التعديل (لمنع التعارض)
+        user = db.session.query(User).filter_by(id=user_id).with_for_update().first()
+        
         if not user:
             return jsonify({"error": "المستخدم غير موجود"}), 404
             
-        user.balance = float(user.balance) + float(amount)
+        old_balance = float(user.balance)
+        user.balance = old_balance + float(amount)
         db.session.commit()
+        
+        # تسجيل في سجل التدقيق
+        log_admin_action("تعديل رصيد", "user", user_id, f"من {old_balance} إلى {user.balance} (التغيير: {amount})")
+        
         return jsonify({"success": True, "new_balance": user.balance})
     except Exception as e:
         db.session.rollback()
@@ -339,21 +385,20 @@ def ban_user(user_id):
     try:
         from app.models import User
         from app import db
-        user = db.session.get(User, user_id)
+        user = db.session.query(User).filter_by(id=user_id).with_for_update().first()
         if not user:
             return jsonify({"error": "المستخدم غير موجود"}), 404
             
         user.is_banned = bool(is_banned)
         db.session.commit()
+        
+        action_text = "حظر مستخدم" if is_banned else "فك حظر"
+        log_admin_action(action_text, "user", user_id, f"تم تغيير الحالة إلى {is_banned}")
+        
         return jsonify({"success": True, "is_banned": user.is_banned})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
-
-# ============================================================
-# المرحلة 4: المتجر (Products)
-# ============================================================
 
 @admin_bp.route("/products", methods=["GET"])
 @admin_required
@@ -754,32 +799,22 @@ def restore_archive(item_type, item_id):
 @admin_required
 def get_settings():
     try:
-        # محاولة استيراد موديل الإعدادات (قد يكون اسمه Setting أو AppSetting)
-        try:
-            from app.models import Setting
-        except ImportError:
-            try:
-                from app.models import AppSetting as Setting
-            except ImportError:
-                Setting = None
-
-        from app import db
+        from app.extensions import db
+        from sqlalchemy import text
         
-        if not Setting:
-            # إذا لم يكن هناك جدول إعدادات، نرسل القيم الافتراضية
-            return jsonify({
-                "store_name": "SANAD+ Store",
-                "exchange_rate": 15000,
-                "maintenance_mode": False
-            })
-
-        # جلب الإعدادات من قاعدة البيانات
+        # إنشاء جدول الإعدادات إذا لم يكن موجوداً
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key VARCHAR(50) PRIMARY KEY,
+                value TEXT
+            )
+        """))
+        db.session.commit()
+        
         settings_dict = {}
-        rows = db.session.query(Setting).all()
+        rows = db.session.execute(text("SELECT key, value FROM app_settings")).fetchall()
         for row in rows:
-            key = getattr(row, 'key', getattr(row, 'name', ''))
-            val = getattr(row, 'value', '')
-            if key: settings_dict[key] = val
+            settings_dict[row[0]] = row[1]
 
         return jsonify({
             "store_name": settings_dict.get('store_name', 'SANAD+ Store'),
@@ -789,6 +824,31 @@ def get_settings():
     except Exception as e:
         print("Settings GET Error:", e, flush=True)
         return jsonify({"store_name": "SANAD+", "exchange_rate": 15000, "maintenance_mode": False})
+
+@admin_bp.route("/settings", methods=["PUT"])
+@admin_required
+def update_settings():
+    data = request.get_json(silent=True) or {}
+    try:
+        from app.extensions import db
+        from sqlalchemy import text
+        
+        def set_setting(key, value):
+            db.session.execute(text("""
+                INSERT INTO app_settings (key, value) VALUES (:key, :value)
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """), {"key": key, "value": str(value)})
+
+        if 'store_name' in data: set_setting('store_name', data['store_name'])
+        if 'exchange_rate' in data: set_setting('exchange_rate', data['exchange_rate'])
+        if 'maintenance_mode' in data: set_setting('maintenance_mode', str(data['maintenance_mode']).lower())
+
+        db.session.commit()
+        log_admin_action("تحديث الإعدادات", "settings", 0, str(data))
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @admin_bp.route("/settings", methods=["PUT"])
 @admin_required
