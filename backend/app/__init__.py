@@ -1,3 +1,4 @@
+from admin_routes import admin_bp
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from .blueprints import admin_bp, api_bp, bot_bp
