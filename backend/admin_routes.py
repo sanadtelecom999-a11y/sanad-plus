@@ -674,32 +674,46 @@ def close_ticket(ticket_id):
 @admin_required
 def get_archive(item_type):
     try:
-        from app.models import Order, Deposit, KYC
+        import app.models as models
         from app import db
         
-        model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
-        if not model: return jsonify([])
+        # جلب الموديل بطريقة آمنة حتى لو اختلف اسمه
+        model = None
+        if item_type == 'orders': model = getattr(models, 'Order', None)
+        elif item_type == 'deposits': model = getattr(models, 'Deposit', None)
+        elif item_type == 'kyc': 
+            model = getattr(models, 'KYC', None) or getattr(models, 'Kyc', None) or getattr(models, 'UserKyc', None)
+            
+        if not model: 
+            print(f"Model not found for {item_type}", flush=True)
+            return jsonify([])
         
-        # جلب كل العناصر ثم الفلترة برمجياً لتجنب أخطاء SQL إذا كانت الأعمدة مفقودة
-        items = db.session.query(model).all()
+        # جلب أول 100 عنصر فقط لضمان سرعة الاستجابة
+        items = db.session.query(model).limit(100).all()
         
         res = []
         for i in items:
             status = str(getattr(i, 'status', '')).lower()
             is_deleted = getattr(i, 'deleted_at', None) is not None
             
+            # فلترة العناصر المؤرشفة
             if is_deleted or status in ['archived', 'cancelled', 'rejected', 'مرفوض', 'ملغي', 'مؤرشف']:
+                # محاولة جلب اسم المستخدم بأمان
+                user_name = 'مستخدم'
+                if hasattr(i, 'user') and i.user:
+                    user_name = getattr(i.user, 'first_name', 'مستخدم')
+                
                 res.append({
                     "id": i.id,
                     "title": f"{item_type} #{i.id}",
-                    "user_name": getattr(i.user, 'first_name', 'مستخدم') if hasattr(i, 'user') and i.user else 'مستخدم',
+                    "user_name": user_name,
                     "details": f"الحالة: {getattr(i, 'status', 'غير محدد')}"
                 })
         return jsonify(res)
     except Exception as e:
         import traceback
         print("Archive Error:", traceback.format_exc(), flush=True)
-        return jsonify([])
+        return jsonify([]) # إرجاع قائمة فارغة بدلاً من قطع الاتصال
 
 @admin_bp.route("/archive/<string:item_type>/<int:item_id>/restore", methods=["POST"])
 @admin_required
