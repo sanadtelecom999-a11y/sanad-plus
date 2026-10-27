@@ -501,3 +501,146 @@ window.loadArchiveData = async function() {
         list.innerHTML = html;
     } catch(e) { list.innerHTML = `<div class="text-red-400">${e.message}</div>`; }
 };
+
+
+
+// =================================================================
+// 🚀 MASTER FIX: دوال الواجهة النظيفة (تتغلب على أي أكواد قديمة)
+// =================================================================
+
+// 1. إحياء دالة الحماية escapeHtml
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+}
+
+// 2. إصلاح دالة جلب وعرض المستخدمين
+window.loadUsers = async function() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>';
+    
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/users`, { headers: getHeaders() });
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا يوجد مستخدمون.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(u => `
+            <tr>
+                <td class="py-3 px-4 font-mono text-sm">${escapeHtml(u.telegram_id)}</td>
+                <td class="py-3 px-4 font-bold text-white">${escapeHtml(u.first_name || 'مستخدم')}</td>
+                <td class="py-3 px-4 font-bold ${u.balance < 0 ? 'text-danger' : 'text-success'}">$${parseFloat(u.balance || 0).toFixed(2)}</td>
+                <td class="py-3 px-4">${u.is_banned ? '<span class="badge bg-red-500/20 text-red-400 px-2 py-1 rounded">محظور</span>' : '<span class="badge bg-green-500/20 text-green-400 px-2 py-1 rounded">نشط</span>'}</td>
+                <td class="py-3 px-4">
+                    <button class="btn-outline btn-sm" onclick="alert('سيتم تفعيل التعديل قريباً')">إدارة</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">${escapeHtml(e.message)}</td></tr>`;
+    }
+};
+
+// 3. إصلاح دالة جلب وعرض المنتجات
+window.loadProducts = async function() {
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">جاري التحميل...</td></tr>';
+    
+    try {
+        const res = await safeFetch(`${API_BASE}/api/admin/products?limit=50`, { headers: getHeaders() });
+        const data = res.items || []; // السيرفر يرسل البيانات داخل items بسبب الترقيم
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لا توجد منتجات.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(p => `
+            <tr>
+                <td class="py-3 px-4"><img src="${p.image || 'https://via.placeholder.com/40'}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;"></td>
+                <td class="py-3 px-4 font-bold text-white">${escapeHtml(p.name)}</td>
+                <td class="py-3 px-4">${escapeHtml(p.category_name || 'غير محدد')}</td>
+                <td class="py-3 px-4 font-bold text-success">$${parseFloat(p.base_price || 0).toFixed(2)}</td>
+                <td class="py-3 px-4">${p.base_quantity} ${escapeHtml(p.unit_name || 'قطعة')}</td>
+                <td class="py-3 px-4">
+                    <button class="btn-danger btn-sm" onclick="alert('سيتم تفعيل الحذف قريباً')">حذف</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">${escapeHtml(e.message)}</td></tr>`;
+    }
+};
+
+// 4. إصلاح دالة جلب وعرض طرق الدفع
+window.loadPaymentMethods = async function() {
+    const container = document.getElementById('paymentMethodsList');
+    if (!container) return;
+    container.innerHTML = '<div class="text-center py-4 text-slate-400 col-span-full">جاري التحميل...</div>';
+    
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/payment-methods`, { headers: getHeaders() });
+        if (!data || data.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-slate-400 col-span-full">لا توجد طرق دفع.</div>';
+            return;
+        }
+        container.innerHTML = data.map(pm => `
+            <div class="glass rounded-2xl p-4 flex flex-col gap-2 border border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-xl">💳</div>
+                    <h4 class="font-bold text-white">${escapeHtml(pm.name)}</h4>
+                </div>
+                <div class="text-sm text-slate-400 mt-2">الحساب: <span class="font-mono text-white">${escapeHtml(pm.account || '-')}</span></div>
+                <div class="text-xs text-slate-500">الحد الأدنى: $${pm.min_amount} | الأقصى: $${pm.max_amount}</div>
+                <button class="btn-outline btn-sm mt-2" onclick="alert('سيتم تفعيل التعديل قريباً')">تعديل</button>
+            </div>
+        `).join('');
+    } catch (e) {
+        container.innerHTML = `<div class="text-center text-danger py-4 col-span-full">${escapeHtml(e.message)}</div>`;
+    }
+};
+
+// 5. إصلاح دالة عرض الأرشيف (تحويل JSON إلى قائمة)
+window.loadArchiveData = async function() {
+    const list = document.getElementById('archiveList');
+    if (!list) return;
+    list.innerHTML = '<div class="text-center py-4 text-slate-400">جاري التحميل...</div>';
+    
+    try {
+        const data = await safeFetch(`${API_BASE}/api/admin/archive`, { headers: getHeaders() });
+        let html = '';
+        
+        if (data.categories && data.categories.length > 0) {
+            html += `<h4 class="font-bold text-accent mt-4 mb-2 col-span-full">الأقسام المؤرشفة</h4>`;
+            html += data.categories.map(c => `
+                <div class="glass rounded-xl p-3 flex justify-between items-center mb-2">
+                    <span class="font-bold text-white">${escapeHtml(c.name)}</span>
+                    <button class="btn-success btn-sm" onclick="alert('سيتم تفعيل الاسترجاع قريباً')">استرجاع</button>
+                </div>
+            `).join('');
+        }
+        
+        if (data.products && data.products.length > 0) {
+            html += `<h4 class="font-bold text-accent mt-6 mb-2 col-span-full">المنتجات المؤرشفة</h4>`;
+            html += data.products.map(p => `
+                <div class="glass rounded-xl p-3 flex justify-between items-center mb-2">
+                    <div>
+                        <div class="font-bold text-white">${escapeHtml(p.name)}</div>
+                        <div class="text-xs text-slate-400">${escapeHtml(p.category_name)}</div>
+                    </div>
+                    <button class="btn-success btn-sm" onclick="alert('سيتم تفعيل الاسترجاع قريباً')">استرجاع</button>
+                </div>
+            `).join('');
+        }
+        
+        if (html === '') {
+            html = '<div class="text-center py-10 text-slate-400 col-span-full">الأرشيف فارغ حالياً.</div>';
+        }
+        
+        list.innerHTML = html;
+    } catch (e) {
+        list.innerHTML = `<div class="text-center text-danger py-4 col-span-full">${escapeHtml(e.message)}</div>`;
+    }
+};
