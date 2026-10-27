@@ -511,15 +511,36 @@ def get_payment_methods():
     try:
         from app.models import PaymentMethod
         from app import db
-        pms = db.session.query(PaymentMethod).all()
-        return jsonify([{
-            "id": p.id,
-            "name": getattr(p, 'name', ''),
-            "account": getattr(p, 'account', ''),
-            "min_amount": float(getattr(p, 'min_amount', 0.0)),
-            "max_amount": float(getattr(p, 'max_amount', 0.0))
-        } for p in pms])
+        
+        # جلب الطرق غير المحذوفة فقط
+        pms = db.session.query(PaymentMethod).filter(PaymentMethod.deleted_at.is_(None)).all()
+        res = []
+        
+        for p in pms:
+            try:
+                # دالة مساعدة لتحويل حقول MONEY إلى float بأمان
+                def parse_money(val):
+                    if val is None: return 0.0
+                    # إزالة أي رموز عملات أو فواصل
+                    clean_val = str(val).replace('$', '').replace(',', '').strip()
+                    try:
+                        return float(clean_val)
+                    except ValueError:
+                        return 0.0
+
+                res.append({
+                    "id": p.id,
+                    "name": str(getattr(p, 'name', '') or ''),
+                    "account": str(getattr(p, 'account', '') or ''),
+                    "min_amount": parse_money(getattr(p, 'min_amount', 0)),
+                    "max_amount": parse_money(getattr(p, 'max_amount', 0))
+                })
+            except Exception as row_err:
+                print("Row Error in PM:", row_err, flush=True)
+                
+        return jsonify(res)
     except Exception as e:
+        print("FATAL PM Error:", str(e), flush=True)
         return jsonify([])
 
 @admin_bp.route("/payment-methods", methods=["POST"])
