@@ -168,3 +168,21 @@ function showToast(message, type) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
+
+// ═══════════════════════════════════════════════════════════
+// إدارة المودال (فتح وإغلاق)
+// ═══════════════════════════════════════════════════════════
+window.closeModal = function() {
+  const modal = document.getElementById('detail-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+// إغلاق المودال عند النقر خارج المحتوى (على الخلفية المعتمة)
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('detail-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) window.closeModal();
+    });
+  }
+});
