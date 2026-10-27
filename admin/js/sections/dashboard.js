@@ -12,6 +12,7 @@ export async function renderDashboard() {
   }
 
   const data = res.data;
+  console.log('Dashboard Data:', data);
 
   // بناء الواجهة
   container.innerHTML = `
