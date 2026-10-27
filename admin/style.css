@@ -1,22 +1,45 @@
 /* === كلاسات SANAD+ العامة === */
 .sanad-card { background: linear-gradient(145deg, #122640f2, #0c1c30f2); border: 1px solid rgba(125,180,225,.16); border-radius: 16px; }
-.sanad-btn { border: 1px solid transparent; border-radius: 10px; padding: 9px 13px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; font-family: inherit; }
+.sanad-btn { border: 1px solid transparent; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .sanad-btn-primary { background: linear-gradient(135deg, #0284c7, #0ea5e9); color: white; }
 .sanad-btn-primary:hover { opacity: 0.9; }
 .sanad-btn-danger { background: #4c1727; color: #fecdd3; border-color: #fb718555; }
 .sanad-btn-danger:hover { background: #5c1d2f; }
+.sanad-btn-success { background: #064e3b; color: #a7f3d0; border-color: #10b98155; }
+.sanad-btn-success:hover { background: #065f46; }
 .sanad-btn-secondary { background: #17304b; color: #dceeff; border-color: rgba(125,180,225,.16); }
 .sanad-btn-secondary:hover { background: #1f3e5e; }
 
+/* الجداول */
 .sanad-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .sanad-table th { text-align: right; color: #a9c3df; background: rgba(56, 189, 248, 0.05); font-weight: 700; padding: 12px 10px; border-bottom: 1px solid rgba(125,180,225,.16); }
 .sanad-table td { color: #dce8f6; padding: 12px 10px; border-bottom: 1px solid rgba(125,180,225,.08); }
 .sanad-table tbody tr:hover { background: rgba(56, 189, 248, 0.03); }
+.sanad-img-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); }
 
-.sanad-input { width: 100%; background: #0b1b2f; border: 1px solid rgba(125,180,225,.16); border-radius: 8px; padding: 10px; color: white; font-family: inherit; outline: none; transition: 0.2s; }
+/* المدخلات */
+.sanad-input { width: 100%; background: #0b1b2f; border: 1px solid rgba(125,180,225,.16); border-radius: 8px; padding: 10px; color: white; font-family: inherit; outline: none; transition: 0.2s; box-sizing: border-box; }
 .sanad-input:focus { border-color: #38bdf8; }
 
+/* البطاقات الإحصائية */
 .sanad-stat-value { font-size: 26px; font-weight: 800; margin-top: 10px; }
 .sanad-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .badge-success { color: #6ee7b7; background: #10b9811f; }
 .badge-danger { color: #fda4af; background: #fb71851b; }
+.badge-warning { color: #fde68a; background: #fbbf241c; }
+
+/* التبويبات (Tabs) */
+.sanad-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(125,180,225,.16); padding-bottom: 10px; overflow-x: auto; }
+.sanad-tab { background: transparent; border: none; color: #91a7c2; font-family: inherit; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+.sanad-tab:hover { background: rgba(56, 189, 248, 0.05); color: white; }
+.sanad-tab.active { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+
+/* واجهة المحادثة (Chat) */
+.chat-container { display: flex; height: calc(100vh - 180px); gap: 16px; }
+.chat-sidebar { width: 300px; display: flex; flex-direction: column; }
+.chat-main { flex: 1; display: flex; flex-direction: column; position: relative; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.chat-bubble.user { background: #17304b; color: #dceeff; align-self: flex-start; border-top-right-radius: 2px; }
+.chat-bubble.admin { background: #0284c7; color: white; align-self: flex-end; border-top-left-radius: 2px; }
+.chat-time { font-size: 10px; opacity: 0.7; margin-top: 4px; display: block; }

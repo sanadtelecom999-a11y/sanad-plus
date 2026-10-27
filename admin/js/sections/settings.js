@@ -2,40 +2,28 @@ import { api } from '../core/api.js';
 
 export async function renderSettings() {
   const container = document.getElementById('dashboard-container');
-  
   container.innerHTML = `
-    <div class="max-w-2xl mx-auto">
-      <h2 class="text-2xl font-bold mb-6">إعدادات المتجر</h2>
-      
-      <div class="glass rounded-2xl p-6 border border-white/10">
-        <form id="settings-form" class="space-y-6">
-          
+    <div style="max-width:600px; margin:0 auto;">
+      <h2 style="font-size:18px; margin-bottom:20px;">إعدادات المتجر</h2>
+      <div class="sanad-card" style="padding:24px;">
+        <form id="settings-form" style="display:flex; flex-direction:column; gap:20px;">
           <div>
-            <label class="block text-sm mb-2 text-slate-300">اسم المتجر</label>
-            <input type="text" id="set-store-name" class="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary" placeholder="مثال: SANAD+ Store">
+            <label style="display:block; font-size:13px; color:#91a7c2; margin-bottom:8px;">اسم المتجر</label>
+            <input type="text" id="set-store-name" class="sanad-input" placeholder="SANAD+ Store">
           </div>
-
           <div>
-            <label class="block text-sm mb-2 text-slate-300">سعر صرف الليرة السورية (للدولار)</label>
-            <input type="number" id="set-exchange-rate" class="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary" placeholder="مثال: 15000">
+            <label style="display:block; font-size:13px; color:#91a7c2; margin-bottom:8px;">سعر صرف الليرة السورية</label>
+            <input type="number" id="set-exchange-rate" class="sanad-input" placeholder="15000">
           </div>
-
-          <div class="flex items-center justify-between bg-slate-800/50 p-4 rounded-lg border border-white/5">
+          <div style="display:flex; align-items:center; justify-content:space-between; background:#0b1b2f; padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);">
             <div>
-              <h4 class="font-bold text-white">وضع الصيانة (Maintenance Mode)</h4>
-              <p class="text-sm text-slate-400">عند تفعيله، سيتم إغلاق واجهة المستخدم (البوت/الميني آب) مؤقتاً.</p>
+              <h4 style="margin:0 0 4px 0; font-size:14px;">وضع الصيانة</h4>
+              <p style="margin:0; font-size:12px; color:#91a7c2;">إغلاق واجهة المستخدم مؤقتاً.</p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="set-maintenance" class="sr-only peer">
-              <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-danger"></div>
-            </label>
+            <input type="checkbox" id="set-maintenance" style="width:20px; height:20px; accent-color:#38bdf8;">
           </div>
-
-          <div id="settings-msg" class="text-sm hidden"></div>
-
-          <button type="submit" id="settings-save-btn" class="w-full py-3 bg-primary text-slate-900 font-bold rounded-lg hover:bg-sky-400 transition">
-            حفظ الإعدادات
-          </button>
+          <div id="settings-msg" style="font-size:13px; display:none;"></div>
+          <button type="submit" id="settings-save-btn" class="sanad-btn sanad-btn-primary" style="padding:12px;">حفظ الإعدادات</button>
         </form>
       </div>
     </div>
@@ -47,40 +35,13 @@ export async function renderSettings() {
     e.preventDefault();
     const btn = document.getElementById('settings-save-btn');
     const msg = document.getElementById('settings-msg');
-    const storeName = document.getElementById('set-store-name').value;
-    const exchangeRate = document.getElementById('set-exchange-rate').value;
-    const maintenance = document.getElementById('set-maintenance').checked;
+    btn.disabled = true; btn.textContent = 'جاري الحفظ...'; msg.style.display = 'none';
 
-    if (!storeName || !exchangeRate || isNaN(exchangeRate)) {
-      msg.textContent = 'يرجى إدخال بيانات صحيحة.';
-      msg.className = 'text-sm text-danger block';
-      return;
-    }
+    const res = await api.safeFetch('/api/admin/settings', { method: 'PUT', body: { store_name: document.getElementById('set-store-name').value, exchange_rate: parseFloat(document.getElementById('set-exchange-rate').value), maintenance_mode: document.getElementById('set-maintenance').checked } });
+    btn.disabled = false; btn.textContent = 'حفظ الإعدادات';
 
-    btn.disabled = true;
-    btn.textContent = 'جاري الحفظ...';
-    msg.className = 'hidden';
-
-    const res = await api.safeFetch('/api/admin/settings', {
-      method: 'PUT',
-      body: {
-        store_name: storeName,
-        exchange_rate: parseFloat(exchangeRate),
-        maintenance_mode: maintenance
-      }
-    });
-
-    btn.disabled = false;
-    btn.textContent = 'حفظ الإعدادات';
-
-    if (res.ok) {
-      msg.textContent = '✅ تم حفظ الإعدادات بنجاح.';
-      msg.className = 'text-sm text-success block';
-      setTimeout(() => { msg.className = 'hidden'; }, 3000);
-    } else {
-      msg.textContent = '❌ فشل الحفظ: ' + res.error;
-      msg.className = 'text-sm text-danger block';
-    }
+    if (res.ok) { msg.textContent = 'تم الحفظ بنجاح.'; msg.style.color = '#34d399'; msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
+    else { msg.textContent = 'فشل: ' + res.error; msg.style.color = '#fb7185'; msg.style.display = 'block'; }
   };
 }
 
