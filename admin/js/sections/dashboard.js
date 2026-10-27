@@ -82,7 +82,7 @@ function drawOrdersChart(data) {
       maintainAspectRatio: false,
       cutout: '70%',
       plugins: {
-        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Cairo' } } }
+        legend: { position: 'bottom', labels: { color: '#cbd5e1', font: { family: 'Cairo' } } }
       }
     }
   });
@@ -98,7 +98,7 @@ function drawRevenueChart(data) {
         label: 'الإيرادات',
         data: data,
         borderColor: '#38bdf8',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+        backgroundColor: 'rgba(56, 189, 248, 0.15)',
         borderWidth: 2,
         fill: true,
         tension: 0.4,
@@ -115,11 +115,11 @@ function drawRevenueChart(data) {
         y: { 
           beginAtZero: true,
           grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#94a3b8', font: { family: 'Cairo' } }
+          ticks: { color: '#cbd5e1', font: { family: 'Cairo' } }
         },
         x: { 
           grid: { display: false },
-          ticks: { color: '#94a3b8', font: { family: 'Cairo' } }
+          ticks: { color: '#cbd5e1', font: { family: 'Cairo' } }
         }
       }
     }

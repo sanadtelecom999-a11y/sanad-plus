@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -15,102 +16,191 @@
         extend: {
           fontFamily: { sans: ['Cairo', 'sans-serif'] },
           colors: {
-            bg: '#0f172a', card: '#1e293b',
-            primary: '#38bdf8', success: '#10b981', danger: '#ef4444',
+            bg: '#0f172a',
+            card: '#1e293b',
+            primary: '#38bdf8',
+            success: '#10b981',
+            danger: '#ef4444',
+            warning: '#f59e0b',
+            textMuted: '#94a3b8',
           },
+          borderRadius: {
+            '2xl': '1rem',
+            '3xl': '1.5rem',
+          }
         },
       },
     };
   </script>
   <style>
-    body { font-family: 'Cairo', sans-serif; background: #0f172a; color: #fff; }
-    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-    html.light body { background: #f1f5f9 !important; color: #0f172a; }
-    html.light .glass { background: rgba(255, 255, 255, 0.85); }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    body { font-family: 'Cairo', sans-serif; }
+    /* تأثير الزجاج */
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    html.light body { background-color: #f1f5f9; color: #0f172a; }
+    html.light .glass { background: rgba(255, 255, 255, 0.85); border-color: rgba(0,0,0,0.05); }
+    
+    /* تخصيص شريط التمرير */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-  <style>
+    /* Spinner */
     .spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    /* Sidebar Active State */
+    .nav-link { transition: all 0.2s; border-right: 3px solid transparent; }
+    .nav-link:hover { background: rgba(56, 189, 248, 0.05); color: #38bdf8; }
+    .nav-link.active { background: rgba(56, 189, 248, 0.1); border-right-color: #38bdf8; color: #38bdf8; font-weight: bold; }
   </style>
-
 </head>
-<body class="min-h-screen">
+<body class="bg-bg text-white min-h-screen overflow-hidden">
 
-  <div id="login-screen" class="min-h-screen flex items-center justify-center p-4">
-    <div class="glass rounded-2xl p-8 w-full max-w-md border border-white/10 shadow-2xl">
-      <h1 class="text-3xl font-bold text-center mb-2">SANAD<span class="text-primary">+</span></h1>
-      <p class="text-center text-slate-400 text-sm mb-8">لوحة التحكم الإدارية</p>
+  <!-- ============ شاشة تسجيل الدخول ============ -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-bg">
+    <div class="glass rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
+      <h1 class="text-4xl font-bold text-center mb-2 relative z-10">SANAD<span class="text-primary">+</span></h1>
+      <p class="text-center text-textMuted text-sm mb-8 relative z-10">لوحة التحكم الإدارية</p>
 
-      <form id="login-form" class="space-y-4" novalidate>
+      <form id="login-form" class="space-y-5 relative z-10" novalidate>
         <div id="password-group">
-          <label class="block text-sm mb-2">كلمة المرور</label>
+          <label class="block text-sm mb-2 text-textMuted">كلمة المرور</label>
           <input id="password-input" type="password" required autocomplete="current-password"
-                 class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 focus:outline-none focus:border-primary text-white" />
+                 class="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-primary text-white transition-colors" />
         </div>
 
         <div id="otp-group" style="display: none;">
-          <label class="block text-sm mb-2">رمز OTP</label>
+          <label class="block text-sm mb-2 text-textMuted">رمز OTP</label>
           <input id="otp-input" type="text" inputmode="numeric" autocomplete="one-time-code"
-                 class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:border-primary text-white"
+                 class="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:border-primary text-white transition-colors"
                  placeholder="------" maxlength="6" />
-          <p class="text-xs text-slate-500 mt-2">الرمز يظهر في سجلات Render</p>
+          <p class="text-xs text-textMuted mt-2">الرمز يظهر في سجلات Render</p>
         </div>
 
-        <div id="login-error" class="text-danger text-sm min-h-[20px] text-center"></div>
+        <div id="login-error" class="text-danger text-sm min-h-[20px] text-center font-bold"></div>
 
         <button id="login-submit" type="submit"
-                class="w-full bg-primary hover:bg-sky-400 text-slate-900 font-bold py-3 rounded-lg transition disabled:opacity-50">
+                class="w-full bg-primary hover:bg-sky-400 text-slate-900 font-bold py-3 rounded-xl transition-all shadow-lg shadow-primary/20 disabled:opacity-50">
           دخول
         </button>
       </form>
     </div>
   </div>
 
-  <div id="app-shell" style="display: none;" class="min-h-screen flex-col">
-    <header class="glass border-b border-white/10 p-4 flex items-center justify-between sticky top-0 z-40">
-      <div class="flex items-center gap-3">
-        <h2 class="text-xl font-bold">SANAD<span class="text-primary">+</span></h2>
-        <span class="text-slate-400 text-sm hidden sm:inline">— لوحة التحكم</span>
+  <!-- ============ شل التطبيق الرئيسي ============ -->
+  <div id="app-shell" style="display: none;" class="flex h-screen w-full">
+    
+    <!-- 1. الشريط الجانبي (Sidebar) -->
+    <aside class="w-64 glass border-l border-white/5 flex flex-col hidden md:flex z-50">
+      <!-- الشعار -->
+      <div class="h-16 flex items-center px-6 border-b border-white/5">
+        <h2 class="text-2xl font-bold tracking-wide">SANAD<span class="text-primary">+</span></h2>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="theme-toggle" title="تبديل الوضع"
-                class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition">🌓</button>
-        <button id="logout-btn"
-                class="px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition">خروج</button>
-      </div>
-    </header>
-
-        
-    <!-- شريط التنقل -->
-    <div class="bg-card/50 border-b border-white/10 px-6 py-2 flex gap-4 overflow-x-auto">
-      <button onclick="window.location.hash='#dashboard'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary">لوحة التحكم</button>
       
-      <button onclick="window.location.hash='#support'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary whitespace-nowrap">تذاكر الدعم</button>
-      <button onclick="window.location.hash='#settings'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary whitespace-nowrap">الإعدادات</button>
-      <button onclick="window.location.hash='#archive'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary whitespace-nowrap">الأرشيف</button>
-      <button onclick="window.location.hash='#store'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary">المتجر</button>
-      <button onclick="window.location.hash='#users'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary">إدارة المستخدمين</button>
-      <button onclick="window.location.hash='#inbox'" class="text-slate-300 hover:text-primary transition pb-2 border-b-2 border-transparent hover:border-primary">الإرساليات (Inbox)</button>
-    </div>
-<main class="flex-1 p-6 overflow-y-auto">
-      <div id="dashboard-container">
-        <!-- سيتم حقن لوحة التحكم هنا -->
-        <div class="text-center text-slate-400 mt-20">جاري تحميل الإحصائيات...</div>
+      <!-- الروابط -->
+      <div class="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+        
+        <!-- قسم العمليات -->
+        <div>
+          <p class="px-3 text-xs font-bold text-textMuted mb-2 uppercase tracking-wider">العمليات</p>
+          <div class="space-y-1">
+            <a href="#dashboard" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">📊</span> لوحة التحكم
+            </a>
+            <a href="#inbox" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">📥</span> الإرساليات (Inbox)
+            </a>
+            <a href="#support" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">🎧</span> تذاكر الدعم
+            </a>
+            <a href="#users" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">👥</span> إدارة المستخدمين
+            </a>
+          </div>
+        </div>
+
+        <!-- قسم المتجر -->
+        <div>
+          <p class="px-3 text-xs font-bold text-textMuted mb-2 uppercase tracking-wider">المتجر</p>
+          <div class="space-y-1">
+            <a href="#store" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">🛍️</span> المنتجات والأقسام
+            </a>
+          </div>
+        </div>
+
+        <!-- قسم النظام -->
+        <div>
+          <p class="px-3 text-xs font-bold text-textMuted mb-2 uppercase tracking-wider">النظام</p>
+          <div class="space-y-1">
+            <a href="#archive" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">🗄️</span> الأرشيف
+            </a>
+            <a href="#settings" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+              <span class="text-lg">⚙️</span> الإعدادات
+            </a>
+          </div>
+        </div>
+        
       </div>
-    </main>
-  </div>
+    </aside>
 
-  <script type="module" src="js/main.js?v=13"></script>
+    <!-- 2. منطقة المحتوى الرئيسية -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden relative">
+      
+      <!-- الشريط العلوي (Topbar) -->
+      <header class="h-16 glass border-b border-white/5 flex items-center justify-between px-6 z-40 sticky top-0">
+        
+        <div class="flex items-center gap-4">
+          <!-- زر المنيو للموبايل -->
+          <button class="md:hidden text-2xl text-slate-300">☰</button>
+          <h1 id="page-title" class="text-xl font-bold text-white">لوحة التحكم</h1>
+        </div>
 
-  <!-- Modal للإرساليات -->
-  <div id="detail-modal" style="display: none;" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="glass rounded-2xl p-6 w-full max-w-lg border border-white/20 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-      <button onclick="window.closeModal()" class="absolute top-4 left-4 text-slate-400 hover:text-white text-2xl">&times;</button>
-      <div id="modal-content"></div>
+        <div class="flex items-center gap-3">
+          <!-- البحث الشامل -->
+          <div class="relative hidden sm:block">
+            <input type="text" placeholder="بحث شامل..." class="bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-sm text-white focus:outline-none focus:border-primary w-64">
+            <span class="absolute left-3 top-1.5 text-slate-400">🔍</span>
+          </div>
+
+          <!-- تبديل الوضع -->
+          <button id="theme-toggle" title="تبديل الوضع" class="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition text-slate-300">
+            🌓
+          </button>
+
+          <!-- تسجيل الخروج -->
+          <button id="logout-btn" title="تسجيل الخروج" class="w-9 h-9 flex items-center justify-center rounded-full bg-danger/10 hover:bg-danger/20 text-danger transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- حاوية المحتوى الديناميكي (هنا تعمل كل ملفات JS) -->
+      <main class="flex-1 overflow-y-auto p-4 md:p-6 pb-20">
+        <div id="dashboard-container" class="max-w-7xl mx-auto">
+          <!-- سيتم حقن المحتوى هنا -->
+        </div>
+      </main>
+
     </div>
   </div>
 
+  <!-- Modal العام (يستخدم في كل الأقسام) -->
+  <div id="detail-modal" style="display: none;" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] items-center justify-center p-4">
+    <div class="glass rounded-3xl p-6 w-full max-w-lg shadow-2xl relative max-h-[90vh] overflow-y-auto border border-white/20">
+      <button onclick="window.closeModal()" class="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-danger/20 text-slate-400 hover:text-danger transition">&times;</button>
+      <div id="modal-content" class="mt-4"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

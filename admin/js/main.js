@@ -23,12 +23,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+function updateSidebarActive(hash) {
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === hash) link.classList.add('active');
+  });
+  
+  const titles = {
+    '#dashboard': 'لوحة التحكم',
+    '#inbox': 'الإرساليات (Inbox)',
+    '#support': 'تذاكر الدعم',
+    '#users': 'إدارة المستخدمين',
+    '#store': 'المتجر',
+    '#archive': 'الأرشيف',
+    '#settings': 'الإعدادات'
+  };
+  const titleEl = document.getElementById('page-title');
+  if (titleEl) titleEl.textContent = titles[hash] || 'لوحة التحكم';
+}
+
 function handleRoute() {
   if (!isAuthenticated()) return;
   const hash = window.location.hash || '#dashboard';
-  if (hash === '#support') {
-    renderSupport();
-  } else if (hash === '#settings') {
+  
+  updateSidebarActive(hash);
+
+  if (hash === '#settings') {
     renderSettings();
   } else if (hash === '#archive') {
     renderArchive();
@@ -36,6 +56,8 @@ function handleRoute() {
     renderStore();
   } else if (hash === '#users') {
     renderUsers();
+  } else if (hash === '#support') {
+    renderSupport();
   } else if (hash === '#inbox') {
     renderInbox();
   } else {
