@@ -393,3 +393,71 @@ def get_products():
             return jsonify({"items": items, "total": len(items), "pages": 1, "current_page": 1})
         except:
             return jsonify({"items": [], "total": 0, "pages": 0, "current_page": 1})
+
+
+@admin_bp.route("/categories", methods=["GET"])
+@admin_required
+def get_categories():
+    try:
+        from app.models import Category
+        from app import db
+        categories = db.session.query(Category).all()
+        return jsonify([{"id": c.id, "name": getattr(c, 'name', 'قسم')} for c in categories])
+    except Exception as e:
+        print("Categories Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/products", methods=["POST"])
+@admin_required
+def create_product():
+    data = request.get_json(silent=True) or {}
+    try:
+        from app.models import Product
+        from app import db
+        
+        new_product = Product(
+            name=data.get('name', 'منتج جديد'),
+            category_id=data.get('category_id'),
+            base_price=float(data.get('base_price', 0)),
+            base_quantity=int(data.get('base_quantity', 1)),
+            image=data.get('image', ''),
+            unit_name=data.get('unit_name', 'قطعة')
+        )
+        db.session.add(new_product)
+        db.session.commit()
+        return jsonify({"success": True, "id": new_product.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/products/<int:product_id>", methods=["PUT", "DELETE"])
+@admin_required
+def manage_product(product_id):
+    try:
+        from app.models import Product
+        from app import db
+        product = db.session.get(Product, product_id)
+        
+        if not product:
+            return jsonify({"error": "المنتج غير موجود"}), 404
+            
+        if request.method == 'DELETE':
+            db.session.delete(product)
+            db.session.commit()
+            return jsonify({"success": True})
+            
+        if request.method == 'PUT':
+            data = request.get_json(silent=True) or {}
+            if 'name' in data: product.name = data['name']
+            if 'category_id' in data: product.category_id = data['category_id']
+            if 'base_price' in data: product.base_price = float(data['base_price'])
+            if 'base_quantity' in data: product.base_quantity = int(data['base_quantity'])
+            if 'image' in data: product.image = data['image']
+            if 'unit_name' in data: product.unit_name = data['unit_name']
+            
+            db.session.commit()
+            return jsonify({"success": True})
+            
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
