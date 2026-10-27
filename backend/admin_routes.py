@@ -795,6 +795,7 @@ def restore_archive(item_type, item_id):
 # المرحلة 7: الإعدادات (Settings)
 # ============================================================
 
+
 @admin_bp.route("/settings", methods=["GET"])
 @admin_required
 def get_settings():
@@ -845,48 +846,6 @@ def update_settings():
 
         db.session.commit()
         log_admin_action("تحديث الإعدادات", "settings", 0, str(data))
-        return jsonify({"success": True})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@admin_bp.route("/settings", methods=["PUT"])
-@admin_required
-def update_settings():
-    data = request.get_json(silent=True) or {}
-    try:
-        try:
-            from app.models import Setting
-        except ImportError:
-            try:
-                from app.models import AppSetting as Setting
-            except ImportError:
-                Setting = None
-                
-        from app import db
-        
-        if not Setting:
-            return jsonify({"success": True, "note": "Mock saved (no Setting model)"})
-
-        # دالة مساعدة لتحديث أو إنشاء إعداد
-        def set_setting(key, value):
-            row = db.session.query(Setting).filter_by(key=key).first() if hasattr(Setting, 'key') else db.session.query(Setting).filter_by(name=key).first()
-            if row:
-                if hasattr(row, 'value'): row.value = str(value)
-                else: row.val = str(value)
-            else:
-                new_row = Setting()
-                if hasattr(new_row, 'key'): new_row.key = key
-                else: new_row.name = key
-                if hasattr(new_row, 'value'): new_row.value = str(value)
-                else: new_row.val = str(value)
-                db.session.add(new_row)
-
-        if 'store_name' in data: set_setting('store_name', data['store_name'])
-        if 'exchange_rate' in data: set_setting('exchange_rate', data['exchange_rate'])
-        if 'maintenance_mode' in data: set_setting('maintenance_mode', str(data['maintenance_mode']).lower())
-
-        db.session.commit()
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()
