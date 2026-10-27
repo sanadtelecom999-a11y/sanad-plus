@@ -102,19 +102,19 @@ def verify_otp():
 
     session = _admin_sessions.get(session_id)
     if not session:
-        return jsonify({"success": False, "error": "الجلسة غير صالحة أو منتهية"}), 401
+        return jsonify({"success": False, "error": "الجلسة غير صالحة أو منتهية، أعد المحاولة"}), 400
 
     if _utcnow() - session["created_at"] > timedelta(minutes=OTP_TTL_MINUTES):
         _admin_sessions.pop(session_id, None)
-        return jsonify({"success": False, "error": "انتهت صلاحية الرمز، أعد تسجيل الدخول"}), 401
+        return jsonify({"success": False, "error": "انتهت صلاحية الرمز، أعد المحاولة"}), 400
 
     session["attempts"] += 1
     if session["attempts"] > MAX_OTP_ATTEMPTS:
         _admin_sessions.pop(session_id, None)
-        return jsonify({"success": False, "error": "عدد محاولات كبير، أعد تسجيل الدخول"}), 429
+        return jsonify({"success": False, "error": "عدد محاولات كبير، أعد المحاولة"}), 429
 
     if otp_code != session["otp_code"]:
-        return jsonify({"success": False, "error": "رمز OTP غير صحيح"}), 401
+        return jsonify({"success": False, "error": "رمز OTP غير صحيح"}), 400
 
     _admin_sessions.pop(session_id, None)
     token = _issue_jwt()

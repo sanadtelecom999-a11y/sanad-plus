@@ -24,9 +24,9 @@ async function safeFetch(path, { method = 'GET', body, requiresAuth = true } = {
       signal: controller.signal,
     });
 
-    if (res.status === 401) {
+    if (res.status === 401 && requiresAuth) {
       handleUnauthorized();
-      return { ok: false, error: 'UNAUTHORIZED', status: 401 };
+      return { ok: false, error: 'انتهت الجلسة', status: 401 };
     }
     if (res.status === 403) {
       return { ok: false, error: 'لا تملك صلاحية لتنفيذ هذا الإجراء', status: 403 };
