@@ -48,17 +48,22 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
+            print("AUTH DEBUG: Missing Bearer prefix. Header:", auth_header, flush=True)
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
         token = auth_header[len("Bearer "):].strip()
         try:
             jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         except jwt.ExpiredSignatureError:
+            print("AUTH DEBUG: Token expired.", flush=True)
             return jsonify({"error": "Token expired"}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            print("AUTH DEBUG: Invalid token. Error:", str(e), flush=True)
             return jsonify({"error": "Invalid token"}), 401
+        except Exception as e:
+            print("AUTH DEBUG: Unexpected error.", str(e), flush=True)
+            return jsonify({"error": "Auth error"}), 401
         return fn(*args, **kwargs)
     return wrapper
-
 
 @admin_bp.route("/login", methods=["POST"])
 def login():
