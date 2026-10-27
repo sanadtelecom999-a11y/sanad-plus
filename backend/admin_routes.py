@@ -587,3 +587,141 @@ def manage_payment_method(pm_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ============================================================
+# المرحلة 5: تذاكر الدعم (Support Tickets)
+# ============================================================
+
+@admin_bp.route("/support/tickets", methods=["GET"])
+@admin_required
+def get_tickets():
+    try:
+        from app.models import SupportTicket
+        from app import db
+        # جلب التذاكر المفتوحة أو المعلقة
+        tickets = db.session.query(SupportTicket).order_by(SupportTicket.updated_at.desc()).all()
+        return jsonify([{
+            "id": t.id,
+            "user_name": getattr(t.user, 'first_name', 'مستخدم') if hasattr(t, 'user') and t.user else 'مستخدم',
+            "status": getattr(t, 'status', 'open'),
+            "updated_at": t.updated_at.isoformat() if hasattr(t, 'updated_at') and t.updated_at else None
+        } for t in tickets])
+    except Exception as e:
+        print("Tickets Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/support/tickets/<int:ticket_id>/messages", methods=["GET"])
+@admin_required
+def get_ticket_messages(ticket_id):
+    try:
+        from app.models import SupportMessage, SupportTicket
+        from app import db
+        messages = db.session.query(SupportMessage).filter_by(ticket_id=ticket_id).order_by(SupportMessage.created_at.asc()).all()
+        return jsonify([{
+            "id": m.id,
+            "sender_type": getattr(m, 'sender_type', 'user'),
+            "text": getattr(m, 'text', ''),
+            "created_at": m.created_at.isoformat() if hasattr(m, 'created_at') and m.created_at else None
+        } for m in messages])
+    except Exception as e:
+        print("Messages Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/support/tickets/<int:ticket_id>/reply", methods=["POST"])
+@admin_required
+def reply_ticket(ticket_id):
+    data = request.get_json(silent=True) or {}
+    text = data.get('text', '').strip()
+    if not text: return jsonify({"error": "الرسالة فارغة"}), 400
+    
+    try:
+        from app.models import SupportMessage, SupportTicket
+        from app import db
+        msg = SupportMessage(ticket_id=ticket_id, sender_type='admin', text=text)
+        db.session.add(msg)
+        # تحديث وقت التذكرة
+        ticket = db.session.get(SupportTicket, ticket_id)
+        if ticket and hasattr(ticket, 'updated_at'):
+            from datetime import datetime
+            ticket.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/support/tickets/<int:ticket_id>/close", methods=["POST"])
+@admin_required
+def close_ticket(ticket_id):
+    try:
+        from app.models import SupportTicket
+        from app import db
+        ticket = db.session.get(SupportTicket, ticket_id)
+        if not ticket: return jsonify({"error": "التذكرة غير موجودة"}), 404
+        ticket.status = 'closed'
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# ============================================================
+# المرحلة 6: الأرشيف (Archive)
+# ============================================================
+
+@admin_bp.route("/archive/<string:item_type>", methods=["GET"])
+@admin_required
+def get_archive(item_type):
+    try:
+        from app.models import Order, Deposit, KYC
+        from app import db
+        
+        model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
+        if not model: return jsonify([])
+        
+        # البحث عن العناصر المحذوفة (soft delete)
+        query = db.session.query(model)
+        if hasattr(model, 'deleted_at'):
+            query = query.filter(model.deleted_at.isnot(None))
+        else:
+            query = query.filter(model.status.in_(['archived', 'cancelled', 'rejected', 'مرفوض']))
+            
+        items = query.all()
+        
+        res = []
+        for i in items:
+            res.append({
+                "id": i.id,
+                "title": f"{item_type} #{i.id}",
+                "user_name": getattr(i.user, 'first_name', 'مستخدم') if hasattr(i, 'user') and i.user else 'مستخدم',
+                "details": f"الحالة: {getattr(i, 'status', '')}"
+            })
+        return jsonify(res)
+    except Exception as e:
+        print("Archive Error:", e, flush=True)
+        return jsonify([])
+
+@admin_bp.route("/archive/<string:item_type>/<int:item_id>/restore", methods=["POST"])
+@admin_required
+def restore_archive(item_type, item_id):
+    try:
+        from app.models import Order, Deposit, KYC
+        from app import db
+        
+        model = {'orders': Order, 'deposits': Deposit, 'kyc': KYC}.get(item_type)
+        if not model: return jsonify({"error": "نوع غير معروف"}), 400
+        
+        item = db.session.get(model, item_id)
+        if not item: return jsonify({"error": "العنصر غير موجود"}), 404
+        
+        if hasattr(item, 'deleted_at'):
+            item.deleted_at = None
+        if hasattr(item, 'status'):
+            item.status = 'pending' # إعادة للحالة المعلقة
+            
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
