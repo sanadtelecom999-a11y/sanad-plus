@@ -1,3 +1,4 @@
+import { renderDashboard } from './sections/dashboard.js';
 import { CONFIG } from './config.js';
 import { isAuthenticated } from './core/token.js';
 import { login, verifyOtp, logout } from './core/auth.js';
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function renderAuthState() {
   const authed = isAuthenticated();
+  if (authed) { renderDashboard(); }
   document.getElementById('login-screen').style.display = authed ? 'none' : 'flex';
   document.getElementById('app-shell').style.display = authed ? 'flex' : 'none';
   if (!authed) resetLoginForm();
@@ -73,6 +75,7 @@ function wireLoginForm() {
         resetLoginForm();
         renderAuthState();
         showToast('مرحباً بك 👋', 'success');
+        renderDashboard();
       }
     } finally {
       submitBtn.disabled = false;

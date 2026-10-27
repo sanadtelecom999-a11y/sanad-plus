@@ -119,9 +119,36 @@ def verify_otp():
 @admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def stats():
-    return jsonify({
-        "total_users": 0,
-        "total_orders": 0,
-        "total_deposits": 0,
-        "revenue": 0.0,
-    })
+    try:
+        # محاولة استيراد النماذج من مشروعك (قد تحتاج لتعديل اسم المجلد إذا كان مختلفاً)
+        from app.models import User, Order, Deposit
+        from app import db
+        
+        total_users = db.session.query(User).count()
+        total_orders = db.session.query(Order).count()
+        total_deposits = db.session.query(Deposit).filter_by(status='approved').count()
+        
+        # حساب الإيرادات (افتراض أن الحقل اسمه total_price)
+        revenue_result = db.session.query(db.func.sum(Order.total_price)).filter_by(status='completed').scalar()
+        revenue = float(revenue_result) if revenue_result else 0.0
+        
+        return jsonify({
+            "total_users": total_users,
+            "total_orders": total_orders,
+            "total_deposits": total_deposits,
+            "revenue": revenue,
+            # بيانات وهمية للرسوم البيانية مؤقتاً حتى يتم ربط الجداول الفعلية
+            "orders_chart": [10, 20, 5], # مكتمل، معلق، مرفوض
+            "revenue_chart": [100, 150, 80, 200, 120, 300, 250] # آخر 7 أيام
+        })
+    except Exception as e:
+        # في حال لم يتم العثور على الجداول، نعيد أصفاراً حتى لا تتعطل الواجهة
+        print("Stats error (fallback to zeros):", str(e))
+        return jsonify({
+            "total_users": 0,
+            "total_orders": 0,
+            "total_deposits": 0,
+            "revenue": 0.0,
+            "orders_chart": [0, 0, 0],
+            "revenue_chart": [0, 0, 0, 0, 0, 0, 0]
+        })

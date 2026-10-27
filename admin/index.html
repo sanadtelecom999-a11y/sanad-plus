@@ -28,6 +28,7 @@
     html.light body { background: #f1f5f9 !important; color: #0f172a; }
     html.light .glass { background: rgba(255, 255, 255, 0.85); }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="min-h-screen">
 
@@ -75,10 +76,10 @@
       </div>
     </header>
 
-    <main class="flex-1 p-8">
-      <div class="glass rounded-2xl p-8 text-center border border-white/10">
-        <h3 class="text-2xl font-bold mb-2 text-emerald-400">✅ تسجيل الدخول ناجح</h3>
-        <p class="text-slate-400">المرحلة 0 مكتملة — جاهزون للمرحلة 1 (Dashboard).</p>
+        <main class="flex-1 p-6 overflow-y-auto">
+      <div id="dashboard-container">
+        <!-- سيتم حقن لوحة التحكم هنا -->
+        <div class="text-center text-slate-400 mt-20">جاري تحميل الإحصائيات...</div>
       </div>
     </main>
   </div>
