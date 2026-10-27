@@ -1,7 +1,7 @@
-from admin_routes import admin_bp
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
-from .blueprints import admin_bp, api_bp, bot_bp
+from admin_routes import admin_bp
+from .blueprints import api_bp, bot_bp
 
 def create_app(config_object="config.Config"):
     app = Flask(__name__)
@@ -25,7 +25,6 @@ def create_app(config_object="config.Config"):
         },
         supports_credentials=False,
     )
-    from .routes import admin_auth, admin_dashboard, admin_users, admin_deposits, admin_settings, admin_products, admin_misc
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(bot_bp)

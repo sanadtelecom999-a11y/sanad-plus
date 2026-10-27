@@ -40,6 +40,10 @@ function updateSidebarActive(hash) {
   };
   const titleEl = document.getElementById('page-title');
   if (titleEl) titleEl.textContent = titles[hash] || 'لوحة التحكم';
+  
+  // إغلاق السايدبار في الموبايل
+  const sidebar = document.getElementById('sidebar');
+  if(sidebar) sidebar.classList.remove('open');
 }
 
 function handleRoute() {
@@ -48,21 +52,13 @@ function handleRoute() {
   
   updateSidebarActive(hash);
 
-  if (hash === '#settings') {
-    renderSettings();
-  } else if (hash === '#archive') {
-    renderArchive();
-  } else if (hash === '#store') {
-    renderStore();
-  } else if (hash === '#users') {
-    renderUsers();
-  } else if (hash === '#support') {
-    renderSupport();
-  } else if (hash === '#inbox') {
-    renderInbox();
-  } else {
-    renderDashboard();
-  }
+  if (hash === '#settings') { renderSettings(); }
+  else if (hash === '#archive') { renderArchive(); }
+  else if (hash === '#store') { renderStore(); }
+  else if (hash === '#users') { renderUsers(); }
+  else if (hash === '#support') { renderSupport(); }
+  else if (hash === '#inbox') { renderInbox(); }
+  else { renderDashboard(); }
 }
 
 window.addEventListener('hashchange', handleRoute);
@@ -136,6 +132,9 @@ function wireLoginForm() {
 }
 
 function wireHeader() {
+  const menuBtn = document.getElementById('menuBtn');
+  if(menuBtn) menuBtn.addEventListener('click', () => document.getElementById('sidebar').classList.toggle('open'));
+
   const themeBtn = document.getElementById('theme-toggle');
   const logoutBtn = document.getElementById('logout-btn');
 
