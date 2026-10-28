@@ -12,18 +12,55 @@ function getStatusBadge(status) {
 export async function loadDeposits() {
   const container = document.getElementById('deposits-list');
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  container.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحميل...</div>`;
+  
+  if (!tgId) {
+    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">يجب فتح التطبيق من تيليجرام.</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
+  
   try {
-    allDeposits = await safeFetch(`/api/deposits/?telegram_id=${tgId}`) || [];
+    const data = await safeFetch(`/api/deposits/?telegram_id=${tgId}`);
+    
+    if (!Array.isArray(data)) {
+      console.error("Invalid data format for deposits:", data);
+      allDeposits = [];
+    } else {
+      allDeposits = data;
+    }
+    
     window.filterList('deposits', 'all');
   } catch (e) {
-    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الإيداعات.</div>`;
+    console.error("Deposits Fetch Error:", e);
+    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الإيداعات.<br><small>${e.message}</small></div>`;
   }
 }
 
 window.openDepositDetails = function(id) {
   const d = allDeposits.find(x => x.id == id);
-  if(d) window.showModal('deposit', d);
+  if(!d) return;
+
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  let dateStr = 'غير متوفر';
+  if (d.date) {
+    try {
+      const dt = new Date(d.date);
+      dateStr = dt.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch(e) { dateStr = d.date; }
+  }
+
+  title.textContent = `تفاصيل الإيداع #${d.id}`;
+  body.innerHTML = `
+    <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(d.amount || 0).toFixed(2)}</strong></div>
+    <div class="modal-row"><span>رقم العملية</span><strong>${d.reference || 'غير متوفر'}</strong></div>
+    <div class="modal-row"><span>التاريخ</span><strong>${dateStr}</strong></div>
+    <div class="modal-row"><span>الحالة</span><strong>${getStatusBadge(d.status)}</strong></div>
+  `;
+  modal.classList.add('active');
 };
 
 window.renderDeposits = function(filter) {
@@ -45,7 +82,7 @@ window.renderDeposits = function(filter) {
   container.innerHTML = filtered.map(d => `
     <div class="list-item" onclick="window.openDepositDetails(${d.id})">
       <div class="list-item-info"><h4>إيداع #${d.id}</h4><span>${d.reference || 'بدون مرجع'}</span></div>
-      <div style="text-align:left;"><div style="font-weight:800; color:var(--success); margin-bottom:6px;">$${Number(d.amount).toFixed(2)}</div>${getStatusBadge(d.status)}</div>
+      <div style="text-align:left;"><div style="font-weight:800; color:var(--success); margin-bottom:6px;">$${Number(d.amount || 0).toFixed(2)}</div>${getStatusBadge(d.status)}</div>
     </div>
   `).join('');
 };
