@@ -58,14 +58,6 @@ window.showModal = function(type, data) {
       <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
       <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
     `;
-  } else {
-    title.textContent = `تفاصيل الطلب #${data.order_number}`;
-    body.innerHTML = `
-      <div class="modal-row"><span>المنتج</span><strong>${data.product_name}</strong></div>
-      <div class="modal-row"><span>الإجمالي</span><strong style="color:var(--primary);">$${Number(data.amount).toFixed(2)}</strong></div>
-      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'completed' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'completed' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد التنفيذ'}</strong></div>
-    `;
   }
   modal.classList.add('active');
 };

@@ -23,7 +23,78 @@ export async function loadOrders() {
 
 window.openOrderDetails = function(id) {
   const o = allOrders.find(x => x.id == id);
-  if(o) window.showModal('order', o);
+  if(!o) return;
+
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  // تنسيق التاريخ بالإنجليزية (أرقام 1,2,3)
+  let dateStr = 'غير متوفر';
+  if (o.date) {
+    const d = new Date(o.date);
+    dateStr = d.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + 
+              d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ترتيب حالة الطلب
+  let statusText = 'قيد التنفيذ';
+  let statusColor = 'var(--warning)';
+  const s = (o.status || '').toLowerCase();
+  if (['completed', 'approved', 'مكتمل'].includes(s)) { statusText = 'مكتمل'; statusColor = 'var(--success)'; }
+  if (['rejected', 'cancelled', 'مرفوض'].includes(s)) { statusText = 'مرفوض'; statusColor = 'var(--danger)'; }
+
+  title.textContent = 'إيصال شراء';
+  body.innerHTML = `
+    <div class="receipt-container">
+      <div class="receipt-header">
+        <h2>SANAD<span style="color:var(--primary)">+</span></h2>
+        <p>إيصال عملية رقمي</p>
+      </div>
+
+      <div class="receipt-row">
+        <span>رقم الطلب:</span>
+        <strong style="font-family: monospace;">${o.order_number}</strong>
+      </div>
+      <div class="receipt-row">
+        <span>التاريخ:</span>
+        <strong style="font-family: monospace;">${dateStr}</strong>
+      </div>
+      <div class="receipt-row">
+        <span>الحالة:</span>
+        <strong style="color: ${statusColor};">${statusText}</strong>
+      </div>
+
+      <div class="receipt-divider"></div>
+
+      <div class="receipt-row">
+        <span>المنتج:</span>
+        <strong>${o.product_name}</strong>
+      </div>
+      <div class="receipt-row">
+        <span>الكمية:</span>
+        <strong style="font-family: monospace;">${o.quantity || 1}</strong>
+      </div>
+      <div class="receipt-row">
+        <span>بيانات الاستلام (ID):</span>
+        <strong style="color: var(--primary); font-family: monospace;">${o.delivery_data || 'غير متوفر'}</strong>
+      </div>
+
+      <div class="receipt-divider"></div>
+
+      <div class="receipt-total">
+        <span>الإجمالي المدفوع:</span>
+        <strong>$${Number(o.amount).toFixed(2)}</strong>
+      </div>
+
+      <div class="receipt-footer">
+        شكراً لثقتك بـ SANAD PLUS⁺<br>
+        هذا الإيصال صادر إلكترونياً ولا يحتاج إلى ختم.
+      </div>
+    </div>
+  `;
+  
+  modal.classList.add('active');
 };
 
 window.renderOrders = function(filter) {

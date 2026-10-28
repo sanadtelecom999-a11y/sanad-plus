@@ -212,6 +212,8 @@ def get_user_orders():
             "order_number": getattr(o, 'order_number', f'ORD-{o.id}'),
             "product_name": getattr(o.product, 'name', 'منتج') if hasattr(o, 'product') and o.product else 'منتج',
             "amount": float(getattr(o, 'total_price', 0)),
+            "quantity": getattr(o, 'quantity', 1),
+            "delivery_data": getattr(o, 'delivery_data', 'غير متوفر'),
             "status": getattr(o, 'status', 'pending'),
             "date": o.created_at.isoformat() if hasattr(o, 'created_at') and o.created_at else ''
         } for o in orders])

@@ -275,3 +275,76 @@ body {
 .buy-modal.active { display: flex; }
 .buy-modal-content { background: var(--bg-card); width: 100%; border-radius: 24px 24px 0 0; padding: 24px; animation: slideUp 0.3s; max-height: 90vh; overflow-y: auto; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* تصميم الإيصال الرقمي */
+.receipt-container {
+    background: var(--bg-main);
+    border-radius: 16px;
+    padding: 20px;
+    font-family: 'Cairo', sans-serif;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.receipt-header {
+    text-align: center;
+    border-bottom: 2px dashed rgba(255,255,255,0.2);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+}
+
+.receipt-header h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+}
+
+.receipt-header p {
+    margin: 4px 0 0 0;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.receipt-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.receipt-row span {
+    color: var(--text-muted);
+}
+
+.receipt-row strong {
+    color: white;
+    font-weight: 700;
+    text-align: left;
+}
+
+.receipt-divider {
+    border-top: 1px dashed rgba(255,255,255,0.2);
+    margin: 16px 0;
+}
+
+.receipt-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.receipt-total span { color: var(--text-muted); font-size: 14px; }
+.receipt-total strong { color: var(--success); font-size: 20px; }
+
+.receipt-footer {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 10px;
+    color: var(--text-muted);
+    border-top: 2px dashed rgba(255,255,255,0.2);
+    padding-top: 16px;
+}
