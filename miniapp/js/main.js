@@ -78,3 +78,14 @@ window.showModal = function(type, data) {
   }
   modal.classList.add('active');
 };
+
+window.filterList = function(page, filter, btnElement) {
+  if (btnElement) {
+    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+  
+  if (page === 'deposits') window.renderDeposits(filter);
+  if (page === 'orders') window.renderOrders(filter);
+};

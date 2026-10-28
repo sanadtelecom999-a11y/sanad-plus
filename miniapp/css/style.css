@@ -141,3 +141,32 @@ body {
 .status-pending { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
 .status-approved { background: rgba(16, 185, 129, 0.15); color: #34D399; }
 .status-rejected { background: rgba(239, 68, 68, 0.15); color: #F87171; }
+
+/* SANAD PLUS⁺ — Account UI */
+.account-page { display: flex; flex-direction: column; gap: 16px; padding: 14px; color: var(--text-main, #F5FAFF); }
+.account-hero { padding: 22px 18px 18px; border-radius: 24px; background: radial-gradient(circle at 100% 0%, rgba(0,160,233,.28), transparent 42%), linear-gradient(145deg, #102B46, #071421 72%); border: 1px solid rgba(127,224,255,.18); box-shadow: 0 14px 35px rgba(0,0,0,.18); }
+.account-hero-top { display: flex; align-items: center; gap: 13px; }
+.account-avatar { width: 62px; height: 62px; flex-shrink: 0; display: grid; place-items: center; overflow: hidden; border-radius: 20px; background: linear-gradient(135deg,#0095E8,#7FE0FF); color: #04111E; font-size: 24px; font-weight: 900; }
+.account-identity { flex: 1; min-width: 0; }
+.account-name { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.account-id { margin-top: 5px; color: #7FE0FF; font-size: 11px; }
+.account-balance-card { margin-top: 18px; padding: 16px; border-radius: 18px; background: rgba(2,12,22,.48); border: 1px solid rgba(255,255,255,.08); }
+.account-balance-label { color: #A9C2D6; font-size: 12px; }
+.account-balance-value { margin-top: 8px; font-size: 28px; font-weight: 900; direction: ltr; text-align: right; }
+.account-quick-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+.account-quick-action { padding: 12px 5px; border: 1px solid rgba(127,224,255,.15); border-radius: 14px; background: rgba(0,149,232,.09); color: #F5FAFF; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.account-stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.account-stat, .account-menu-item { padding: 14px; border-radius: 16px; background: var(--bg-card,#0D2235); border: 1px solid rgba(255,255,255,.055); }
+.account-menu { display: flex; flex-direction: column; gap: 9px; }
+.account-menu-item { display: flex; align-items: center; gap: 12px; width: 100%; color: inherit; text-align: right; font: inherit; cursor: pointer; }
+.account-menu-icon { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; border-radius: 13px; background: rgba(0,149,232,.12); color: #7FE0FF; }
+.account-menu-copy { flex: 1; min-width: 0; }
+.account-menu-copy strong { display: block; font-size: 13px; font-weight: 800; }
+.account-menu-copy small { display: block; margin-top: 4px; color: var(--text-muted,#8CA8BE); font-size: 11px; line-height: 1.6; }
+.account-menu-item:active, .account-quick-action:active { transform: scale(.985); }
+
+/* التبويبات (Tabs) */
+.tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 16px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn { background: var(--bg-card); border: 1px solid rgba(255,255,255,.08); color: var(--text-muted); padding: 8px 16px; border-radius: 20px; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: 0.2s; }
+.tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
