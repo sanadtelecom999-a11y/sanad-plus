@@ -1,9 +1,9 @@
-# ملف وهمي لمنع انهيار البوت بسبب الملفات المحذوفة
-def cache_set(key, value, ex=3600):
+# ملف وهمي مرن يقبل أي متغيرات لمنع انهيار البوت
+def cache_set(*args, **kwargs):
     return True
 
-def cache_get(key):
+def cache_get(*args, **kwargs):
     return None
 
-def cache_delete(key):
+def cache_delete(*args, **kwargs):
     return True
