@@ -1,173 +1,97 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SANAD PLUS+ | المتجر</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SANAD PLUS⁺</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
-    <div id="loadingScreen" class="loading-screen">
-        <div class="skeleton" style="height: 60px; margin-bottom: 20px;"></div>
-        <div class="skeleton" style="height: 180px; border-radius: 24px; margin-bottom: 20px;"></div>
+  <!-- شاشة التحميل الأولية -->
+  <div id="loading-screen" style="position:fixed; inset:0; background:var(--bg-main); display:flex; align-items:center; justify-content:center; z-index:9999;">
+    <div style="color:var(--primary); font-size:20px; font-weight:bold; animation: pulse 1.5s infinite;">SANAD PLUS⁺</div>
+  </div>
+
+  <!-- 1. الصفحة الرئيسية -->
+  <main id="page-home" class="page">
+    <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h1 style="font-size:20px; font-weight:800;">SANAD<span style="color:var(--primary)">+</span></h1>
+      <div style="position:relative;">
+        <svg style="width:24px; height:24px; color:var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+      </div>
+    </header>
+
+    <div class="card" style="background: linear-gradient(145deg, #102033, #0A1B2E); border-color: rgba(0, 149, 232, 0.3);">
+      <div class="card-title">الرصيد الإجمالي</div>
+      <div class="balance-amount" id="home-balance">جاري التحميل...</div>
     </div>
 
-    <div id="app" class="app-container hidden">
-        
-        <header class="top-header">
-            <div class="user-greeting" onclick="navigate('profile')">
-                <div class="avatar" id="headerAvatar">S</div>
-                <div>
-                    <div class="greeting-text">مرحباً بك،</div>
-                    <div class="user-name" id="headerUserName">جاري التحميل...</div>
-                </div>
-            </div>
-            <div class="header-actions">
-                <button class="icon-btn" onclick="navigate('support')"><i data-lucide="message-square"></i></button>
-            </div>
-        </header>
-
-        <main class="main-content">
-            
-            <section id="page-home" class="page active">
-                <div class="balance-card">
-                    <div class="balance-header">
-                        <span class="card-label">الرصيد الإجمالي</span>
-                        <i data-lucide="wifi" class="contactless-icon"></i>
-                    </div>
-                    <div class="balance-amount" id="mainBalance">$0.00</div>
-                    <div class="balance-footer">
-                        <span id="userSanadId">SANAD ID: ****</span>
-                        <span class="status-badge">نشط</span>
-                    </div>
-                    <div class="floating-dollar">$</div>
-                </div>
-
-                <div class="search-bar">
-                    <i data-lucide="search" class="search-icon"></i>
-                    <input type="text" placeholder="ابحث عن منتج...">
-                </div>
-
-                <div class="section-header"><h3>الأقسام</h3></div>
-                <div id="categoriesGrid" class="categories-grid"></div>
-            </section>
-
-            <section id="page-products" class="page">
-                <div class="section-header">
-                    <button onclick="navigate('home')" style="background:none;border:none;color:var(--primary);font-size:16px;font-weight:bold;cursor:pointer;">عودة</button>
-                    <h3 id="productsPageTitle">المنتجات</h3>
-                </div>
-                <div id="productsGrid" class="categories-grid"></div>
-            </section>
-
-            <section id="page-orders" class="page">
-                <div class="section-header"><h3>طلباتي</h3></div>
-                <div id="ordersList" class="orders-list">
-                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
-                </div>
-            </section>
-
-            <section id="page-deposits" class="page">
-                <div class="section-header"><h3>سجل الإيداعات</h3></div>
-                <div id="depositsList" class="orders-list">
-                    <div class="empty-state"><i data-lucide="loader" class="spin" size="48"></i><p>جاري التحميل...</p></div>
-                </div>
-            </section>
-
-            <!-- صفحة طرق الدفع الجديدة -->
-            <section id="page-deposit-methods" class="page">
-                <div class="section-header"><h3>اختر طريقة الدفع</h3></div>
-                <div class="payment-methods-list" id="paymentMethodsList"></div>
-            </section>
-
-            <section id="page-profile" class="page">
-                <div class="profile-header">
-                    <div class="avatar-wrapper">
-                        <img id="profileAvatarImg" class="avatar-img hidden" src="" alt="Avatar">
-                        <div class="avatar large" id="profileAvatarFallback">S</div>
-                    </div>
-                    <div class="profile-name-row">
-                        <h2 id="profileFullName">المستخدم</h2>
-                        <div id="kycBadgeName" class="kyc-badge-twitter hidden"></div>
-                    </div>
-                    <div class="username" id="profileUsername">@username</div>
-                </div>
-
-                <div class="sanad-id-card">
-                    <div class="sanad-label">مُعرّف سند (Sanad ID)</div>
-                    <div class="sanad-number-row">
-                        <span id="profileSanadId">SN-000000</span>
-                        <i data-lucide="copy" size="18" onclick="copyText(document.getElementById('profileSanadId').textContent, 'تم نسخ معرف سند')"></i>
-                    </div>
-                    <div class="telegram-id" id="profileTelegramId">Telegram: ...</div>
-                </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-box"><span>الرصيد</span><strong id="statBalance">$0.00</strong></div>
-                    <div class="stat-box"><span>إجمالي الإيداعات</span><strong id="statTotalDeposits">$0.00</strong></div>
-                </div>
-
-                <div class="menu-list">
-                    <div class="menu-item" onclick="openKYCModal()"><i data-lucide="shield-check" class="text-primary"></i> <span>توثيق الحساب (KYC)</span><i data-lucide="chevron-left" class="chevron"></i></div>
-                    <div class="menu-item" onclick="openReferralModal()"><i data-lucide="gift" class="text-warning"></i> <span>الإحالات</span><i data-lucide="chevron-left" class="chevron"></i></div>
-                    <div class="menu-item" onclick="openFAQModal()"><i data-lucide="help-circle" class="text-muted"></i> <span>الأسئلة الشائعة</span><i data-lucide="chevron-left" class="chevron"></i></div>
-                    <div class="menu-item" onclick="openSupportModal()"><i data-lucide="headphones" class="text-primary"></i> <span>الدعم الفني</span><i data-lucide="chevron-left" class="chevron"></i></div>
-                </div>
-
-                <div class="menu-list" style="margin-top: 15px;">
-                    <div class="menu-item">
-                        <i data-lucide="moon" class="text-warning"></i> <span>الوضع الليلي</span>
-                        <label class="toggle-switch"><input type="checkbox" id="darkModeToggle" checked onchange="toggleDarkMode()"><span class="slider"></span></label>
-                    </div>
-                    <div class="menu-item text-danger" onclick="handleLogout()"><i data-lucide="log-out"></i> <span>تسجيل الخروج</span></div>
-                </div>
-            </section>
-
-            <section id="page-support" class="page" style="padding-bottom: 80px;">
-                <div class="section-header"><h3>محادثة الدعم</h3></div>
-                <div id="chatContainer" class="chat-container"></div>
-                <div class="chat-input-wrapper">
-                    <input type="text" id="supportInput" placeholder="اكتب رسالتك هنا...">
-                    <button onclick="sendSupportMessage()" id="sendBtn"><i data-lucide="send"></i></button>
-                </div>
-            </section>
-
-        </main>
-
-        <nav class="bottom-nav">
-            <button class="nav-item active" onclick="navigate('home')" data-page="home"><i data-lucide="home"></i><span>الرئيسية</span></button>
-            <button class="nav-item" onclick="navigate('orders')" data-page="orders"><i data-lucide="list"></i><span>طلباتي</span></button>
-            <!-- تم تغيير هذا الزر ليفتح صفحة كاملة -->
-            <button class="nav-item center-btn" onclick="navigate('deposit-methods')"><div class="center-btn-inner"><i data-lucide="zap"></i></div></button>
-            <button class="nav-item" onclick="navigate('deposits')" data-page="deposits"><i data-lucide="wallet"></i><span>إيداعات</span></button>
-            <button class="nav-item" onclick="navigate('profile')" data-page="profile"><i data-lucide="user"></i><span>حسابي</span></button>
-        </nav>
-
-        <div class="bottom-sheet-overlay" id="sheetOverlay" onclick="closeSheets()"></div>
-
-        <div class="bottom-sheet" id="paymentDetailsSheet">
-            <div class="sheet-grabber"></div>
-            <div id="paymentDetailsContent"></div>
-        </div>
-
-        <div class="bottom-sheet" id="productPurchaseSheet">
-            <div class="sheet-grabber"></div>
-            <div id="productPurchaseContent"></div>
-        </div>
-
-        <div class="bottom-sheet" id="orderDetailsSheet"><div class="sheet-grabber"></div><div id="orderDetailsContent"></div></div>
-        <div class="bottom-sheet" id="depositDetailsSheet"><div class="sheet-grabber"></div><div id="depositDetailsContent"></div></div>
-        <div class="bottom-sheet" id="kycSheet"><div class="sheet-grabber"></div><div id="kycContent"></div></div>
-
-        <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()"><img id="lightboxImg" src="" alt="إثبات"></div>
-
+    <div style="position:relative; margin-bottom:20px;">
+      <input type="text" placeholder="ابحث عن منتج أو خدمة..." style="width:100%; background:var(--bg-card); border:1px solid rgba(255,255,255,0.1); border-radius:var(--radius-sm); padding:12px 40px 12px 16px; color:white; font-family:inherit; outline:none;">
+      <svg style="position:absolute; right:12px; top:12px; width:20px; height:20px; color:var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
     </div>
 
-    <script src="app.js"></script>
-    <script>lucide.createIcons();</script>
+    <button class="card" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; color:var(--primary); font-weight:bold; background:rgba(0,149,232,0.1); border-color:var(--primary); margin-bottom:24px;">
+      <svg style="width:20px; height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      طلب خدمة غير موجودة
+    </button>
+
+    <h2 style="font-size:16px; margin-bottom:16px;">تصنيفات المتجر</h2>
+    <div id="home-categories" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
+      <div class="card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px;">جاري التحميل...</div>
+    </div>
+  </main>
+
+  <main id="page-orders" class="page">
+    <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">طلباتي</h1>
+    <div id="orders-list" class="card">جاري التحميل...</div>
+  </main>
+
+  <main id="page-deposits" class="page">
+    <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">الإيداعات</h1>
+    <div id="deposits-list" class="card">جاري التحميل...</div>
+  </main>
+
+  <main id="page-account" class="page">
+    <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">حسابي</h1>
+    <div class="card" id="account-profile">جاري التحميل...</div>
+  </main>
+
+  <main id="page-charge" class="page">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <button onclick="window.switchPage('home')" style="background:none; border:none; color:white; font-size:20px;">&rarr;</button>
+      <h1 style="font-size:20px; font-weight:800; margin:0;">شحن الرصيد</h1>
+    </div>
+    <div class="card" id="charge-methods">جاري تحميل طرق الدفع...</div>
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="#" class="nav-item active" data-target="home">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+      <span>الرئيسية</span>
+    </a>
+    <a href="#" class="nav-item" data-target="orders">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+      <span>طلباتي</span>
+    </a>
+    <a href="#" class="nav-item charge-btn" data-target="charge">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+    </a>
+    <a href="#" class="nav-item" data-target="deposits">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+      <span>الإيداعات</span>
+    </a>
+    <a href="#" class="nav-item" data-target="account">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+      <span>حسابي</span>
+    </a>
+  </nav>
+
+  <script type="module" src="js/main.js?v=1"></script>
 </body>
 </html>
