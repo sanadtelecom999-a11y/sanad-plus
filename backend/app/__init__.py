@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from admin_routes import admin_bp
+from public_routes import public_bp
 from .blueprints import api_bp, bot_bp
 from public_api import public_bp
 
@@ -18,7 +19,7 @@ def create_app(config_object="config.Config"):
         app,
         resources={
             r"/api/*": {
-                "origins": allowed_origins,
+                "origins": "*",
                 "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
                 "allow_headers": ["Authorization", "Content-Type"],
                 "max_age": 600,
