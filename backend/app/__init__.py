@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from admin_routes import admin_bp
 from .blueprints import api_bp, bot_bp
+from public_api import public_bp
 
 def create_app(config_object="config.Config"):
     app = Flask(__name__)
@@ -26,6 +27,7 @@ def create_app(config_object="config.Config"):
         supports_credentials=False,
     )
     app.register_blueprint(admin_bp)
+    app.register_blueprint(public_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(bot_bp)
 

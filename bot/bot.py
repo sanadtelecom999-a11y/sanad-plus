@@ -335,7 +335,7 @@ def run_polling():
     application = create_application()
     logger.info(f"🚀 بدء تشغيل البوت {BOT_VERSION}")
     _notify_admins_at_startup(f"✅ البوت بدأ العمل ({BOT_VERSION})\nMiniApp v{MINIAPP_VERSION}\nSentry: {'✅' if _SENTRY_AVAILABLE else '❌'}")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling(allowed_updates=Update.ALL_TYPES, stop_signals=None)
 
 if __name__ == "__main__":
     run_polling()
