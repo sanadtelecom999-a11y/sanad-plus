@@ -115,34 +115,55 @@ def get_payment_methods():
     if request.method == 'OPTIONS': return jsonify({}), 200
     try:
         from app.models import PaymentMethod
-        pms = db.session.query(PaymentMethod).all()
-        return jsonify([{"id": p.id, "name": getattr(p, 'name', 'شام كاش'), "account": getattr(p, 'account', '')} for p in pms])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        pms = db.session.query(PaymentMethod).filter(PaymentMethod.deleted_at.is_(None)).all()
+        res = []
+        for p in pms:
+            def parse_money(val):
+                if val is None: return 0.0
+                clean_val = str(val).replace('$', '').replace(',', '').strip()
+                try: return float(clean_val)
+                except: return 0.0
 
-# 6. إنشاء طلب إيداع جديد (شحن)
-@public_bp.route('/deposits/create', methods=['POST', 'OPTIONS'])
+            res.append({
+                "id": p.id,
+                "name": str(getattr(p, 'name', 'شام كاش')),
+                "account": str(getattr(p, 'account', '')),
+                "min_amount": parse_money(getattr(p, 'min_amount', 0)),
+                "max_amount": parse_money(getattr(p, 'max_amount', 0))
+            })
+        return jsonify(res)
+    except Exception as e:
+        print("Public PM Error:", e, flush=True)
+        return jsonify([])
+
+@public_bp.route('/deposits/create', methods=['POST'])
 def create_deposit():
-    if request.method == 'OPTIONS': return jsonify({}), 200
-    data = request.get_json(silent=True) or {}
-    tg_id = data.get('telegram_id')
-    amount = float(data.get('amount', 0))
-    reference = data.get('reference', '')
-    
-    if not tg_id or amount <= 0:
-        return jsonify({"error": "بيانات غير صالحة"}), 400
-        
     try:
+        # استخدام request.form لأننا سنرسل FormData (بسبب الصورة)
+        tg_id = request.form.get('telegram_id')
+        amount = float(request.form.get('amount', 0))
+        reference = request.form.get('reference', '')
+        
+        if not tg_id or amount <= 0:
+            return jsonify({"error": "بيانات غير صالحة"}), 400
+            
         from app.models import User, Deposit
         user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
         if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
         
-        # إنشاء إيداع جديد (معلق)
+        # محاكاة حفظ الصورة (في الإنتاج: Cloudinary)
+        image_url = "receipt_placeholder.jpg"
+        if 'receipt' in request.files:
+            file = request.files['receipt']
+            if file.filename != '':
+                image_url = f"receipt_{user.id}_{reference}.jpg"
+        
         new_deposit = Deposit(
             user_id=user.id,
             amount=amount,
             transaction_id=reference,
-            status='pending'
+            status='pending',
+            receipt_image=image_url # إذا كان الحقل موجوداً في الداتابيز
         )
         db.session.add(new_deposit)
         db.session.commit()
@@ -151,7 +172,6 @@ def create_deposit():
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# 7. جلب إيداعات المستخدم
 @public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
 def get_user_deposits():
     if request.method == 'OPTIONS': return jsonify({}), 200
