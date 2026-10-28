@@ -29,7 +29,7 @@ def create_app(config_object="config.Config"):
     )
     app.register_blueprint(admin_bp)
     app.register_blueprint(public_bp)
-    app.register_blueprint(api_bp)
+        app.register_blueprint(api_bp)
     app.register_blueprint(bot_bp)
 
     @app.before_request
