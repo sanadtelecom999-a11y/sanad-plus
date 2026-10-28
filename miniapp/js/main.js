@@ -1,5 +1,9 @@
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
+import { loadChargePage } from './sections/charge.js';
+import { loadOrders } from './sections/orders.js';
+import { loadDeposits } from './sections/deposits.js';
+import { loadAccount } from './sections/account.js';
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -9,7 +13,6 @@ if (tg) {
   tg.setBackgroundColor('#050608');
 }
 
-// التنقل بين الصفحات
 window.switchPage = function(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById(`page-${pageId}`);
@@ -18,6 +21,13 @@ window.switchPage = function(pageId) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
   if (activeNav) activeNav.classList.add('active');
+
+  // تحميل البيانات عند تبديل الصفحة
+  if (pageId === 'home') loadHomeData();
+  else if (pageId === 'charge') loadChargePage();
+  else if (pageId === 'orders') loadOrders();
+  else if (pageId === 'deposits') loadDeposits();
+  else if (pageId === 'account') loadAccount();
 };
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -28,22 +38,14 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-// التهيئة الأولية عند فتح التطبيق
 async function initApp() {
-  // 1. إخفاء شاشة التحميل
   const loader = document.getElementById('loading-screen');
   if (loader) {
     loader.style.opacity = '0';
     setTimeout(() => loader.remove(), 300);
   }
-
-  // 2. الدخول عبر تيليجرام
   await authenticateTelegram();
-
-  // 3. تحميل بيانات الصفحة الرئيسية
   window.switchPage('home');
-  await loadHomeData();
 }
 
-// تشغيل التطبيق
 document.addEventListener('DOMContentLoaded', initApp);

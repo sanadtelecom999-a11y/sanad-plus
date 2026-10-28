@@ -98,3 +98,115 @@ def get_categories():
     return jsonify([{
         "id": c.id, "name": c.name, "image": getattr(c, 'image', '')
     } for c in cats])
+
+
+# 5. جلب طرق الدفع
+@public_bp.route('/payment-methods/', methods=['GET', 'OPTIONS'])
+def get_payment_methods():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    try:
+        from app.models import PaymentMethod
+        pms = db.session.query(PaymentMethod).all()
+        return jsonify([{"id": p.id, "name": getattr(p, 'name', 'شام كاش'), "account": getattr(p, 'account', '')} for p in pms])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 6. إنشاء طلب إيداع جديد (شحن)
+@public_bp.route('/deposits/create', methods=['POST', 'OPTIONS'])
+def create_deposit():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    data = request.get_json(silent=True) or {}
+    tg_id = data.get('telegram_id')
+    amount = float(data.get('amount', 0))
+    reference = data.get('reference', '')
+    
+    if not tg_id or amount <= 0:
+        return jsonify({"error": "بيانات غير صالحة"}), 400
+        
+    try:
+        from app.models import User, Deposit
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
+        
+        # إنشاء إيداع جديد (معلق)
+        new_deposit = Deposit(
+            user_id=user.id,
+            amount=amount,
+            transaction_id=reference,
+            status='pending'
+        )
+        db.session.add(new_deposit)
+        db.session.commit()
+        return jsonify({"success": True, "deposit_id": new_deposit.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# 7. جلب إيداعات المستخدم
+@public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
+def get_user_deposits():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    tg_id = request.args.get('telegram_id')
+    if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
+    
+    try:
+        from app.models import User, Deposit
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify([])
+        
+        deposits = db.session.query(Deposit).filter_by(user_id=user.id).order_by(Deposit.id.desc()).all()
+        return jsonify([{
+            "id": d.id,
+            "amount": float(d.amount),
+            "status": getattr(d, 'status', 'pending'),
+            "reference": getattr(d, 'transaction_id', ''),
+            "date": d.created_at.isoformat() if hasattr(d, 'created_at') and d.created_at else ''
+        } for d in deposits])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 8. جلب طلبات المستخدم
+@public_bp.route('/orders/', methods=['GET', 'OPTIONS'])
+def get_user_orders():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    tg_id = request.args.get('telegram_id')
+    if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
+    
+    try:
+        from app.models import User, Order
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify([])
+        
+        orders = db.session.query(Order).filter_by(user_id=user.id).order_by(Order.id.desc()).all()
+        return jsonify([{
+            "id": o.id,
+            "order_number": getattr(o, 'order_number', f'ORD-{o.id}'),
+            "product_name": getattr(o.product, 'name', 'منتج') if hasattr(o, 'product') and o.product else 'منتج',
+            "amount": float(getattr(o, 'total_price', 0)),
+            "status": getattr(o, 'status', 'pending'),
+            "date": o.created_at.isoformat() if hasattr(o, 'created_at') and o.created_at else ''
+        } for o in orders])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# 9. جلب المنتجات حسب القسم
+@public_bp.route('/products/', methods=['GET', 'OPTIONS'])
+def get_products():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    cat_id = request.args.get('category_id')
+    
+    try:
+        from app.models import Product
+        query = db.session.query(Product)
+        if cat_id:
+            query = query.filter_by(category_id=int(cat_id))
+            
+        products = query.all()
+        return jsonify([{
+            "id": p.id,
+            "name": getattr(p, 'name', 'منتج'),
+            "price": float(getattr(p, 'base_price', 0)),
+            "image": getattr(p, 'image', '')
+        } for p in products])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
