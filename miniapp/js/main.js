@@ -43,6 +43,22 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
+
+// دالة الفلترة التي كانت مفقودة
+window.filterList = function(page, filter, btnElement) {
+  if (btnElement) {
+    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+  if (page === 'deposits' && typeof window.renderDeposits === 'function') {
+    window.renderDeposits(filter);
+  }
+  if (page === 'orders' && typeof window.renderOrders === 'function') {
+    window.renderOrders(filter);
+  }
+};
+
 // دالة المودال العامة
 window.showModal = function(type, data) {
   const modal = document.getElementById('app-modal');

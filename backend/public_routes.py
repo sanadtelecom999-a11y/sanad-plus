@@ -63,7 +63,7 @@ def auth_telegram():
     if not is_valid:
         return jsonify({"error": "Unauthorized: " + user_data}), 401
         
-    tg_id = str(user_data.get('id'))
+    tg_id = int(user_data.get('id'))
     user = db.session.query(User).filter_by(telegram_id=tg_id).first()
     if not user:
         user = User(telegram_id=tg_id, first_name=user_data.get('first_name', 'User'), balance=0.0)
