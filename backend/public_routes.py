@@ -85,9 +85,18 @@ def miniapp_init():
     if not user:
         return jsonify({"error": "User not found"}), 404
         
+    # حساب إجمالي الإيداعات (فقط المقبولة)
+    from sqlalchemy import func
+    from app.models import Deposit
+    total_deps = db.session.query(func.sum(Deposit.amount)).filter_by(user_id=user.id, status='approved').scalar()
+    
     return jsonify({
         "balance": float(user.balance) if user.balance else 0.0,
-        "first_name": getattr(user, 'first_name', 'مستخدم')
+        "first_name": getattr(user, 'first_name', 'مستخدم'),
+        "sanad_id": f"SN-{user.id:06d}",
+        "is_verified": getattr(user, 'is_verified', False),
+        "total_deposits": float(total_deps) if total_deps else 0.0,
+        "telegram_id": str(user.telegram_id)
     })
 
 # 4. مسار جلب التصنيفات
