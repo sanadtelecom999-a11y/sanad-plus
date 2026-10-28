@@ -1,3 +1,6 @@
+import { authenticateTelegram } from './core/api.js';
+import { loadHomeData } from './sections/home.js';
+
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
@@ -6,6 +9,7 @@ if (tg) {
   tg.setBackgroundColor('#050608');
 }
 
+// التنقل بين الصفحات
 window.switchPage = function(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById(`page-${pageId}`);
@@ -24,12 +28,22 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-setTimeout(() => {
+// التهيئة الأولية عند فتح التطبيق
+async function initApp() {
+  // 1. إخفاء شاشة التحميل
   const loader = document.getElementById('loading-screen');
   if (loader) {
     loader.style.opacity = '0';
-    loader.style.transition = 'opacity 0.3s';
     setTimeout(() => loader.remove(), 300);
   }
+
+  // 2. الدخول عبر تيليجرام
+  await authenticateTelegram();
+
+  // 3. تحميل بيانات الصفحة الرئيسية
   window.switchPage('home');
-}, 800);
+  await loadHomeData();
+}
+
+// تشغيل التطبيق
+document.addEventListener('DOMContentLoaded', initApp);
