@@ -6,6 +6,10 @@ import { loadDeposits } from './sections/deposits.js';
 import { loadAccount } from './sections/account.js';
 
 const tg = window.Telegram?.WebApp;
+if (!tg || !tg.initData) {
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('telegram-warning').style.display = 'flex';
+}
 if (tg) {
   tg.ready();
   tg.expand();
@@ -49,3 +53,28 @@ async function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+
+window.showModal = function(type, data) {
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  if (type === 'deposit') {
+    title.textContent = `تفاصيل الإيداع #${data.id}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${data.amount.toFixed(2)}</strong></div>
+      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
+    `;
+  } else {
+    title.textContent = `تفاصيل الطلب #${data.order_number}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المنتج</span><strong>${data.product_name}</strong></div>
+      <div class="modal-row"><span>الإجمالي</span><strong style="color:var(--primary);">$${data.amount.toFixed(2)}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'completed' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'completed' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد التنفيذ'}</strong></div>
+    `;
+  }
+  modal.classList.add('active');
+};

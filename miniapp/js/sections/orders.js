@@ -15,7 +15,7 @@ export async function loadOrders() {
     }
 
     container.innerHTML = orders.map(o => `
-      <div class="list-item">
+      <div class="list-item" onclick='window.showModal("order", ${JSON.stringify(o)})'>
         <div class="list-item-info">
           <h4>${o.product_name}</h4>
           <span>طلب #${o.order_number}</span>

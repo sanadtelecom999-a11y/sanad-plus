@@ -15,7 +15,7 @@ export async function loadDeposits() {
     }
 
     container.innerHTML = deposits.map(d => `
-      <div class="list-item">
+      <div class="list-item" onclick='window.showModal("deposit", ${JSON.stringify(d)})'>
         <div class="list-item-info">
           <h4>إيداع #${d.id}</h4>
           <span>${d.reference || 'بدون مرجع'}</span>
