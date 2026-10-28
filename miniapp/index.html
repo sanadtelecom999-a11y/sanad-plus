@@ -114,13 +114,33 @@
   </div>
 
   <!-- المودال الاحترافي -->
-  <div id="app-modal" class="modal-overlay">
+  <!-- مودال KYC -->
+  <div id="kyc-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
     <div class="modal-box">
       <div class="modal-header">
-        <h3 id="modal-title">التفاصيل</h3>
-        <button class="close-modal" onclick="document.getElementById('app-modal').classList.remove('active')">&times;</button>
+        <h3>توثيق الحساب</h3>
+        <button class="close-modal" onclick="document.getElementById('kyc-modal').classList.remove('active')">&times;</button>
       </div>
-      <div id="modal-body"></div>
+      <div id="kyc-body">
+        <!-- سيتم حقن المحتوى هنا -->
+      </div>
+    </div>
+  </div>
+
+  <!-- مودال الدعم (Chat) -->
+  <div id="support-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>الدعم الفني</h3>
+        <button class="close-modal" onclick="document.getElementById('support-modal').classList.remove('active')">&times;</button>
+      </div>
+      <div class="chat-container">
+        <div id="chat-messages" class="chat-messages"></div>
+        <form id="chat-form" class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="اكتب رسالتك..." required>
+          <button type="submit">إرسال</button>
+        </form>
+      </div>
     </div>
   </div>
 

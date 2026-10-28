@@ -93,7 +93,7 @@ def miniapp_init():
     return jsonify({
         "balance": float(user.balance) if user.balance else 0.0,
         "first_name": getattr(user, 'first_name', 'مستخدم'),
-        "sanad_id": f"SN-{user.id:06d}",
+        "sanad_id": f"SN-{user.id:03d}",
         "is_verified": getattr(user, 'is_verified', False),
         "total_deposits": float(total_deps) if total_deps else 0.0,
         "telegram_id": str(user.telegram_id)
@@ -219,3 +219,123 @@ def get_products():
         } for p in products])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+import os
+import base64
+from werkzeug.utils import secure_filename
+
+# --- KYC Routes ---
+@public_bp.route('/kyc/status', methods=['GET'])
+def kyc_status():
+    tg_id = request.args.get('telegram_id')
+    if not tg_id: return jsonify({"error": "Missing ID"}), 400
+    try:
+        from sqlalchemy import text
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify({"status": "not_found"}), 404
+        
+        # إنشاء جدول KYC إذا لم يكن موجوداً
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS kyc_requests (
+                id SERIAL PRIMARY KEY, user_id INT UNIQUE, full_name VARCHAR(100),
+                phone VARCHAR(20), governorate VARCHAR(50), region VARCHAR(50),
+                id_front_url TEXT, selfie_url TEXT, status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        db.session.commit()
+        
+        row = db.session.execute(text("SELECT full_name, status FROM kyc_requests WHERE user_id = :uid"), {"uid": user.id}).fetchone()
+        if row:
+            return jsonify({"status": row[1], "full_name": row[0]})
+        return jsonify({"status": "none"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@public_bp.route('/kyc/submit', methods=['POST'])
+def kyc_submit():
+    try:
+        tg_id = request.form.get('telegram_id')
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        full_name = request.form.get('full_name')
+        phone = request.form.get('phone')
+        governorate = request.form.get('governorate')
+        region = request.form.get('region')
+        
+        # في الإنتاج، يجب رفع الصور إلى Cloudinary. هنا سنحفظها كـ Base64 مؤقتاً أو نستخدم مسار وهمي
+        id_front = request.files.get('id_front')
+        selfie = request.files.get('selfie')
+        
+        # (محاكاة حفظ الصور - سنستخدم مسار وهمي لتجنب أخطاء السيرفر)
+        id_front_url = "uploaded_id_front.jpg"
+        selfie_url = "uploaded_selfie.jpg"
+        
+        from sqlalchemy import text
+        db.session.execute(text("""
+            INSERT INTO kyc_requests (user_id, full_name, phone, governorate, region, id_front_url, selfie_url, status)
+            VALUES (:uid, :name, :phone, :gov, :reg, :idf, :selfie, 'pending')
+            ON CONFLICT (user_id) DO UPDATE SET 
+            full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, governorate = EXCLUDED.governorate, 
+            region = EXCLUDED.region, id_front_url = EXCLUDED.id_front_url, selfie_url = EXCLUDED.selfie_url, status = 'pending'
+        """), {"uid": user.id, "name": full_name, "phone": phone, "gov": governorate, "reg": region, "idf": id_front_url, "selfie": selfie_url})
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# --- Support Routes ---
+@public_bp.route('/support/messages', methods=['GET'])
+def get_support_messages():
+    tg_id = request.args.get('telegram_id')
+    if not tg_id: return jsonify({"error": "Missing ID"}), 400
+    try:
+        from sqlalchemy import text
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify([])
+        
+        # إنشاء جدول تذاكر مبسط إذا لم يكن موجوداً
+        db.session.execute(text("""
+            CREATE TABLE IF NOT EXISTS mini_support (
+                id SERIAL PRIMARY KEY, user_id INT, sender VARCHAR(10), message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        db.session.commit()
+        
+        rows = db.session.execute(text("SELECT id, sender, message, created_at FROM mini_support WHERE user_id = :uid ORDER BY created_at ASC"), {"uid": user.id}).fetchall()
+        return jsonify([{"id": r[0], "sender": r[1], "message": r[2], "date": str(r[3])} for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@public_bp.route('/support/send', methods=['POST'])
+def send_support_message():
+    data = request.get_json(silent=True) or {}
+    tg_id = data.get('telegram_id')
+    msg = data.get('message')
+    if not tg_id or not msg: return jsonify({"error": "Missing data"}), 400
+    try:
+        from sqlalchemy import text
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify({"error": "User not found"}), 404
+        
+        db.session.execute(text("INSERT INTO mini_support (user_id, sender, message) VALUES (:uid, 'user', :msg)"), {"uid": user.id, "msg": msg})
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# --- FAQ Route ---
+@public_bp.route('/faq', methods=['GET'])
+def get_faq():
+    # أسئلة ثابتة (يمكن جلبها من الداتابيز لاحقاً)
+    return jsonify([
+        {"q": "كيف أقوم بشحن رصيدي؟", "a": "يمكنك الشحن عبر قسم (شحن الرصيد) واختيار شام كاش، ثم إدخال المبلغ ورقم العملية."},
+        {"q": "كم يستغرق توثيق الحساب؟", "a": "يتم مراجعة طلبات التوثيق خلال 24 ساعة كحد أقصى."},
+        {"q": "هل يمكنني استرجاع أموالي؟", "a": "في حال وجود مشكلة في طلبك، يرجى التواصل مع الدعم الفني."}
+    ])

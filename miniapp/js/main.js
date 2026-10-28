@@ -1,3 +1,5 @@
+import { openKYC } from './sections/kyc.js';
+import { openSupport } from './sections/support.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
@@ -89,3 +91,6 @@ window.filterList = function(page, filter, btnElement) {
   if (page === 'deposits') window.renderDeposits(filter);
   if (page === 'orders') window.renderOrders(filter);
 };
+
+window.openKYC = openKYC;
+window.openSupport = openSupport;

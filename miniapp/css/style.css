@@ -201,3 +201,45 @@ body {
 .acc-menu-row:last-child { border-bottom: none; }
 .acc-menu-title { font-size: 14px; font-weight: 700; color: white; display: flex; align-items: center; gap: 8px; }
 .acc-menu-row svg { width: 20px; height: 20px; color: var(--text-muted); }
+
+/* Quick Grid للـ Account */
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.quick-item { background: var(--bg-card); padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: 0.2s; text-align: center; }
+.quick-item:active { transform: scale(0.96); }
+.quick-item svg { width: 28px; height: 28px; color: var(--primary); }
+.quick-item span { font-size: 13px; font-weight: 700; color: white; }
+
+/* KYC Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 9999; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: var(--bg-card); border-radius: 24px 24px 0 0; width: 100%; max-width: 500px; padding: 24px; border-top: 1px solid rgba(255,255,255,0.1); animation: slideUp 0.3s ease-out; max-height: 90vh; overflow-y: auto; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 18px; }
+.close-modal { background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* Form Inputs */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.form-control { width: 100%; background: var(--bg-main); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; color: white; font-family: inherit; outline: none; }
+.form-control:focus { border-color: var(--primary); }
+.file-upload { border: 2px dashed rgba(255,255,255,0.2); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: 0.2s; }
+.file-upload:hover { border-color: var(--primary); background: rgba(0,149,232,0.05); }
+.file-upload input { display: none; }
+.file-upload label { cursor: pointer; margin: 0; color: var(--primary); font-weight: bold; }
+
+/* Chat UI */
+.chat-container { display: flex; flex-direction: column; height: 60vh; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 10px 0; display: flex; flex-direction: column; gap: 10px; }
+.chat-bubble { max-width: 80%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+.chat-bubble.user { background: var(--primary); color: white; align-self: flex-start; border-top-right-radius: 4px; }
+.chat-bubble.admin { background: #17304b; color: white; align-self: flex-end; border-top-left-radius: 4px; }
+.chat-input-area { display: flex; gap: 8px; margin-top: 16px; }
+.chat-input-area input { flex: 1; background: var(--bg-main); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; color: white; outline: none; }
+.chat-input-area button { background: var(--primary); color: white; border: none; border-radius: 12px; padding: 0 20px; font-weight: bold; cursor: pointer; }
+
+/* FAQ */
+.faq-item { background: var(--bg-card); border-radius: 12px; margin-bottom: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); }
+.faq-q { padding: 16px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.faq-a { padding: 0 16px 16px; color: var(--text-muted); font-size: 13px; display: none; }
+.faq-item.active .faq-a { display: block; }
