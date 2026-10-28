@@ -850,3 +850,7 @@ def update_settings():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+@admin_bp.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok", "message": "Server is running"})
