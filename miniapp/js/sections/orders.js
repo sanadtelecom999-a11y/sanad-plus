@@ -21,6 +21,11 @@ export async function loadOrders() {
   }
 }
 
+window.openOrderDetails = function(id) {
+  const o = allOrders.find(x => x.id == id);
+  if(o) window.showModal('order', o);
+};
+
 window.renderOrders = function(filter) {
   const container = document.getElementById('orders-list');
   let filtered = allOrders;
@@ -38,7 +43,7 @@ window.renderOrders = function(filter) {
     return;
   }
   container.innerHTML = filtered.map(o => `
-    <div class="list-item" onclick='window.showModal("order", ${JSON.stringify(o)})'>
+    <div class="list-item" onclick="window.openOrderDetails(${o.id})">
       <div class="list-item-info"><h4>${o.product_name}</h4><span>طلب #${o.order_number}</span></div>
       <div style="text-align:left;"><div style="font-weight:800; color:var(--primary); margin-bottom:6px;">$${Number(o.amount).toFixed(2)}</div>${getStatusBadge(o.status)}</div>
     </div>

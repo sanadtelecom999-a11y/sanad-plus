@@ -1,16 +1,21 @@
 import { safeFetch } from '../core/api.js';
 
-let chatInterval;
+let chatInterval = null;
 
 export async function openSupport() {
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  document.getElementById('support-modal').classList.add('active');
+  document.getElementById('support-screen').classList.add('active');
   
   await loadMessages(tgId);
   
-  // تحديث تلقائي للرسائل كل 5 ثواني
-  clearInterval(chatInterval);
-  chatInterval = setInterval(() => loadMessages(tgId), 5000);
+  // إيقاف أي تحديث سابق قبل بدء جديد
+  if (chatInterval) clearInterval(chatInterval);
+  chatInterval = setInterval(() => {
+    // تحديث فقط إذا كانت الشاشة مفتوحة
+    if (document.getElementById('support-screen').classList.contains('active')) {
+      loadMessages(tgId);
+    }
+  }, 5000);
 
   document.getElementById('chat-form').onsubmit = async (e) => {
     e.preventDefault();
@@ -19,7 +24,6 @@ export async function openSupport() {
     if (!msg) return;
 
     input.value = '';
-    // إضافة الرسالة فوراً للواجهة (Optimistic UI)
     appendMessage('user', msg);
 
     await safeFetch('/api/support/send', {
@@ -28,6 +32,14 @@ export async function openSupport() {
     });
   };
 }
+
+window.closeSupport = function() {
+  document.getElementById('support-screen').classList.remove('active');
+  if (chatInterval) {
+    clearInterval(chatInterval);
+    chatInterval = null;
+  }
+};
 
 async function loadMessages(tgId) {
   const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
@@ -38,17 +50,20 @@ async function loadMessages(tgId) {
     return;
   }
 
-  container.innerHTML = msgs.map(m => `
-    <div class="chat-bubble ${m.sender}">
-      ${m.message}
-    </div>
-  `).join('');
-  
+  // حماية XSS: مسح المحتوى السابق وإعادة بنائه
+  container.innerHTML = '';
+  msgs.forEach(m => {
+    appendMessage(m.sender, m.message);
+  });
   container.scrollTop = container.scrollHeight;
 }
 
+// حماية XSS: استخدام textContent بدلاً من innerHTML
 function appendMessage(sender, text) {
   const container = document.getElementById('chat-messages');
-  container.innerHTML += `<div class="chat-bubble ${sender}">${text}</div>`;
+  const div = document.createElement('div');
+  div.className = `chat-bubble ${sender}`;
+  div.textContent = text; 
+  container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }

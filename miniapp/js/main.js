@@ -1,5 +1,3 @@
-import { openKYC } from './sections/kyc.js';
-import { openSupport } from './sections/support.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
@@ -8,10 +6,6 @@ import { loadDeposits } from './sections/deposits.js';
 import { loadAccount } from './sections/account.js';
 
 const tg = window.Telegram?.WebApp;
-if (!tg || !tg.initData) {
-  document.getElementById('loading-screen').style.display = 'none';
-  document.getElementById('telegram-warning').style.display = 'flex';
-}
 if (tg) {
   tg.ready();
   tg.expand();
@@ -28,7 +22,6 @@ window.switchPage = function(pageId) {
   const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
-  // تحميل البيانات عند تبديل الصفحة
   if (pageId === 'home') loadHomeData();
   else if (pageId === 'charge') loadChargePage();
   else if (pageId === 'orders') loadOrders();
@@ -44,6 +37,43 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
+// دالة موحدة وآمنة لعرض المودال
+window.showModal = function(type, data) {
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  if (type === 'deposit') {
+    title.textContent = `تفاصيل الإيداع #${data.id}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(data.amount).toFixed(2)}</strong></div>
+      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
+    `;
+  } else {
+    title.textContent = `تفاصيل الطلب #${data.order_number}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المنتج</span><strong>${data.product_name}</strong></div>
+      <div class="modal-row"><span>الإجمالي</span><strong style="color:var(--primary);">$${Number(data.amount).toFixed(2)}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'completed' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'completed' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد التنفيذ'}</strong></div>
+    `;
+  }
+  modal.classList.add('active');
+};
+
+// دوال الفلترة
+window.filterList = function(page, filter, btnElement) {
+  if (btnElement) {
+    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+  if (page === 'deposits') window.renderDeposits(filter);
+  if (page === 'orders') window.renderOrders(filter);
+};
+
 async function initApp() {
   const loader = document.getElementById('loading-screen');
   if (loader) {
@@ -55,42 +85,3 @@ async function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
-
-window.showModal = function(type, data) {
-  const modal = document.getElementById('app-modal');
-  const title = document.getElementById('modal-title');
-  const body = document.getElementById('modal-body');
-
-  if (type === 'deposit') {
-    title.textContent = `تفاصيل الإيداع #${data.id}`;
-    body.innerHTML = `
-      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${data.amount.toFixed(2)}</strong></div>
-      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
-    `;
-  } else {
-    title.textContent = `تفاصيل الطلب #${data.order_number}`;
-    body.innerHTML = `
-      <div class="modal-row"><span>المنتج</span><strong>${data.product_name}</strong></div>
-      <div class="modal-row"><span>الإجمالي</span><strong style="color:var(--primary);">$${data.amount.toFixed(2)}</strong></div>
-      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'completed' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'completed' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد التنفيذ'}</strong></div>
-    `;
-  }
-  modal.classList.add('active');
-};
-
-window.filterList = function(page, filter, btnElement) {
-  if (btnElement) {
-    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
-    tabs.forEach(t => t.classList.remove('active'));
-    btnElement.classList.add('active');
-  }
-  
-  if (page === 'deposits') window.renderDeposits(filter);
-  if (page === 'orders') window.renderOrders(filter);
-};
-
-window.openKYC = openKYC;
-window.openSupport = openSupport;

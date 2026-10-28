@@ -15,11 +15,16 @@ export async function loadDeposits() {
   container.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحميل...</div>`;
   try {
     allDeposits = await safeFetch(`/api/deposits/?telegram_id=${tgId}`) || [];
-    window.filterList('deposits', 'all'); // عرض الكل افتراضياً
+    window.filterList('deposits', 'all');
   } catch (e) {
     container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الإيداعات.</div>`;
   }
 }
+
+window.openDepositDetails = function(id) {
+  const d = allDeposits.find(x => x.id == id);
+  if(d) window.showModal('deposit', d);
+};
 
 window.renderDeposits = function(filter) {
   const container = document.getElementById('deposits-list');
@@ -38,7 +43,7 @@ window.renderDeposits = function(filter) {
     return;
   }
   container.innerHTML = filtered.map(d => `
-    <div class="list-item" onclick='window.showModal("deposit", ${JSON.stringify(d)})'>
+    <div class="list-item" onclick="window.openDepositDetails(${d.id})">
       <div class="list-item-info"><h4>إيداع #${d.id}</h4><span>${d.reference || 'بدون مرجع'}</span></div>
       <div style="text-align:left;"><div style="font-weight:800; color:var(--success); margin-bottom:6px;">$${Number(d.amount).toFixed(2)}</div>${getStatusBadge(d.status)}</div>
     </div>
