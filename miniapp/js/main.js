@@ -1,10 +1,11 @@
-import { authenticateTelegram } from './core/api.js';
-import { loadHomeData } from './sections/home.js';
-import { loadChargePage } from './sections/charge.js';
-import { loadOrders } from './sections/orders.js';
-import { loadDeposits } from './sections/deposits.js';
-import { loadAccount } from './sections/account.js';
-import './sections/products.js'; // استيراد ملف المنتجات
+// استخدام ?v=60 لإجبار المتصفح على تحميل الملفات الجديدة وعدم استخدام الكاش
+import { authenticateTelegram } from './core/api.js?v=60';
+import { loadHomeData } from './sections/home.js?v=60';
+import { loadChargePage } from './sections/charge.js?v=60';
+import { loadOrders } from './sections/orders.js?v=60';
+import { loadDeposits } from './sections/deposits.js?v=60';
+import { loadAccount } from './sections/account.js?v=60';
+import './sections/products.js?v=60'; 
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -23,7 +24,6 @@ window.switchPage = function(pageId) {
   const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
-  // تحميل البيانات بناءً على الصفحة
   try {
     if (pageId === 'home') loadHomeData();
     else if (pageId === 'charge') loadChargePage();
@@ -41,10 +41,27 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const target = item.getAttribute('data-target');
     window.switchPage(target);
   });
-});
+};
 
+// دالة المودال العامة (للإيداعات فقط الآن، الطلبات لها إيصال خاص)
+window.showModal = function(type, data) {
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+  if (!modal) return;
 
-// دالة الفلترة التي كانت مفقودة
+  if (type === 'deposit') {
+    title.textContent = `تفاصيل الإيداع #${data.id}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(data.amount).toFixed(2)}</strong></div>
+      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('en-GB') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
+    `;
+  }
+  modal.classList.add('active');
+};
+
 window.filterList = function(page, filter, btnElement) {
   if (btnElement) {
     const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
@@ -59,40 +76,17 @@ window.filterList = function(page, filter, btnElement) {
   }
 };
 
-// دالة المودال العامة
-window.showModal = function(type, data) {
-  const modal = document.getElementById('app-modal');
-  const title = document.getElementById('modal-title');
-  const body = document.getElementById('modal-body');
-  if (!modal) return;
-
-  if (type === 'deposit') {
-    title.textContent = `تفاصيل الإيداع #${data.id}`;
-    body.innerHTML = `
-      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(data.amount).toFixed(2)}</strong></div>
-      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('ar-EG') : 'غير متوفر'}</strong></div>
-      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
-    `;
-  }
-  modal.classList.add('active');
-};
-
-// دالة التهيئة الأولية
 async function initApp() {
   try {
-    // محاولة تسجيل الدخول
     await authenticateTelegram();
   } catch (error) {
     console.error("Auth Error:", error);
   } finally {
-    // إخفاء شاشة التحميل دائماً، حتى لو فشل الاتصال
     const loader = document.getElementById('loading-screen');
     if (loader) {
       loader.style.opacity = '0';
       setTimeout(() => loader.remove(), 300);
     }
-    // فتح الصفحة الرئيسية
     window.switchPage('home');
   }
 }
