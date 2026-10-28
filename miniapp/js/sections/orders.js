@@ -22,19 +22,11 @@ export async function loadOrders() {
   
   try {
     const data = await safeFetch(`/api/orders/?telegram_id=${tgId}`);
-    
-    // التحقق من أن البيانات قائمة (Array)
-    if (!Array.isArray(data)) {
-      console.error("Invalid data format for orders:", data);
-      allOrders = []; // تجنب الانهيار
-    } else {
-      allOrders = data;
-    }
-    
+    allOrders = Array.isArray(data) ? data : [];
     window.filterList('orders', 'all');
   } catch (e) {
     console.error("Orders Fetch Error:", e);
-    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الطلبات.<br><small>${e.message}</small></div>`;
+    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الطلبات.</div>`;
   }
 }
 
@@ -99,10 +91,20 @@ window.renderOrders = function(filter) {
     container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات في هذا القسم.</div>`;
     return;
   }
+  
+  // تمت إزالة onclick واستبدالها بـ data-id
   container.innerHTML = filtered.map(o => `
-    <div class="list-item" onclick="window.openOrderDetails(${o.id})">
+    <div class="list-item" data-id="${o.id}">
       <div class="list-item-info"><h4>${o.product_name || 'طلب'}</h4><span>طلب #${o.order_number || o.id}</span></div>
       <div style="text-align:left;"><div style="font-weight:800; color:var(--primary); margin-bottom:6px;">$${Number(o.amount || 0).toFixed(2)}</div>${getStatusBadge(o.status)}</div>
     </div>
   `).join('');
+
+  // تفويض الأحداث (Event Delegation)
+  container.querySelectorAll('.list-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      if(id) window.openOrderDetails(id);
+    });
+  });
 };

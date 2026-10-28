@@ -22,18 +22,11 @@ export async function loadDeposits() {
   
   try {
     const data = await safeFetch(`/api/deposits/?telegram_id=${tgId}`);
-    
-    if (!Array.isArray(data)) {
-      console.error("Invalid data format for deposits:", data);
-      allDeposits = [];
-    } else {
-      allDeposits = data;
-    }
-    
+    allDeposits = Array.isArray(data) ? data : [];
     window.filterList('deposits', 'all');
   } catch (e) {
     console.error("Deposits Fetch Error:", e);
-    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الإيداعات.<br><small>${e.message}</small></div>`;
+    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الإيداعات.</div>`;
   }
 }
 
@@ -79,10 +72,20 @@ window.renderDeposits = function(filter) {
     container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد إيداعات في هذا القسم.</div>`;
     return;
   }
+  
+  // تمت إزالة onclick واستبدالها بـ data-id
   container.innerHTML = filtered.map(d => `
-    <div class="list-item" onclick="window.openDepositDetails(${d.id})">
+    <div class="list-item" data-id="${d.id}">
       <div class="list-item-info"><h4>إيداع #${d.id}</h4><span>${d.reference || 'بدون مرجع'}</span></div>
       <div style="text-align:left;"><div style="font-weight:800; color:var(--success); margin-bottom:6px;">$${Number(d.amount || 0).toFixed(2)}</div>${getStatusBadge(d.status)}</div>
     </div>
   `).join('');
+
+  // تفويض الأحداث
+  container.querySelectorAll('.list-item').forEach(el => {
+    el.addEventListener('click', function() {
+      const id = this.getAttribute('data-id');
+      if(id) window.openDepositDetails(id);
+    });
+  });
 };
