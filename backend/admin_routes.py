@@ -244,7 +244,7 @@ def get_deposits():
 @admin_required
 def get_kyc():
     try:
-        from app.models import KYC
+        from app.models import KYCRequest as KYC
         from app import db
         kycs = db.session.query(KYC).filter(KYC.status.in_(['pending', 'معلق'])).all()
         return jsonify([{
@@ -854,3 +854,33 @@ def update_settings():
 @admin_bp.route("/health", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok", "message": "Server is running"})
+
+@admin_bp.route("/kyc/<int:kyc_id>/action", methods=["POST"])
+@admin_required
+def handle_kyc_action(kyc_id):
+    data = request.get_json(silent=True) or {}
+    action = data.get('action') # 'approve' or 'reject'
+    if action not in ['approve', 'reject']:
+        return jsonify({"error": "إجراء غير صالح"}), 400
+        
+    try:
+        from app.models import KYCRequest, User
+        from app import db
+        
+        kyc = db.session.query(KYCRequest).filter_by(id=kyc_id).with_for_update().first()
+        if not kyc: return jsonify({"error": "الطلب غير موجود"}), 404
+        
+        new_status = 'approved' if action == 'approve' else 'rejected'
+        kyc.status = new_status
+        
+        if action == 'approve':
+            user = db.session.query(User).filter_by(id=kyc.user_id).first()
+            if user:
+                user.is_verified = True
+                
+        db.session.commit()
+        log_admin_action(f"KYC {new_status}", "kyc", kyc_id, f"تم تغيير الحالة إلى {new_status}")
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

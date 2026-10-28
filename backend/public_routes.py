@@ -274,13 +274,19 @@ def kyc_submit():
         selfie_url = "uploaded_selfie.jpg"
         
         from sqlalchemy import text
-        db.session.execute(text("""
-            INSERT INTO kyc_requests (user_id, full_name, phone, governorate, region, id_front_url, selfie_url, status)
-            VALUES (:uid, :name, :phone, :gov, :reg, :idf, :selfie, 'pending')
-            ON CONFLICT (user_id) DO UPDATE SET 
-            full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, governorate = EXCLUDED.governorate, 
-            region = EXCLUDED.region, id_front_url = EXCLUDED.id_front_url, selfie_url = EXCLUDED.selfie_url, status = 'pending'
-        """), {"uid": user.id, "name": full_name, "phone": phone, "gov": governorate, "reg": region, "idf": id_front_url, "selfie": selfie_url})
+        from app.models import KYCRequest
+        # نستخدم الجدول الحقيقي KYCRequest
+        kyc = db.session.query(KYCRequest).filter_by(user_id=user.id).first()
+        if not kyc:
+            kyc = KYCRequest(user_id=user.id)
+            db.session.add(kyc)
+            
+        kyc.full_name = full_name
+        kyc.phone = phone
+        kyc.address = f"{governorate} - {region}"
+        kyc.selfie_image = selfie_url # سنستخدم هذا الحقل للصورة
+        kyc.status = 'pending'
+        
         db.session.commit()
         
         return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح"})
@@ -298,17 +304,15 @@ def get_support_messages():
         user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
         if not user: return jsonify([])
         
-        # إنشاء جدول تذاكر مبسط إذا لم يكن موجوداً
-        db.session.execute(text("""
-            CREATE TABLE IF NOT EXISTS mini_support (
-                id SERIAL PRIMARY KEY, user_id INT, sender VARCHAR(10), message TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """))
-        db.session.commit()
+        from app.models import SupportTicket, SupportMessage
         
-        rows = db.session.execute(text("SELECT id, sender, message, created_at FROM mini_support WHERE user_id = :uid ORDER BY created_at ASC"), {"uid": user.id}).fetchall()
-        return jsonify([{"id": r[0], "sender": r[1], "message": r[2], "date": str(r[3])} for r in rows])
+        # جلب أو إنشاء تذكرة للمستخدم
+        ticket = db.session.query(SupportTicket).filter_by(user_id=user.id).first()
+        if not ticket:
+            return jsonify([])
+            
+        msgs = db.session.query(SupportMessage).filter_by(ticket_id=ticket.id).order_by(SupportMessage.created_at.asc()).all()
+        return jsonify([{"id": m.id, "sender": m.sender_type, "message": m.text, "date": str(m.created_at)} for m in msgs])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -323,7 +327,15 @@ def send_support_message():
         user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
         if not user: return jsonify({"error": "User not found"}), 404
         
-        db.session.execute(text("INSERT INTO mini_support (user_id, sender, message) VALUES (:uid, 'user', :msg)"), {"uid": user.id, "msg": msg})
+        from app.models import SupportTicket, SupportMessage
+        ticket = db.session.query(SupportTicket).filter_by(user_id=user.id).first()
+        if not ticket:
+            ticket = SupportTicket(user_id=user.id, status='open')
+            db.session.add(ticket)
+            db.session.commit()
+            
+        new_msg = SupportMessage(ticket_id=ticket.id, sender_type='user', text=msg)
+        db.session.add(new_msg)
         db.session.commit()
         return jsonify({"success": True})
     except Exception as e:

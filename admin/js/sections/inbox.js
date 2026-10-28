@@ -96,14 +96,24 @@ window.openDetails = async function(type, id) {
 
   let imageHtml = data.image ? `<img src="${escapeHtml(data.image)}" style="width:100%; max-height:250px; object-fit:contain; border-radius:8px; margin-bottom:16px; background:#000;" />` : '';
 
+  let actionButtons = '';
+  if (type === 'kyc') {
+    actionButtons = `
+      <button onclick="window.actionKyc(${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول التوثيق</button>
+      <button onclick="window.actionKyc(${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض التوثيق</button>
+    `;
+  } else {
+    actionButtons = `
+      <button onclick="window.actionItem('${type}', ${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول</button>
+      <button onclick="window.actionItem('${type}', ${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض</button>
+    `;
+  }
+
   content.innerHTML = `
     <h3 style="margin-top:0; font-size:18px;">${escapeHtml(data.title)}</h3>
     ${imageHtml}
     <div style="margin-bottom:24px;">${detailsHtml}</div>
-    <div style="display:flex; gap:10px;">
-      <button onclick="window.actionItem('${type}', ${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول</button>
-      <button onclick="window.actionItem('${type}', ${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض</button>
-    </div>
+    <div style="display:flex; gap:10px;">${actionButtons}</div>
   `;
 };
 
