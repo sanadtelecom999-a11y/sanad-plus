@@ -1,15 +1,22 @@
 import { safeFetch } from '../core/api.js';
 
+function getStatusBadge(status) {
+  const s = (status || '').toLowerCase();
+  if (['approved', 'completed', 'مكتمل', 'مقبول'].includes(s)) return '<span class="status-badge status-approved">مكتمل</span>';
+  if (['rejected', 'مرفوض', 'ملغي'].includes(s)) return '<span class="status-badge status-rejected">مرفوض</span>';
+  return '<span class="status-badge status-pending">قيد المراجعة</span>';
+}
+
 export async function loadDeposits() {
   const container = document.getElementById('deposits-list');
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 
-  container.innerHTML = `<div class="card">جاري التحميل...</div>`;
+  container.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحميل...</div>`;
 
   try {
     const deposits = await safeFetch(`/api/deposits/?telegram_id=${tgId}`);
     
-    if (deposits.length === 0) {
+    if (!deposits || deposits.length === 0) {
       container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد إيداعات سابقة.</div>`;
       return;
     }
@@ -21,10 +28,8 @@ export async function loadDeposits() {
           <span>${d.reference || 'بدون مرجع'}</span>
         </div>
         <div style="text-align:left;">
-          <div style="font-weight:bold; color:var(--success);">${d.amount.toFixed(2)} $</div>
-          <span class="status-badge ${d.status === 'approved' ? 'status-approved' : d.status === 'rejected' ? 'status-rejected' : 'status-pending'}">
-            ${d.status === 'approved' ? 'مكتمل' : d.status === 'rejected' ? 'مرفوض' : 'معلق'}
-          </span>
+          <div style="font-weight:800; color:var(--success); margin-bottom:6px;">$${Number(d.amount).toFixed(2)}</div>
+          ${getStatusBadge(d.status)}
         </div>
       </div>
     `).join('');
