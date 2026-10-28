@@ -42,9 +42,9 @@ def bot_auth():
     
     if not tg_id: return jsonify({"error": "Missing ID"}), 400
     
-    user = db.session.query(User).filter_by(telegram_id=str(tg_id)).first()
+    user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
     if not user:
-        user = User(telegram_id=str(tg_id), first_name=data.get('first_name', 'User'), balance=0.0)
+        user = User(telegram_id=int(tg_id), first_name=data.get('first_name', 'User'), balance=0.0)
         db.session.add(user)
         db.session.commit()
         
@@ -81,7 +81,7 @@ def miniapp_init():
     
     if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
         
-    user = db.session.query(User).filter_by(telegram_id=str(tg_id)).first()
+    user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
         
