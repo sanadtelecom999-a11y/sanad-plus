@@ -240,12 +240,6 @@ def get_products():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-import os
-import base64
-from werkzeug.utils import secure_filename
-
-# --- KYC Routes ---
 @public_bp.route('/kyc/status', methods=['GET'])
 def kyc_status():
     tg_id = request.args.get('telegram_id')
@@ -371,3 +365,54 @@ def get_faq():
         {"q": "كم يستغرق توثيق الحساب؟", "a": "يتم مراجعة طلبات التوثيق خلال 24 ساعة كحد أقصى."},
         {"q": "هل يمكنني استرجاع أموالي؟", "a": "في حال وجود مشكلة في طلبك، يرجى التواصل مع الدعم الفني."}
     ])
+
+@public_bp.route('/orders/create', methods=['POST'])
+def create_order():
+    data = request.get_json(silent=True) or {}
+    tg_id = data.get('telegram_id')
+    product_id = data.get('product_id')
+    quantity = int(data.get('quantity', 1))
+    delivery_data = data.get('delivery_data', '') # بيانات اللاعب أو الحساب
+
+    if not tg_id or not product_id:
+        return jsonify({"error": "بيانات ناقصة"}), 400
+
+    try:
+        from app.models import User, Product, Order
+        from app import db
+
+        # قفل صف المستخدم لمنع تعارض العمليات المالية
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).with_for_update().first()
+        if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
+
+        product = db.session.query(Product).filter_by(id=product_id).first()
+        if not product: return jsonify({"error": "المنتج غير موجود"}), 404
+
+        total_price = float(getattr(product, 'base_price', 0)) * quantity
+
+        # التحقق من الرصيد
+        if float(user.balance) < total_price:
+            return jsonify({"error": "رصيدك غير كافٍ لإتمام العملية"}), 400
+
+        # خصم الرصيد
+        user.balance = float(user.balance) - total_price
+
+        # إنشاء الطلب
+        new_order = Order(
+            user_id=user.id,
+            product_id=product.id,
+            quantity=quantity,
+            total_price=total_price,
+            status='pending',
+            delivery_data=delivery_data
+        )
+        db.session.add(new_order)
+        db.session.commit()
+        
+        print(f"✅ Order Created: User {user.id} bought {product.name} for ${total_price}", flush=True)
+        return jsonify({"success": True, "order_id": new_order.id, "new_balance": user.balance})
+
+    except Exception as e:
+        db.session.rollback()
+        print("Buy Error:", e, flush=True)
+        return jsonify({"error": str(e)}), 500

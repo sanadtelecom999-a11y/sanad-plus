@@ -1,3 +1,4 @@
+import './sections/products.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
