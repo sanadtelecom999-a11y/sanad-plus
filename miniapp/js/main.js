@@ -1,11 +1,10 @@
-// استخدام ?v=60 لإجبار المتصفح على تحميل الملفات الجديدة وعدم استخدام الكاش
-import { authenticateTelegram } from './core/api.js?v=60';
-import { loadHomeData } from './sections/home.js?v=60';
-import { loadChargePage } from './sections/charge.js?v=60';
-import { loadOrders } from './sections/orders.js?v=60';
-import { loadDeposits } from './sections/deposits.js?v=60';
-import { loadAccount } from './sections/account.js?v=60';
-import './sections/products.js?v=60'; 
+import { authenticateTelegram } from './core/api.js';
+import { loadHomeData } from './sections/home.js';
+import { loadChargePage } from './sections/charge.js';
+import { loadOrders } from './sections/orders.js';
+import { loadDeposits } from './sections/deposits.js';
+import { loadAccount } from './sections/account.js';
+import './sections/products.js'; 
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -41,9 +40,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const target = item.getAttribute('data-target');
     window.switchPage(target);
   });
-};
+});
 
-// دالة المودال العامة (للإيداعات فقط الآن، الطلبات لها إيصال خاص)
 window.showModal = function(type, data) {
   const modal = document.getElementById('app-modal');
   const title = document.getElementById('modal-title');
@@ -68,12 +66,8 @@ window.filterList = function(page, filter, btnElement) {
     tabs.forEach(t => t.classList.remove('active'));
     btnElement.classList.add('active');
   }
-  if (page === 'deposits' && typeof window.renderDeposits === 'function') {
-    window.renderDeposits(filter);
-  }
-  if (page === 'orders' && typeof window.renderOrders === 'function') {
-    window.renderOrders(filter);
-  }
+  if (page === 'deposits' && typeof window.renderDeposits === 'function') window.renderDeposits(filter);
+  if (page === 'orders' && typeof window.renderOrders === 'function') window.renderOrders(filter);
 };
 
 async function initApp() {

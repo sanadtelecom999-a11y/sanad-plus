@@ -104,7 +104,7 @@
     </a>
   </nav>
 
-  <script type="module" src="js/main.js?v=60"></script>
+  <script type="module" src="js/main.js?v=61"></script>
 
   <!-- شاشة الحماية (تظهر إذا تم الفتح من خارج تيليجرام) -->
   <div id="telegram-warning">
@@ -143,6 +143,17 @@
       </div>
     </div>
   </div>
+
+
+  <script>
+    setTimeout(function() {
+      var loader = document.getElementById('loading-screen');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function() { loader.remove(); }, 300);
+      }
+    }, 3000); // 3 ثواني كحد أقصى
+  </script>
 
 </body>
 </html>

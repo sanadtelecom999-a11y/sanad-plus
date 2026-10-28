@@ -48,7 +48,13 @@ def bot_auth():
         db.session.add(user)
         db.session.commit()
         
-    return jsonify({"success": True, "user_id": user.id})
+    return jsonify({
+        "success": True, 
+        "user_id": user.id, 
+        "telegram_id": user.telegram_id,
+        "balance": float(user.balance) if user.balance else 0.0,
+        "first_name": getattr(user, 'first_name', 'مستخدم')
+    })
 
 # 2. مسار الميني آب (تسجيل الدخول الآمن)
 @public_bp.route('/auth/telegram', methods=['POST', 'OPTIONS'])
