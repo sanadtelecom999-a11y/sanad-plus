@@ -1,10 +1,10 @@
-import './sections/products.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
 import { loadOrders } from './sections/orders.js';
 import { loadDeposits } from './sections/deposits.js';
 import { loadAccount } from './sections/account.js';
+import './sections/products.js'; // استيراد ملف المنتجات
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -23,11 +23,16 @@ window.switchPage = function(pageId) {
   const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
-  if (pageId === 'home') loadHomeData();
-  else if (pageId === 'charge') loadChargePage();
-  else if (pageId === 'orders') loadOrders();
-  else if (pageId === 'deposits') loadDeposits();
-  else if (pageId === 'account') loadAccount();
+  // تحميل البيانات بناءً على الصفحة
+  try {
+    if (pageId === 'home') loadHomeData();
+    else if (pageId === 'charge') loadChargePage();
+    else if (pageId === 'orders') loadOrders();
+    else if (pageId === 'deposits') loadDeposits();
+    else if (pageId === 'account') loadAccount();
+  } catch (e) {
+    console.error("Error loading page data:", e);
+  }
 };
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -38,11 +43,12 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
-// دالة موحدة وآمنة لعرض المودال
+// دالة المودال العامة
 window.showModal = function(type, data) {
   const modal = document.getElementById('app-modal');
   const title = document.getElementById('modal-title');
   const body = document.getElementById('modal-body');
+  if (!modal) return;
 
   if (type === 'deposit') {
     title.textContent = `تفاصيل الإيداع #${data.id}`;
@@ -64,25 +70,23 @@ window.showModal = function(type, data) {
   modal.classList.add('active');
 };
 
-// دوال الفلترة
-window.filterList = function(page, filter, btnElement) {
-  if (btnElement) {
-    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
-    tabs.forEach(t => t.classList.remove('active'));
-    btnElement.classList.add('active');
-  }
-  if (page === 'deposits') window.renderDeposits(filter);
-  if (page === 'orders') window.renderOrders(filter);
-};
-
+// دالة التهيئة الأولية
 async function initApp() {
-  const loader = document.getElementById('loading-screen');
-  if (loader) {
-    loader.style.opacity = '0';
-    setTimeout(() => loader.remove(), 300);
+  try {
+    // محاولة تسجيل الدخول
+    await authenticateTelegram();
+  } catch (error) {
+    console.error("Auth Error:", error);
+  } finally {
+    // إخفاء شاشة التحميل دائماً، حتى لو فشل الاتصال
+    const loader = document.getElementById('loading-screen');
+    if (loader) {
+      loader.style.opacity = '0';
+      setTimeout(() => loader.remove(), 300);
+    }
+    // فتح الصفحة الرئيسية
+    window.switchPage('home');
   }
-  await authenticateTelegram();
-  window.switchPage('home');
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
