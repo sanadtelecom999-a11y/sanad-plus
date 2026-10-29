@@ -15,20 +15,29 @@ export async function openSupport() {
     if (screen.classList.contains('active')) loadMessages(tgId);
   }, 5000);
 
-  document.getElementById('chat-form').onsubmit = async (e) => {
-    e.preventDefault(); // منع إعادة تحميل الصفحة
-    const input = document.getElementById('chat-input');
-    const msg = input.value.trim();
-    if (!msg) return;
+  // إصلاح: استخدام addEventListener بدلاً من onsubmit
+  const form = document.getElementById('chat-form');
+  if (form) {
+    form.onsubmit = async (e) => {
+      e.preventDefault(); // منع إعادة التحميل
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
 
-    input.value = '';
-    appendMessage('user', msg);
+      input.value = '';
+      appendMessage('user', msg);
 
-    await safeFetch('/api/support/send', {
-      method: 'POST',
-      body: JSON.stringify({ telegram_id: tgId, message: msg })
-    });
-  };
+      try {
+        await safeFetch('/api/support/send', {
+          method: 'POST',
+          body: JSON.stringify({ telegram_id: tgId, message: msg })
+        });
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        alert('فشل إرسال الرسالة. يرجى المحاولة مرة أخرى.');
+      }
+    };
+  }
 }
 
 window.closeSupport = function() {
@@ -41,18 +50,22 @@ window.closeSupport = function() {
 };
 
 async function loadMessages(tgId) {
-  const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
-  const container = document.getElementById('chat-messages');
-  if (!container) return;
-  
-  if (!msgs || msgs.length === 0) {
-    container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">مرحباً! كيف يمكننا مساعدتك؟</div>`;
-    return;
-  }
+  try {
+    const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    if (!msgs || msgs.length === 0) {
+      container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">مرحباً! كيف يمكننا مساعدتك؟</div>`;
+      return;
+    }
 
-  container.innerHTML = '';
-  msgs.forEach(m => appendMessage(m.sender, m.message));
-  container.scrollTop = container.scrollHeight;
+    container.innerHTML = '';
+    msgs.forEach(m => appendMessage(m.sender, m.message));
+    container.scrollTop = container.scrollHeight;
+  } catch (e) {
+    console.error("Error loading messages:", e);
+  }
 }
 
 function appendMessage(sender, text) {
