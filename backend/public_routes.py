@@ -11,6 +11,7 @@ from app.extensions import db
 from app.models import User, Category, PaymentMethod, Deposit, Order, Product, KYCRequest, SupportTicket, SupportMessage, FinancialLedger
 from app.telegram_auth import verify_telegram_auth
 from app.decorators import require_telegram_auth, rate_limit
+from app.services.cloudinary_service import upload_image
 
 public_bp = Blueprint('public', __name__, url_prefix='/api')
 
@@ -137,12 +138,13 @@ def create_deposit():
         user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
         
-        # محاكاة حفظ الصورة (في الإنتاج: Cloudinary)
-        image_url = "receipt_placeholder.jpg"
+        # رفع الصورة إلى Cloudinary
+        image_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+Receipt"
         if 'receipt' in request.files:
             file = request.files['receipt']
-            if file.filename != '':
-                image_url = f"receipt_{user.id}_{reference}.jpg"
+            uploaded_url = upload_image(file, folder="sanad_receipts")
+            if uploaded_url:
+                image_url = uploaded_url
         
         new_deposit = Deposit(
             user_id=user.id,
@@ -270,9 +272,19 @@ def kyc_submit():
         id_front = request.files.get('id_front')
         selfie = request.files.get('selfie')
         
-        # (محاكاة حفظ الصور - سنستخدم مسار وهمي لتجنب أخطاء السيرفر)
-        id_front_url = "uploaded_id_front.jpg"
-        selfie_url = "uploaded_selfie.jpg"
+        # رفع الصور إلى Cloudinary
+        id_front_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+ID"
+        selfie_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+Selfie"
+        
+        if 'id_front' in request.files:
+            front_file = request.files['id_front']
+            uploaded_front = upload_image(front_file, folder="sanad_kyc")
+            if uploaded_front: id_front_url = uploaded_front
+
+        if 'selfie' in request.files:
+            selfie_file = request.files['selfie']
+            uploaded_selfie = upload_image(selfie_file, folder="sanad_kyc")
+            if uploaded_selfie: selfie_url = uploaded_selfie
         
         from sqlalchemy import text
         from app.models import KYCRequest
