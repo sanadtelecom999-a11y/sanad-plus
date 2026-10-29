@@ -1,59 +1,37 @@
 import { state } from './state.js';
 
 const routes = {
-  home: { title: 'الرئيسية', loadFn: null }, // سيتم ربطها لاحقاً
-  products: { title: 'المنتجات', loadFn: null },
-  orders: { title: 'طلباتي', loadFn: null },
-  deposits: { title: 'الإيداعات', loadFn: null },
-  account: { title: 'حسابي', loadFn: null },
-  charge: { title: 'شحن الرصيد', loadFn: null },
+  home: null, products: null, orders: null, deposits: null, account: null, charge: null, referral: null
 };
 
 export function registerRoute(pageId, loadFunction) {
-  if (routes[pageId]) {
-    routes[pageId].loadFn = loadFunction;
-  }
+  if (routes[pageId] !== undefined) routes[pageId] = loadFunction;
 }
 
 export function navigateTo(pageId) {
-  if (!routes[pageId]) pageId = 'home';
+  if (routes[pageId] === undefined) pageId = 'home';
   
-  // إخفاء كل الصفحات
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  
-  // إظهار الصفحة المطلوبة
   const targetPage = document.getElementById(`page-${pageId}`);
   if (targetPage) targetPage.classList.add('active');
   
-  // تحديث الشريط السفلي
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
-  if (activeNav) activeNav.classList.add('active');
+  document.querySelectorAll('.sp-nav-item, .sp-nav-charge').forEach(n => n.removeAttribute('aria-current'));
+  const activeNav = document.querySelector(`.sp-nav-item[data-target="${pageId}"], .sp-nav-charge[data-target="${pageId}"]`);
+  if (activeNav) activeNav.setAttribute('aria-current', 'page');
   
-  // تحديث الحالة
   state.setPage(pageId);
   
-  // استدعاء دالة تحميل البيانات الخاصة بالصفحة
-  const route = routes[pageId];
-  if (route.loadFn) {
-    try {
-      route.loadFn();
-    } catch (e) {
-      console.error(`Error loading page ${pageId}:`, e);
-    }
+  if (routes[pageId]) {
+    try { routes[pageId](); } catch (e) { console.error(`Error loading page ${pageId}:`, e); }
   }
   
   window.location.hash = pageId;
 }
 
 export function initRouter() {
-  // التعامل مع زر الرجوع في المتصفح
   window.addEventListener('hashchange', () => {
     const hash = window.location.hash.replace('#', '');
     if (hash) navigateTo(hash);
   });
-  
-  // الرابط الافتراضي
-  const initialHash = window.location.hash.replace('#', '');
-  navigateTo(initialHash || 'home');
+  navigateTo(window.location.hash.replace('#', '') || 'home');
 }

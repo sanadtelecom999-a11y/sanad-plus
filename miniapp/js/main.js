@@ -12,6 +12,7 @@ import { renderProducts } from './sections/products.js';
 import { openKYC } from './sections/kyc.js';
 import { openLedger } from './sections/ledger.js';
 import { openSupport, closeSupport } from './sections/support.js';
+import { renderReferral } from './sections/referral.js';
 
 console.log("Main.js loaded successfully.");
 
@@ -20,9 +21,11 @@ registerRoute('account', renderAccount);
 registerRoute('orders', renderOrders);
 registerRoute('deposits', renderDeposits);
 registerRoute('charge', renderCharge);
+registerRoute('referral', renderReferral);
 
 document.addEventListener('click', (e) => {
-  const navItem = e.target.closest('.nav-item');
+  // Bottom Nav
+  const navItem = e.target.closest('[data-target]');
   if (navItem) {
     e.preventDefault();
     const target = navItem.getAttribute('data-target');
@@ -30,37 +33,43 @@ document.addEventListener('click', (e) => {
     return;
   }
   
+  // Close Modals
   if (e.target.id === 'close-modal' || e.target.id === 'app-modal') {
     document.getElementById('app-modal').classList.remove('active');
   }
-
   if (e.target.id === 'close-support') {
     closeSupport();
   }
 
+  // Account Actions
   const actionItem = e.target.closest('[data-action]');
   if (actionItem) {
     const action = actionItem.getAttribute('data-action');
     if (action === 'kyc') openKYC();
     if (action === 'ledger') openLedger();
     if (action === 'support') openSupport();
+    if (action === 'referral') navigateTo('referral');
+    if (action === 'favorites') alert('المفضلة ستتوفر قريباً');
+    if (action === 'notifications') alert('الإشعارات ستتوفر قريباً');
+    if (action === 'security') alert('الأمان والخصوصية ستتوفر قريباً');
+    if (action === 'help') alert('مركز المساعدة سيتوفر قريباً');
+    if (action === 'settings') alert('إعدادات الحساب ستتوفر قريباً');
     return;
   }
 
-  if (e.target.closest('.support-btn')) {
-    openSupport();
+  // Category Click
+  const catItem = e.target.closest('.category-item');
+  if (catItem) {
+    const id = catItem.getAttribute('data-id');
+    const name = catItem.getAttribute('data-name');
+    if (id) renderProducts(id, name);
     return;
   }
-});
-
-window.addEventListener('open-category', (e) => {
-  renderProducts(e.detail.id, e.detail.name);
 });
 
 async function initApp() {
   initTelegram();
   
-  // انتظار حتى يجهز initData (حتى 2 ثانية)
   let initData = '';
   for (let i = 0; i < 20; i++) {
     initData = getInitData();
@@ -73,13 +82,11 @@ async function initApp() {
     state.setUser(userData);
     initRouter();
   } catch (err) {
-    console.warn("Init failed:", err.message);
-    // إظهار شاشة خطأ أنيقة بدلاً من الخطأ الأحمر أو SN-000
-    document.getElementById('app').innerHTML = `
+    document.getElementById('page-home').innerHTML = `
       <div style="text-align:center; padding:50px 20px; color:white; height:100vh; display:flex; flex-direction:column; justify-content:center;">
         <h2 style="color:#38bdf8;">مرحباً بك</h2>
-        <p style="color:#94a3b8; margin-top:10px;">${err.message}</p>
-        <button onclick="window.location.reload()" style="margin-top:20px; padding:12px 24px; border-radius:8px; background:#38bdf8; color:#000; border:none; font-weight:bold; font-family:inherit;">إعادة المحاولة</button>
+        <p style="color:#94a3b8; margin-top:10px;">تعذر الاتصال. يرجى إعادة فتح التطبيق من تيليجرام.</p>
+        <button onclick="window.location.reload()" style="margin-top:20px; padding:12px 24px; border-radius:8px; background:#38bdf8; color:#000; border:none; font-weight:bold;">إعادة المحاولة</button>
       </div>
     `;
   } finally {
