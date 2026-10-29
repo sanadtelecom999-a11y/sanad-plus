@@ -1,105 +1,111 @@
-import { safeFetch } from '../core/api.js';
+import { api } from '../core/api.js';
+import { state } from '../core/state.js';
+import { escapeHtml, safeUrl, formatCurrency } from '../core/utils.js';
+import { navigateTo } from '../core/router.js';
 
+let currentCategoryId = null;
 let currentProducts = [];
-let selectedProduct = null;
 
-export async function loadProductsByCategory(categoryId, categoryName) {
-  const container = document.getElementById('products-container');
-  const title = document.getElementById('category-title');
-  
-  if (!container || !title) return;
-  
-  title.textContent = categoryName;
-  window.switchPage('products');
-  
-  container.innerHTML = `<div style="text-align:center; padding:20px; grid-column:1/-1; color:var(--text-muted);">جاري التحميل...</div>`;
+export async function renderProducts(categoryId, categoryName) {
+  const container = document.getElementById('page-products');
+  if (!container) return;
+  currentCategoryId = categoryId;
+
+  container.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <button id="back-to-home" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&rarr;</button>
+      <h1 style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(categoryName)}</h1>
+    </div>
+    <div id="products-list" class="grid-2">
+      <div style="text-align:center; grid-column:1/-1; color:var(--text-muted);">جاري التحميل...</div>
+    </div>
+  `;
+
+  document.getElementById('back-to-home').onclick = () => navigateTo('home');
+  navigateTo('products');
 
   try {
-    currentProducts = await safeFetch(`/api/products/?category_id=${categoryId}`) || [];
-    
-    if (currentProducts.length === 0) {
-      container.innerHTML = `<div style="text-align:center; padding:20px; grid-column:1/-1; color:var(--text-muted);">لا توجد منتجات في هذا القسم.</div>`;
+    currentProducts = await api.get(`/api/products/?category_id=${categoryId}`);
+    const list = document.getElementById('products-list');
+
+    if (!currentProducts || currentProducts.length === 0) {
+      list.innerHTML = '<div style="text-align:center; grid-column:1/-1; color:var(--text-muted);">لا توجد منتجات في هذا القسم.</div>';
       return;
     }
 
-    container.innerHTML = currentProducts.map(p => `
-      <div class="product-card" onclick="window.openBuyModal(${p.id})">
-        <img src="${p.image || 'https://via.placeholder.com/150'}" class="product-img" onerror="this.src='https://via.placeholder.com/150'">
-        <div class="product-info">
-          <div class="product-title">${p.name}</div>
-          <div class="product-price">$${p.price.toFixed(2)}</div>
+    list.innerHTML = currentProducts.map(p => {
+      const imgUrl = safeUrl(p.image, ['cloudinary.com', 'placehold.co']) || 'https://placehold.co/150?text=No+Image';
+      return `
+        <div class="card product-card" data-id="${p.id}">
+          <img src="${imgUrl}" class="product-img" />
+          <div class="product-info">
+            <div class="product-title">${escapeHtml(p.name)}</div>
+            <div class="product-price">${formatCurrency(p.price)}</div>
+          </div>
         </div>
-      </div>
-    `).join('');
-  } catch (e) {
-    container.innerHTML = `<div style="color:var(--danger); text-align:center; grid-column:1/-1;">فشل تحميل المنتجات.</div>`;
+      `;
+    }).join('');
+
+    // ربط النقر لفتح مودال الشراء
+    list.querySelectorAll('.product-card').forEach(card => {
+      card.onclick = () => openBuyModal(card.getAttribute('data-id'));
+    });
+
+  } catch (err) {
+    document.getElementById('products-list').innerHTML = `<div style="color:var(--danger); grid-column:1/-1; text-align:center;">${err.message}</div>`;
   }
 }
 
-window.openBuyModal = function(productId) {
-  selectedProduct = currentProducts.find(p => p.id === productId);
-  if (!selectedProduct) return;
+function openBuyModal(productId) {
+  const product = currentProducts.find(p => p.id == productId);
+  if (!product) return;
 
-  const imgEl = document.getElementById('buy-img');
-  const nameEl = document.getElementById('buy-name');
-  const priceEl = document.getElementById('buy-price');
-  const totalEl = document.getElementById('buy-total');
-  const modal = document.getElementById('buy-modal');
-
-  if (imgEl) imgEl.src = selectedProduct.image || 'https://via.placeholder.com/150';
-  if (nameEl) nameEl.textContent = selectedProduct.name;
-  if (priceEl) priceEl.textContent = `$${selectedProduct.price.toFixed(2)}`;
-  if (totalEl) totalEl.textContent = `$${selectedProduct.price.toFixed(2)}`;
+  const modal = document.getElementById('app-modal');
+  const content = document.getElementById('modal-content');
   
-  const deliveryInput = document.getElementById('buy-delivery-data');
-  if (deliveryInput) deliveryInput.value = '';
-  
-  if (modal) modal.classList.add('active');
-};
+  modal.classList.add('active');
+  content.innerHTML = `
+    <h3 style="margin-top:0; text-align:center;">تأكيد الشراء</h3>
+    <div style="display:flex; gap:12px; align-items:center; background:var(--bg-main); padding:12px; border-radius:12px; margin-bottom:20px;">
+      <img src="${safeUrl(product.image, ['cloudinary.com', 'placehold.co']) || ''}" style="width:50px; height:50px; border-radius:8px; object-fit:cover;" />
+      <div>
+        <strong style="display:block; font-size:14px;">${escapeHtml(product.name)}</strong>
+        <span style="color:var(--primary); font-weight:bold;">${formatCurrency(product.price)}</span>
+      </div>
+    </div>
+    <form id="buy-form">
+      <div class="form-group">
+        <label class="form-label">بيانات الاستلام (ID / رقم الحساب)</label>
+        <input type="text" id="buy-input" class="form-input" required placeholder="أدخل المعرف هنا...">
+      </div>
+      <button type="submit" class="btn-primary" id="buy-btn">تأكيد الدفع</button>
+    </form>
+  `;
 
-// ربط النموذج بأمان (بعد تحميل الصفحة)
-document.addEventListener('DOMContentLoaded', () => {
-  const buyForm = document.getElementById('buy-form');
-  if (buyForm) {
-    buyForm.onsubmit = async (e) => {
-      e.preventDefault();
-      if (!selectedProduct) return;
+  document.getElementById('buy-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('buy-btn');
+    const inputVal = document.getElementById('buy-input').value;
+    
+    btn.disabled = true; btn.textContent = 'جاري المعالجة...';
 
-      const btn = document.getElementById('buy-submit');
-      const deliveryInput = document.getElementById('buy-delivery-data');
-      const deliveryData = deliveryInput ? deliveryInput.value : '';
-      const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'جاري المعالجة...';
-      }
-
-      try {
-        const res = await safeFetch('/api/orders/create', {
-          method: 'POST',
-          body: JSON.stringify({
-            product_id: selectedProduct.id,
-            quantity: 1,
-            delivery_data: deliveryData
-          })
-        });
-
-        if (res && res.success) {
-          document.getElementById('buy-modal').classList.remove('active');
-          alert(`تم الشراء بنجاح! رصيدك الجديد: $${res.new_balance.toFixed(2)}`);
-          window.switchPage('orders');
-        } else {
-          alert('خطأ: ' + (res?.error || 'رصيدك غير كافٍ أو حدث خطأ'));
-        }
-      } catch (err) {
-        alert('حدث خطأ في الاتصال.');
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = 'تأكيد الدفع';
-        }
-      }
-    };
-  }
-});
+    try {
+      const res = await api.post('/api/orders/create', {
+        product_id: product.id,
+        quantity: 1,
+        delivery_data: inputVal
+      });
+      
+      modal.classList.remove('active');
+      alert(`تم الشراء بنجاح! رصيدك الجديد: $${res.new_balance}`);
+      
+      // تحديث الرصيد محلياً
+      state.balance = res.new_balance;
+      
+      navigateTo('orders');
+    } catch (err) {
+      alert('خطأ: ' + err.message);
+      btn.disabled = false; btn.textContent = 'تأكيد الدفع';
+    }
+  };
+}

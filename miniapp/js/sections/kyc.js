@@ -1,126 +1,88 @@
+import { api } from '../core/api.js';
 import { escapeHtml } from '../core/utils.js';
-import { safeFetch } from '../core/api.js';
-
-const syrianGovernorates = ["دمشق", "ريف دمشق", "حلب", "حمص", "حماة", "اللاذقية", "طرطوس", "إدلب", "درعا", "السويداء", "القنيطرة", "دير الزور", "الرقة", "الحسكة"];
 
 export async function openKYC() {
-  const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const modal = document.getElementById('kyc-modal');
-  const body = document.getElementById('kyc-body');
-  
-  if (!modal) { console.error('KYC Modal not found'); return; }
+  const modal = document.getElementById('app-modal');
+  const content = document.getElementById('modal-content');
   modal.classList.add('active');
-  body.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحقق من الحالة...</div>`;
+  content.innerHTML = '<div style="text-align:center; padding:20px;">جاري التحقق من حالة التوثيق...</div>';
 
-  const status = await safeFetch(`/api/kyc/status`);
-  
-  if (status && status.status === 'approved') {
-    body.innerHTML = `
-      <div style="text-align:center; padding:20px 0;">
-        <svg style="width:60px; height:60px; color:var(--success); margin:0 auto 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <h3 style="color:var(--success); font-size:20px; margin-bottom:8px;">حسابك موثق بالفعل</h3>
-        <p style="color:var(--text-muted); font-size:14px;">الاسم الموثق: <strong>${escapeHtml(status.full_name)}</strong></p>
-      </div>
-    `;
-    return;
-  }
-
-  if (status && status.status === 'pending') {
-    body.innerHTML = `
-      <div style="text-align:center; padding:20px 0;">
-        <svg style="width:60px; height:60px; color:var(--warning); margin:0 auto 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <h3 style="color:var(--warning); font-size:20px; margin-bottom:8px;">طلبك قيد المراجعة</h3>
-        <p style="color:var(--text-muted); font-size:14px;">يرجى الانتظار، سيتم مراجعة طلبك قريباً.</p>
-      </div>
-    `;
-    return;
-  }
-
-  // نموذج KYC
-  body.innerHTML = `
-    <form id="kyc-form" style="padding-bottom:20px;">
-      <div class="form-group">
-        <label>الاسم الكامل (كما في الهوية)</label>
-        <input type="text" name="full_name" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label>رقم الجوال</label>
-        <input type="tel" name="phone" class="form-control" required placeholder="09XXXXXXXX">
-      </div>
-      <div class="form-group">
-        <label>المحافظة</label>
-        <select name="governorate" id="kyc-gov" class="form-control" required>
-          <option value="">اختر المحافظة...</option>
-          ${syrianGovernorates.map(g => `<option value="${g}">${g}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group" id="region-group" style="display:none;">
-        <label>المنطقة / الحي</label>
-        <input type="text" name="region" class="form-control" required>
-      </div>
-      
-      <div class="form-group">
-        <label>صورة الهوية (أمامية)</label>
-        <div class="file-upload">
-          <input type="file" name="id_front" id="id_front" accept="image/*" required>
-          <label for="id_front">اضغط لرفع الصورة</label>
-          <div id="preview-front" style="margin-top:10px; font-size:12px; color:var(--success);"></div>
+  try {
+    const status = await api.get('/api/kyc/status');
+    
+    if (status.status === 'approved') {
+      content.innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <div style="font-size:40px; margin-bottom:10px;">✅</div>
+          <h3 style="color:var(--success);">حسابك موثق بالفعل</h3>
+          <p style="color:var(--text-muted);">الاسم: ${escapeHtml(status.full_name)}</p>
         </div>
-      </div>
+      `;
+      return;
+    }
 
-      <div class="form-group">
-        <label>صورة سيلفي مع الهوية</label>
-        <div class="file-upload">
-          <input type="file" name="selfie" id="selfie" accept="image/*" required>
-          <label for="selfie">اضغط لرفع الصورة</label>
-          <div id="preview-selfie" style="margin-top:10px; font-size:12px; color:var(--success);"></div>
+    if (status.status === 'pending') {
+      content.innerHTML = `
+        <div style="text-align:center; padding:20px;">
+          <div style="font-size:40px; margin-bottom:10px;">⏳</div>
+          <h3 style="color:var(--warning);">طلبك قيد المراجعة</h3>
+          <p style="color:var(--text-muted);">يرجى الانتظار، سيتم مراجعة طلبك قريباً.</p>
         </div>
-      </div>
+      `;
+      return;
+    }
 
-      <button type="submit" class="sanad-btn" style="width:100%; background:var(--primary); color:white; padding:14px; border-radius:12px; font-weight:bold; border:none; font-family:inherit; margin-top:10px;">إرسال طلب التوثيق</button>
-    </form>
-  `;
+    // نموذج التوثيق
+    content.innerHTML = `
+      <h3 style="margin-top:0; text-align:center;">توثيق الحساب</h3>
+      <form id="kyc-form">
+        <div class="form-group">
+          <label class="form-label">الاسم الكامل (كما في الهوية)</label>
+          <input type="text" id="kyc-name" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">رقم الجوال</label>
+          <input type="tel" id="kyc-phone" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">العنوان / المحافظة</label>
+          <input type="text" id="kyc-address" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">صورة الهوية</label>
+          <input type="file" id="kyc-id" class="form-input" accept="image/*" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">صورة سيلفي مع الهوية</label>
+          <input type="file" id="kyc-selfie" class="form-input" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn-primary" id="kyc-btn">إرسال الطلب</button>
+      </form>
+    `;
 
-  // إظهار المنطقة عند اختيار المحافظة
-  document.getElementById('kyc-gov').addEventListener('change', (e) => {
-    document.getElementById('region-group').style.display = e.target.value ? 'block' : 'none';
-  });
+    document.getElementById('kyc-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('kyc-btn');
+      btn.disabled = true; btn.textContent = 'جاري الإرسال...';
 
-  // معاينة الصور
-  document.getElementById('id_front').addEventListener('change', (e) => {
-    if(e.target.files[0]) document.getElementById('preview-front').textContent = 'تم اختيار الصورة ✓';
-  });
-  document.getElementById('selfie').addEventListener('change', (e) => {
-    if(e.target.files[0]) document.getElementById('preview-selfie').textContent = 'تم اختيار الصورة ✓';
-  });
+      const formData = new FormData();
+      formData.append('full_name', document.getElementById('kyc-name').value);
+      formData.append('phone', document.getElementById('kyc-phone').value);
+      formData.append('address', document.getElementById('kyc-address').value);
+      formData.append('id_front', document.getElementById('kyc-id').files[0]);
+      formData.append('selfie', document.getElementById('kyc-selfie').files[0]);
 
-  // إرسال النموذج
-  document.getElementById('kyc-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = e.target.querySelector('button');
-    btn.disabled = true;
-    btn.textContent = 'جاري الإرسال...';
-
-    const formData = new FormData(e.target);
-    try {
-      const res = await fetch('https://sanad-plus-backend.onrender.com/api/kyc/submit', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
+      try {
+        await api.postForm('/api/kyc/submit', formData);
         modal.classList.remove('active');
         alert('تم إرسال طلب التوثيق بنجاح! يرجى الانتظار للمراجعة.');
-      } else {
-        alert('خطأ: ' + (data.error || 'حدث خطأ'));
-        btn.disabled = false;
-        btn.textContent = 'إرسال طلب التوثيق';
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+        btn.disabled = false; btn.textContent = 'إرسال الطلب';
       }
-    } catch (err) {
-      alert('خطأ في الاتصال بالسيرفر');
-      btn.disabled = false;
-      btn.textContent = 'إرسال طلب التوثيق';
-    }
-  };
+    };
+
+  } catch (err) {
+    content.innerHTML = `<div style="color:var(--danger); text-align:center;">${err.message}</div>`;
+  }
 }

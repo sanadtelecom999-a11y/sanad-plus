@@ -1,9 +1,0 @@
-/index.html
-  Cache-Control: no-store, must-revalidate
-  Pragma: no-cache
-  Expires: 0
-
-/*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://res.cloudinary.com https://placehold.co; connect-src 'self' https://sanad-plus-backend.onrender.com; frame-ancestors https://web.telegram.org https://*.telegram.org; base-uri 'self'; form-action 'self'; object-src 'none';
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin

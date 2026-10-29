@@ -1,93 +1,43 @@
-import { safeFetch } from '../core/api.js';
+import { api } from '../core/api.js';
+import { escapeHtml, formatCurrency, formatDate } from '../core/utils.js';
 
-let ordersState = {
-    page: 1,
-    hasNext: true,
-    isLoading: false,
-    items: [],
-};
-
-function getStatusBadge(status) {
-  const s = (status || '').toLowerCase();
-  if (['completed', 'approved', 'مكتمل', 'delivered'].includes(s)) return '<span class="status-badge status-approved">مكتمل</span>';
-  if (['rejected', 'cancelled', 'مرفوض', 'ملغي'].includes(s)) return '<span class="status-badge status-rejected">مرفوض</span>';
-  return '<span class="status-badge status-pending">قيد التنفيذ</span>';
-}
-
-export async function loadOrders() {
-  const container = document.getElementById('orders-list');
+export async function renderOrders() {
+  const container = document.getElementById('page-orders');
   if (!container) return;
-  container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
-  
-  ordersState = { page: 1, hasNext: true, isLoading: false, items: [] };
-  await fetchMoreOrders(true);
-}
 
-async function fetchMoreOrders(reset = false) {
-  if (ordersState.isLoading || !ordersState.hasNext) return;
-  
-  ordersState.isLoading = true;
-  const btn = document.getElementById('load-more-orders');
-  if (btn) btn.textContent = 'جاري التحميل...';
+  container.innerHTML = `
+    <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">طلباتي</h1>
+    <div id="orders-list">
+      <div style="text-align:center; color:var(--text-muted);">جاري التحميل...</div>
+    </div>
+  `;
 
   try {
-    const res = await safeFetch(`/api/orders/?page=${ordersState.page}`);
-    const fresh = res.items || [];
-    
-    ordersState.items = reset ? fresh : [...ordersState.items, ...fresh];
-    ordersState.hasNext = !!res.has_next;
-    ordersState.page += 1;
+    const res = await api.get('/api/orders/');
+    const items = res.items || [];
+    const list = document.getElementById('orders-list');
 
-    renderOrdersList(ordersState.items);
-    
-    if (btn) {
-      btn.style.display = ordersState.hasNext ? 'block' : 'none';
-      btn.textContent = 'تحميل المزيد ↓';
+    if (items.length === 0) {
+      list.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">لا توجد طلبات.</div>';
+      return;
     }
-  } catch (e) {
-    console.error("Orders Fetch Error:", e);
-  } finally {
-    ordersState.isLoading = false;
+
+    list.innerHTML = items.map(o => `
+      <div class="list-item" data-id="${o.id}" data-type="order">
+        <div class="list-item-info">
+          <h4>${escapeHtml(o.product_name)}</h4>
+          <span>طلب #${escapeHtml(o.order_number)}</span>
+        </div>
+        <div class="list-item-amount">
+          <strong style="color:var(--primary);">${formatCurrency(o.amount)}</strong>
+          <span class="badge ${o.status === 'completed' ? 'badge-success' : o.status === 'rejected' ? 'badge-danger' : 'badge-pending'}">
+            ${o.status === 'completed' ? 'مكتمل' : o.status === 'rejected' ? 'مرفوض' : 'قيد التنفيذ'}
+          </span>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    document.getElementById('orders-list').innerHTML = `<div style="color:var(--danger); text-align:center;">${err.message}</div>`;
   }
 }
-
-window.renderOrders = function(filter) {
-  const container = document.getElementById('orders-list');
-  let filtered = ordersState.items;
-  
-  if (filter !== 'all') {
-    filtered = ordersState.items.filter(o => {
-      const s = (o.status || '').toLowerCase();
-      if (filter === 'completed' && ['completed', 'approved', 'مكتمل', 'delivered'].includes(s)) return true;
-      if (filter === 'rejected' && ['rejected', 'cancelled', 'مرفوض', 'ملغي'].includes(s)) return true;
-      if (filter === 'pending' && !['completed', 'approved', 'rejected', 'cancelled', 'مكتمل', 'مرفوض', 'delivered', 'ملغي'].includes(s)) return true;
-      return false;
-    });
-  }
-  renderOrdersList(filtered);
-};
-
-function renderOrdersList(items) {
-  const container = document.getElementById('orders-list');
-  if (items.length === 0) {
-    container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات.</div>`;
-    return;
-  }
-  container.innerHTML = items.map(o => `
-    <div class="list-item" data-id="${o.id}">
-      <div class="list-item-info"><h4>${o.product_name}</h4><span>طلب #${o.order_number}</span></div>
-      <div style="text-align:left;"><div style="font-weight:800; color:var(--primary); margin-bottom:6px;">$${Number(o.amount).toFixed(2)}</div>${getStatusBadge(o.status)}</div>
-    </div>
-  `).join('');
-}
-
-window.openOrderDetails = function(id) {
-  const o = ordersState.items.find(x => x.id == id);
-  if(o) window.showModal('order', o);
-};
-
-document.addEventListener('click', (e) => {
-  if (e.target.id === 'load-more-orders') {
-    fetchMoreOrders(false);
-  }
-});
