@@ -117,6 +117,16 @@ def get_user_orders():
         return jsonify({"error": str(e)}), 500
 
 # 9. جلب المنتجات حسب القسم
+
+@public_bp.route('/categories/', methods=['GET', 'OPTIONS'])
+def get_categories():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    try:
+        cats = db.session.query(Category).filter_by(is_active=True).all()
+        return jsonify([{"id": c.id, "name": c.name, "image": getattr(c, 'image', '')} for c in cats])
+    except Exception as e:
+        return jsonify([])
+
 @public_bp.route('/products/', methods=['GET', 'OPTIONS'])
 def get_products():
     if request.method == 'OPTIONS': return jsonify({}), 200

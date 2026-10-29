@@ -1,3 +1,4 @@
+window.onerror = function(msg, url, line) { console.error('Error:', msg, 'Line:', line); };
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
 let authToken = null;
 let currentState = {
@@ -355,3 +356,20 @@ async function init() {
     // Hide loader if exists (we don't have a dedicated loader in new HTML, but we can add one if needed)
 }
 document.addEventListener("DOMContentLoaded", init);
+
+// حقن شريط البحث تلقائياً عند فتح الرئيسية
+setInterval(() => {
+    const homePage = document.querySelector('[data-page="home"]');
+    if (homePage && !document.getElementById('global-search')) {
+        const searchDiv = document.createElement('div');
+        searchDiv.className = 'search-bar-container';
+        searchDiv.innerHTML = '<input type="text" class="search-bar" placeholder="ابحث عن خدمة أو منتج..." id="global-search">';
+        
+        const welcome = homePage.querySelector('.welcome');
+        if (welcome) {
+            welcome.parentNode.insertBefore(searchDiv, welcome);
+        } else {
+            homePage.prepend(searchDiv);
+        }
+    }
+}, 1000);
