@@ -1,3 +1,7 @@
+from app.notifications import (
+    notify_order_approved, notify_order_rejected, notify_deposit_approved,
+    notify_deposit_rejected, notify_kyc_approved, notify_kyc_rejected, notify_balance_adjusted
+)
 from decimal import Decimal
 from app.services.ledger_service import record_transaction
 from app.decorators import rate_limit
@@ -327,9 +331,32 @@ def handle_item_action(item_type, item_id, action):
                 log_admin_action("قبول إيداع", "deposit", item_id, f"إضافة {amount} للمستخدم {user.id}.")
         
         if action == 'reject':
+            # استرداد الرصيد تلقائياً إذا كان العنصر "طلباً"
+            if item_type == 'orders':
+                user = db.session.query(User).filter_by(id=item.user_id).with_for_update().first()
+                if user:
+                    old_balance = Decimal(str(user.balance or "0"))
+                    amount = Decimal(str(item.total_price))
+                    user.balance = old_balance + amount
+                    record_transaction(user_id=user.id, action_type="refund", amount=amount, balance_before=old_balance, balance_after=user.balance, reference=f"REF-{item.order_number}", description=f"استرداد طلب {item.order_number}")
             log_admin_action("رفض عنصر", item_type, item_id, "تم رفض العنصر")
             
         db.session.commit()
+
+        # ★★ إرسال الإشعارات (بعد الـ commit مباشرة) ★★
+        try:
+            if item_type == 'deposits':
+                if action == 'approve': notify_deposit_approved(item.user, item)
+                else: notify_deposit_rejected(item.user, item)
+            elif item_type == 'orders':
+                if action == 'approve': notify_order_approved(item.user, item)
+                else: notify_order_rejected(item.user, item)
+            elif item_type == 'kyc':
+                if action == 'approve': notify_kyc_approved(item.user)
+                else: notify_kyc_rejected(item.user)
+        except Exception as e:
+            print(f"Notification Error: {e}", flush=True)
+
         return jsonify({"success": True, "new_status": new_status})
     except Exception as e:
         db.session.rollback()
@@ -888,6 +915,13 @@ def handle_kyc_action(kyc_id):
                 
         db.session.commit()
         log_admin_action(f"KYC {new_status}", "kyc", kyc_id, f"تم تغيير الحالة إلى {new_status}")
+
+        try:
+            if action == 'approve': notify_kyc_approved(kyc.user)
+            else: notify_kyc_rejected(kyc.user)
+        except Exception as e:
+            print(f"Notification Error: {e}", flush=True)
+
         return jsonify({"success": True})
     except Exception as e:
         db.session.rollback()

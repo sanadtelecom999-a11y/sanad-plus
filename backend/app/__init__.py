@@ -1,3 +1,5 @@
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 from flask import Flask, jsonify
 from .extensions import db, jwt, cors
 from .blueprints import api_bp, bot_bp
