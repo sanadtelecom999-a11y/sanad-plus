@@ -32,7 +32,15 @@ async function safeFetch(path, { method = 'GET', body, requiresAuth = false } = 
       signal: controller.signal,
     });
 
-    if (res.status === 401) console.warn('Unauthorized - 401');
+    if (res.status === 401) {
+      console.warn('Unauthorized - 401. Reloading for fresh initData...');
+      if (!sessionStorage.getItem('retried_auth')) {
+        sessionStorage.setItem('retried_auth', '1');
+        window.location.reload();
+      } else {
+        sessionStorage.removeItem('retried_auth');
+      }
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
