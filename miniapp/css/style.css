@@ -348,3 +348,18 @@ body {
     border-top: 2px dashed rgba(255,255,255,0.2);
     padding-top: 16px;
 }
+
+.load-more-btn {
+    width: 100%;
+    padding: 12px;
+    margin: 16px 0;
+    background: var(--surface, #1e293b);
+    color: var(--accent, #38bdf8);
+    border: 1px solid var(--accent, #38bdf8);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    transition: 0.2s;
+}
+.load-more-btn:active { opacity: 0.7; }

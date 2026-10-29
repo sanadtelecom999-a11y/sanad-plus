@@ -1,6 +1,11 @@
 import { safeFetch } from '../core/api.js';
 
-let allOrders = [];
+let ordersState = {
+    page: 1,
+    hasNext: true,
+    isLoading: false,
+    items: [],
+};
 
 function getStatusBadge(status) {
   const s = (status || '').toLowerCase();
@@ -11,89 +16,47 @@ function getStatusBadge(status) {
 
 export async function loadOrders() {
   const container = document.getElementById('orders-list');
-  const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  
-  if (!tgId) {
-    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">يجب فتح التطبيق من تيليجرام.</div>`;
-    return;
-  }
-
+  if (!container) return;
   container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
   
-  try {
-    const data = await safeFetch(`/api/orders/`);
-    allOrders = Array.isArray(data) ? data : [];
-    window.filterList('orders', 'all');
-  } catch (e) {
-    console.error("Orders Fetch Error:", e);
-    container.innerHTML = `<div class="card" style="color:var(--danger); text-align:center;">فشل تحميل الطلبات.</div>`;
-  }
+  ordersState = { page: 1, hasNext: true, isLoading: false, items: [] };
+  await fetchMoreOrders(true);
 }
 
+async function fetchMoreOrders(reset = false) {
+  if (ordersState.isLoading || !ordersState.hasNext) return;
+  
+  ordersState.isLoading = true;
+  const btn = document.getElementById('load-more-orders');
+  if (btn) btn.textContent = 'جاري التحميل...';
 
-function formatDeliveryData(data) {
-  if (!data) return 'غير متوفر';
   try {
-    const parsed = JSON.parse(data);
-    if (typeof parsed === 'object') {
-      return parsed.player_id || parsed.id || Object.values(parsed).join(' - ');
+    const res = await safeFetch(`/api/orders/?page=${ordersState.page}`);
+    const fresh = res.items || [];
+    
+    ordersState.items = reset ? fresh : [...ordersState.items, ...fresh];
+    ordersState.hasNext = !!res.has_next;
+    ordersState.page += 1;
+
+    renderOrdersList(ordersState.items);
+    
+    if (btn) {
+      btn.style.display = ordersState.hasNext ? 'block' : 'none';
+      btn.textContent = 'تحميل المزيد ↓';
     }
   } catch (e) {
-    // ليس JSON، أعد النص كما هو
+    console.error("Orders Fetch Error:", e);
+  } finally {
+    ordersState.isLoading = false;
   }
-  return data;
 }
-
-window.openOrderDetails = function(id) {
-  const o = allOrders.find(x => x.id == id);
-  if(!o) return;
-
-  const modal = document.getElementById('app-modal');
-  const title = document.getElementById('modal-title');
-  const body = document.getElementById('modal-body');
-
-  let dateStr = 'غير متوفر';
-  if (o.date) {
-    try {
-      const d = new Date(o.date);
-      dateStr = d.toLocaleDateString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + 
-                d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    } catch (e) { dateStr = o.date; }
-  }
-
-  let statusText = 'قيد التنفيذ';
-  let statusColor = 'var(--warning)';
-  const s = (o.status || '').toLowerCase();
-  if (['completed', 'approved', 'مكتمل'].includes(s)) { statusText = 'مكتمل'; statusColor = 'var(--success)'; }
-  if (['rejected', 'cancelled', 'مرفوض'].includes(s)) { statusText = 'مرفوض'; statusColor = 'var(--danger)'; }
-
-  title.textContent = 'إيصال شراء';
-  body.innerHTML = `
-    <div class="receipt-container">
-      <div class="receipt-header">
-        <h2>SANAD<span style="color:var(--primary)">+</span></h2>
-        <p>إيصال عملية رقمي</p>
-      </div>
-      <div class="receipt-row"><span>رقم الطلب:</span><strong style="font-family: monospace;">${o.order_number || o.id}</strong></div>
-      <div class="receipt-row"><span>التاريخ:</span><strong style="font-family: monospace;">${dateStr}</strong></div>
-      <div class="receipt-row"><span>الحالة:</span><strong style="color: ${statusColor};">${statusText}</strong></div>
-      <div class="receipt-divider"></div>
-      <div class="receipt-row"><span>المنتج:</span><strong>${o.product_name || 'غير متوفر'}</strong></div>
-      <div class="receipt-row"><span>الكمية:</span><strong style="font-family: monospace;">${o.quantity || 1}</strong></div>
-      <div class="receipt-row"><span>بيانات الاستلام:</span><strong style="color: var(--primary); font-family: monospace;">${formatDeliveryData(o.delivery_data)}</strong></div>
-      <div class="receipt-divider"></div>
-      <div class="receipt-total"><span>الإجمالي المدفوع:</span><strong>$${Number(o.amount || 0).toFixed(2)}</strong></div>
-      <div class="receipt-footer">شكراً لثقتك بـ SANAD PLUS⁺<br>هذا الإيصال صادر إلكترونياً.</div>
-    </div>
-  `;
-  modal.classList.add('active');
-};
 
 window.renderOrders = function(filter) {
   const container = document.getElementById('orders-list');
-  let filtered = allOrders;
+  let filtered = ordersState.items;
+  
   if (filter !== 'all') {
-    filtered = allOrders.filter(o => {
+    filtered = ordersState.items.filter(o => {
       const s = (o.status || '').toLowerCase();
       if (filter === 'completed' && ['completed', 'approved', 'مكتمل', 'delivered'].includes(s)) return true;
       if (filter === 'rejected' && ['rejected', 'cancelled', 'مرفوض', 'ملغي'].includes(s)) return true;
@@ -101,24 +64,30 @@ window.renderOrders = function(filter) {
       return false;
     });
   }
-  if (filtered.length === 0) {
-    container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات في هذا القسم.</div>`;
+  renderOrdersList(filtered);
+};
+
+function renderOrdersList(items) {
+  const container = document.getElementById('orders-list');
+  if (items.length === 0) {
+    container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-muted);">لا توجد طلبات.</div>`;
     return;
   }
-  
-  // تمت إزالة onclick واستبدالها بـ data-id
-  container.innerHTML = filtered.map(o => `
+  container.innerHTML = items.map(o => `
     <div class="list-item" data-id="${o.id}">
-      <div class="list-item-info"><h4>${o.product_name || 'طلب'}</h4><span>طلب #${o.order_number || o.id}</span></div>
-      <div style="text-align:left;"><div style="font-weight:800; color:var(--primary); margin-bottom:6px;">$${Number(o.amount || 0).toFixed(2)}</div>${getStatusBadge(o.status)}</div>
+      <div class="list-item-info"><h4>${o.product_name}</h4><span>طلب #${o.order_number}</span></div>
+      <div style="text-align:left;"><div style="font-weight:800; color:var(--primary); margin-bottom:6px;">$${Number(o.amount).toFixed(2)}</div>${getStatusBadge(o.status)}</div>
     </div>
   `).join('');
+}
 
-  // تفويض الأحداث (Event Delegation)
-  container.querySelectorAll('.list-item').forEach(el => {
-    el.addEventListener('click', function() {
-      const id = this.getAttribute('data-id');
-      if(id) window.openOrderDetails(id);
-    });
-  });
+window.openOrderDetails = function(id) {
+  const o = ordersState.items.find(x => x.id == id);
+  if(o) window.showModal('order', o);
 };
+
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'load-more-orders') {
+    fetchMoreOrders(false);
+  }
+});
