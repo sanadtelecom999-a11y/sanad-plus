@@ -77,6 +77,7 @@ class Order(db.Model):
     completed_at = db.Column(db.DateTime)
     failed_at = db.Column(db.DateTime)
     admin_note = db.Column(db.Text)
+    customer_note = db.Column(db.Text)
 
     user = db.relationship('User', foreign_keys=[user_id])
     product = db.relationship('Product', foreign_keys=[product_id])

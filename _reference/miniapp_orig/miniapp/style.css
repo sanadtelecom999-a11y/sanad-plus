@@ -232,3 +232,28 @@ input:checked + .slider:before { transform: translateX(20px); }
 .top-header { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); background: rgba(8, 14, 27, 0.85); border-bottom: 1px solid rgba(255,255,255,0.05); }
 .icon-tile { display: flex; align-items: center; justify-content: center; }
 .icon-tile svg { width: 24px; height: 24px; color: var(--blue); }
+
+/* V4 - الهيدر الجديد */
+.home-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; margin-bottom: 10px; }
+.welcome-text { font-size: 22px; font-weight: 700; color: var(--text); }
+.welcome-text span { color: var(--blue); }
+.mini-balance-card { background: var(--surface); border: 1px solid var(--border); padding: 10px 15px; border-radius: 16px; text-align: left; display: flex; flex-direction: column; }
+.mini-balance-label { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+.mini-balance-value { font-size: 16px; font-weight: 800; color: var(--blue); }
+
+/* V4 - شاشة المنتجات الكاملة */
+.full-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 200; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s; }
+.full-overlay.open { transform: translateY(0); }
+.full-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.close-btn { background: none; border: none; color: var(--text); font-size: 28px; cursor: pointer; }
+
+/* V4 - بطاقات الدفع الأفقية */
+.payment-scroll { display: flex; gap: 15px; overflow-x: auto; padding: 10px 0 20px; scrollbar-width: none; }
+.payment-scroll::-webkit-scrollbar { display: none; }
+.payment-card { min-width: 100px; padding: 15px; background: var(--surface); border: 2px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: 0.3s; }
+.payment-card img { width: 40px; height: 40px; object-fit: contain; }
+.payment-card.active { border-color: var(--blue); box-shadow: 0 0 15px rgba(56,189,248,0.2); }
+.payment-card span { font-size: 12px; font-weight: bold; }
+
+/* V4 - إصلاح صورة الحساب */
+.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }

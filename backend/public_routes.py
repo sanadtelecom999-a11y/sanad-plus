@@ -301,65 +301,45 @@ def get_faq():
     ])
 
 @public_bp.route('/orders/create', methods=['POST'])
+@require_telegram_auth
 def create_order():
     data = request.get_json(silent=True) or {}
     product_id = data.get('product_id')
     quantity = int(data.get('quantity', 1))
-    delivery_data = data.get('delivery_data', '') # بيانات اللاعب أو الحساب
+    customer_note = data.get('customer_note', '') # الآيدي الخاص بالمستخدم
 
-    if not tg_id or not product_id:
-        return jsonify({"error": "بيانات ناقصة"}), 400
+    if not product_id: return jsonify({"error": "بيانات ناقصة"}), 400
 
     try:
-        from app.models import User, Product, Order
-        from app import db
-
-        # قفل صف المستخدم لمنع تعارض العمليات المالية
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).with_for_update().first()
-        if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
-
-        product = db.session.query(Product).filter_by(id=product_id).first()
-        if not product: return jsonify({"error": "المنتج غير موجود"}), 404
-
-        try:
-            quantity_decimal = Decimal(str(quantity))
-        except (InvalidOperation, TypeError, ValueError):
-            return jsonify({"error": "الكمية غير صالحة"}), 400
-        if not quantity_decimal.is_finite() or quantity_decimal <= 0 or quantity_decimal != quantity_decimal.to_integral_value():
-            return jsonify({"error": "يجب أن تكون الكمية عددًا صحيحًا موجبًا"}), 400
-        quantity = int(quantity_decimal)
-
-        user = db.session.query(User).filter_by(id=user.id).with_for_update().populate_existing().first()
-        product = db.session.query(Product).filter_by(id=product_id).with_for_update().populate_existing().first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).with_for_update().first()
+        product = db.session.query(Product).filter_by(id=product_id).with_for_update().first()
         if not user or not product: return jsonify({"error": "المستخدم أو المنتج غير موجود"}), 404
 
         unit_price = Decimal(str(product.base_price))
-        if not unit_price.is_finite() or unit_price < 0: raise ValueError("سعر المنتج غير صالح.")
-        
         total_price = (unit_price * quantity).quantize(Decimal("0.0001"))
         old_balance = Decimal(str(user.balance or "0")).quantize(Decimal("0.0001"))
 
         if old_balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
 
-        order_number = f"ORD-{uuid4().hex.upper()}"
+        order_number = f"ORD-{uuid4().hex[:8].upper()}"
         new_balance = old_balance - total_price
 
         user.balance = new_balance
-        new_order = Order(order_number=order_number, user_id=user.id, product_id=product.id, quantity=quantity, unit_price=unit_price, total_price=total_price, status="pending")
+        new_order = Order(
+            order_number=order_number, user_id=user.id, product_id=product.id, 
+            quantity=quantity, unit_price=unit_price, total_price=total_price, 
+            status="pending", customer_note=customer_note
+        )
         db.session.add(new_order)
         db.session.flush()
 
-        record_transaction(user_id=user.id, action_type="purchase", amount=-total_price, balance_before=old_balance, balance_after=new_balance, reference=order_number, description=f"شراء {product.name}")
-        db.session.commit()
+        record_transaction(user.id, "purchase", -total_price, old_balance, new_balance, reference=order_number, description=f"شراء {product.name}")
         
-        print(f"✅ Order Created: User {user.id} bought {product.name} for ${total_price}", flush=True)
-        return jsonify({"success": True, "order_id": new_order.id, "new_balance": user.balance})
-
+        db.session.commit()
+        return jsonify({"success": True, "order_id": new_order.id, "new_balance": float(new_balance)})
     except Exception as e:
         db.session.rollback()
-        print("Buy Error:", e, flush=True)
         return jsonify({"error": str(e)}), 500
-
 
 @public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
 @require_telegram_auth
