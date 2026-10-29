@@ -78,12 +78,17 @@ def miniapp_init():
         db.session.add(user)
         db.session.commit()
         
-    from sqlalchemy import func
+    from sqlalchemy import func, text
     total_deps = db.session.query(func.sum(Deposit.amount)).filter_by(user_id=user.id, status='approved').scalar()
     
-    from app.models import AppSetting
-    rate_setting = db.session.query(AppSetting).filter_by(key='exchange_rate').first()
-    exchange_rate = float(rate_setting.value) if rate_setting and rate_setting.value else 130.0
+    # جلب سعر الصرف بطريقة آمنة (Raw SQL) لتجنب أي انهيار
+    exchange_rate = 130.0
+    try:
+        rate_row = db.session.execute(text("SELECT value FROM app_settings WHERE key = 'exchange_rate'")).fetchone()
+        if rate_row and rate_row[0]:
+            exchange_rate = float(rate_row[0])
+    except Exception:
+        pass
     
     photo_url = g.telegram_user.get('photo_url', '')
     return jsonify({

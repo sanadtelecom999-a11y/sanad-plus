@@ -1,26 +1,22 @@
 // ═══════════════════════════════════════════════════════════
-// SANAD PLUS⁺ - Core Application (V3 - Multi-Currency & Pro)
+// SANAD PLUS⁺ - Core Application (V3.1 - Stable & Complete)
 // ═══════════════════════════════════════════════════════════
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
 const state = { 
     user: null, 
     categories: [], 
     currentPage: 'home', 
-    currency: 'USD', // USD أو SYP
+    currency: 'USD', 
     exchangeRate: 130 
 };
 const tg = window.Telegram?.WebApp;
 
 const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// دالة تنسيق المبلغ (تدعم تبديل العملة)
 function formatMoney(amount) {
     const amt = Number(amount || 0);
-    if (state.currency === 'USD') {
-        return `$${amt.toFixed(2)}`;
-    } else {
-        return `${(amt * state.exchangeRate).toFixed(0)} <span class="currency">ل.س</span>`;
-    }
+    if (state.currency === 'USD') return `$${amt.toFixed(2)}`;
+    return `${(amt * state.exchangeRate).toFixed(0)} <span class="currency">ل.س</span>`;
 }
 
 async function apiFetch(endpoint, options = {}) {
@@ -43,7 +39,6 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// الهيدر الثابت
 function getHeaderHTML() {
     return `
     <header class="top-header">
@@ -72,21 +67,15 @@ function showPage(route) {
     else if (route === 'charge') renderCharge(app);
 }
 
-// ═══════════════════════════════════════════════════════════
-// الصفحات
-// ═══════════════════════════════════════════════════════════
+// ── الصفحات ──
 
 async function renderHome(container) {
     container.innerHTML = `
         ${getHeaderHTML()}
         <section class="page active" style="padding-top: 0;">
             <p class="welcome">أهلًا، <span>${escapeHtml(state.user?.first_name || 'عميلنا')}</span></p>
-            
             <div class="section-heading"><h2>اكتشف خدماتنا</h2></div>
             <section class="categories" id="home-categories"><div style="text-align:center;padding:20px;color:var(--muted)">جاري التحميل...</div></section>
-            
-            <div class="section-heading"><h2>آخر العمليات</h2></div>
-            <div class="list" id="home-recent"><div class="empty">لا توجد عمليات حديثة</div></div>
         </section>
     `;
 
@@ -95,7 +84,7 @@ async function renderHome(container) {
         const catContainer = document.getElementById('home-categories');
         if (cats && cats.length > 0) {
             catContainer.innerHTML = cats.map(cat => `
-                <button class="category" onclick="openCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                <button class="category" data-cat-id="${cat.id}" data-cat-name="${escapeHtml(cat.name)}">
                     <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}">` : '📦'}</span>
                     <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
                 </button>
@@ -105,6 +94,62 @@ async function renderHome(container) {
         }
     } catch (e) {
         document.getElementById('home-categories').innerHTML = '<div class="empty" style="color:red;">تعذر تحميل الأقسام</div>';
+    }
+}
+
+async function renderOrders(container) {
+    container.innerHTML = `
+        ${getHeaderHTML()}
+        <section class="page active" style="padding-top: 0;">
+            <h1 class="page-title">طلباتي</h1>
+            <div class="list" id="orders-list">جاري التحميل...</div>
+        </section>
+    `;
+    try {
+        const res = await apiFetch('/api/orders/');
+        const list = document.getElementById('orders-list');
+        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد طلبات.</div>'; return; }
+        
+        const getBadge = (s) => {
+            const map = { completed: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger' };
+            const label = { completed: 'مكتمل', pending: 'معلق', rejected: 'مرفوض' };
+            return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
+        };
+
+        list.innerHTML = res.items.map(o => `
+            <div class="list-item">
+                <span class="item-main">
+                    <span class="item-title">${escapeHtml(o.product_name)}</span>
+                    <span class="item-desc">${escapeHtml(o.order_number)}</span>
+                    <span class="item-meta">${getBadge(o.status)} <strong>${formatMoney(o.amount)}</strong></span>
+                </span>
+            </div>
+        `).join('');
+    } catch (e) { document.getElementById('orders-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
+}
+
+async function renderDeposits(container) {
+    container.innerHTML = `
+        ${getHeaderHTML()}
+        <section class="page active" style="padding-top: 0;">
+            <h1 class="page-title">الإيداعات</h1>
+            <div class="list" id="dep-list">جاري التحميل...</div>
+        </section>
+    `;
+    try {
+        const res = await apiFetch('/api/deposits/');
+        const list = document.getElementById('dep-list');
+        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد إيداعات.</div>'; return; }
+        list.innerHTML = res.items.map(d => `
+            <div class="list-item">
+                <span class="item-main">
+                    <span class="item-title">${escapeHtml(d.reference || 'إيداع')}</span>
+                    <span class="item-meta"><strong>${formatMoney(d.amount)}</strong></span>
+                </span>
+            </div>
+        `).join('');
+    } catch (e) { 
+        document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:var(--danger);text-align:center;"><p>تعذر جلب الإيداعات.</p><button onclick="showPage('deposits')" class="primary-btn" style="margin-top:10px;">إعادة المحاولة 🔄</button></div>`; 
     }
 }
 
@@ -148,21 +193,31 @@ async function renderAccount(container) {
 
             <h2 class="extra-title">الخدمات الإضافية</h2>
             <section class="extra-list">
-                <button class="extra-row" onclick="alert('قريباً')"><span>الإحالة</span></button>
-                <button class="extra-row" onclick="alert('قريباً')"><span>الإشعارات</span></button>
-                <button class="extra-row" onclick="openChat()"><span>الأمان والدعم</span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">🔗</span><span><span class="service-title">الإحالة</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">🔔</span><span><span class="service-title">الإشعارات</span></span></button>
+                <button class="extra-row" onclick="openChat()"><span class="icon-tile">🛡️</span><span><span class="service-title">الأمان والدعم</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">❓</span><span><span class="service-title">مركز المساعدة</span></span></button>
             </section>
+        </section>
+    `;
+}
+
+function renderCharge(container) {
+    container.innerHTML = `
+        ${getHeaderHTML()}
+        <section class="page active" style="padding-top: 0;">
+            <h1 class="page-title">شحن الرصيد</h1>
+            <div class="panel"><p>يرجى تحويل المبلغ إلى محفظة Sham Cash وإرفاق الإيصال.</p></div>
         </section>
     `;
 }
 
 window.toggleCurrency = function(isSYP) {
     state.currency = isSYP ? 'SYP' : 'USD';
-    showPage('account'); // إعادة رسم الصفحة
+    showPage('account'); 
     showToast(isSYP ? 'تم التحويل لليرة السورية' : 'تم التحويل للدولار');
 };
 
-// شاشة عرض المنتجات
 window.openCategory = async function(catId, catName) {
     showToast('جاري جلب المنتجات...');
     try {
@@ -178,12 +233,12 @@ window.openCategory = async function(catId, catName) {
                 </div>
                 <div class="product-grid">
                     ${products.length ? products.map(p => `
-                        <div class="product-card" onclick="openProduct(${p.id}, '${escapeHtml(p.name)}', ${p.price}, '${escapeHtml(p.image)}')">
+                        <div class="product-card" data-p-id="${p.id}" data-p-name="${escapeHtml(p.name)}" data-p-price="${p.price}" data-p-image="${escapeHtml(p.image)}">
                             <img src="${escapeHtml(p.image || 'https://placehold.co/100')}">
                             <strong style="display:block; font-size:13px; margin-bottom:5px;">${escapeHtml(p.name)}</strong>
                             <span style="color:var(--blue); font-weight:bold;">${formatMoney(p.price)}</span>
                         </div>
-                    `).join('') : '<p>لا توجد منتجات في هذا القسم.</p>'}
+                    `).join('') : '<p>لا توجد منتجات.</p>'}
                 </div>
             </div>
         `;
@@ -191,7 +246,6 @@ window.openCategory = async function(catId, catName) {
     } catch(e) { showToast('خطأ في جلب المنتجات'); }
 };
 
-// شاشة تفاصيل المنتج
 window.openProduct = function(id, name, price, image) {
     const overlay = document.createElement('div');
     overlay.className = 'bottom-sheet-overlay open';
@@ -219,10 +273,9 @@ window.buyProduct = async function(id) {
     } catch(e) { showToast(e.message); }
 };
 
-// الدردشة (Support)
 window.openChat = async function() {
     const overlay = document.createElement('div');
-    overlay.className = 'chat-overlay';
+    overlay.className = 'chat-overlay open';
     overlay.id = 'chat-overlay';
     overlay.innerHTML = `
         <div class="chat-header">
@@ -236,7 +289,6 @@ window.openChat = async function() {
         </div>
     `;
     document.body.appendChild(overlay);
-    setTimeout(() => overlay.classList.add('open'), 10);
     loadChatMessages();
 };
 
@@ -244,7 +296,7 @@ async function loadChatMessages() {
     try {
         const msgs = await apiFetch('/api/support/messages');
         const box = document.getElementById('chat-msgs');
-        if (!msgs.length) { box.innerHTML = '<p style="text-align:center; color:var(--muted);">مرحباً! كيف يمكننا مساعدتك؟</p>'; return; }
+        if (!msgs || !msgs.length) { box.innerHTML = '<p style="text-align:center; color:var(--muted);">مرحباً! كيف يمكننا مساعدتك؟</p>'; return; }
         box.innerHTML = msgs.map(m => `<div class="chat-bubble ${m.sender === 'user' ? 'user' : 'admin'}">${escapeHtml(m.message)}</div>`).join('');
         box.scrollTop = box.scrollHeight;
     } catch(e) { document.getElementById('chat-msgs').innerHTML = 'تعذر التحميل'; }
@@ -264,29 +316,18 @@ window.sendChat = async function() {
     catch(e) { showToast('فشل الإرسال'); }
 };
 
-// صفحات أخرى
-async function renderOrders(container) {
-    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">طلباتي</h1><div class="list" id="orders-list">جاري التحميل...</div></section>`;
-    // ... منطق جلب الطلبات
-}
-
-async function renderDeposits(container) {
-    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">الإيداعات</h1><div class="list" id="dep-list">جاري التحميل...</div></section>`;
-    // ... منطق جلب الإيداعات
-}
-
-function renderCharge(container) {
-    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">شحن الرصيد</h1><div class="panel"><p>يرجى تحويل المبلغ إلى محفظة Sham Cash وإرفاق الإيصال.</p></div></section>`;
-}
-
-// التهيئة
 async function initApp() {
     if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#080E1B'); }
 
     document.body.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-route]');
         if (btn) { e.preventDefault(); showPage(btn.dataset.route); }
-        if (e.target.id === 'modal-close') document.getElementById('modal-backdrop').classList.remove('show');
+        
+        const catBtn = e.target.closest('.category');
+        if (catBtn) { openCategory(catBtn.dataset.catId, catBtn.dataset.catName); }
+        
+        const prodBtn = e.target.closest('.product-card');
+        if (prodBtn) { openProduct(prodBtn.dataset.pId, prodBtn.dataset.pName, prodBtn.dataset.pPrice, prodBtn.dataset.pImage); }
     });
 
     try {
@@ -298,7 +339,7 @@ async function initApp() {
         if(loader) loader.remove();
         showPage('home');
     } catch (err) {
-        document.getElementById('app-loading').innerHTML = `<div style="text-align:center;color:red;padding:20px;"><h2>حدث خطأ</h2><p>${escapeHtml(err.message)}</p></div>`;
+        document.getElementById('app-loading').innerHTML = `<div style="text-align:center;color:red;padding:20px;"><h2>حدث خطأ</h2><p>${escapeHtml(err.message)}</p><button onclick="window.location.reload()" style="margin-top:10px;padding:10px;background:#38BDF8;color:black;border:none;border-radius:8px;">إعادة المحاولة</button></div>`;
     }
 }
 
