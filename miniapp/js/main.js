@@ -163,19 +163,21 @@ async function renderAccount(container) {
                         <h1 class="profile-name"><span>${escapeHtml(state.user?.first_name || 'مستخدم')}</span></h1>
                         <p class="profile-username">@${escapeHtml(tg?.initDataUnsafe?.user?.username || 'user')}</p>
                     </div>
-                    <div class="avatar">
+                    <div class="avatar" style="background:#0f172a; border:1px solid var(--border);">
                         ${state.user?.photo_url 
-                            ? `<img src="${escapeHtml(state.user.photo_url)}" alt="Avatar">` 
-                            : `<svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.7" style="width:50%; height:50%; opacity:0.8;"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>`
+                            ? `<img src="${escapeHtml(state.user.photo_url)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="width:100%;height:100%;object-fit:cover;">` 
+                            : ''
                         }
+                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'}; width:50%; height:50%; color:var(--blue); opacity:0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
                     </div>
                 </div>
             </div>
 
-            <div class="currency-toggle-box">
+            <!-- قسم تبديل العملة مع سعر الصرف -->
+            <div class="currency-toggle-box" style="margin-top:20px;">
                 <div>
-                    <strong style="display:block; font-size:15px;">عملة العرض</strong>
-                    <span style="font-size:12px; color:var(--muted);">${state.currency === 'USD' ? 'دولار أمريكي (Base)' : 'ليرة سورية'}</span>
+                    <strong style="display:block; font-size:15px;">تبديل العملة</strong>
+                    <span style="font-size:12px; color:var(--muted);">1 دولار = ${state.exchangeRate} ل.س</span>
                 </div>
                 <label class="toggle-switch">
                     <input type="checkbox" id="currency-toggle" ${state.currency === 'SYP' ? 'checked' : ''} onchange="toggleCurrency(this.checked)">
@@ -185,7 +187,12 @@ async function renderAccount(container) {
 
             <section class="sanad-id">
                 <div class="sanad-label"><span>معرّف SANAD ID</span></div>
-                <div class="sanad-line"><strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong></div>
+                <div class="sanad-line">
+                    <strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong>
+                    <button class="copy-icon" onclick="navigator.clipboard.writeText('${escapeHtml(state.user?.sanad_id || '')}'); alert('تم النسخ!');">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+                    </button>
+                </div>
             </section>
             
             <section class="stats">
@@ -193,16 +200,48 @@ async function renderAccount(container) {
                 <article class="stat"><p class="stat-label">إجمالي الإيداعات</p><div class="stat-value">${formatMoney(state.user?.total_deposits)}</div></article>
             </section>
 
+            <h2 class="extra-title">الخدمات الأساسية</h2>
+            <section class="service-list">
+                <button class="service-row" data-action="kyc">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>
+                    <span><span class="service-title">توثيق الحساب</span><span class="service-desc">${state.user?.is_verified ? 'حسابك موثق' : 'رفع الهوية للتوثيق'}</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="service-row" data-action="ledger">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span>
+                    <span><span class="service-title">السجل المالي</span><span class="service-desc">جميع حركات الرصيد</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="service-row" onclick="openChat()">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span>
+                    <span><span class="service-title">الدعم الفني</span><span class="service-desc">التواصل مع الإدارة</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+            </section>
+
             <h2 class="extra-title">الخدمات الإضافية</h2>
             <section class="extra-list">
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span><span><span class="service-title">الإحالة</span></span></button>
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><span><span class="service-title">الإشعارات</span></span></button>
-                <button class="extra-row" onclick="openChat()"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><span class="service-title">الأمان والدعم</span></span></button>
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span><span><span class="service-title">مركز المساعدة</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span>
+                    <span><span class="service-title">الإحالة</span><span class="service-desc">رابط دعوة شخصي</span></span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>
+                    <span><span class="service-title">الإشعارات</span><span class="service-desc">تحديثات الطلبات</span></span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                    <span><span class="service-title">الأمان والخصوصية</span><span class="service-desc">إعدادات الحماية</span></span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span>
+                    <span><span class="service-title">مركز المساعدة</span><span class="service-desc">الأسئلة الشائعة</span></span>
+                </button>
             </section>
         </section>
     `;
 }
+
 
 function renderCharge(container) {
     container.innerHTML = `
@@ -318,12 +357,121 @@ window.sendChat = async function() {
     catch(e) { showToast('فشل الإرسال'); }
 };
 
+
+// ── دوال النوافذ المنبثقة الجديدة ──
+window.openLedger = async function() {
+    showToast('جاري تحميل السجل...');
+    try {
+        const records = await apiFetch('/api/ledger');
+        const overlay = document.createElement('div');
+        overlay.className = 'bottom-sheet-overlay open';
+        overlay.innerHTML = `
+            <div class="bottom-sheet" style="height: 70vh; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h2 style="margin:0;">السجل المالي</h2>
+                    <button onclick="this.closest('.bottom-sheet-overlay').remove()" style="background:none; border:none; color:white; font-size:24px;">×</button>
+                </div>
+                <div class="list">
+                    ${records.length ? records.map(r => {
+                        const isPos = r.amount > 0;
+                        const color = isPos ? 'var(--success)' : 'var(--danger)';
+                        const sign = isPos ? '+' : '';
+                        return `
+                        <div class="list-item">
+                            <span class="item-main">
+                                <span class="item-title">${escapeHtml(r.desc || r.type)}</span>
+                                <span class="item-desc">${new Date(r.date).toLocaleString('ar-EG')}</span>
+                            </span>
+                            <div style="text-align:left;">
+                                <strong style="color:${color}; font-family:monospace; font-size:15px;">${sign}${r.amount.toFixed(2)}</strong>
+                            </div>
+                        </div>`;
+                    }).join('') : '<div class="empty">لا توجد حركات مالية.</div>'}
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } catch(e) { showToast('تعذر جلب السجل'); }
+};
+
+window.openKYC = async function() {
+    showToast('جاري التحقق...');
+    try {
+        const res = await apiFetch('/api/kyc/status');
+        const overlay = document.createElement('div');
+        overlay.className = 'bottom-sheet-overlay open';
+        
+        let content = '';
+        if (res.status === 'approved') {
+            content = `<div style="text-align:center; padding:20px;"><h3 style="color:var(--success);">حسابك موثق بالفعل ✅</h3></div>`;
+        } else if (res.status === 'pending') {
+            content = `<div style="text-align:center; padding:20px;"><h3 style="color:var(--warning);">طلبك قيد المراجعة ⏳</h3></div>`;
+        } else {
+            content = `
+                <form id="kyc-form" style="display:flex; flex-direction:column; gap:12px;">
+                    <p style="font-size:12px; color:var(--muted);">يرجى إدخال بياناتك الحقيقية ورفع صورة الهوية.</p>
+                    <div><label style="font-size:12px; color:var(--muted);">الاسم الكامل</label><input type="text" id="kyc-name" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
+                    <div><label style="font-size:12px; color:var(--muted);">رقم الهاتف</label><input type="tel" id="kyc-phone" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
+                    <div><label style="font-size:12px; color:var(--muted);">العنوان</label><input type="text" id="kyc-address" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
+                    <div><label style="font-size:12px; color:var(--muted);">صورة الهوية</label><input type="file" id="kyc-id" required accept="image/*" style="width:100%; color:white;"></div>
+                    <div><label style="font-size:12px; color:var(--muted);">صورة سيلفي</label><input type="file" id="kyc-selfie" required accept="image/*" style="width:100%; color:white;"></div>
+                    <button type="submit" class="primary-btn full" style="margin-top:10px;">إرسال الطلب</button>
+                </form>
+            `;
+        }
+
+        overlay.innerHTML = `
+            <div class="bottom-sheet" style="height: 70vh; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h2 style="margin:0;">توثيق الحساب</h2>
+                    <button onclick="this.closest('.bottom-sheet-overlay').remove()" style="background:none; border:none; color:white; font-size:24px;">×</button>
+                </div>
+                ${content}
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        if (res.status !== 'approved' && res.status !== 'pending') {
+            document.getElementById('kyc-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const btn = e.target.querySelector('button');
+                btn.disabled = true; btn.textContent = 'جاري الإرسال...';
+                
+                const fd = new FormData();
+                fd.append('full_name', document.getElementById('kyc-name').value);
+                fd.append('phone', document.getElementById('kyc-phone').value);
+                fd.append('address', document.getElementById('kyc-address').value);
+                fd.append('id_front', document.getElementById('kyc-id').files[0]);
+                fd.append('selfie', document.getElementById('kyc-selfie').files[0]);
+                
+                try {
+                    await apiFetch('/api/kyc/submit', { method: 'POST', body: fd });
+                    showToast('تم إرسال الطلب بنجاح!');
+                    overlay.remove();
+                } catch(e) { 
+                    alert('فشل: ' + e.message); 
+                    btn.disabled = false; btn.textContent = 'إرسال الطلب';
+                }
+            };
+        }
+    } catch(e) { showToast('تعذر جلب حالة التوثيق'); }
+};
+
+
 async function initApp() {
     if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#080E1B'); }
 
     document.body.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-route]');
         if (btn) { e.preventDefault(); showPage(btn.dataset.route); }
+        
+        const actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            const action = actionBtn.dataset.action;
+            if (action === 'ledger') window.openLedger();
+            if (action === 'kyc') window.openKYC();
+            return;
+        }
         
         const catBtn = e.target.closest('.category');
         if (catBtn) { openCategory(catBtn.dataset.catId, catBtn.dataset.catName); }
