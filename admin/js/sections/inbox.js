@@ -96,8 +96,21 @@ window.openDetails = async function(type, id) {
   }
 
   let imageHtml = '';
-  if (data.image) {
-    // استخدام safeUrl للصور
+  
+  // ★★ تعديل هام: إذا كان KYC، نطلب الصور المؤقتة أولاً ★★
+  if (type === 'kyc') {
+    content.innerHTML = `<div style="text-align:center; padding:20px;">جاري جلب الصور المؤمنة...</div>`;
+    try {
+      const imgRes = await api.safeFetch(`/api/admin/kyc/${id}/images`);
+      if (imgRes.ok && imgRes.data && imgRes.data.selfie) {
+        imageHtml = `<div style="text-align:center; margin-bottom:16px;">
+                       <p style="font-size:12px; color:#91a7c2; margin-bottom:5px;">صورة السيلفي (رابط مؤقت):</p>
+                       <img src="${imgRes.data.selfie}" style="width:100%; max-height:200px; object-fit:contain; border-radius:8px; background:#000;" />
+                     </div>`;
+      }
+    } catch(e) { console.error("Error fetching KYC images:", e); }
+  } else if (data.image) {
+    // للإيداعات، نستخدم الرابط المباشر (Public)
     const safeImg = safeUrl(data.image, ['cloudinary.com', 'placehold.co']);
     if (safeImg) {
       imageHtml = `<img src="${safeImg}" style="width:100%; max-height:250px; object-fit:contain; border-radius:8px; margin-bottom:16px; background:#000;" />`;

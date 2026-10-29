@@ -278,12 +278,12 @@ def kyc_submit():
         
         if 'id_front' in request.files:
             front_file = request.files['id_front']
-            uploaded_front = upload_image(front_file, folder="sanad_kyc")
+            uploaded_front = upload_image(front_file, folder="sanad_kyc", is_kyc=True)
             if uploaded_front: id_front_url = uploaded_front
 
         if 'selfie' in request.files:
             selfie_file = request.files['selfie']
-            uploaded_selfie = upload_image(selfie_file, folder="sanad_kyc")
+            uploaded_selfie = upload_image(selfie_file, folder="sanad_kyc", is_kyc=True)
             if uploaded_selfie: selfie_url = uploaded_selfie
         
         from sqlalchemy import text

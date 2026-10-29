@@ -926,3 +926,25 @@ def handle_kyc_action(kyc_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+from app.services.cloudinary_service import get_signed_url
+
+@admin_bp.route("/kyc/<int:kyc_id>/images", methods=["GET"])
+@admin_required
+def get_kyc_images(kyc_id):
+    try:
+        from app.models import KYCRequest
+        from app import db
+        
+        kyc = db.session.get(KYCRequest, kyc_id)
+        if not kyc: return jsonify({"error": "الطلب غير موجود"}), 404
+        
+        # توليد روابط مؤقتة صالحة لمدة ساعة
+        selfie_url = get_signed_url(getattr(kyc, 'selfie_image', ''))
+        
+        return jsonify({
+            "selfie": selfie_url,
+            "expires_in": 3600
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
