@@ -437,3 +437,28 @@ def create_order():
         db.session.rollback()
         print("Buy Error:", e, flush=True)
         return jsonify({"error": str(e)}), 500
+
+@public_bp.route('/ledger', methods=['GET', 'OPTIONS'])
+def get_user_ledger():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    tg_id = request.args.get('telegram_id')
+    if not tg_id: return jsonify({"error": "Missing ID"}), 400
+    
+    try:
+        from app.models import User, FinancialLedger
+        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        if not user: return jsonify([])
+        
+        records = db.session.query(FinancialLedger).filter_by(user_id=user.id).order_by(FinancialLedger.created_at.desc()).all()
+        return jsonify([{
+            "id": r.id,
+            "type": r.action_type,
+            "amount": float(r.amount),
+            "before": float(r.balance_before),
+            "after": float(r.balance_after),
+            "ref": r.reference,
+            "desc": r.description,
+            "date": r.created_at.isoformat() if r.created_at else ''
+        } for r in records])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

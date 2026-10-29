@@ -1,3 +1,4 @@
+import { openLedger } from './sections/ledger.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
@@ -86,3 +87,5 @@ async function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
+
+window.openLedger = openLedger;
