@@ -85,7 +85,7 @@ async function renderHome(container) {
         if (cats && cats.length > 0) {
             catContainer.innerHTML = cats.map(cat => `
                 <button class="category" data-cat-id="${cat.id}" data-cat-name="${escapeHtml(cat.name)}">
-                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}">` : '📦'}</span>
+                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}" alt="${escapeHtml(cat.name)}">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:30px; color:var(--blue);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`}</span>
                     <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
                 </button>
             `).join('');
@@ -164,8 +164,10 @@ async function renderAccount(container) {
                         <p class="profile-username">@${escapeHtml(tg?.initDataUnsafe?.user?.username || 'user')}</p>
                     </div>
                     <div class="avatar">
-                        <img src="${escapeHtml(state.user?.photo_url || '')}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="width:100%;height:100%;object-fit:cover; ${state.user?.photo_url ? '' : 'display:none;'}">
-                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+                        ${state.user?.photo_url 
+                            ? `<img src="${escapeHtml(state.user.photo_url)}" alt="Avatar">` 
+                            : `<svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.7" style="width:50%; height:50%; opacity:0.8;"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>`
+                        }
                     </div>
                 </div>
             </div>
@@ -193,10 +195,10 @@ async function renderAccount(container) {
 
             <h2 class="extra-title">الخدمات الإضافية</h2>
             <section class="extra-list">
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">🔗</span><span><span class="service-title">الإحالة</span></span></button>
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">🔔</span><span><span class="service-title">الإشعارات</span></span></button>
-                <button class="extra-row" onclick="openChat()"><span class="icon-tile">🛡️</span><span><span class="service-title">الأمان والدعم</span></span></button>
-                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile">❓</span><span><span class="service-title">مركز المساعدة</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span><span><span class="service-title">الإحالة</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><span><span class="service-title">الإشعارات</span></span></button>
+                <button class="extra-row" onclick="openChat()"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><span class="service-title">الأمان والدعم</span></span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span><span><span class="service-title">مركز المساعدة</span></span></button>
             </section>
         </section>
     `;
