@@ -1,5 +1,6 @@
 from decimal import Decimal
 from app.services.ledger_service import record_transaction
+from app.decorators import rate_limit
 """
 مسارات الأدمن — SANAD+ Admin Panel
 المرحلة 0: المصادقة (login + verify-otp)
@@ -98,6 +99,7 @@ def admin_required(fn):
     return wrapper
 
 @admin_bp.route("/login", methods=["POST"])
+@rate_limit(max_requests=5, window_seconds=60)
 def login():
     data = request.get_json(silent=True) or {}
     password = (data.get("password") or "").strip()
@@ -127,6 +129,7 @@ def login():
 
 
 @admin_bp.route("/verify-otp", methods=["POST"])
+@rate_limit(max_requests=5, window_seconds=60)
 def verify_otp():
     data = request.get_json(silent=True) or {}
     session_id = (data.get("session_id") or "").strip()

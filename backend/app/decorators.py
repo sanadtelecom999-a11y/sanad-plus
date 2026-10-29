@@ -25,3 +25,34 @@ def require_telegram_auth(f):
         g.telegram_user = result
         return f(*args, **kwargs)
     return wrapper
+
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+# مخزن مؤقت في الذاكرة (Memory)
+_rate_limit_storage = defaultdict(list)
+
+def rate_limit(max_requests=10, window_seconds=60):
+    """
+    Decorator لتحديد عدد الطلبات المسموح بها من نفس الـ IP.
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            ip = request.remote_addr or "unknown"
+            now = datetime.now()
+            window_start = now - timedelta(seconds=window_seconds)
+            
+            # تنظيف الطلبات القديمة
+            _rate_limit_storage[ip] = [t for t in _rate_limit_storage[ip] if t > window_start]
+            
+            if len(_rate_limit_storage[ip]) >= max_requests:
+                return jsonify({
+                    "error": "تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة لاحقاً.",
+                    "code": "RATE_LIMIT_EXCEEDED"
+                }), 429
+                
+            _rate_limit_storage[ip].append(now)
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator

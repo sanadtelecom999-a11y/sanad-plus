@@ -10,11 +10,12 @@ from flask import Blueprint, request, jsonify, g
 from app.extensions import db
 from app.models import User, Category, PaymentMethod, Deposit, Order, Product, KYCRequest, SupportTicket, SupportMessage, FinancialLedger
 from app.telegram_auth import verify_telegram_auth
-from app.decorators import require_telegram_auth
+from app.decorators import require_telegram_auth, rate_limit
 
 public_bp = Blueprint('public', __name__, url_prefix='/api')
 
 @public_bp.route('/bot/auth', methods=['POST', 'OPTIONS'])
+@rate_limit(max_requests=20, window_seconds=60)
 def bot_auth():
     if request.method == 'OPTIONS': return jsonify({}), 200
     data = request.get_json(silent=True) or {}
