@@ -102,6 +102,7 @@ class KYCRequest(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     address = db.Column(db.String(255))
     selfie_image = db.Column(db.Text)
+    id_image = db.Column(db.Text)
     status = db.Column(db.String(20), default='pending', index=True)
     submitted_at = db.Column(db.DateTime, default=_now)
     user = db.relationship('User', foreign_keys=[user_id])

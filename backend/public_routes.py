@@ -58,7 +58,7 @@ def auth_telegram():
         db.session.add(user)
         db.session.commit()
         
-    return jsonify({"token": "jwt_token_placeholder_secure"})
+    return jsonify({"success": True, "user_id": user.id, "is_verified": bool(getattr(user, "is_verified", False))})
 
 # 3. مسار جلب بيانات الميني آب
 @public_bp.route('/miniapp/init', methods=['POST', 'OPTIONS'])
@@ -128,7 +128,7 @@ def get_payment_methods():
 @require_telegram_auth
 def create_deposit():
     try:
-        amount = float(request.form.get('amount', 0))
+        amount = Decimal(request.form.get('amount', '0'))
         reference = request.form.get('reference', '')
         
         if not tg_id or amount <= 0:
@@ -410,7 +410,7 @@ def create_order():
         new_balance = old_balance - total_price
 
         user.balance = new_balance
-        new_order = Order(order_number=order_number, user_id=user.id, product_id=product.id, quantity=quantity, unit_price=unit_price, total_price=total_price, status="pending", delivery_data=delivery_data)
+        new_order = Order(order_number=order_number, user_id=user.id, product_id=product.id, quantity=quantity, unit_price=unit_price, total_price=total_price, status="pending")
         db.session.add(new_order)
         db.session.flush()
 
