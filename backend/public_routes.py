@@ -71,7 +71,15 @@ def miniapp_init():
         
     user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        user = User(
+            telegram_id=g.telegram_id,
+            first_name=g.telegram_user.get('first_name', 'مستخدم'),
+            balance=Decimal('0.0000'),
+            is_verified=False,
+            is_banned=False
+        )
+        db.session.add(user)
+        db.session.commit()
         
     # حساب إجمالي الإيداعات (فقط المقبولة)
     from sqlalchemy import func
