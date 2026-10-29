@@ -1,9 +1,8 @@
-import { initTelegram, getTelegramUser, getInitData } from './core/telegram.js';
+import { initTelegram, getInitData } from './core/telegram.js';
 import { api } from './core/api.js';
 import { state } from './core/state.js';
 import { initRouter, navigateTo, registerRoute } from './core/router.js';
 
-// استيراد دوال الصفحات
 import { renderHome } from './sections/home.js';
 import { renderAccount } from './sections/account.js';
 import { renderOrders } from './sections/orders.js';
@@ -61,11 +60,12 @@ window.addEventListener('open-category', (e) => {
 async function initApp() {
   initTelegram();
   
-  // الانتظار حتى يجهز initData (بحد أقصى 2 ثانية)
-  let retries = 0;
-  while (!getInitData() && retries < 10) {
-    await new Promise(r => setTimeout(r, 200));
-    retries++;
+  // انتظار حتى يجهز initData (حتى 2 ثانية)
+  let initData = '';
+  for (let i = 0; i < 20; i++) {
+    initData = getInitData();
+    if (initData) break;
+    await new Promise(r => setTimeout(r, 100));
   }
 
   try {
@@ -73,11 +73,13 @@ async function initApp() {
     state.setUser(userData);
     initRouter();
   } catch (err) {
-    document.getElementById('page-home').innerHTML = `
-      <div style="text-align:center; padding:40px 20px; color:var(--danger);">
-        <h1>مرحباً بك</h1>
-        <p>تعذر الاتصال. يرجى إعادة فتح التطبيق من تيليجرام.</p>
-        <button onclick="window.location.reload()" style="margin-top:20px; padding:10px 20px; border-radius:8px; background:var(--primary); color:#000; border:none;">إعادة المحاولة</button>
+    console.warn("Init failed:", err.message);
+    // إظهار شاشة خطأ أنيقة بدلاً من الخطأ الأحمر أو SN-000
+    document.getElementById('app').innerHTML = `
+      <div style="text-align:center; padding:50px 20px; color:white; height:100vh; display:flex; flex-direction:column; justify-content:center;">
+        <h2 style="color:#38bdf8;">مرحباً بك</h2>
+        <p style="color:#94a3b8; margin-top:10px;">${err.message}</p>
+        <button onclick="window.location.reload()" style="margin-top:20px; padding:12px 24px; border-radius:8px; background:#38bdf8; color:#000; border:none; font-weight:bold; font-family:inherit;">إعادة المحاولة</button>
       </div>
     `;
   } finally {

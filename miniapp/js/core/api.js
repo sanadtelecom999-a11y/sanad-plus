@@ -6,11 +6,8 @@ async function request(path, options = {}) {
   const initData = getInitData();
   const headers = { ...options.headers };
   
-  if (initData) {
-    headers['X-Telegram-Init-Data'] = initData;
-  }
+  if (initData) headers['X-Telegram-Init-Data'] = initData;
 
-  // لا نضع Content-Type إذا كنا نرفع ملف (FormData)
   if (options.body && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
@@ -19,11 +16,7 @@ async function request(path, options = {}) {
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
     
     if (res.status === 401) {
-      console.warn('Unauthorized (401) - Reloading for fresh initData');
-      if (!sessionStorage.getItem('retried_auth')) {
-        sessionStorage.setItem('retried_auth', '1');
-        window.location.reload();
-      }
+      throw new Error("انتهت الجلسة. يرجى إغلاق التطبيق وفتحه من جديد.");
     }
 
     const data = await res.json().catch(() => ({}));
