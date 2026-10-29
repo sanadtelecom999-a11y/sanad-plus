@@ -62,13 +62,10 @@ def auth_telegram():
 
 # 3. مسار جلب بيانات الميني آب
 @public_bp.route('/miniapp/init', methods=['POST', 'OPTIONS'])
+@require_telegram_auth
 def miniapp_init():
     if request.method == 'OPTIONS': return jsonify({}), 200
-    data = request.get_json(silent=True) or {}
-    tg_id = data.get('telegram_id')
     
-    if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
-        
     user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
     if not user:
         user = User(
@@ -81,9 +78,7 @@ def miniapp_init():
         db.session.add(user)
         db.session.commit()
         
-    # حساب إجمالي الإيداعات (فقط المقبولة)
     from sqlalchemy import func
-    from app.models import Deposit
     total_deps = db.session.query(func.sum(Deposit.amount)).filter_by(user_id=user.id, status='approved').scalar()
     
     return jsonify({
@@ -95,102 +90,6 @@ def miniapp_init():
         "telegram_id": str(user.telegram_id)
     })
 
-# 4. مسار جلب التصنيفات
-@public_bp.route('/categories/', methods=['GET', 'OPTIONS'])
-def get_categories():
-    if request.method == 'OPTIONS': return jsonify({}), 200
-    cats = db.session.query(Category).all()
-    return jsonify([{
-        "id": c.id, "name": c.name, "image": getattr(c, 'image', '')
-    } for c in cats])
-
-
-# 5. جلب طرق الدفع
-@public_bp.route('/payment-methods/', methods=['GET', 'OPTIONS'])
-def get_payment_methods():
-    if request.method == 'OPTIONS': return jsonify({}), 200
-    try:
-        from app.models import PaymentMethod
-        pms = db.session.query(PaymentMethod).filter(PaymentMethod.deleted_at.is_(None)).all()
-        res = []
-        for p in pms:
-            def parse_money(val):
-                if val is None: return 0.0
-                clean_val = str(val).replace('$', '').replace(',', '').strip()
-                try: return float(clean_val)
-                except: return 0.0
-
-            res.append({
-                "id": p.id,
-                "name": str(getattr(p, 'name', 'شام كاش')),
-                "account": str(getattr(p, 'account', '')),
-                "min_amount": parse_money(getattr(p, 'min_amount', 0)),
-                "max_amount": parse_money(getattr(p, 'max_amount', 0))
-            })
-        return jsonify(res)
-    except Exception as e:
-        print("Public PM Error:", e, flush=True)
-        return jsonify([])
-
-@public_bp.route('/deposits/create', methods=['POST'])
-@require_telegram_auth
-def create_deposit():
-    try:
-        amount = Decimal(request.form.get('amount', '0'))
-        reference = request.form.get('reference', '')
-        
-        if not tg_id or amount <= 0:
-            return jsonify({"error": "بيانات غير صالحة"}), 400
-            
-        from app.models import User, Deposit
-        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
-        if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
-        
-        # رفع الصورة إلى Cloudinary
-        image_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+Receipt"
-        if 'receipt' in request.files:
-            file = request.files['receipt']
-            uploaded_url = upload_image(file, folder="sanad_receipts")
-            if uploaded_url:
-                image_url = uploaded_url
-        
-        new_deposit = Deposit(
-            user_id=user.id,
-            amount=amount,
-            transaction_id=reference,
-            status='pending',
-            receipt_image=image_url # إذا كان الحقل موجوداً في الداتابيز
-        )
-        db.session.add(new_deposit)
-        db.session.commit()
-        return jsonify({"success": True, "deposit_id": new_deposit.id})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
-@require_telegram_auth
-def get_user_deposits():
-    if request.method == 'OPTIONS': return jsonify({}), 200
-    
-    try:
-        from app.models import User, Deposit
-        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
-        if not user: return jsonify([])
-        
-        deposits = db.session.query(Deposit).filter_by(user_id=user.id).order_by(Deposit.id.desc()).all()
-        return jsonify([{
-            "id": d.id,
-            "amount": float(d.amount),
-            "status": getattr(d, 'status', 'pending'),
-            "reference": getattr(d, 'transaction_id', ''),
-            "receipt_image": getattr(d, 'receipt_image', '') or "https://placehold.co/400x200/101f35/FFFFFF?text=Receipt+Image",
-            "date": d.created_at.isoformat() if hasattr(d, 'created_at') and d.created_at else ''
-        } for d in deposits])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# 8. جلب طلبات المستخدم
 @public_bp.route('/orders/', methods=['GET', 'OPTIONS'])
 @require_telegram_auth
 def get_user_orders():
