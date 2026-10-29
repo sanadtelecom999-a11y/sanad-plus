@@ -1,3 +1,4 @@
+import { api } from '../core/api.js';
 import { safeFetch } from '../core/api.js';
 
 const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
@@ -122,22 +123,16 @@ window.showPaymentDetails = function(method) {
     formData.append('receipt', receiptFile);
 
     try {
-      const res = await fetch('https://sanad-plus-backend.onrender.com/api/deposits/create', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
+      const data = await api.safeFetchFormData('/api/deposits/create', formData);
       
-      if (res.ok) {
+      if (data && data.success) {
         alert('تم إرسال طلب الشحن بنجاح! يرجى انتظار الموافقة.');
         window.switchPage('deposits');
       } else {
-        alert('خطأ: ' + (data.error || 'حدث خطأ'));
-        btn.disabled = false;
-        btn.textContent = 'تأكيد طلب الشحن';
+        throw new Error(data?.error || 'حدث خطأ');
       }
     } catch (err) {
-      alert('فشل الاتصال بالسيرفر');
+      alert('خطأ: ' + err.message);
       btn.disabled = false;
       btn.textContent = 'تأكيد طلب الشحن';
     }
