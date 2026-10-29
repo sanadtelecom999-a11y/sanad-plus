@@ -6,6 +6,8 @@ export async function openLedger() {
   const body = document.getElementById('modal-body');
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 
+  if (!modal || !title || !body) { console.error('Ledger Modal elements not found'); return; }
+  if (!modal || !title || !body) return console.error('Modal missing');
   modal.classList.add('active');
   title.textContent = 'السجل المالي';
   body.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;

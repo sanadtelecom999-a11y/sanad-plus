@@ -4,7 +4,9 @@ let chatInterval = null;
 
 export async function openSupport() {
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  document.getElementById('support-screen').classList.add('active');
+  const screen = document.getElementById('support-screen');
+  if (!screen) { console.error('Support screen not found'); return; }
+  screen.classList.add('active');
   
   await loadMessages(tgId);
   

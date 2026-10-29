@@ -9,6 +9,8 @@ import { openKYC } from './sections/kyc.js';
 import { openSupport } from './sections/support.js';
 import { openLedger } from './sections/ledger.js';
 
+console.log("Main.js loaded successfully.");
+
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
@@ -22,24 +24,68 @@ window.openSupport = openSupport;
 window.openLedger = openLedger;
 
 window.switchPage = function(pageId) {
+  console.log("Switching to page:", pageId);
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const targetPage = document.getElementById(`page-${pageId}`);
-  if (targetPage) targetPage.classList.add('active');
+  if (targetPage) {
+    targetPage.classList.add('active');
+  } else {
+    console.error("Page not found:", pageId);
+  }
 
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const activeNav = document.querySelector(`.nav-item[data-target="${pageId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
-  if (pageId === 'home') loadHomeData();
-  else if (pageId === 'charge') loadChargePage();
-  else if (pageId === 'orders') loadOrders();
-  else if (pageId === 'deposits') loadDeposits();
-  else if (pageId === 'account') loadAccount();
+  try {
+    if (pageId === 'home') loadHomeData();
+    else if (pageId === 'charge') loadChargePage();
+    else if (pageId === 'orders') loadOrders();
+    else if (pageId === 'deposits') loadDeposits();
+    else if (pageId === 'account') loadAccount();
+  } catch (e) {
+    console.error("Error loading page data:", e);
+  }
 };
 
-// مستمع النقر الشامل (The Master Click Listener)
+window.showModal = function(type, data) {
+  const modal = document.getElementById('app-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+  if (!modal) return console.error("app-modal not found");
+
+  if (type === 'deposit') {
+    title.textContent = `تفاصيل الإيداع #${data.id}`;
+    body.innerHTML = `
+      <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(data.amount).toFixed(2)}</strong></div>
+      <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('en-GB') : 'غير متوفر'}</strong></div>
+    `;
+  }
+  modal.classList.add('active');
+};
+
+window.filterList = function(page, filter, btnElement) {
+  if (btnElement) {
+    const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+  if (page === 'deposits' && typeof window.renderDeposits === 'function') window.renderDeposits(filter);
+  if (page === 'orders' && typeof window.renderOrders === 'function') window.renderOrders(filter);
+};
+
+// ★★★ مستمع النقر الشامل (يُربط فوراً) ★★★
 document.addEventListener('click', function(e) {
-  // 1. التنقل السفلي
+  
+  // زر الرجوع
+  const backBtn = e.target.closest('.nav-back-btn');
+  if (backBtn) {
+    window.switchPage('home');
+    return;
+  }
+
+  // التنقل السفلي
   const navItem = e.target.closest('.nav-item');
   if (navItem) {
     e.preventDefault();
@@ -48,7 +94,7 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // 2. تصنيفات الرئيسية
+  // تصنيفات الرئيسية
   const catItem = e.target.closest('.category-item');
   if (catItem) {
     const id = catItem.getAttribute('data-id');
@@ -59,7 +105,7 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // 3. أزرار حسابي
+  // أزرار حسابي
   const actionItem = e.target.closest('[data-action]');
   if (actionItem) {
     const action = actionItem.getAttribute('data-action');
@@ -69,7 +115,7 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // 4. الطلبات والإيداعات
+  // الطلبات والإيداعات
   const listItem = e.target.closest('.list-item');
   if (listItem) {
     const id = listItem.getAttribute('data-id');
@@ -81,7 +127,7 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // 5. المنتجات
+  // المنتجات
   const productItem = e.target.closest('.product-card');
   if (productItem) {
     const id = productItem.getAttribute('data-id');
@@ -89,7 +135,7 @@ document.addEventListener('click', function(e) {
     return;
   }
 
-  // 6. تبويبات الفلترة
+  // تبويبات الفلترة
   const tabBtn = e.target.closest('.tab-btn');
   if (tabBtn && tabBtn.hasAttribute('data-filter')) {
     const page = tabBtn.getAttribute('data-page');
@@ -114,4 +160,9 @@ async function initApp() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+// ضمان التشغيل حتى لو تأخر تحميل الصفحة
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}

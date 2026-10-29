@@ -1,29 +1,29 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SANAD PLUS⁺</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>SANAD PLUS⁺</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  /* حل مشكلة عدم وصول النقر للزر بسبب الأيقونة */
+  .nav-item svg, .quick-item svg, .tab-btn svg, button svg { pointer-events: none; }
+</style>
 </head>
 <body>
 
-  <!-- شاشة التحميل الأولية -->
   <div id="loading-screen" style="position:fixed; inset:0; background:var(--bg-main); display:flex; align-items:center; justify-content:center; z-index:9999;">
-    <div style="color:var(--primary); font-size:20px; font-weight:bold; animation: pulse 1.5s infinite;">SANAD PLUS⁺</div>
+    <div style="color:var(--primary); font-size:20px; font-weight:bold;">SANAD PLUS⁺</div>
   </div>
 
   <!-- 1. الصفحة الرئيسية -->
-  <main id="page-home" class="page">
+  <main id="page-home" class="page active">
     <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-      <h1 style="font-size:20px; font-weight:800;">SANAD<span style="color:var(--primary)">+</span></h1>
-      <div style="position:relative;">
-        <svg style="width:24px; height:24px; color:var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-      </div>
+      <h1 style="font-size:20px; font-weight:800; margin:0;">SANAD<span style="color:var(--primary)">+</span></h1>
     </header>
 
     <div class="card" style="background: linear-gradient(145deg, #102033, #0A1B2E); border-color: rgba(0, 149, 232, 0.3);">
@@ -31,22 +31,29 @@
       <div class="balance-amount" id="home-balance">جاري التحميل...</div>
     </div>
 
-    <div style="position:relative; margin-bottom:20px;">
-      <input type="text" placeholder="ابحث عن منتج أو خدمة..." style="width:100%; background:var(--bg-card); border:1px solid rgba(255,255,255,0.1); border-radius:var(--radius-sm); padding:12px 40px 12px 16px; color:white; font-family:inherit; outline:none;">
-      <svg style="position:absolute; right:12px; top:12px; width:20px; height:20px; color:var(--text-muted);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-    </div>
-
-    <button class="card" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; color:var(--primary); font-weight:bold; background:rgba(0,149,232,0.1); border-color:var(--primary); margin-bottom:24px;">
+    <button class="card" style="width:100%; display:flex; justify-content:center; align-items:center; gap:8px; color:var(--primary); font-weight:bold; background:rgba(0,149,232,0.1); border-color:var(--primary); margin-bottom:24px; cursor:pointer;">
       <svg style="width:20px; height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
       طلب خدمة غير موجودة
     </button>
 
     <h2 style="font-size:16px; margin-bottom:16px;">تصنيفات المتجر</h2>
     <div id="home-categories" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
-      <div class="card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100px;">جاري التحميل...</div>
+      <div class="card" style="grid-column:1/-1; text-align:center;">جاري التحميل...</div>
     </div>
   </main>
 
+  <!-- 2. صفحة المنتجات -->
+  <main id="page-products" class="page">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+      <button class="nav-back-btn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&rarr;</button>
+      <h1 id="category-title" style="font-size:20px; font-weight:800; margin:0;">المنتجات</h1>
+    </div>
+    <div id="products-container" class="products-grid">
+      <div style="text-align:center; padding:20px; grid-column:1/-1;">جاري التحميل...</div>
+    </div>
+  </main>
+
+  <!-- 3. صفحة طلباتي -->
   <main id="page-orders" class="page">
     <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">طلباتي</h1>
     <div class="tabs">
@@ -55,9 +62,10 @@
       <button class="tab-btn" data-page="orders" data-filter="completed">مكتمل</button>
       <button class="tab-btn" data-page="orders" data-filter="rejected">مرفوض</button>
     </div>
-    <div id="orders-list" class="card">جاري التحميل...</div>
+    <div id="orders-list"><div style="text-align:center; padding:20px;">جاري التحميل...</div></div>
   </main>
 
+  <!-- 4. صفحة الإيداعات -->
   <main id="page-deposits" class="page">
     <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">الإيداعات</h1>
     <div class="tabs">
@@ -66,114 +74,76 @@
       <button class="tab-btn" data-page="deposits" data-filter="completed">مكتملة</button>
       <button class="tab-btn" data-page="deposits" data-filter="rejected">مرفوضة</button>
     </div>
-    <div id="deposits-list" class="card">جاري التحميل...</div>
+    <div id="deposits-list"><div style="text-align:center; padding:20px;">جاري التحميل...</div></div>
   </main>
 
+  <!-- 5. صفحة حسابي -->
   <main id="page-account" class="page">
-    <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">حسابي</h1>
-    <div class="card" id="account-profile">جاري التحميل...</div>
+    <div id="account-profile"></div>
   </main>
 
+  <!-- 6. صفحة شحن الرصيد -->
   <main id="page-charge" class="page">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-      <button onclick="window.switchPage('home')" style="background:none; border:none; color:white; font-size:20px;">&rarr;</button>
+      <button class="nav-back-btn" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&rarr;</button>
       <h1 style="font-size:20px; font-weight:800; margin:0;">شحن الرصيد</h1>
     </div>
-    <div class="card" id="charge-methods">جاري تحميل طرق الدفع...</div>
+    <div id="charge-methods"></div>
   </main>
 
+  <!-- الشريط السفلي -->
   <nav class="bottom-nav">
-    <a href="#" class="nav-item active" data-target="home">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-      <span>الرئيسية</span>
-    </a>
-    <a href="#" class="nav-item" data-target="orders">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
-      <span>طلباتي</span>
-    </a>
-    <a href="#" class="nav-item charge-btn" data-target="charge">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-    </a>
-    <a href="#" class="nav-item" data-target="deposits">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-      <span>الإيداعات</span>
-    </a>
-    <a href="#" class="nav-item" data-target="account">
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-      <span>حسابي</span>
-    </a>
+    <a class="nav-item active" data-target="home"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg><span>الرئيسية</span></a>
+    <a class="nav-item" data-target="orders"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg><span>طلباتي</span></a>
+    <a class="nav-item charge-btn" data-target="charge"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></a>
+    <a class="nav-item" data-target="deposits"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg><span>الإيداعات</span></a>
+    <a class="nav-item" data-target="account"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg><span>حسابي</span></a>
   </nav>
 
-  <script type="module" src="js/main.js?v=80"></script>
-
-  <!-- شاشة الحماية (تظهر إذا تم الفتح من خارج تيليجرام) -->
-  <div id="telegram-warning">
-    <svg style="width:60px; height:60px; color:var(--danger); margin-bottom:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-    <h2>وصول غير مصرح به</h2>
-    <p>يجب فتح هذا التطبيق من داخل تيليجرام حصراً لضمان أمان حسابك.</p>
+  <!-- المودالات -->
+  <div id="app-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
+    <div class="modal-box">
+      <div class="modal-header"><h3 id="modal-title">تفاصيل</h3><button class="close-modal" onclick="document.getElementById('app-modal').classList.remove('active')">&times;</button></div>
+      <div id="modal-body"></div>
+    </div>
   </div>
 
-  <!-- المودال الاحترافي -->
-  <!-- مودال KYC -->
   <div id="kyc-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
     <div class="modal-box">
-      <div class="modal-header">
-        <h3>توثيق الحساب</h3>
-        <button class="close-modal" onclick="document.getElementById('kyc-modal').classList.remove('active')">&times;</button>
-      </div>
-      <div id="kyc-body">
-        <!-- سيتم حقن المحتوى هنا -->
-      </div>
+      <div class="modal-header"><h3>توثيق الحساب</h3><button class="close-modal" onclick="document.getElementById('kyc-modal').classList.remove('active')">&times;</button></div>
+      <div id="kyc-body"></div>
     </div>
   </div>
 
-  <!-- مودال الدعم (Chat) -->
-  <div id="support-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
+  <div id="support-screen" class="full-screen-modal">
+    <div class="chat-header">
+      <button onclick="document.getElementById('support-screen').classList.remove('active')" style="background:none; border:none; color:white; font-size:24px;">&times;</button>
+      <div><h3>الدعم الفني</h3><span style="font-size:11px; color:var(--success);">متصل الآن</span></div>
+    </div>
+    <div id="chat-messages" class="chat-body"></div>
+    <form id="chat-form" class="chat-footer">
+      <input type="text" id="chat-input" placeholder="اكتب رسالتك هنا..." required>
+      <button type="submit">إرسال</button>
+    </form>
+  </div>
+
+  <div id="buy-modal" class="modal-overlay" onclick="if(event.target===this) this.classList.remove('active')">
     <div class="modal-box">
-      <div class="modal-header">
-        <h3>الدعم الفني</h3>
-        <button class="close-modal" onclick="document.getElementById('support-modal').classList.remove('active')">&times;</button>
+      <div class="modal-header"><h3>تأكيد الشراء</h3><button class="close-modal" onclick="document.getElementById('buy-modal').classList.remove('active')">&times;</button></div>
+      <div style="display:flex; gap:12px; margin-bottom:20px; background:var(--bg-main); padding:12px; border-radius:12px;">
+        <img id="buy-img" style="width:60px; height:60px; border-radius:8px; object-fit:cover;">
+        <div><h4 id="buy-name" style="margin:0 0 4px 0; font-size:14px;"></h4><div id="buy-price" style="font-weight:bold; color:var(--primary); font-size:16px;"></div></div>
       </div>
-      <div class="chat-container">
-        <div id="chat-messages" class="chat-messages"></div>
-        <form id="chat-form" class="chat-input-area">
-          <input type="text" id="chat-input" placeholder="اكتب رسالتك..." required>
-          <button type="submit">إرسال</button>
-        </form>
-      </div>
+      <form id="buy-form">
+        <div class="form-group"><label>بيانات الاستلام (ID)</label><input type="text" id="buy-delivery-data" class="form-control" required></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px;">
+          <span style="color:var(--text-muted);">الإجمالي:</span><strong id="buy-total" style="font-size:20px; color:var(--success);"></strong>
+        </div>
+        <button type="submit" id="buy-submit" class="sanad-btn" style="width:100%; background:var(--primary); color:white; padding:14px; border-radius:12px; font-weight:bold; border:none;">تأكيد الدفع</button>
+      </form>
     </div>
   </div>
 
-
-  <script>
-    setTimeout(function() {
-      var loader = document.getElementById('loading-screen');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(function() { loader.remove(); }, 300);
-      }
-    }, 3000); // 3 ثواني كحد أقصى
-  </script>
-
-
-  <!-- DEBUG ERROR CATCHER -->
-  <script>
-    window.addEventListener('error', function(e) {
-      var el = document.getElementById('debug-error') || document.createElement('div');
-      el.id = 'debug-error';
-      el.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; z-index:999999; padding:15px; font-size:13px; font-family:monospace; direction:ltr; text-align:left; border-bottom:2px solid #fff; word-wrap:break-word;';
-      el.innerHTML += '<b>ERROR:</b> ' + e.message + '<br><b>File:</b> ' + (e.filename || 'unknown') + '<br><b>Line:</b> ' + (e.lineno || 'unknown') + '<br><br>';
-      document.body.appendChild(el);
-    });
-    window.addEventListener('unhandledrejection', function(e) {
-      var el = document.getElementById('debug-error') || document.createElement('div');
-      el.id = 'debug-error';
-      el.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#b91c1c; color:white; z-index:999999; padding:15px; font-size:13px; font-family:monospace; direction:ltr; text-align:left; border-bottom:2px solid #fff; word-wrap:break-word;';
-      var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
-      el.innerHTML += '<b>UNHANDLED REJECTION:</b> ' + msg + '<br><br>';
-      document.body.appendChild(el);
-    });
-  </script>
-
+  <script type="module" src="js/main.js?v=99"></script>
 </body>
 </html>

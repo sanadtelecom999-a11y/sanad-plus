@@ -7,6 +7,7 @@ export async function openKYC() {
   const modal = document.getElementById('kyc-modal');
   const body = document.getElementById('kyc-body');
   
+  if (!modal) { console.error('KYC Modal not found'); return; }
   modal.classList.add('active');
   body.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحقق من الحالة...</div>`;
 
