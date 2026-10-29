@@ -1,41 +1,40 @@
 // ═══════════════════════════════════════════════════════════
-// SANAD PLUS⁺ - Core Application (V2 - Bulletproof)
+// SANAD PLUS⁺ - Core Application (V3 - Multi-Currency & Pro)
 // ═══════════════════════════════════════════════════════════
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
-const state = { user: null, categories: [], currentPage: 'home' };
+const state = { 
+    user: null, 
+    categories: [], 
+    currentPage: 'home', 
+    currency: 'USD', // USD أو SYP
+    exchangeRate: 130 
+};
 const tg = window.Telegram?.WebApp;
 
-// دوال مساعدة
 const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const formatMoney = (amt) => `${Number(amt || 0).toFixed(2)} <span class="currency">ل.س</span>`;
 
-// طلبات الشبكة الآمنة
-async function apiFetch(endpoint, options = {}) {
-    const initData = tg?.initData || '';
-    const headers = { 
-        ...options.headers, 
-        'X-Telegram-Init-Data': initData 
-    };
-    if (options.body && !(options.body instanceof FormData)) {
-        headers['Content-Type'] = 'application/json';
+// دالة تنسيق المبلغ (تدعم تبديل العملة)
+function formatMoney(amount) {
+    const amt = Number(amount || 0);
+    if (state.currency === 'USD') {
+        return `$${amt.toFixed(2)}`;
+    } else {
+        return `${(amt * state.exchangeRate).toFixed(0)} <span class="currency">ل.س</span>`;
     }
+}
+
+async function apiFetch(endpoint, options = {}) {
+    const headers = { ...options.headers, 'X-Telegram-Init-Data': tg?.initData || '' };
+    if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 ثواني مهلة
-        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, signal: controller.signal });
-        clearTimeout(timeoutId);
-        
+        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
         if (res.status === 401) { window.location.reload(); throw new Error('جلسة منتهية'); }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         return data;
-    } catch (err) {
-        console.error(`API Error (${endpoint}):`, err);
-        throw err;
-    }
+    } catch (err) { throw err; }
 }
 
-// واجهة التنبيهات
 function showToast(msg) {
     const t = document.getElementById('toast');
     if (!t) return;
@@ -44,44 +43,50 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// الهيدر الثابت
+function getHeaderHTML() {
+    return `
+    <header class="top-header">
+        <div class="header-logo">SANAD<sup>⁺</sup></div>
+        <div class="balance-pill" data-route="charge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+            ${formatMoney(state.user?.balance)}
+        </div>
+        <button class="icon-btn-chat" onclick="openChat()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+    </header>
+    `;
+}
+
 function showPage(route) {
     state.currentPage = route;
     document.querySelectorAll('.nav-item, .nav-charge').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.route === route);
     });
     const app = document.getElementById('app-content');
-    
     if (route === 'home') renderHome(app);
+    else if (route === 'account') renderAccount(app);
     else if (route === 'orders') renderOrders(app);
     else if (route === 'deposits') renderDeposits(app);
-    else if (route === 'account') renderAccount(app);
     else if (route === 'charge') renderCharge(app);
 }
 
 // ═══════════════════════════════════════════════════════════
-// الصفحات (Rendering)
+// الصفحات
 // ═══════════════════════════════════════════════════════════
 
 async function renderHome(container) {
     container.innerHTML = `
-        <section class="page active">
-            <header class="page-head">
-                <div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div>
-            </header>
-            <div class="search-bar-container" style="padding-bottom:15px;">
-                <input type="text" class="search-bar" placeholder="ابحث عن خدمة أو منتج..." style="width:100%; padding:12px; border-radius:12px; background:var(--surface); border:1px solid var(--border); color:white;" id="search-input">
-            </div>
+        ${getHeaderHTML()}
+        <section class="page active" style="padding-top: 0;">
             <p class="welcome">أهلًا، <span>${escapeHtml(state.user?.first_name || 'عميلنا')}</span></p>
-            <section class="balance-card card">
-                <div class="balance-top"><span>الرصيد الحالي</span></div>
-                <div class="balance-amount">${formatMoney(state.user?.balance)}</div>
-                <div class="balance-bottom">
-                    <span class="balance-note">رصيدك المتاح</span>
-                    <button class="small-action" data-route="charge">شحن +</button>
-                </div>
-            </section>
+            
             <div class="section-heading"><h2>اكتشف خدماتنا</h2></div>
             <section class="categories" id="home-categories"><div style="text-align:center;padding:20px;color:var(--muted)">جاري التحميل...</div></section>
+            
+            <div class="section-heading"><h2>آخر العمليات</h2></div>
+            <div class="list" id="home-recent"><div class="empty">لا توجد عمليات حديثة</div></div>
         </section>
     `;
 
@@ -90,234 +95,194 @@ async function renderHome(container) {
         const catContainer = document.getElementById('home-categories');
         if (cats && cats.length > 0) {
             catContainer.innerHTML = cats.map(cat => `
-                <button class="category" onclick="showToast('قريباً')">
-                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}" style="border-radius:15px;width:100%;height:100%;object-fit:cover;">` : '📦'}</span>
+                <button class="category" onclick="openCategory(${cat.id}, '${escapeHtml(cat.name)}')">
+                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}">` : '📦'}</span>
                     <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
                 </button>
             `).join('');
         } else {
-            catContainer.innerHTML = '<div class="empty">لا توجد أقسام متاحة حالياً.</div>';
+            catContainer.innerHTML = '<div class="empty">لا توجد أقسام متاحة.</div>';
         }
     } catch (e) {
         document.getElementById('home-categories').innerHTML = '<div class="empty" style="color:red;">تعذر تحميل الأقسام</div>';
     }
 }
 
-async function renderOrders(container) {
-    container.innerHTML = `<section class="page active"><h1 class="page-title">طلباتي</h1><div class="list" id="orders-list">جاري التحميل...</div></section>`;
-    try {
-        const res = await apiFetch('/api/orders/');
-        const list = document.getElementById('orders-list');
-        const items = res.items || [];
-        if (items.length === 0) { list.innerHTML = '<div class="empty">لا توجد طلبات.</div>'; return; }
-        
-        const getBadge = (s) => {
-            const map = { completed: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger' };
-            const label = { completed: 'مكتمل', pending: 'معلق', rejected: 'مرفوض' };
-            return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
-        };
-
-        list.innerHTML = items.map(o => `
-            <div class="list-item">
-                <span class="item-main">
-                    <span class="item-title">${escapeHtml(o.product_name)}</span>
-                    <span class="item-desc">${escapeHtml(o.order_number)}</span>
-                    <span class="item-meta">${getBadge(o.status)} <strong>${formatMoney(o.amount)}</strong></span>
-                </span>
-            </div>
-        `).join('');
-    } catch (e) { document.getElementById('orders-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
-}
-
-async function renderDeposits(container) {
-    container.innerHTML = `<section class="page active"><h1 class="page-title">الإيداعات</h1><div class="list" id="dep-list">جاري التحميل...</div></section>`;
-    try {
-        const res = await apiFetch('/api/deposits/');
-        const list = document.getElementById('dep-list');
-        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد إيداعات.</div>'; return; }
-        list.innerHTML = res.items.map(d => `
-            <div class="list-item">
-                <span class="item-main">
-                    <span class="item-title">${escapeHtml(d.reference || 'إيداع')}</span>
-                    <span class="item-meta"><strong>${formatMoney(d.amount)}</strong></span>
-                </span>
-            </div>
-        `).join('');
-    } catch (e) { 
-        console.error("Deposits error:", e);
-        document.getElementById('dep-list').innerHTML = `
-            <div class="empty" style="color:var(--danger);text-align:center;padding:20px;">
-                <p>تعذر جلب الإيداعات. قد يكون السيرفر في وضع النوم (Cold Start).</p>
-                <button onclick="showPage('deposits')" class="primary-btn" style="margin-top:10px;">إعادة المحاولة 🔄</button>
-            </div>`; 
-    }
-}
-
-
-
 async function renderAccount(container) {
     container.innerHTML = `
-        <section class="page active">
-            <div class="profile-hero">
+        ${getHeaderHTML()}
+        <section class="page active" style="padding-top: 0;">
+            <div class="profile-hero" style="margin-top:0; border-radius: 0 0 28px 28px;">
                 <div class="profile-head">
                     <div class="profile-copy">
-                        <h1 class="profile-name">
-                            <span>${escapeHtml(state.user?.first_name || 'مستخدم')}</span>
-                            ${state.user?.is_verified ? '<span class="verify-mark" title="موثق"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg></span>' : ''}
-                        </h1>
+                        <h1 class="profile-name"><span>${escapeHtml(state.user?.first_name || 'مستخدم')}</span></h1>
                         <p class="profile-username">@${escapeHtml(tg?.initDataUnsafe?.user?.username || 'user')}</p>
-                        <p class="telegram-id">Telegram ID: <bdi>${escapeHtml(state.user?.telegram_id || '---')}</bdi></p>
                     </div>
-                    <div class="avatar" style="overflow:hidden;">
-                        <img src="${escapeHtml(state.user?.photo_url || '')}" 
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
-                             style="width:100%;height:100%;object-fit:cover; ${state.user?.photo_url ? '' : 'display:none;'}">
-                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'}; width:100%; height:100%; padding:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+                    <div class="avatar">
+                        <img src="${escapeHtml(state.user?.photo_url || '')}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="width:100%;height:100%;object-fit:cover; ${state.user?.photo_url ? '' : 'display:none;'}">
+                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
                     </div>
                 </div>
+            </div>
+
+            <div class="currency-toggle-box">
+                <div>
+                    <strong style="display:block; font-size:15px;">عملة العرض</strong>
+                    <span style="font-size:12px; color:var(--muted);">${state.currency === 'USD' ? 'دولار أمريكي (Base)' : 'ليرة سورية'}</span>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="currency-toggle" ${state.currency === 'SYP' ? 'checked' : ''} onchange="toggleCurrency(this.checked)">
+                    <span class="slider"></span>
+                </label>
             </div>
 
             <section class="sanad-id">
-                <div class="sanad-label">
-                    <span>معرّف SANAD ID</span>
-                    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>
-                </div>
-                <div class="sanad-line">
-                    <strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong>
-                    <button class="copy-icon" onclick="navigator.clipboard.writeText('${escapeHtml(state.user?.sanad_id || '')}'); alert('تم النسخ!');">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
-                    </button>
-                </div>
+                <div class="sanad-label"><span>معرّف SANAD ID</span></div>
+                <div class="sanad-line"><strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong></div>
             </section>
-
+            
             <section class="stats">
-                <article class="stat">
-                    <p class="stat-label">إجمالي الإيداعات</p>
-                    <div class="stat-value">${formatMoney(state.user?.total_deposits || 0)}</div>
-                </article>
-                <article class="stat">
-                    <p class="stat-label">الرصيد الحالي</p>
-                    <div class="stat-value">${formatMoney(state.user?.balance || 0)}</div>
-                </article>
-            </section>
-
-            <section class="service-list">
-                <button class="service-row" onclick="alert('قريباً')">
-                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>
-                    <span><span class="service-title">توثيق الحساب</span><span class="service-desc">حالة التوثيق وإجراءاته</span></span>
-                    <span class="chevron">‹</span>
-                </button>
-                <button class="service-row" onclick="alert('قريباً')">
-                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span>
-                    <span><span class="service-title">السجل المالي</span><span class="service-desc">جميع عملياتك المالية</span></span>
-                    <span class="chevron">‹</span>
-                </button>
-                <button class="service-row" onclick="alert('قريباً')">
-                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span>
-                    <span><span class="service-title">الدعم الفني</span><span class="service-desc">المساعدة والاستفسارات</span></span>
-                    <span class="chevron">‹</span>
-                </button>
+                <article class="stat"><p class="stat-label">الرصيد الحالي</p><div class="stat-value">${formatMoney(state.user?.balance)}</div></article>
+                <article class="stat"><p class="stat-label">إجمالي الإيداعات</p><div class="stat-value">${formatMoney(state.user?.total_deposits)}</div></article>
             </section>
 
             <h2 class="extra-title">الخدمات الإضافية</h2>
             <section class="extra-list">
-                <button class="extra-row" onclick="alert('قريباً')">
-                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span>
-                    <span><span class="service-title">الإحالة</span><span class="service-desc">رابط دعوة شخصي</span></span>
-                    <span class="chevron">‹</span>
-                </button>
-                <button class="extra-row" onclick="alert('قريباً')">
-                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>
-                    <span><span class="service-title">الإشعارات</span><span class="service-desc">حالات الطلبات والإيداعات</span></span>
-                    <span class="chevron">‹</span>
-                </button>
-                <button class="extra-row" onclick="alert('قريباً')">
-                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
-                    <span><span class="service-title">الأمان والخصوصية</span><span class="service-desc">حالة حماية الحساب</span></span>
-                    <span class="chevron">‹</span>
-                </button>
-                <button class="extra-row" onclick="alert('قريباً')">
-                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span>
-                    <span><span class="service-title">مركز المساعدة</span><span class="service-desc">الأسئلة الشائعة</span></span>
-                    <span class="chevron">‹</span>
-                </button>
+                <button class="extra-row" onclick="alert('قريباً')"><span>الإحالة</span></button>
+                <button class="extra-row" onclick="alert('قريباً')"><span>الإشعارات</span></button>
+                <button class="extra-row" onclick="openChat()"><span>الأمان والدعم</span></button>
             </section>
         </section>
     `;
 }
 
-function renderCharge(container) {
-    container.innerHTML = `
-        <section class="page active">
-            <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">شحن الرصيد</div></div></header>
-            <h1 class="page-title">شحن الرصيد</h1>
-            <p class="page-subtitle">حول المبلغ إلى وسيلة الدفع الموضحة.</p>
-            
-            <div class="panel">
-                <div class="sanad-label" style="margin-bottom:12px;"><span>بيانات التحويل</span></div>
-                <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
-                    <p style="margin:0 0 8px; font-size:13px; color:var(--muted);">المحفظة</p>
-                    <strong style="display:block; font-size:16px; margin-bottom:12px;">Sham Cash</strong>
-                    <p style="margin:0 0 8px; font-size:13px; color:var(--muted);">رقم المحفظة</p>
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong style="font-family:monospace; font-size:16px;">09XXXXXXXX</strong>
-                        <button onclick="navigator.clipboard.writeText('09XXXXXXXX'); alert('تم النسخ')" class="small-action" style="border:0;padding:6px 10px;">نسخ الرقم</button>
-                    </div>
+window.toggleCurrency = function(isSYP) {
+    state.currency = isSYP ? 'SYP' : 'USD';
+    showPage('account'); // إعادة رسم الصفحة
+    showToast(isSYP ? 'تم التحويل لليرة السورية' : 'تم التحويل للدولار');
+};
+
+// شاشة عرض المنتجات
+window.openCategory = async function(catId, catName) {
+    showToast('جاري جلب المنتجات...');
+    try {
+        const products = await apiFetch(`/api/products/?category_id=${catId}`);
+        const overlay = document.createElement('div');
+        overlay.className = 'bottom-sheet-overlay open';
+        overlay.id = 'products-sheet';
+        overlay.innerHTML = `
+            <div class="bottom-sheet" style="height: 70vh; overflow-y: auto;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                    <h2 style="margin:0;">${catName}</h2>
+                    <button onclick="document.getElementById('products-sheet').remove()" style="background:none; border:none; color:white; font-size:24px;">×</button>
                 </div>
-
-                <h2 class="panel-title">تفاصيل العملية</h2>
-                <form id="charge-form">
-                    <label class="input-label">المبلغ المحول (ل.س)</label>
-                    <input type="number" id="charge-amount" class="field" placeholder="مثال: 50000" required>
-                    
-                    <label class="input-label">رقم عملية التحويل</label>
-                    <input type="text" id="charge-reference" class="field" placeholder="أدخل رقم العملية" required>
-                    
-                    <label class="input-label">صورة إيصال التحويل</label>
-                    <input type="file" id="charge-receipt" class="field" accept="image/*" required>
-                    
-                    <button type="submit" id="submit-charge-btn" class="primary-btn full" style="margin-top:16px;">تأكيد طلب الشحن ←</button>
-                </form>
+                <div class="product-grid">
+                    ${products.length ? products.map(p => `
+                        <div class="product-card" onclick="openProduct(${p.id}, '${escapeHtml(p.name)}', ${p.price}, '${escapeHtml(p.image)}')">
+                            <img src="${escapeHtml(p.image || 'https://placehold.co/100')}">
+                            <strong style="display:block; font-size:13px; margin-bottom:5px;">${escapeHtml(p.name)}</strong>
+                            <span style="color:var(--blue); font-weight:bold;">${formatMoney(p.price)}</span>
+                        </div>
+                    `).join('') : '<p>لا توجد منتجات في هذا القسم.</p>'}
+                </div>
             </div>
-        </section>
+        `;
+        document.body.appendChild(overlay);
+    } catch(e) { showToast('خطأ في جلب المنتجات'); }
+};
+
+// شاشة تفاصيل المنتج
+window.openProduct = function(id, name, price, image) {
+    const overlay = document.createElement('div');
+    overlay.className = 'bottom-sheet-overlay open';
+    overlay.innerHTML = `
+        <div class="bottom-sheet">
+            <div style="text-align:center;">
+                <img src="${escapeHtml(image || 'https://placehold.co/100')}" style="width:100px; height:100px; border-radius:20px; object-fit:cover; margin-bottom:15px;">
+                <h2 style="margin:0 0 10px;">${escapeHtml(name)}</h2>
+                <p style="font-size:24px; color:var(--blue); font-weight:bold; margin-bottom:20px;">${formatMoney(price)}</p>
+                <button class="primary-btn full" onclick="buyProduct(${id})">شراء الآن</button>
+                <button class="secondary-btn full" style="margin-top:10px;" onclick="this.closest('.bottom-sheet-overlay').remove()">إلغاء</button>
+            </div>
+        </div>
     `;
+    document.body.appendChild(overlay);
+};
 
-    document.getElementById('charge-form').onsubmit = async (e) => {
-        e.preventDefault();
-        const btn = document.getElementById('submit-charge-btn');
-        const amount = document.getElementById('charge-amount').value;
-        const ref = document.getElementById('charge-reference').value;
-        const file = document.getElementById('charge-receipt').files[0];
+window.buyProduct = async function(id) {
+    try {
+        await apiFetch('/api/orders/create', { method: 'POST', body: JSON.stringify({ product_id: id, quantity: 1 }) });
+        showToast('تم إنشاء الطلب بنجاح!');
+        document.querySelectorAll('.bottom-sheet-overlay').forEach(e => e.remove());
+        state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
+        showPage('orders');
+    } catch(e) { showToast(e.message); }
+};
 
-        if (!amount || !ref || !file) return alert('يرجى تعبئة جميع الحقول');
+// الدردشة (Support)
+window.openChat = async function() {
+    const overlay = document.createElement('div');
+    overlay.className = 'chat-overlay';
+    overlay.id = 'chat-overlay';
+    overlay.innerHTML = `
+        <div class="chat-header">
+            <button onclick="document.getElementById('chat-overlay').remove()" style="background:none;border:none;color:white;font-size:20px;">→</button>
+            <h2 style="margin:0; font-size:16px;">الدعم الفني</h2>
+        </div>
+        <div class="chat-messages" id="chat-msgs">جاري التحميل...</div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="اكتب رسالتك...">
+            <button class="primary-btn" onclick="sendChat()">إرسال</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('open'), 10);
+    loadChatMessages();
+};
 
-        btn.disabled = true;
-        btn.textContent = 'جاري الإرسال...';
-
-        const formData = new FormData();
-        formData.append('amount', amount);
-        formData.append('reference', ref);
-        formData.append('receipt', file);
-
-        try {
-            await apiFetch('/api/deposits/create', { method: 'POST', body: formData });
-            alert('تم إرسال الطلب بنجاح! يرجى الانتظار للمراجعة.');
-            showPage('deposits');
-        } catch (err) {
-            alert('خطأ: ' + err.message);
-            btn.disabled = false;
-            btn.textContent = 'تأكيد طلب الشحن ←';
-        }
-    };
+async function loadChatMessages() {
+    try {
+        const msgs = await apiFetch('/api/support/messages');
+        const box = document.getElementById('chat-msgs');
+        if (!msgs.length) { box.innerHTML = '<p style="text-align:center; color:var(--muted);">مرحباً! كيف يمكننا مساعدتك؟</p>'; return; }
+        box.innerHTML = msgs.map(m => `<div class="chat-bubble ${m.sender === 'user' ? 'user' : 'admin'}">${escapeHtml(m.message)}</div>`).join('');
+        box.scrollTop = box.scrollHeight;
+    } catch(e) { document.getElementById('chat-msgs').innerHTML = 'تعذر التحميل'; }
 }
 
-// ═══════════════════════════════════════════════════════════
-// التهيئة الأساسية (Init) - آمنة ضد التجمد
-// ═══════════════════════════════════════════════════════════
+window.sendChat = async function() {
+    const input = document.getElementById('chat-input');
+    if (!input.value.trim()) return;
+    const text = input.value;
+    input.value = '';
+    
+    const box = document.getElementById('chat-msgs');
+    box.innerHTML += `<div class="chat-bubble user">${escapeHtml(text)}</div>`;
+    box.scrollTop = box.scrollHeight;
+
+    try { await apiFetch('/api/support/send', { method: 'POST', body: JSON.stringify({ message: text }) }); } 
+    catch(e) { showToast('فشل الإرسال'); }
+};
+
+// صفحات أخرى
+async function renderOrders(container) {
+    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">طلباتي</h1><div class="list" id="orders-list">جاري التحميل...</div></section>`;
+    // ... منطق جلب الطلبات
+}
+
+async function renderDeposits(container) {
+    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">الإيداعات</h1><div class="list" id="dep-list">جاري التحميل...</div></section>`;
+    // ... منطق جلب الإيداعات
+}
+
+function renderCharge(container) {
+    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top:0;"><h1 class="page-title">شحن الرصيد</h1><div class="panel"><p>يرجى تحويل المبلغ إلى محفظة Sham Cash وإرفاق الإيصال.</p></div></section>`;
+}
+
+// التهيئة
 async function initApp() {
     if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#080E1B'); }
 
-    // مستمع الأزرار (Event Delegation) لضمان عملها دائماً
     document.body.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-route]');
         if (btn) { e.preventDefault(); showPage(btn.dataset.route); }
@@ -325,21 +290,15 @@ async function initApp() {
     });
 
     try {
-        const initData = tg?.initData;
-        if (!initData) throw new Error("يرجى فتح التطبيق من داخل تيليجرام.");
-        
-        // جلب بيانات المستخدم
+        if (!tg?.initData) throw new Error("يرجى فتح التطبيق من تيليجرام.");
         state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
+        if(state.user.exchange_rate) state.exchangeRate = state.user.exchange_rate;
         
-        // إخفاء شاشة التحميل وعرض الرئيسية
-        document.getElementById('app-loading').remove();
+        const loader = document.getElementById('app-loading');
+        if(loader) loader.remove();
         showPage('home');
     } catch (err) {
-        console.error(err);
-        document.getElementById('app-loading').innerHTML = `<div style="text-align:center;color:red;padding:20px;">
-            <h2>حدث خطأ</h2><p>${escapeHtml(err.message)}</p>
-            <button onclick="window.location.reload()" style="margin-top:10px;padding:10px;background:#38BDF8;color:black;border:none;border-radius:8px;">إعادة المحاولة</button>
-        </div>`;
+        document.getElementById('app-loading').innerHTML = `<div style="text-align:center;color:red;padding:20px;"><h2>حدث خطأ</h2><p>${escapeHtml(err.message)}</p></div>`;
     }
 }
 

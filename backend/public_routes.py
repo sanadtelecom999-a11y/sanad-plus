@@ -81,6 +81,10 @@ def miniapp_init():
     from sqlalchemy import func
     total_deps = db.session.query(func.sum(Deposit.amount)).filter_by(user_id=user.id, status='approved').scalar()
     
+    from app.models import AppSetting
+    rate_setting = db.session.query(AppSetting).filter_by(key='exchange_rate').first()
+    exchange_rate = float(rate_setting.value) if rate_setting and rate_setting.value else 130.0
+    
     photo_url = g.telegram_user.get('photo_url', '')
     return jsonify({
         "balance": float(user.balance) if user.balance else 0.0,
@@ -89,7 +93,8 @@ def miniapp_init():
         "is_verified": getattr(user, 'is_verified', False),
         "total_deposits": float(total_deps) if total_deps else 0.0,
         "telegram_id": str(user.telegram_id),
-        "photo_url": photo_url
+        "photo_url": photo_url,
+        "exchange_rate": exchange_rate
     })
 
 @public_bp.route('/orders/', methods=['GET', 'OPTIONS'])
