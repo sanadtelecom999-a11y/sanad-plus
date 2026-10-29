@@ -23,7 +23,8 @@ def bot_auth():
     
     if not tg_id: return jsonify({"error": "Missing ID"}), 400
     
-    user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
+    # إصلاح: البوت يرسل telegram_id مباشرة، وليس g.telegram_id
+    user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
     if not user:
         user = User(telegram_id=int(tg_id), first_name=data.get('first_name', 'User'), balance=0.0)
         db.session.add(user)
