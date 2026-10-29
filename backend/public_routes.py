@@ -353,7 +353,8 @@ def send_support_message():
         if not user: return jsonify({"error": "User not found"}), 404
         
         from app.models import SupportTicket, SupportMessage
-        ticket = db.session.query(SupportTicket).filter_by(user_id=user.id).first()
+        # البحث عن تذكرة مفتوحة، أو إنشاء واحدة جديدة لهذا المستخدم فقط
+        ticket = db.session.query(SupportTicket).filter_by(user_id=user.id, status='open').first()
         if not ticket:
             ticket = SupportTicket(user_id=user.id, status='open')
             db.session.add(ticket)

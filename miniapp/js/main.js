@@ -78,6 +78,13 @@ window.filterList = function(page, filter, btnElement) {
 // ★★★ مستمع النقر الشامل (يُربط فوراً) ★★★
 document.addEventListener('click', function(e) {
   
+  // زر الدعم في الهيدر
+  const headerSupportBtn = e.target.closest('#header-support-btn');
+  if (headerSupportBtn) {
+    if (typeof window.openSupport === 'function') window.openSupport();
+    return;
+  }
+
   // زر الرجوع
   const backBtn = e.target.closest('.nav-back-btn');
   if (backBtn) {
