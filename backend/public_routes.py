@@ -169,9 +169,9 @@ def kyc_submit():
     try:
         user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user:
-        user = User(telegram_id=g.telegram_id, first_name=g.telegram_user.get('first_name', 'مستخدم'), balance=Decimal('0.0000'))
-        db.session.add(user)
-        db.session.commit()
+            user = User(telegram_id=g.telegram_id, first_name=g.telegram_user.get('first_name', 'مستخدم'), balance=Decimal('0.0000'))
+            db.session.add(user)
+            db.session.commit()
         
         full_name = request.form.get('full_name')
         phone = request.form.get('phone')
@@ -248,9 +248,9 @@ def send_support_message():
         from sqlalchemy import text
         user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user:
-        user = User(telegram_id=g.telegram_id, first_name=g.telegram_user.get('first_name', 'مستخدم'), balance=Decimal('0.0000'))
-        db.session.add(user)
-        db.session.commit()
+            user = User(telegram_id=g.telegram_id, first_name=g.telegram_user.get('first_name', 'مستخدم'), balance=Decimal('0.0000'))
+            db.session.add(user)
+            db.session.commit()
         
         from app.models import SupportTicket, SupportMessage
         # البحث عن تذكرة مفتوحة، أو إنشاء واحدة جديدة لهذا المستخدم فقط
