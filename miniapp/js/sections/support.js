@@ -4,24 +4,19 @@ let chatInterval = null;
 
 export async function openSupport() {
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const modal = document.getElementById('support-modal');
-  if (!modal) return console.error('Support modal not found');
+  const screen = document.getElementById('support-screen');
+  if (!screen) return;
   
-  modal.classList.add('active');
-  const messagesArea = document.getElementById('chat-messages');
-  if (messagesArea) messagesArea.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">جاري التحميل...</div>';
-  
+  screen.classList.add('active');
   await loadMessages(tgId);
   
   if (chatInterval) clearInterval(chatInterval);
   chatInterval = setInterval(() => {
-    if (document.getElementById('support-modal').classList.contains('active')) {
-      loadMessages(tgId);
-    }
+    if (screen.classList.contains('active')) loadMessages(tgId);
   }, 5000);
 
   document.getElementById('chat-form').onsubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // منع إعادة تحميل الصفحة
     const input = document.getElementById('chat-input');
     const msg = input.value.trim();
     if (!msg) return;
@@ -35,6 +30,15 @@ export async function openSupport() {
     });
   };
 }
+
+window.closeSupport = function() {
+  const screen = document.getElementById('support-screen');
+  if (screen) screen.classList.remove('active');
+  if (chatInterval) {
+    clearInterval(chatInterval);
+    chatInterval = null;
+  }
+};
 
 async function loadMessages(tgId) {
   const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
