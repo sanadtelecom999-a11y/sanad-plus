@@ -1,15 +1,16 @@
 import { api } from '../core/api.js';
-import { escapeHtml, formatCurrency } from '../core/utils.js';
+import { escapeHtml, safeUrl } from '../core/utils.js';
 
 let currentTab = 'orders';
 
 export async function renderInbox() {
   const container = document.getElementById('dashboard-container');
+  
   container.innerHTML = `
-    <div class="sanad-tabs">
-      <button id="tab-orders" class="sanad-tab active" onclick="window.switchInboxTab('orders')">الطلبات</button>
-      <button id="tab-deposits" class="sanad-tab" onclick="window.switchInboxTab('deposits')">الإيداعات</button>
-      <button id="tab-kyc" class="sanad-tab" onclick="window.switchInboxTab('kyc')">التوثيق</button>
+    <div class="tabs">
+      <button id="tab-orders" class="tab-btn active" onclick="window.switchInboxTab('orders')">الطلبات</button>
+      <button id="tab-deposits" class="tab-btn" onclick="window.switchInboxTab('deposits')">الإيداعات</button>
+      <button id="tab-kyc" class="tab-btn" onclick="window.switchInboxTab('kyc')">التوثيق</button>
     </div>
     <div id="inbox-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
       <div style="text-align: center; color: #91a7c2; grid-column: 1/-1; padding: 30px;">جاري التحميل...</div>
@@ -20,7 +21,7 @@ export async function renderInbox() {
 
 window.switchInboxTab = async function(tab) {
   currentTab = tab;
-  document.querySelectorAll('.sanad-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
   document.getElementById(`tab-${tab}`).classList.add('active');
   
   const list = document.getElementById('inbox-list');
@@ -45,18 +46,19 @@ window.switchInboxTab = async function(tab) {
 
 function createCard(type, item) {
   let title = '', subtitle = '', body = '';
+  
   if (type === 'orders') {
     title = `طلب #${escapeHtml(item.order_number)}`;
     subtitle = escapeHtml(item.user_name);
-    body = `المنتج: ${escapeHtml(item.product_name)} <br> السعر: <span style="color:#34d399; font-weight:bold;">${formatCurrency(item.total_price)}</span>`;
+    body = `المنتج: ${escapeHtml(item.product_name)} <br> السعر: <span style="color:#34d399; font-weight:bold;">$${Number(item.total_price).toFixed(2)}</span>`;
   } else if (type === 'deposits') {
-    title = `إيداع #${escapeHtml(item.transaction_id)}`;
+    title = `إيداع #${escapeHtml(item.transaction_id)}`; // ★★ تأمين transaction_id ★★
     subtitle = escapeHtml(item.user_name);
-    body = `المبلغ: <span style="color:#34d399; font-weight:bold;">${formatCurrency(item.amount)}</span>`;
+    body = `المبلغ: <span style="color:#34d399; font-weight:bold;">$${Number(item.amount).toFixed(2)}</span>`;
   } else {
     title = `توثيق #${item.id}`;
     subtitle = escapeHtml(item.user_name);
-    body = `الاسم: ${escapeHtml(item.full_name)} <br> الهاتف: ${escapeHtml(item.phone)}`;
+    body = `الاسم: ${escapeHtml(item.full_name)} <br> الهاتف: ${escapeHtml(item.phone)}`; // ★★ تأمين KYC ★★
   }
 
   return `
@@ -80,7 +82,7 @@ window.openDetails = async function(type, id) {
 
   const res = await api.safeFetch(`/api/admin/${type}/${id}/full`);
   if (!res.ok) {
-    content.innerHTML = `<div style="color:#fb7185; text-align:center; padding:20px;">${res.error}</div>`;
+    content.innerHTML = `<div style="color:#fb7185; text-align:center; padding:20px;">${escapeHtml(res.error)}</div>`;
     return;
   }
 
@@ -88,32 +90,28 @@ window.openDetails = async function(type, id) {
   let detailsHtml = '';
   if (data.details) {
     detailsHtml = Object.entries(data.details).map(([k, v]) => {
-      const isCopyable = ['وجهة الشحن', 'معرف اللاعب', 'رقم الهاتف', 'الهاتف', 'معرف الحساب'].includes(k);
-      const copyBtn = isCopyable ? `<button onclick="navigator.clipboard.writeText('${escapeHtml(v)}'); alert('تم النسخ!')" class="sanad-btn sanad-btn-secondary" style="padding:2px 8px; font-size:10px; margin-right:8px;">نسخ</button>` : '';
-      return `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding:10px 0;"><span style="color:#91a7c2;">${k}</span><span style="display:flex; align-items:center;">${escapeHtml(v)} ${copyBtn}</span></div>`;
+      // ★★ تأمين كل الحقول المعروضة ★★
+      return `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.05); padding:10px 0;"><span style="color:#91a7c2;">${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>`;
     }).join('');
   }
 
-  let imageHtml = data.image ? `<img src="${escapeHtml(data.image)}" style="width:100%; max-height:250px; object-fit:contain; border-radius:8px; margin-bottom:16px; background:#000;" />` : '';
-
-  let actionButtons = '';
-  if (type === 'kyc') {
-    actionButtons = `
-      <button onclick="window.actionKyc(${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول التوثيق</button>
-      <button onclick="window.actionKyc(${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض التوثيق</button>
-    `;
-  } else {
-    actionButtons = `
-      <button onclick="window.actionItem('${type}', ${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول</button>
-      <button onclick="window.actionItem('${type}', ${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض</button>
-    `;
+  let imageHtml = '';
+  if (data.image) {
+    // استخدام safeUrl للصور
+    const safeImg = safeUrl(data.image, ['cloudinary.com', 'placehold.co']);
+    if (safeImg) {
+      imageHtml = `<img src="${safeImg}" style="width:100%; max-height:250px; object-fit:contain; border-radius:8px; margin-bottom:16px; background:#000;" />`;
+    }
   }
 
   content.innerHTML = `
     <h3 style="margin-top:0; font-size:18px;">${escapeHtml(data.title)}</h3>
     ${imageHtml}
     <div style="margin-bottom:24px;">${detailsHtml}</div>
-    <div style="display:flex; gap:10px;">${actionButtons}</div>
+    <div style="display:flex; gap:10px;">
+      <button onclick="window.actionItem('${type}', ${id}, 'approve')" class="sanad-btn sanad-btn-success" style="flex:1; padding:10px;">قبول</button>
+      <button onclick="window.actionItem('${type}', ${id}, 'reject')" class="sanad-btn sanad-btn-danger" style="flex:1; padding:10px;">رفض</button>
+    </div>
   `;
 };
 
@@ -127,6 +125,6 @@ window.actionItem = async function(type, id, action) {
     window.switchInboxTab(currentTab);
     alert('تمت العملية بنجاح');
   } else {
-    content.innerHTML = `<div style="color:#fb7185; text-align:center; padding:20px;">${res.error}</div>`;
+    content.innerHTML = `<div style="color:#fb7185; text-align:center; padding:20px;">${escapeHtml(res.error)}</div>`;
   }
 };

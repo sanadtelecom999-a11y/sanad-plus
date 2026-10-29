@@ -49,4 +49,23 @@ def create_app(config_object="config.Config"):
     def server_error(e): 
         return jsonify({"error": "Internal server error"}), 500
         
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' https://telegram.org; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https://res.cloudinary.com https://placehold.co; "
+            "connect-src 'self' https://sanad-plus-backend.onrender.com; "
+            "frame-ancestors https://web.telegram.org https://*.telegram.org; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "object-src 'none';"
+        )
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        return response
+
     return app
