@@ -12,7 +12,16 @@ function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, c =>
 function formatMoney(amount) { const n = Number(amount); return Number.isFinite(n) ? `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n)} <span class="currency">ل.س</span>` : "—"; }
 const statusLabels = { completed: "مكتمل", pending: "قيد المراجعة", rejected: "مرفوض", cancelled: "ملغي", approved: "مكتمل" };
 const statusClass = { completed: "status-success", pending: "status-pending", rejected: "status-danger", cancelled: "status-danger", approved: "status-success" };
-function statusPill(status) { return `<span class="pill ${statusClass[status] || ""}">${escapeHtml(statusLabels[status] || status)}</span>`; }
+function statusPill(status) {
+        const map = {
+            'completed': ['مكتمل', 'badge-success'],
+            'pending': ['قيد المراجعة', 'badge-warning'],
+            'rejected': ['مرفوض', 'badge-danger'],
+            'approved': ['مكتمل', 'badge-success']
+        };
+        const [label, cls] = map[status] || [status, ''];
+        return `<span class="badge ${cls}">${label}</span>`;
+    }">${escapeHtml(statusLabels[status] || status)}</span>`; }
 
 let toastTimer;
 function showToast(message) {
@@ -95,7 +104,7 @@ async function loadCategories() {
         currentState.categories = await apiFetch('/api/categories/');
         const container = document.getElementById("home-categories");
         if (currentState.categories.length === 0) {
-            container.innerHTML = '<div class="empty">لا توجد تصنيفات.</div>';
+            container.innerHTML = '<div class="empty" style="padding:20px;">لا توجد أقسام متاحة حالياً. يرجى إضافتها من لوحة التحكم.</div>';
             return;
         }
         container.innerHTML = currentState.categories.map(cat => `

@@ -3472,3 +3472,11 @@ input:checked + .toggle-slider:before {
     font-size: 13px;
     color: #0056b3;
 }
+
+.search-bar-container { padding: 0 15px 15px; }
+.search-bar { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: 0.3s; }
+.search-bar:focus { border-color: var(--blue); box-shadow: 0 0 10px rgba(56,189,248,0.1); }
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+.badge-success { background: rgba(52,211,153,0.15); color: #34d399; }
+.badge-warning { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.badge-danger { background: rgba(251,113,133,0.15); color: #fb7185; }

@@ -142,3 +142,11 @@ textarea.field{min-height:110px;resize:vertical}
 @media(min-width:600px){.page{padding-inline:24px}.profile-hero{margin-inline:-24px;padding-inline:24px}.categories{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:360px){:root{--gutter:14px}.stats{gap:8px}.stat{padding:14px 10px}.service-row{padding:14px;gap:10px}.service-title{font-size:16px}.extra-list{padding-inline:13px}.extra-row{grid-template-columns:48px minmax(0,1fr) 16px;gap:10px}.icon-tile{width:48px;height:48px}.brand{font-size:21px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.search-bar-container { padding: 0 15px 15px; }
+.search-bar { width: 100%; padding: 12px 15px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: inherit; font-size: 14px; outline: none; transition: 0.3s; }
+.search-bar:focus { border-color: var(--blue); box-shadow: 0 0 10px rgba(56,189,248,0.1); }
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+.badge-success { background: rgba(52,211,153,0.15); color: #34d399; }
+.badge-warning { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.badge-danger { background: rgba(251,113,133,0.15); color: #fb7185; }
