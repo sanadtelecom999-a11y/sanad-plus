@@ -1,3 +1,5 @@
+from decimal import Decimal
+from app.services.ledger_service import record_transaction
 """
 مسارات الأدمن — SANAD+ Admin Panel
 المرحلة 0: المصادقة (login + verify-otp)
@@ -50,9 +52,8 @@ def log_admin_action(action, target_type, target_id, details=""):
             VALUES (:action, :target_type, :target_id, :details)
         """), {"action": action, "target_type": target_type, "target_id": target_id, "details": details})
         
-        db.session.commit()
+        # db.session.commit() # تم إزالة الـ commit لضمان الذرية
     except Exception as e:
-        db.session.rollback()
         print("Audit Log Error:", e, flush=True)
 
 def _utcnow():
@@ -311,12 +312,16 @@ def handle_item_action(item_type, item_id, action):
         
         # العمليات المالية: إذا كان إيداعاً وتم قبوله، نضيف الرصيد
         if item_type == 'deposits' and action == 'approve':
-            # جلب المستخدم وقفل رصيده
+            if item.status != 'pending':
+                return jsonify({"error": "تمت معالجة طلب الإيداع مسبقًا"}), 409
             user = db.session.query(User).filter_by(id=item.user_id).with_for_update().first()
             if user:
-                old_balance = float(user.balance)
-                user.balance = old_balance + float(item.amount)
-                log_admin_action("قبول إيداع", "deposit", item_id, f"إضافة {item.amount} للمستخدم {user.id}. الرصيد: {old_balance} -> {user.balance}")
+                amount = Decimal(str(item.amount))
+                old_balance = Decimal(str(user.balance or "0"))
+                new_balance = old_balance + amount
+                user.balance = new_balance
+                record_transaction(user_id=user.id, action_type="deposit", amount=amount, balance_before=old_balance, balance_after=new_balance, reference=f"DEP-{item.id}", description="قبول طلب إيداع")
+                log_admin_action("قبول إيداع", "deposit", item_id, f"إضافة {amount} للمستخدم {user.id}.")
         
         if action == 'reject':
             log_admin_action("رفض عنصر", item_type, item_id, "تم رفض العنصر")

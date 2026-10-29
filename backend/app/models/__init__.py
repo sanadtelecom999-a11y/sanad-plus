@@ -14,6 +14,7 @@ class User(db.Model):
     last_name = db.Column(db.String(100))
     balance = db.Column(MONEY, default=Decimal('0.0000'))
     is_banned = db.Column(db.Boolean, default=False)
+    is_verified = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     created_at = db.Column(db.DateTime, default=_now)
 
 class AdminOTPSession(db.Model):
@@ -87,6 +88,8 @@ class Deposit(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     amount = db.Column(MONEY, nullable=False)
+    transaction_id = db.Column(db.String(100), nullable=True)
+    receipt_image = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=_now)
     user = db.relationship('User', foreign_keys=[user_id])
@@ -148,3 +151,17 @@ class AdminActivity(db.Model):
     admin_id = db.Column(db.Integer)
     action = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=_now)
+
+class FinancialLedger(db.Model):
+    __tablename__ = "financial_ledger"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    action_type = db.Column(db.String(50), nullable=False)
+    amount = db.Column(db.Numeric(14, 4), nullable=False)
+    balance_before = db.Column(db.Numeric(14, 4), nullable=False)
+    balance_after = db.Column(db.Numeric(14, 4), nullable=False)
+    reference = db.Column(db.String(100), nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=_now, server_default=db.func.current_timestamp())
+    user = db.relationship("User", foreign_keys=[user_id])
+    __table_args__ = (db.Index("uq_financial_ledger_action_reference", "action_type", "reference", unique=True),)

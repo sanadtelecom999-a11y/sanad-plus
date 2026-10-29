@@ -1,3 +1,6 @@
+from decimal import Decimal, InvalidOperation
+from uuid import uuid4
+from app.services.ledger_service import record_transaction
 import hmac
 import hashlib
 import json
@@ -396,25 +399,35 @@ def create_order():
         product = db.session.query(Product).filter_by(id=product_id).first()
         if not product: return jsonify({"error": "المنتج غير موجود"}), 404
 
-        total_price = float(getattr(product, 'base_price', 0)) * quantity
+        try:
+            quantity_decimal = Decimal(str(quantity))
+        except (InvalidOperation, TypeError, ValueError):
+            return jsonify({"error": "الكمية غير صالحة"}), 400
+        if not quantity_decimal.is_finite() or quantity_decimal <= 0 or quantity_decimal != quantity_decimal.to_integral_value():
+            return jsonify({"error": "يجب أن تكون الكمية عددًا صحيحًا موجبًا"}), 400
+        quantity = int(quantity_decimal)
 
-        # التحقق من الرصيد
-        if float(user.balance) < total_price:
-            return jsonify({"error": "رصيدك غير كافٍ لإتمام العملية"}), 400
+        user = db.session.query(User).filter_by(id=user.id).with_for_update().populate_existing().first()
+        product = db.session.query(Product).filter_by(id=product_id).with_for_update().populate_existing().first()
+        if not user or not product: return jsonify({"error": "المستخدم أو المنتج غير موجود"}), 404
 
-        # خصم الرصيد
-        user.balance = float(user.balance) - total_price
+        unit_price = Decimal(str(product.base_price))
+        if not unit_price.is_finite() or unit_price < 0: raise ValueError("سعر المنتج غير صالح.")
+        
+        total_price = (unit_price * quantity).quantize(Decimal("0.0001"))
+        old_balance = Decimal(str(user.balance or "0")).quantize(Decimal("0.0001"))
 
-        # إنشاء الطلب
-        new_order = Order(
-            user_id=user.id,
-            product_id=product.id,
-            quantity=quantity,
-            total_price=total_price,
-            status='pending',
-            delivery_data=delivery_data
-        )
+        if old_balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
+
+        order_number = f"ORD-{uuid4().hex.upper()}"
+        new_balance = old_balance - total_price
+
+        user.balance = new_balance
+        new_order = Order(order_number=order_number, user_id=user.id, product_id=product.id, quantity=quantity, unit_price=unit_price, total_price=total_price, status="pending", delivery_data=delivery_data)
         db.session.add(new_order)
+        db.session.flush()
+
+        record_transaction(user_id=user.id, action_type="purchase", amount=-total_price, balance_before=old_balance, balance_after=new_balance, reference=order_number, description=f"شراء {product.name}")
         db.session.commit()
         
         print(f"✅ Order Created: User {user.id} bought {product.name} for ${total_price}", flush=True)
