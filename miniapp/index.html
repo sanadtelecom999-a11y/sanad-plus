@@ -23,8 +23,15 @@
         <nav class="bottom-nav" id="main-nav" aria-label="التنقل الرئيسي">
             <button class="nav-item active" data-route="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1Z"/></svg><span>الرئيسية</span></button>
             <button class="nav-item" data-route="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2Z"/><path d="M9 8h6M9 12h6"/></svg><span>طلباتي</span></button>
-            <button class="nav-charge" data-route="charge" aria-label="شحن الرصيد"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg></button>
-            <button class="nav-item" data-route="deposits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16a2 2 0 0 1 2 2v10H2V9a2 2 0 0 1 2-2Z"/><path d="M4 7V5a2 2 0 0 1 2-2h12M2 12h20M16 15h3"/></svg><span>الإيداعات</span></button>
+            
+            <!-- الزر العائم في المنتصف -->
+            <div class="nav-charge-fab" data-route="charge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            
+            <!-- أزرار فارغة للتوازن في الـ Grid -->
+            <button class="nav-item" style="visibility: hidden;"></button>
+            
             <button class="nav-item" data-route="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>حسابي</span></button>
         </nav>
     </div>

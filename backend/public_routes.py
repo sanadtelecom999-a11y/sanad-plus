@@ -190,37 +190,28 @@ def kyc_status():
 def kyc_submit():
     try:
         user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
-        if not user:
-            user = User(telegram_id=g.telegram_id, first_name=g.telegram_user.get('first_name', 'مستخدم'), balance=Decimal('0.0000'))
-            db.session.add(user)
-            db.session.commit()
+        if not user: return jsonify({"error": "User not found"}), 404
         
         full_name = request.form.get('full_name')
         phone = request.form.get('phone')
-        governorate = request.form.get('governorate')
-        region = request.form.get('region')
+        governorate = request.form.get('governorate', '')
+        region = request.form.get('region', '')
+        address = f"{governorate} - {region}" if governorate else request.form.get('address', '')
         
-        # في الإنتاج، يجب رفع الصور إلى Cloudinary. هنا سنحفظها كـ Base64 مؤقتاً أو نستخدم مسار وهمي
-        id_front = request.files.get('id_front')
-        selfie = request.files.get('selfie')
+        if not full_name or not phone:
+            return jsonify({"error": "الاسم ورقم الهاتف مطلوبان"}), 400
         
-        # رفع الصور إلى Cloudinary
-        id_front_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+ID"
-        selfie_url = "https://placehold.co/400x200/101f35/FFFFFF?text=No+Selfie"
+        id_front_url = None
+        selfie_url = None
         
         if 'id_front' in request.files:
-            front_file = request.files['id_front']
-            uploaded_front = upload_image(front_file, folder="sanad_kyc", is_kyc=True)
-            if uploaded_front: id_front_url = uploaded_front
+            file = request.files['id_front']
+            id_front_url = upload_image(file, folder="sanad_kyc", is_kyc=True)
 
         if 'selfie' in request.files:
-            selfie_file = request.files['selfie']
-            uploaded_selfie = upload_image(selfie_file, folder="sanad_kyc", is_kyc=True)
-            if uploaded_selfie: selfie_url = uploaded_selfie
+            file = request.files['selfie']
+            selfie_url = upload_image(file, folder="sanad_kyc", is_kyc=True)
         
-        from sqlalchemy import text
-        from app.models import KYCRequest
-        # نستخدم الجدول الحقيقي KYCRequest
         kyc = db.session.query(KYCRequest).filter_by(user_id=user.id).first()
         if not kyc:
             kyc = KYCRequest(user_id=user.id)
@@ -228,18 +219,19 @@ def kyc_submit():
             
         kyc.full_name = full_name
         kyc.phone = phone
-        kyc.address = f"{governorate} - {region}"
-        kyc.selfie_image = selfie_url # سنستخدم هذا الحقل للصورة
+        kyc.address = address
+        if id_front_url: 
+            if hasattr(kyc, 'id_image'): kyc.id_image = id_front_url
+            else: kyc.id_front_image = id_front_url
+        if selfie_url: kyc.selfie_image = selfie_url
         kyc.status = 'pending'
         
         db.session.commit()
-        
         return jsonify({"success": True, "message": "تم إرسال طلب التوثيق بنجاح"})
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-# --- Support Routes ---
 @public_bp.route('/support/messages', methods=['GET', 'OPTIONS'])
 @require_telegram_auth
 def get_support_messages():

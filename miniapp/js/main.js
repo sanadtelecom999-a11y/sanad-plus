@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// SANAD PLUS⁺ - Core Application (V4 - Ultimate)
+// SANAD PLUS⁺ - Core Application (V5 - Full Screen & Pro)
 // ═══════════════════════════════════════════════════════════
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
 const state = { user: null, categories: [], currentPage: 'home', currency: 'USD', exchangeRate: 130, paymentMethods: [] };
@@ -30,6 +30,29 @@ function showToast(msg) {
     setTimeout(() => t.classList.remove('show'), 3000);
 }
 
+// نظام فتح وإغلاق الشاشات الكاملة
+function openFullScreen(id, title, contentHtml) {
+    let overlay = document.getElementById(id);
+    if (overlay) overlay.remove(); // إزالة أي نسخة قديمة
+    
+    overlay = document.createElement('div');
+    overlay.id = id;
+    overlay.className = 'full-overlay';
+    overlay.innerHTML = `
+        <div class="full-header">
+            <button class="close-btn" onclick="document.getElementById('${id}').remove()">×</button>
+            <h2 style="margin:0; font-size:18px;">${title}</h2>
+            <div style="width:36px;"></div> <!-- للتوازن -->
+        </div>
+        <div style="padding: 20px; overflow-y: auto; flex: 1;">
+            ${contentHtml}
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('open'), 10);
+}
+
+// الهيدر الموحد
 function getHeaderHTML() {
     return `
     <header class="top-header">
@@ -38,7 +61,7 @@ function getHeaderHTML() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
             ${formatMoney(state.user?.balance)}
         </div>
-        <button class="icon-btn-chat" onclick="window.openChat()">
+        <button class="icon-btn-chat" onclick="openChat()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         </button>
     </header>`;
@@ -46,38 +69,39 @@ function getHeaderHTML() {
 
 function showPage(route) {
     state.currentPage = route;
-    document.querySelectorAll('.nav-item, .nav-charge').forEach(btn => btn.classList.toggle('active', btn.dataset.route === route));
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.route === route));
     const app = document.getElementById('app-content');
     if (route === 'home') renderHome(app);
     else if (route === 'account') renderAccount(app);
     else if (route === 'orders') renderOrders(app);
-    else if (route === 'deposits') renderDeposits(app);
     else if (route === 'charge') renderCharge(app);
 }
 
-// ── الصفحات ──
+// ── الصفحات الأساسية ──
 
 async function renderHome(container) {
     container.innerHTML = `
         <section class="page active" style="padding-top: 0;">
-            <!-- الهيدر الجديد للرئيسية -->
             <div class="home-header">
-                <div class="welcome-text">أهلًا، <span>${escapeHtml(state.user?.first_name || 'عميلنا')}</span> 👋</div>
-                <div class="mini-balance-card" data-route="charge">
-                    <span class="mini-balance-label">الرصيد الحالي</span>
-                    <span class="mini-balance-value">${formatMoney(state.user?.balance)}</span>
+                <div class="home-top-row">
+                    <div class="welcome-text">أهلًا، <span>${escapeHtml(state.user?.first_name || 'عميلنا')}</span> 👋</div>
+                    <div class="header-actions">
+                        <button class="icon-btn-chat" onclick="openChat()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="balance-card-new" data-route="charge">
+                    <div>
+                        <span class="bal-label">رصيدك الحالي</span>
+                        <div class="bal-value">${formatMoney(state.user?.balance)}</div>
+                    </div>
+                    <button class="small-action">شحن +</button>
                 </div>
             </div>
             
-            <div class="search-bar-container" style="padding:0 20px 15px;">
-                <div style="background:var(--surface); padding:12px; border-radius:12px; border:1px solid var(--border); color:var(--muted); font-size:13px; display:flex; align-items:center; gap:10px;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    ابحث عن خدمة...
-                </div>
-            </div>
-
-            <div class="section-heading" style="padding:0 20px;"><h2>اكتشف خدماتنا</h2></div>
-            <section class="categories" id="home-categories" style="padding:0 20px;"><div style="text-align:center;padding:20px;color:var(--muted)">جاري التحميل...</div></section>
+            <div class="section-heading" style="padding: 0 20px;"><h2>اكتشف خدماتنا</h2></div>
+            <section class="categories" id="home-categories"><div style="text-align:center;padding:20px;color:var(--muted); grid-column:1/-1;">جاري التحميل...</div></section>
         </section>
     `;
 
@@ -87,114 +111,40 @@ async function renderHome(container) {
         if (cats && cats.length > 0) {
             catContainer.innerHTML = cats.map(cat => `
                 <button class="category" data-cat-id="${cat.id}" data-cat-name="${escapeHtml(cat.name)}">
-                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}" alt="${escapeHtml(cat.name)}">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:30px; color:var(--blue);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`}</span>
-                    <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
+                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}" alt="${escapeHtml(cat.name)}">` : `<svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>`}</span>
+                    <span><strong>${escapeHtml(cat.name)}</strong><br><small style="color:var(--muted);font-size:11px;">خدمات رقمية</small></span>
                 </button>
             `).join('');
         } else {
-            catContainer.innerHTML = '<div class="empty">لا توجد أقسام متاحة.</div>';
+            catContainer.innerHTML = '<div class="empty" style="grid-column:1/-1;">لا توجد أقسام متاحة.</div>';
         }
-    } catch (e) { document.getElementById('home-categories').innerHTML = '<div class="empty" style="color:red;">تعذر تحميل الأقسام</div>'; }
+    } catch (e) { document.getElementById('home-categories').innerHTML = '<div class="empty" style="grid-column:1/-1;color:red;">تعذر تحميل الأقسام</div>'; }
 }
 
-// شاشة المنتجات (شاشة كاملة)
-window.openCategory = async function(catId, catName) {
-    showToast('جاري جلب المنتجات...');
+async function renderOrders(container) {
+    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top: 0;"><h1 class="page-title" style="padding:0 20px;">طلباتي</h1><div class="list" id="orders-list" style="padding:0 20px;">جاري التحميل...</div></section>`;
     try {
-        const products = await apiFetch(`/api/products/?category_id=${catId}`);
-        const overlay = document.createElement('div');
-        overlay.className = 'full-overlay open';
-        overlay.id = 'category-overlay';
-        overlay.innerHTML = `
-            <div class="full-header">
-                <h2 style="margin:0;">${catName}</h2>
-                <button class="close-btn" onclick="document.getElementById('category-overlay').remove()">×</button>
-            </div>
-            <div style="padding: 20px; overflow-y:auto; flex:1;">
-                <div class="product-grid">
-                    ${products.length ? products.map(p => `
-                        <div class="product-card" data-p-id="${p.id}" data-p-name="${escapeHtml(p.name)}" data-p-price="${p.price}" data-p-image="${escapeHtml(p.image)}">
-                            <img src="${escapeHtml(p.image || 'https://placehold.co/100')}">
-                            <strong style="display:block; font-size:13px; margin-bottom:5px;">${escapeHtml(p.name)}</strong>
-                            <span style="color:var(--blue); font-weight:bold;">${formatMoney(p.price)}</span>
-                        </div>
-                    `).join('') : '<p>لا توجد منتجات.</p>'}
-                </div>
-            </div>
-        `;
-        document.body.appendChild(overlay);
-    } catch(e) { showToast('خطأ في جلب المنتجات'); }
-};
+        const res = await apiFetch('/api/orders/');
+        const list = document.getElementById('orders-list');
+        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد طلبات.</div>'; return; }
+        const getBadge = (s) => { const map = { completed: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger' }; const label = { completed: 'مكتمل', pending: 'معلق', rejected: 'مرفوض' }; return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`; };
+        list.innerHTML = res.items.map(o => `<div class="list-item"><span class="item-main"><span class="item-title">${escapeHtml(o.product_name)}</span><span class="item-desc">${escapeHtml(o.order_number)}</span><span class="item-meta">${getBadge(o.status)} <strong>${formatMoney(o.amount)}</strong></span></span></div>`).join('');
+    } catch (e) { document.getElementById('orders-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
+}
 
-// شاشة تفاصيل المنتج (تتطلب آيدي)
-window.openProduct = function(id, name, price, image) {
-    const overlay = document.createElement('div');
-    overlay.className = 'full-overlay open';
-    overlay.id = 'product-overlay';
-    
-    // تحديد النص الإرشادي لحقل الآيدي
-    let idLabel = "أدخل آيدي الحساب / اللعبة";
-    let idPlaceholder = "مثال: 512345678";
-    if (name.toLowerCase().includes('pubg') || name.toLowerCase().includes('ببجي')) idLabel = "أدخل آيدي ببجي (Player ID)";
-    else if (name.toLowerCase().includes('free fire')) idLabel = "أدخل آيدي فري فاير";
-    else if (name.toLowerCase().includes('whatsapp') || name.toLowerCase().includes('تلجرام')) idLabel = "أدخل رقم الهاتف";
-
-    overlay.innerHTML = `
-        <div class="full-header">
-            <h2 style="margin:0;">تفاصيل المنتج</h2>
-            <button class="close-btn" onclick="document.getElementById('product-overlay').remove()">×</button>
-        </div>
-        <div style="padding: 20px; text-align:center; overflow-y:auto; flex:1;">
-            <img src="${escapeHtml(image || 'https://placehold.co/100')}" style="width:120px; height:120px; border-radius:24px; object-fit:cover; margin-bottom:20px;">
-            <h2 style="margin:0 0 10px;">${escapeHtml(name)}</h2>
-            <p style="font-size:24px; color:var(--blue); font-weight:bold; margin-bottom:30px;">${formatMoney(price)}</p>
-            
-            <div style="text-align:right; margin-bottom:20px;">
-                <label style="font-size:13px; color:var(--muted); margin-bottom:8px; display:block;">${idLabel}</label>
-                <input type="text" id="product-id-input" placeholder="${idPlaceholder}" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:14px; border-radius:12px; color:white; outline:none; font-family:inherit; font-size:16px; text-align:center;">
-                <span style="font-size:11px; color:var(--danger); margin-top:5px; display:block;">* تأكد من الآيدي، لا يمكن استرجاع المبلغ بعد الشحن.</span>
-            </div>
-
-            <button class="primary-btn full" onclick="buyProduct(${id})">تأكيد الشراء</button>
-            <button class="secondary-btn full" style="margin-top:10px;" onclick="document.getElementById('product-overlay').remove()">إلغاء</button>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-};
-
-window.buyProduct = async function(id) {
-    const idInput = document.getElementById('product-id-input');
-    const customerNote = idInput ? idInput.value.trim() : '';
-    
-    if (idInput && !customerNote) {
-        return showToast('يرجى إدخال الآيدي أولاً!');
-    }
-
-    try {
-        await apiFetch('/api/orders/create', { method: 'POST', body: JSON.stringify({ product_id: id, quantity: 1, customer_note: customerNote }) });
-        showToast('تم إنشاء الطلب بنجاح!');
-        document.querySelectorAll('.full-overlay').forEach(e => e.remove());
-        state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
-        showPage('orders');
-    } catch(e) { showToast(e.message); }
-};
-
-// شحن الرصيد وطرق الدفع
 async function renderCharge(container) {
     container.innerHTML = `
         ${getHeaderHTML()}
         <section class="page active" style="padding-top: 0;">
-            <div class="full-header" style="background:none; border:none;">
-                <h1 class="page-title" style="margin:0;">شحن الرصيد</h1>
+            <h1 class="page-title" style="padding:0 20px;">شحن الرصيد</h1>
+            <p class="page-subtitle" style="padding:0 20px;">اختر طريقة الدفع المناسبة.</p>
+            
+            <div class="payment-scroll" id="payment-methods-list" style="padding:0 20px;">
+                <div style="color:var(--muted);">جاري تحميل طرق الدفع...</div>
             </div>
-            <div style="padding: 0 20px;">
-                <p class="page-subtitle">اختر طريقة الدفع المناسبة لك.</p>
-                
-                <div class="payment-scroll" id="payment-methods-list">
-                    <div style="color:var(--muted);">جاري تحميل طرق الدفع...</div>
-                </div>
 
-                <div id="payment-form-container" style="display:none; background:var(--surface); padding:20px; border-radius:20px; border:1px solid var(--border);">
+            <div id="payment-form-container" style="display:none; padding: 0 20px;">
+                <div style="background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:20px;">
                     <h3 class="panel-title" style="margin-top:0;">تفاصيل التحويل</h3>
                     <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
                         <p style="margin:0 0 8px; font-size:12px; color:var(--muted);">حول المبلغ إلى:</p>
@@ -206,16 +156,13 @@ async function renderCharge(container) {
                     </div>
 
                     <form id="charge-form">
-                        <label class="input-label">المبلغ المحول (ل.س أو $)</label>
-                        <input type="number" id="charge-amount" class="field" placeholder="مثال: 50" required>
-                        
+                        <label class="input-label">المبلغ المحول</label>
+                        <input type="number" id="charge-amount" class="field" required>
                         <label class="input-label">رقم عملية التحويل</label>
-                        <input type="text" id="charge-reference" class="field" placeholder="أدخل رقم العملية" required>
-                        
-                        <label class="input-label">صورة إيصال التحويل</label>
+                        <input type="text" id="charge-reference" class="field" required>
+                        <label class="input-label">صورة الإيصال</label>
                         <input type="file" id="charge-receipt" class="field" accept="image/*" required>
-                        
-                        <button type="submit" id="submit-charge-btn" class="primary-btn full" style="margin-top:16px;">تأكيد طلب الشحن ←</button>
+                        <button type="submit" class="primary-btn full" style="margin-top:16px;">تأكيد الشحن</button>
                     </form>
                 </div>
             </div>
@@ -226,18 +173,16 @@ async function renderCharge(container) {
         state.paymentMethods = await apiFetch('/api/payment-methods/');
         const list = document.getElementById('payment-methods-list');
         if (!state.paymentMethods || state.paymentMethods.length === 0) {
-            list.innerHTML = '<div class="empty">لا توجد طرق دفع متاحة حالياً.</div>';
-            return;
+            list.innerHTML = '<div class="empty">لا توجد طرق دفع متاحة.</div>'; return;
         }
 
         list.innerHTML = state.paymentMethods.map(pm => `
-            <div class="payment-card" data-pm-id="${pm.id}" data-pm-name="${escapeHtml(pm.name)}" data-pm-account="${escapeHtml(pm.account)}">
-                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(pm.name)}&background=random&color=fff&size=100" alt="${escapeHtml(pm.name)}">
+            <div class="payment-card" data-pm-name="${escapeHtml(pm.name)}" data-pm-account="${escapeHtml(pm.account)}">
+                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(pm.name)}&background=random&color=fff&size=100">
                 <span>${escapeHtml(pm.name)}</span>
             </div>
         `).join('');
 
-        // إضافة حدث النقر لاختيار طريقة الدفع
         list.querySelectorAll('.payment-card').forEach(card => {
             card.onclick = () => {
                 list.querySelectorAll('.payment-card').forEach(c => c.classList.remove('active'));
@@ -248,36 +193,21 @@ async function renderCharge(container) {
             };
         });
 
-        // تفعيل النموذج
         document.getElementById('charge-form').onsubmit = async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('submit-charge-btn');
-            btn.disabled = true; btn.textContent = 'جاري الإرسال...';
-
+            const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'جاري الإرسال...';
             const fd = new FormData();
             fd.append('amount', document.getElementById('charge-amount').value);
             fd.append('reference', document.getElementById('charge-reference').value);
             fd.append('receipt', document.getElementById('charge-receipt').files[0]);
-
             try {
                 await apiFetch('/api/deposits/create', { method: 'POST', body: fd });
-                showToast('تم إرسال الطلب بنجاح!');
-                showPage('deposits');
-            } catch (err) {
-                showToast('خطأ: ' + err.message);
-                btn.disabled = false; btn.textContent = 'تأكيد طلب الشحن ←';
-            }
+                showToast('تم إرسال الطلب!'); showPage('home');
+            } catch (err) { showToast('خطأ: ' + err.message); btn.disabled = false; btn.textContent = 'تأكيد الشحن'; }
         };
-
     } catch(e) { document.getElementById('payment-methods-list').innerHTML = 'تعذر جلب طرق الدفع'; }
 }
 
-window.copyPaymentAccount = function() {
-    const acc = document.getElementById('selected-pm-account').textContent;
-    if(acc && acc !== '-') { navigator.clipboard.writeText(acc); showToast('تم نسخ الرقم!'); }
-};
-
-// باقي الصفحات (حسابي، طلباتي، إيداعاتي)
 async function renderAccount(container) {
     container.innerHTML = `
         ${getHeaderHTML()}
@@ -318,53 +248,88 @@ async function renderAccount(container) {
 
             <h2 class="extra-title">الخدمات الأساسية</h2>
             <section class="service-list">
-                <button class="service-row" data-action="kyc"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span><span><span class="service-title">توثيق الحساب</span><span class="service-desc">${state.user?.is_verified ? 'حسابك موثق' : 'رفع الهوية'}</span></span></button>
-                <button class="service-row" data-action="ledger"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span><span><span class="service-title">السجل المالي</span></span></button>
-                <button class="service-row" onclick="window.openChat()"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span><span><span class="service-title">الدعم الفني</span></span></button>
+                <button class="service-row" onclick="openKYC()"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span><span><span class="service-title">توثيق الحساب</span></span></button>
+                <button class="service-row" onclick="openLedger()"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span><span><span class="service-title">السجل المالي</span></span></button>
+                <button class="service-row" onclick="openChat()"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span><span><span class="service-title">الدعم الفني</span></span></button>
+            </section>
+
+            <h2 class="extra-title">الخدمات الإضافية</h2>
+            <section class="extra-list">
+                <button class="extra-row" onclick="openInfo('الإحالة', 'رابط الإحالة الخاص بك: sanad.plus/ref/${escapeHtml(state.user?.sanad_id)}')"><span class="icon-tile">🔗</span><span><span class="service-title">الإحالة</span></span></button>
+                <button class="extra-row" onclick="openInfo('الإشعارات', 'لا توجد إشعارات جديدة حالياً.')"><span class="icon-tile">🔔</span><span><span class="service-title">الإشعارات</span></span></button>
+                <button class="extra-row" onclick="openInfo('الأمان والخصوصية', 'حسابك محمي بتشفير تيليجرام. لا تشارك معرف SANAD ID الخاص بك مع أي شخص.')"><span class="icon-tile">🛡️</span><span><span class="service-title">الأمان والخصوصية</span></span></button>
+                <button class="extra-row" onclick="openInfo('مركز المساعدة', 'للاستفسارات، يرجى استخدام زر الدعم الفني.')"><span class="icon-tile">❓</span><span><span class="service-title">مركز المساعدة</span></span></button>
             </section>
         </section>
     `;
 }
 
-async function renderOrders(container) {
-    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top: 0;"><h1 class="page-title">طلباتي</h1><div class="list" id="orders-list">جاري التحميل...</div></section>`;
+// ── الشاشات الكاملة (Full Screens) ──
+
+window.openCategory = async function(catId, catName) {
+    showToast('جاري جلب المنتجات...');
     try {
-        const res = await apiFetch('/api/orders/');
-        const list = document.getElementById('orders-list');
-        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد طلبات.</div>'; return; }
-        const getBadge = (s) => { const map = { completed: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger' }; const label = { completed: 'مكتمل', pending: 'معلق', rejected: 'مرفوض' }; return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`; };
-        list.innerHTML = res.items.map(o => `<div class="list-item"><span class="item-main"><span class="item-title">${escapeHtml(o.product_name)}</span><span class="item-desc">${escapeHtml(o.order_number)}</span><span class="item-meta">${getBadge(o.status)} <strong>${formatMoney(o.amount)}</strong></span></span></div>`).join('');
-    } catch (e) { document.getElementById('orders-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
-}
+        const products = await apiFetch(`/api/products/?category_id=${catId}`);
+        const html = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                ${products.length ? products.map(p => `
+                    <div class="product-card" onclick="openProduct(${p.id}, '${escapeHtml(p.name)}', ${p.price}, '${escapeHtml(p.image)}')">
+                        <img src="${escapeHtml(p.image || 'https://placehold.co/100')}" style="width:60px; height:60px; border-radius:12px; margin-bottom:10px;">
+                        <strong style="display:block; font-size:13px; margin-bottom:5px;">${escapeHtml(p.name)}</strong>
+                        <span style="color:var(--blue); font-weight:bold;">${formatMoney(p.price)}</span>
+                    </div>
+                `).join('') : '<p>لا توجد منتجات.</p>'}
+            </div>
+        `;
+        openFullScreen('category-screen', catName, html);
+    } catch(e) { showToast('خطأ في جلب المنتجات'); }
+};
 
-async function renderDeposits(container) {
-    container.innerHTML = `${getHeaderHTML()}<section class="page active" style="padding-top: 0;"><h1 class="page-title">الإيداعات</h1><div class="list" id="dep-list">جاري التحميل...</div></section>`;
-    try {
-        const res = await apiFetch('/api/deposits/');
-        const list = document.getElementById('dep-list');
-        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد إيداعات.</div>'; return; }
-        list.innerHTML = res.items.map(d => `<div class="list-item"><span class="item-main"><span class="item-title">${escapeHtml(d.reference || 'إيداع')}</span><span class="item-meta"><strong>${formatMoney(d.amount)}</strong></span></span></div>`).join('');
-    } catch (e) { document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:var(--danger);text-align:center;"><p>تعذر جلب الإيداعات.</p><button onclick="showPage('deposits')" class="primary-btn" style="margin-top:10px;">إعادة المحاولة 🔄</button></div>`; }
-}
+window.openProduct = function(id, name, price, image) {
+    let idLabel = "أدخل آيدي الحساب / اللعبة";
+    if (name.toLowerCase().includes('pubg') || name.toLowerCase().includes('ببجي')) idLabel = "أدخل آيدي ببجي (Player ID)";
+    
+    const html = `
+        <div style="text-align:center;">
+            <img src="${escapeHtml(image || 'https://placehold.co/100')}" style="width:120px; height:120px; border-radius:24px; object-fit:cover; margin-bottom:20px;">
+            <h2 style="margin:0 0 10px;">${escapeHtml(name)}</h2>
+            <p style="font-size:24px; color:var(--blue); font-weight:bold; margin-bottom:30px;">${formatMoney(price)}</p>
+            
+            <div style="text-align:right; margin-bottom:20px;">
+                <label style="font-size:13px; color:var(--muted); margin-bottom:8px; display:block;">${idLabel}</label>
+                <input type="text" id="product-id-input" placeholder="مثال: 512345678" style="width:100%; background:var(--surface); border:1px solid var(--border); padding:14px; border-radius:12px; color:white; outline:none; font-family:inherit; font-size:16px; text-align:center;">
+                <span style="font-size:11px; color:var(--danger); margin-top:5px; display:block;">* تأكد من الآيدي، لا يمكن استرجاع المبلغ بعد الشحن.</span>
+            </div>
 
-// ── الدوال المساعدة (Chat, KYC, Ledger, Currency) ──
-window.toggleCurrency = function(isSYP) { state.currency = isSYP ? 'SYP' : 'USD'; showPage('account'); showToast(isSYP ? 'تم التحويل لليرة' : 'تم التحويل للدولار'); };
-
-window.openChat = async function() {
-    const overlay = document.createElement('div');
-    overlay.className = 'chat-overlay open'; overlay.id = 'chat-overlay';
-    overlay.innerHTML = `
-        <div class="chat-header">
-            <button onclick="document.getElementById('chat-overlay').remove()" style="background:none;border:none;color:white;font-size:24px;">×</button>
-            <h2 style="margin:0; font-size:16px;">الدعم الفني</h2>
-        </div>
-        <div class="chat-messages" id="chat-msgs">جاري التحميل...</div>
-        <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="اكتب رسالتك...">
-            <button class="primary-btn" onclick="window.sendChat()">إرسال</button>
+            <button class="primary-btn full" onclick="buyProduct(${id})">تأكيد الشراء</button>
         </div>
     `;
-    document.body.appendChild(overlay);
+    openFullScreen('product-screen', 'تفاصيل المنتج', html);
+};
+
+window.buyProduct = async function(id) {
+    const idInput = document.getElementById('product-id-input');
+    const customerNote = idInput ? idInput.value.trim() : '';
+    if (idInput && !customerNote) return showToast('يرجى إدخال الآيدي أولاً!');
+
+    try {
+        await apiFetch('/api/orders/create', { method: 'POST', body: JSON.stringify({ product_id: id, quantity: 1, customer_note: customerNote }) });
+        showToast('تم إنشاء الطلب بنجاح!');
+        document.querySelectorAll('.full-overlay').forEach(e => e.remove());
+        state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
+        showPage('orders');
+    } catch(e) { showToast(e.message); }
+};
+
+window.openChat = async function() {
+    const html = `
+        <div class="chat-messages" id="chat-msgs" style="height: 60vh; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">جاري التحميل...</div>
+        <div class="chat-input-area" style="margin-top:20px; display:flex; gap:10px;">
+            <input type="text" id="chat-input" placeholder="اكتب رسالتك..." style="flex:1; padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--surface); color:white;">
+            <button class="primary-btn" onclick="sendChat()">إرسال</button>
+        </div>
+    `;
+    openFullScreen('chat-screen', 'الدعم الفني', html);
     loadChatMessages();
 };
 
@@ -389,12 +354,17 @@ window.openLedger = async function() {
     showToast('جاري تحميل السجل...');
     try {
         const records = await apiFetch('/api/ledger');
-        const overlay = document.createElement('div'); overlay.className = 'bottom-sheet-overlay open';
-        overlay.innerHTML = `<div class="bottom-sheet" style="height: 70vh; overflow-y: auto;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="margin:0;">السجل المالي</h2><button onclick="this.closest('.bottom-sheet-overlay').remove()" style="background:none; border:none; color:white; font-size:24px;">×</button></div>
-            <div class="list">${records.length ? records.map(r => `<div class="list-item"><span class="item-main"><span class="item-title">${escapeHtml(r.desc || r.type)}</span><span class="item-desc">${new Date(r.date).toLocaleString('ar-EG')}</span></span><div style="text-align:left;"><strong style="color:${r.amount > 0 ? 'var(--success)' : 'var(--danger)'}; font-family:monospace; font-size:15px;">${r.amount > 0 ? '+' : ''}${r.amount.toFixed(2)}</strong></div></div>`).join('') : '<div class="empty">لا توجد حركات مالية.</div>'}</div>
-        </div>`;
-        document.body.appendChild(overlay);
+        const html = `
+            <div class="list">
+                ${records.length ? records.map(r => `
+                    <div class="list-item">
+                        <span class="item-main"><span class="item-title">${escapeHtml(r.desc || r.type)}</span><span class="item-desc">${new Date(r.date).toLocaleString('ar-EG')}</span></span>
+                        <div style="text-align:left;"><strong style="color:${r.amount > 0 ? 'var(--success)' : 'var(--danger)'}; font-family:monospace; font-size:15px;">${r.amount > 0 ? '+' : ''}${r.amount.toFixed(2)}</strong></div>
+                    </div>
+                `).join('') : '<div class="empty">لا توجد حركات مالية.</div>'}
+            </div>
+        `;
+        openFullScreen('ledger-screen', 'السجل المالي', html);
     } catch(e) { showToast('تعذر جلب السجل'); }
 };
 
@@ -402,33 +372,73 @@ window.openKYC = async function() {
     showToast('جاري التحقق...');
     try {
         const res = await apiFetch('/api/kyc/status');
-        const overlay = document.createElement('div'); overlay.className = 'bottom-sheet-overlay open';
         let content = '';
         if (res.status === 'approved') content = `<div style="text-align:center; padding:20px;"><h3 style="color:var(--success);">حسابك موثق بالفعل ✅</h3></div>`;
         else if (res.status === 'pending') content = `<div style="text-align:center; padding:20px;"><h3 style="color:var(--warning);">طلبك قيد المراجعة ⏳</h3></div>`;
-        else content = `<form id="kyc-form" style="display:flex; flex-direction:column; gap:12px;">
-                    <p style="font-size:12px; color:var(--muted);">يرجى إدخال بياناتك الحقيقية.</p>
-                    <div><label style="font-size:12px; color:var(--muted);">الاسم الكامل</label><input type="text" id="kyc-name" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
-                    <div><label style="font-size:12px; color:var(--muted);">رقم الهاتف</label><input type="tel" id="kyc-phone" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
-                    <div><label style="font-size:12px; color:var(--muted);">العنوان</label><input type="text" id="kyc-address" required style="width:100%; background:var(--bg); border:1px solid var(--border); padding:10px; border-radius:8px; color:white;"></div>
-                    <div><label style="font-size:12px; color:var(--muted);">صورة الهوية</label><input type="file" id="kyc-id" required accept="image/*" style="width:100%; color:white;"></div>
-                    <div><label style="font-size:12px; color:var(--muted);">صورة سيلفي</label><input type="file" id="kyc-selfie" required accept="image/*" style="width:100%; color:white;"></div>
-                    <button type="submit" class="primary-btn full" style="margin-top:10px;">إرسال الطلب</button></form>`;
+        else {
+            const govs = ['دمشق','ريف دمشق','حلب','حمص','حماة','اللاذقية','طرطوس','إدلب','دير الزور','الرقة','الحسكة','درعا','السويداء','القنيطرة'];
+            content = `
+                <form id="kyc-form" style="display:flex; flex-direction:column; gap:15px;">
+                    <div><label class="input-label">الاسم الكامل</label><input type="text" id="kyc-name" required class="field"></div>
+                    <div><label class="input-label">رقم الجوال</label><input type="tel" id="kyc-phone" required class="field"></div>
+                    <div><label class="input-label">المحافظة</label>
+                        <select id="kyc-gov" required class="field">
+                            <option value="">اختر المحافظة</option>
+                            ${govs.map(g => `<option value="${g}">${g}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div><label class="input-label">المنطقة</label><input type="text" id="kyc-region" required class="field"></div>
+                    
+                    <div>
+                        <label class="input-label">صورة الوجه الأمامي للهوية</label>
+                        <div class="kyc-upload-box">
+                            <input type="file" id="kyc-id" required accept="image/*" onchange="this.nextElementSibling.textContent = this.files[0].name">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            <span>اضغط لرفع الصورة</span>
+                            <small>يرجى رفع صورة واضحة للهوية</small>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="input-label">صورة سيلفي مع الهوية</label>
+                        <div class="kyc-upload-box">
+                            <input type="file" id="kyc-selfie" required accept="image/*" onchange="this.nextElementSibling.textContent = this.files[0].name">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+                            <span>اضغط لرفع الصورة</span>
+                            <small>ارفع صورة سيلفي وأنت تحمل الهوية</small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="primary-btn full" style="margin-top:10px;">إرسال الطلب</button>
+                </form>`;
+        }
+        openFullScreen('kyc-screen', 'توثيق الحساب', content);
         
-        overlay.innerHTML = `<div class="bottom-sheet" style="height: 70vh; overflow-y: auto;">
-            <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h2 style="margin:0;">توثيق الحساب</h2><button onclick="this.closest('.bottom-sheet-overlay').remove()" style="background:none; border:none; color:white; font-size:24px;">×</button></div>
-            ${content}
-        </div>`;
-        document.body.appendChild(overlay);
         if (res.status !== 'approved' && res.status !== 'pending') {
             document.getElementById('kyc-form').onsubmit = async (e) => {
                 e.preventDefault(); const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'جاري الإرسال...';
-                const fd = new FormData(); fd.append('full_name', document.getElementById('kyc-name').value); fd.append('phone', document.getElementById('kyc-phone').value); fd.append('address', document.getElementById('kyc-address').value); fd.append('id_front', document.getElementById('kyc-id').files[0]); fd.append('selfie', document.getElementById('kyc-selfie').files[0]);
-                try { await apiFetch('/api/kyc/submit', { method: 'POST', body: fd }); showToast('تم إرسال الطلب!'); overlay.remove(); } 
+                const fd = new FormData(); 
+                fd.append('full_name', document.getElementById('kyc-name').value); 
+                fd.append('phone', document.getElementById('kyc-phone').value); 
+                fd.append('governorate', document.getElementById('kyc-gov').value); 
+                fd.append('region', document.getElementById('kyc-region').value); 
+                fd.append('id_front', document.getElementById('kyc-id').files[0]); 
+                fd.append('selfie', document.getElementById('kyc-selfie').files[0]);
+                try { await apiFetch('/api/kyc/submit', { method: 'POST', body: fd }); showToast('تم إرسال الطلب!'); document.getElementById('kyc-screen').remove(); } 
                 catch(e) { alert('فشل: ' + e.message); btn.disabled = false; btn.textContent = 'إرسال الطلب'; }
             };
         }
     } catch(e) { showToast('تعذر جلب حالة التوثيق'); }
+};
+
+window.openInfo = function(title, text) {
+    const html = `<div style="padding:20px; text-align:center;"><p style="font-size:16px; line-height:1.6;">${text}</p></div>`;
+    openFullScreen('info-screen', title, html);
+};
+
+window.copyPaymentAccount = function() {
+    const acc = document.getElementById('selected-pm-account').textContent;
+    if(acc && acc !== '-') { navigator.clipboard.writeText(acc); showToast('تم نسخ الرقم!'); }
 };
 
 // ── التهيئة ──
@@ -439,14 +449,8 @@ async function initApp() {
         const routeBtn = e.target.closest('[data-route]');
         if (routeBtn) { e.preventDefault(); showPage(routeBtn.dataset.route); return; }
         
-        const actionBtn = e.target.closest('[data-action]');
-        if (actionBtn) { const action = actionBtn.dataset.action; if (action === 'ledger') window.openLedger(); if (action === 'kyc') window.openKYC(); return; }
-        
         const catBtn = e.target.closest('.category');
         if (catBtn) { window.openCategory(catBtn.dataset.catId, catBtn.dataset.catName); return; }
-        
-        const prodBtn = e.target.closest('.product-card');
-        if (prodBtn) { window.openProduct(prodBtn.dataset.pId, prodBtn.dataset.pName, prodBtn.dataset.pPrice, prodBtn.dataset.pImage); return; }
     });
 
     try {
