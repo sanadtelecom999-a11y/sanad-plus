@@ -50,10 +50,10 @@
   <main id="page-orders" class="page">
     <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">طلباتي</h1>
     <div class="tabs">
-      <button class="tab-btn active" onclick="window.filterList('orders', 'all', this)">الكل</button>
-      <button class="tab-btn" onclick="window.filterList('orders', 'pending', this)">قيد التنفيذ</button>
-      <button class="tab-btn" onclick="window.filterList('orders', 'completed', this)">مكتمل</button>
-      <button class="tab-btn" onclick="window.filterList('orders', 'rejected', this)">مرفوض</button>
+      <button class="tab-btn active" data-page="orders" data-filter="all">الكل</button>
+      <button class="tab-btn" data-page="orders" data-filter="pending">قيد التنفيذ</button>
+      <button class="tab-btn" data-page="orders" data-filter="completed">مكتمل</button>
+      <button class="tab-btn" data-page="orders" data-filter="rejected">مرفوض</button>
     </div>
     <div id="orders-list" class="card">جاري التحميل...</div>
   </main>
@@ -61,10 +61,10 @@
   <main id="page-deposits" class="page">
     <h1 style="font-size:20px; font-weight:800; margin-bottom:20px;">الإيداعات</h1>
     <div class="tabs">
-      <button class="tab-btn active" onclick="window.filterList('deposits', 'all', this)">الكل</button>
-      <button class="tab-btn" onclick="window.filterList('deposits', 'pending', this)">معلقة</button>
-      <button class="tab-btn" onclick="window.filterList('deposits', 'completed', this)">مكتملة</button>
-      <button class="tab-btn" onclick="window.filterList('deposits', 'rejected', this)">مرفوضة</button>
+      <button class="tab-btn active" data-page="deposits" data-filter="all">الكل</button>
+      <button class="tab-btn" data-page="deposits" data-filter="pending">معلقة</button>
+      <button class="tab-btn" data-page="deposits" data-filter="completed">مكتملة</button>
+      <button class="tab-btn" data-page="deposits" data-filter="rejected">مرفوضة</button>
     </div>
     <div id="deposits-list" class="card">جاري التحميل...</div>
   </main>
@@ -104,7 +104,7 @@
     </a>
   </nav>
 
-  <script type="module" src="js/main.js?v=71"></script>
+  <script type="module" src="js/main.js?v=75"></script>
 
   <!-- شاشة الحماية (تظهر إذا تم الفتح من خارج تيليجرام) -->
   <div id="telegram-warning">

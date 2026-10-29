@@ -23,7 +23,7 @@ export async function loadHomeData() {
 
   if (categories && categories.length > 0) {
     categoriesContainer.innerHTML = categories.map(cat => `
-      <div class="card" onclick="window.loadProductsByCategory(${cat.id}, '${cat.name}')" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
+      <div class="card category-item" data-id="${cat.id}" data-name="${cat.name}" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; cursor:pointer;">
         ${cat.image ? `<img src="${cat.image}" style="width:50px; height:50px; border-radius:12px; object-fit:cover; margin-bottom:8px;" />` : '<div style="width:50px; height:50px; border-radius:12px; background:#1C1D21; margin-bottom:8px;"></div>'}
         <span style="font-size:13px; font-weight:700;">${cat.name}</span>
       </div>

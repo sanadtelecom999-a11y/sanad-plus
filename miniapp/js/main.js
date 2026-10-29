@@ -1,4 +1,3 @@
-import { openLedger } from './sections/ledger.js';
 import { authenticateTelegram } from './core/api.js';
 import { loadHomeData } from './sections/home.js';
 import { loadChargePage } from './sections/charge.js';
@@ -6,6 +5,9 @@ import { loadOrders } from './sections/orders.js';
 import { loadDeposits } from './sections/deposits.js';
 import { loadAccount } from './sections/account.js';
 import './sections/products.js'; 
+import { openKYC } from './sections/kyc.js';
+import { openSupport } from './sections/support.js';
+import { openLedger } from './sections/ledger.js';
 
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -14,6 +16,11 @@ if (tg) {
   tg.setHeaderColor('#050608');
   tg.setBackgroundColor('#050608');
 }
+
+// تعريف الدوال عالمياً
+window.openKYC = openKYC;
+window.openSupport = openSupport;
+window.openLedger = openLedger;
 
 window.switchPage = function(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -31,18 +38,11 @@ window.switchPage = function(pageId) {
     else if (pageId === 'deposits') loadDeposits();
     else if (pageId === 'account') loadAccount();
   } catch (e) {
-    console.error("Error loading page data:", e);
+    console.error("Page Load Error:", e);
   }
 };
 
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', (e) => {
-    e.preventDefault();
-    const target = item.getAttribute('data-target');
-    window.switchPage(target);
-  });
-});
-
+// دالة المودال العامة
 window.showModal = function(type, data) {
   const modal = document.getElementById('app-modal');
   const title = document.getElementById('modal-title');
@@ -61,6 +61,7 @@ window.showModal = function(type, data) {
   modal.classList.add('active');
 };
 
+// دالة الفلترة
 window.filterList = function(page, filter, btnElement) {
   if (btnElement) {
     const tabs = btnElement.parentElement.querySelectorAll('.tab-btn');
@@ -70,6 +71,68 @@ window.filterList = function(page, filter, btnElement) {
   if (page === 'deposits' && typeof window.renderDeposits === 'function') window.renderDeposits(filter);
   if (page === 'orders' && typeof window.renderOrders === 'function') window.renderOrders(filter);
 };
+
+// ★★★ السحر كله هنا: مستمع النقر الشامل ★★★
+document.addEventListener('click', function(e) {
+  // 1. أزرار القائمة السفلية
+  const navItem = e.target.closest('.nav-item');
+  if (navItem) {
+    e.preventDefault();
+    const target = navItem.getAttribute('data-target');
+    if (target) window.switchPage(target);
+    return;
+  }
+
+  // 2. بطاقات التصنيفات في الرئيسية
+  const catItem = e.target.closest('.category-item');
+  if (catItem) {
+    const id = catItem.getAttribute('data-id');
+    const name = catItem.getAttribute('data-name');
+    if (id && typeof window.loadProductsByCategory === 'function') {
+      window.loadProductsByCategory(id, name);
+    }
+    return;
+  }
+
+  // 3. أزرار حسابي (توثيق، دعم، سجل مالي)
+  const actionItem = e.target.closest('[data-action]');
+  if (actionItem) {
+    const action = actionItem.getAttribute('data-action');
+    if (action === 'kyc') window.openKYC();
+    if (action === 'support') window.openSupport();
+    if (action === 'ledger') window.openLedger();
+    return;
+  }
+
+  // 4. عناصر قائمة الطلبات والإيداعات
+  const listItem = e.target.closest('.list-item');
+  if (listItem) {
+    const id = listItem.getAttribute('data-id');
+    const parentPage = listItem.closest('.page');
+    if (parentPage) {
+      if (parentPage.id === 'page-orders' && typeof window.openOrderDetails === 'function') window.openOrderDetails(id);
+      if (parentPage.id === 'page-deposits' && typeof window.openDepositDetails === 'function') window.openDepositDetails(id);
+    }
+    return;
+  }
+
+  // 5. أزرار المنتجات
+  const productItem = e.target.closest('.product-card');
+  if (productItem) {
+    const id = productItem.getAttribute('data-id');
+    if (id && typeof window.openBuyModal === 'function') window.openBuyModal(id);
+    return;
+  }
+
+  // 6. أزرار التبويبات (فلترة)
+  const tabBtn = e.target.closest('.tab-btn');
+  if (tabBtn && tabBtn.hasAttribute('data-filter')) {
+    const page = tabBtn.getAttribute('data-page');
+    const filter = tabBtn.getAttribute('data-filter');
+    window.filterList(page, filter, tabBtn);
+    return;
+  }
+});
 
 async function initApp() {
   try {
@@ -87,5 +150,3 @@ async function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
-
-window.openLedger = openLedger;
