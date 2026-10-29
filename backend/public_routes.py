@@ -6,37 +6,14 @@ import hashlib
 import json
 import os
 from urllib.parse import parse_qsl
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.extensions import db
-from app.models import User, Category
+from app.models import User, Category, PaymentMethod, Deposit, Order, Product, KYCRequest, SupportTicket, SupportMessage, FinancialLedger
+from app.telegram_auth import verify_telegram_auth
+from app.decorators import require_telegram_auth
 
 public_bp = Blueprint('public', __name__, url_prefix='/api')
 
-def verify_telegram_auth(init_data):
-    """التحقق التشفيري من أن البيانات قادمة من تيليجرام وليست مزيفة"""
-    try:
-        parsed_data = dict(parse_qsl(init_data))
-        if 'hash' not in parsed_data:
-            return False, "Missing hash"
-            
-        received_hash = parsed_data.pop('hash')
-        data_check_string = "\n".join([f"{k}={v}" for k, v in sorted(parsed_data.items())])
-        
-        bot_token = os.environ.get("BOT_TOKEN", "")
-        if not bot_token:
-            return False, "Server config error"
-
-        secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
-        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-        if calculated_hash != received_hash:
-            return False, "Invalid signature"
-            
-        return True, json.loads(parsed_data.get('user', '{}'))
-    except Exception as e:
-        return False, str(e)
-
-# 1. مسار البوت (تسجيل الدخول)
 @public_bp.route('/bot/auth', methods=['POST', 'OPTIONS'])
 def bot_auth():
     if request.method == 'OPTIONS': return jsonify({}), 200
@@ -45,7 +22,7 @@ def bot_auth():
     
     if not tg_id: return jsonify({"error": "Missing ID"}), 400
     
-    user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+    user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
     if not user:
         user = User(telegram_id=int(tg_id), first_name=data.get('first_name', 'User'), balance=0.0)
         db.session.add(user)
@@ -90,7 +67,7 @@ def miniapp_init():
     
     if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
         
-    user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+    user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
     if not user:
         return jsonify({"error": "User not found"}), 404
         
@@ -146,10 +123,9 @@ def get_payment_methods():
         return jsonify([])
 
 @public_bp.route('/deposits/create', methods=['POST'])
+@require_telegram_auth
 def create_deposit():
     try:
-        # استخدام request.form لأننا سنرسل FormData (بسبب الصورة)
-        tg_id = request.form.get('telegram_id')
         amount = float(request.form.get('amount', 0))
         reference = request.form.get('reference', '')
         
@@ -157,7 +133,7 @@ def create_deposit():
             return jsonify({"error": "بيانات غير صالحة"}), 400
             
         from app.models import User, Deposit
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
         
         # محاكاة حفظ الصورة (في الإنتاج: Cloudinary)
@@ -182,14 +158,13 @@ def create_deposit():
         return jsonify({"error": str(e)}), 500
 
 @public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
 def get_user_deposits():
     if request.method == 'OPTIONS': return jsonify({}), 200
-    tg_id = request.args.get('telegram_id')
-    if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
     
     try:
         from app.models import User, Deposit
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify([])
         
         deposits = db.session.query(Deposit).filter_by(user_id=user.id).order_by(Deposit.id.desc()).all()
@@ -206,14 +181,13 @@ def get_user_deposits():
 
 # 8. جلب طلبات المستخدم
 @public_bp.route('/orders/', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
 def get_user_orders():
     if request.method == 'OPTIONS': return jsonify({}), 200
-    tg_id = request.args.get('telegram_id')
-    if not tg_id: return jsonify({"error": "Missing telegram_id"}), 400
     
     try:
         from app.models import User, Order
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify([])
         
         orders = db.session.query(Order).filter_by(user_id=user.id).order_by(Order.id.desc()).all()
@@ -252,13 +226,13 @@ def get_products():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@public_bp.route('/kyc/status', methods=['GET'])
+@public_bp.route('/kyc/status', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
 def kyc_status():
-    tg_id = request.args.get('telegram_id')
-    if not tg_id: return jsonify({"error": "Missing ID"}), 400
+    if request.method == 'OPTIONS': return jsonify({}), 200
     try:
         from sqlalchemy import text
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify({"status": "not_found"}), 404
         
         # إنشاء جدول KYC إذا لم يكن موجوداً
@@ -280,10 +254,10 @@ def kyc_status():
         return jsonify({"error": str(e)}), 500
 
 @public_bp.route('/kyc/submit', methods=['POST'])
+@require_telegram_auth
 def kyc_submit():
     try:
-        tg_id = request.form.get('telegram_id')
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify({"error": "User not found"}), 404
         
         full_name = request.form.get('full_name')
@@ -321,13 +295,13 @@ def kyc_submit():
         return jsonify({"error": str(e)}), 500
 
 # --- Support Routes ---
-@public_bp.route('/support/messages', methods=['GET'])
+@public_bp.route('/support/messages', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
 def get_support_messages():
-    tg_id = request.args.get('telegram_id')
-    if not tg_id: return jsonify({"error": "Missing ID"}), 400
+    if request.method == 'OPTIONS': return jsonify({}), 200
     try:
         from sqlalchemy import text
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify([])
         
         from app.models import SupportTicket, SupportMessage
@@ -345,12 +319,11 @@ def get_support_messages():
 @public_bp.route('/support/send', methods=['POST'])
 def send_support_message():
     data = request.get_json(silent=True) or {}
-    tg_id = data.get('telegram_id')
     msg = data.get('message')
-    if not tg_id or not msg: return jsonify({"error": "Missing data"}), 400
+    if not msg: return jsonify({"error": "Missing data"}), 400
     try:
         from sqlalchemy import text
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify({"error": "User not found"}), 404
         
         from app.models import SupportTicket, SupportMessage
@@ -382,7 +355,6 @@ def get_faq():
 @public_bp.route('/orders/create', methods=['POST'])
 def create_order():
     data = request.get_json(silent=True) or {}
-    tg_id = data.get('telegram_id')
     product_id = data.get('product_id')
     quantity = int(data.get('quantity', 1))
     delivery_data = data.get('delivery_data', '') # بيانات اللاعب أو الحساب
@@ -441,14 +413,13 @@ def create_order():
         return jsonify({"error": str(e)}), 500
 
 @public_bp.route('/ledger', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
 def get_user_ledger():
     if request.method == 'OPTIONS': return jsonify({}), 200
-    tg_id = request.args.get('telegram_id')
-    if not tg_id: return jsonify({"error": "Missing ID"}), 400
     
     try:
         from app.models import User, FinancialLedger
-        user = db.session.query(User).filter_by(telegram_id=int(tg_id)).first()
+        user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
         if not user: return jsonify([])
         
         records = db.session.query(FinancialLedger).filter_by(user_id=user.id).order_by(FinancialLedger.created_at.desc()).all()

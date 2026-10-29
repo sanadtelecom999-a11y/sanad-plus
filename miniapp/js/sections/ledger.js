@@ -13,7 +13,7 @@ export async function openLedger() {
   body.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
 
   try {
-    const records = await safeFetch(`/api/ledger?telegram_id=${tgId}`);
+    const records = await safeFetch(`/api/ledger`);
     
     if (!records || records.length === 0) {
       body.innerHTML = `<div style="text-align:center; color:var(--text-muted); padding:30px;">لا توجد حركات مالية سابقة.</div>`;

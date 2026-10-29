@@ -79,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await safeFetch('/api/orders/create', {
           method: 'POST',
           body: JSON.stringify({
-            telegram_id: tgId,
             product_id: selectedProduct.id,
             quantity: 1,
             delivery_data: deliveryData

@@ -30,7 +30,7 @@ export async function openSupport() {
       try {
         await safeFetch('/api/support/send', {
           method: 'POST',
-          body: JSON.stringify({ telegram_id: tgId, message: msg })
+          body: JSON.stringify({ message: msg })
         });
       } catch (error) {
         console.error('Failed to send message:', error);
@@ -51,7 +51,7 @@ window.closeSupport = function() {
 
 async function loadMessages(tgId) {
   try {
-    const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
+    const msgs = await safeFetch(`/api/support/messages`);
     const container = document.getElementById('chat-messages');
     if (!container) return;
     

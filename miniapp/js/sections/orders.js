@@ -21,7 +21,7 @@ export async function loadOrders() {
   container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
   
   try {
-    const data = await safeFetch(`/api/orders/?telegram_id=${tgId}`);
+    const data = await safeFetch(`/api/orders/`);
     allOrders = Array.isArray(data) ? data : [];
     window.filterList('orders', 'all');
   } catch (e) {

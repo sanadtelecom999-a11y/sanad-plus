@@ -25,7 +25,7 @@ def create_app(config_object="config.Config"):
             r"/api/*": {
                 "origins": "*", # للسماح للميني آب بالاتصال
                 "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-                "allow_headers": ["Authorization", "Content-Type"],
+                "allow_headers": ["Authorization", "Content-Type", "X-Telegram-Init-Data"],
                 "max_age": 600,
             }
         },

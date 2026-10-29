@@ -117,7 +117,6 @@ window.showPaymentDetails = function(method) {
     btn.textContent = 'جاري الإرسال...';
 
     const formData = new FormData();
-    formData.append('telegram_id', tgId);
     formData.append('amount', amount);
     formData.append('reference', reference);
     formData.append('receipt', receiptFile);

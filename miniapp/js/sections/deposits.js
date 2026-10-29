@@ -21,7 +21,7 @@ export async function loadDeposits() {
   container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted);">جاري التحميل...</div>`;
   
   try {
-    const data = await safeFetch(`/api/deposits/?telegram_id=${tgId}`);
+    const data = await safeFetch(`/api/deposits/`);
     allDeposits = Array.isArray(data) ? data : [];
     window.filterList('deposits', 'all');
   } catch (e) {

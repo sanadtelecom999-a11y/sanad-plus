@@ -11,7 +11,7 @@ export async function openKYC() {
   modal.classList.add('active');
   body.innerHTML = `<div style="text-align:center; padding:20px;">جاري التحقق من الحالة...</div>`;
 
-  const status = await safeFetch(`/api/kyc/status?telegram_id=${tgId}`);
+  const status = await safeFetch(`/api/kyc/status`);
   
   if (status && status.status === 'approved') {
     body.innerHTML = `
@@ -101,8 +101,6 @@ export async function openKYC() {
     btn.textContent = 'جاري الإرسال...';
 
     const formData = new FormData(e.target);
-    formData.append('telegram_id', tgId);
-
     try {
       const res = await fetch('https://sanad-plus-backend.onrender.com/api/kyc/submit', {
         method: 'POST',
