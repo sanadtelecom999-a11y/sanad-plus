@@ -1,3 +1,4 @@
+import { escapeHtml } from '../core/utils.js';
 import { fetchUserData } from '../core/api.js';
 
 export async function loadAccount() {
@@ -23,7 +24,7 @@ export async function loadAccount() {
       <div style="text-align:center; margin-top:20px; margin-bottom:24px;">
         <div style="width:80px; height:80px; border-radius:50%; margin:0 auto 12px; overflow:hidden; border:2px solid var(--primary);">${avatarHtml}</div>
         <div style="font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px;">
-          ${tgUser?.first_name || 'مستخدم'} ${verifiedBadge}
+          ${escapeHtml(tgUser?.first_name || 'مستخدم')} ${verifiedBadge}
         </div>
         <div style="color:var(--text-muted); font-size:13px; margin-top:4px;">@${tgUser?.username || 'user'}</div>
       </div>

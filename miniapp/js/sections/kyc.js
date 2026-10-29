@@ -1,3 +1,4 @@
+import { escapeHtml } from '../core/utils.js';
 import { safeFetch } from '../core/api.js';
 
 const syrianGovernorates = ["دمشق", "ريف دمشق", "حلب", "حمص", "حماة", "اللاذقية", "طرطوس", "إدلب", "درعا", "السويداء", "القنيطرة", "دير الزور", "الرقة", "الحسكة"];
@@ -18,7 +19,7 @@ export async function openKYC() {
       <div style="text-align:center; padding:20px 0;">
         <svg style="width:60px; height:60px; color:var(--success); margin:0 auto 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         <h3 style="color:var(--success); font-size:20px; margin-bottom:8px;">حسابك موثق بالفعل</h3>
-        <p style="color:var(--text-muted); font-size:14px;">الاسم الموثق: <strong>${status.full_name}</strong></p>
+        <p style="color:var(--text-muted); font-size:14px;">الاسم الموثق: <strong>${escapeHtml(status.full_name)}</strong></p>
       </div>
     `;
     return;
