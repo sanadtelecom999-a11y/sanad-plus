@@ -20,7 +20,11 @@ async function apiFetch(endpoint, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
     try {
-        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 ثواني مهلة
+        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers, signal: controller.signal });
+        clearTimeout(timeoutId);
+        
         if (res.status === 401) { window.location.reload(); throw new Error('جلسة منتهية'); }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -139,8 +143,12 @@ async function renderDeposits(container) {
                 </span>
             </div>
         `).join('');
-    } catch (e) { document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
+    } catch (e) { 
+        console.error("Deposits error:", e);
+        document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:var(--danger);text-align:center;">تعذر جلب الإيداعات. يرجى المحاولة لاحقاً.</div>`; 
+    }
 }
+
 
 async function renderAccount(container) {
     container.innerHTML = `
@@ -148,28 +156,131 @@ async function renderAccount(container) {
             <div class="profile-hero">
                 <div class="profile-head">
                     <div class="profile-copy">
-                        <h1 class="profile-name">${escapeHtml(state.user?.first_name || 'مستخدم')}</h1>
+                        <h1 class="profile-name">
+                            <span>${escapeHtml(state.user?.first_name || 'مستخدم')}</span>
+                            ${state.user?.is_verified ? '<span class="verify-mark" title="موثق"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg></span>' : ''}
+                        </h1>
                         <p class="profile-username">@${escapeHtml(tg?.initDataUnsafe?.user?.username || 'user')}</p>
+                        <p class="telegram-id">Telegram ID: <bdi>${escapeHtml(state.user?.telegram_id || '---')}</bdi></p>
                     </div>
-                    <div class="avatar">
-                        ${state.user?.photo_url ? `<img src="${escapeHtml(state.user.photo_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:21px;">` : '👤'}
+                    <div class="avatar" style="overflow:hidden;">
+                        <img src="${escapeHtml(state.user?.photo_url || '')}" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
+                             style="width:100%;height:100%;object-fit:cover; ${state.user?.photo_url ? '' : 'display:none;'}">
+                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
                     </div>
                 </div>
             </div>
-            <div class="sanad-id">
-                <div class="sanad-label"><span>معرّف SANAD ID</span></div>
-                <div class="sanad-line"><strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong></div>
-            </div>
+
+            <section class="sanad-id">
+                <div class="sanad-label">
+                    <span>معرّف SANAD ID</span>
+                    <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg>
+                </div>
+                <div class="sanad-line">
+                    <strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong>
+                    <button class="copy-icon" onclick="navigator.clipboard.writeText('${escapeHtml(state.user?.sanad_id || '')}'); alert('تم النسخ!');">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+                    </button>
+                </div>
+            </section>
+
             <section class="stats">
-                <article class="stat"><p class="stat-label">الرصيد الحالي</p><div class="stat-value">${formatMoney(state.user?.balance)}</div></article>
-                <article class="stat"><p class="stat-label">إجمالي الإيداعات</p><div class="stat-value">${formatMoney(state.user?.total_deposits)}</div></article>
+                <article class="stat">
+                    <p class="stat-label">إجمالي الإيداعات</p>
+                    <div class="stat-value">${formatMoney(state.user?.total_deposits || 0)}</div>
+                </article>
+                <article class="stat">
+                    <p class="stat-label">الرصيد الحالي</p>
+                    <div class="stat-value">${formatMoney(state.user?.balance || 0)}</div>
+                </article>
+            </section>
+
+            <section class="service-list">
+                <button class="service-row" onclick="alert('قريباً: توثيق الحساب')">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>
+                    <span><span class="service-title">توثيق الحساب</span><span class="service-desc">حالة التوثيق وإجراءاته</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="service-row" onclick="alert('قريباً: السجل المالي')">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span>
+                    <span><span class="service-title">السجل المالي</span><span class="service-desc">جميع عملياتك المالية</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="service-row" onclick="alert('قريباً: الدعم الفني')">
+                    <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span>
+                    <span><span class="service-title">الدعم الفني</span><span class="service-desc">المساعدة والاستفسارات</span></span>
+                    <span class="chevron">‹</span>
+                </button>
             </section>
         </section>
     `;
 }
 
+
 function renderCharge(container) {
-    container.innerHTML = `<section class="page active"><h1 class="page-title">شحن الرصيد</h1><div class="panel"><p>يرجى تحويل المبلغ إلى محفظة Sham Cash وإرفاق الإيصال.</p></div></section>`;
+    container.innerHTML = `
+        <section class="page active">
+            <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">شحن الرصيد</div></div></header>
+            <h1 class="page-title">شحن الرصيد</h1>
+            <p class="page-subtitle">حول المبلغ إلى وسيلة الدفع الموضحة.</p>
+            
+            <div class="panel">
+                <div class="sanad-label" style="margin-bottom:12px;"><span>بيانات التحويل</span></div>
+                <div style="background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;">
+                    <p style="margin:0 0 8px; font-size:13px; color:var(--muted);">المحفظة</p>
+                    <strong style="display:block; font-size:16px; margin-bottom:12px;">Sham Cash</strong>
+                    <p style="margin:0 0 8px; font-size:13px; color:var(--muted);">رقم المحفظة</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="font-family:monospace; font-size:16px;">09XXXXXXXX</strong>
+                        <button onclick="navigator.clipboard.writeText('09XXXXXXXX'); alert('تم النسخ')" class="small-action" style="border:0;padding:6px 10px;">نسخ الرقم</button>
+                    </div>
+                </div>
+
+                <h2 class="panel-title">تفاصيل العملية</h2>
+                <form id="charge-form">
+                    <label class="input-label">المبلغ المحول (ل.س)</label>
+                    <input type="number" id="charge-amount" class="field" placeholder="مثال: 50000" required>
+                    
+                    <label class="input-label">رقم عملية التحويل</label>
+                    <input type="text" id="charge-reference" class="field" placeholder="أدخل رقم العملية" required>
+                    
+                    <label class="input-label">صورة إيصال التحويل</label>
+                    <input type="file" id="charge-receipt" class="field" accept="image/*" required>
+                    
+                    <button type="submit" id="submit-charge-btn" class="primary-btn full" style="margin-top:16px;">تأكيد طلب الشحن ←</button>
+                </form>
+            </div>
+        </section>
+    `;
+
+    document.getElementById('charge-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit-charge-btn');
+        const amount = document.getElementById('charge-amount').value;
+        const ref = document.getElementById('charge-reference').value;
+        const file = document.getElementById('charge-receipt').files[0];
+
+        if (!amount || !ref || !file) return alert('يرجى تعبئة جميع الحقول');
+
+        btn.disabled = true;
+        btn.textContent = 'جاري الإرسال...';
+
+        const formData = new FormData();
+        formData.append('amount', amount);
+        formData.append('reference', ref);
+        formData.append('receipt', file);
+
+        try {
+            await apiFetch('/api/deposits/create', { method: 'POST', body: formData });
+            alert('تم إرسال الطلب بنجاح! يرجى الانتظار للمراجعة.');
+            showPage('deposits');
+        } catch (err) {
+            alert('خطأ: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = 'تأكيد طلب الشحن ←';
+        }
+    };
 }
 
 // ═══════════════════════════════════════════════════════════
