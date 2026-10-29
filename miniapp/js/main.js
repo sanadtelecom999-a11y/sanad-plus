@@ -1,375 +1,207 @@
-window.onerror = function(msg, url, line) { console.error('Error:', msg, 'Line:', line); };
+// ═══════════════════════════════════════════════════════════
+// SANAD PLUS⁺ - Core Application (V2 - Bulletproof)
+// ═══════════════════════════════════════════════════════════
 const API_BASE = 'https://sanad-plus-backend.onrender.com';
-let authToken = null;
-let currentState = {
-    user: null,
-    orders: [],
-    deposits: [],
-    categories: []
-};
+const state = { user: null, categories: [], currentPage: 'home' };
+const tg = window.Telegram?.WebApp;
 
-// Utils
-function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function formatMoney(amount) { const n = Number(amount); return Number.isFinite(n) ? `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n)} <span class="currency">ل.س</span>` : "—"; }
-const statusLabels = { completed: "مكتمل", pending: "قيد المراجعة", rejected: "مرفوض", cancelled: "ملغي", approved: "مكتمل" };
-const statusClass = { completed: "status-success", pending: "status-pending", rejected: "status-danger", cancelled: "status-danger", approved: "status-success" };
-function statusPill(status) {
-        const map = {
-            'completed': ['مكتمل', 'badge-success'],
-            'pending': ['قيد المراجعة', 'badge-warning'],
-            'rejected': ['مرفوض', 'badge-danger'],
-            'approved': ['مكتمل', 'badge-success']
-        };
-        const [label, cls] = map[status] || [status, ''];
-        return `<span class="badge ${cls}">${label}</span>`;
-    }">${escapeHtml(statusLabels[status] || status)}</span>`; }
+// دوال مساعدة
+const escapeHtml = (str) => String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const formatMoney = (amt) => `${Number(amt || 0).toFixed(2)} <span class="currency">ل.س</span>`;
 
-let toastTimer;
-function showToast(message) {
-    const node = document.getElementById("toast");
-    node.textContent = message;
-    node.classList.add("show");
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => node.classList.remove("show"), 2300);
+// طلبات الشبكة الآمنة
+async function apiFetch(endpoint, options = {}) {
+    const initData = tg?.initData || '';
+    const headers = { 
+        ...options.headers, 
+        'X-Telegram-Init-Data': initData 
+    };
+    if (options.body && !(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
+    try {
+        const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+        if (res.status === 401) { window.location.reload(); throw new Error('جلسة منتهية'); }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+    } catch (err) {
+        console.error(`API Error (${endpoint}):`, err);
+        throw err;
+    }
 }
 
-function closeModal() { document.getElementById("modal-backdrop").classList.remove("show"); }
-document.getElementById("modal-close").addEventListener("click", closeModal);
-document.getElementById("modal-backdrop").addEventListener("click", e => { if (e.target.id === "modal-backdrop") closeModal(); });
-
-function copyText(value) {
-    if (!value) return showToast("لا توجد بيانات لنسخها");
-    navigator.clipboard.writeText(value).then(() => showToast("تم النسخ")).catch(() => showToast("تعذر النسخ"));
+// واجهة التنبيهات
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// API
-async function apiFetch(path, options = {}) {
-    const initData = window.Telegram?.WebApp?.initData;
-    const headers = { ...options.headers };
-    if (initData) headers['X-Telegram-Init-Data'] = initData;
-    if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-    if (res.status === 401) throw new Error("انتهت الجلسة");
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "خطأ في الاتصال");
-    return data;
-}
-
-// Navigation
-function go(page) {
-    const target = document.getElementById("page-" + page);
-    if (!target) return showToast("هذه الصفحة غير متاحة");
-    document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p === target));
-    document.querySelectorAll(".nav-item").forEach(b => {
-        const active = b.dataset.go === page;
-        b.classList.toggle("active", active);
-        if (active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+function showPage(route) {
+    state.currentPage = route;
+    document.querySelectorAll('.nav-item, .nav-charge').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.route === route);
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const app = document.getElementById('app-content');
     
-    // Load data on navigation
-    if (page === 'orders') loadOrders();
-    if (page === 'deposits') loadDeposits();
-    if (page === 'history') loadHistory();
-    if (page === 'verification') loadKycStatus();
-}
-document.querySelectorAll("[data-go]").forEach(el => el.addEventListener("click", () => go(el.dataset.go)));
-
-// Loaders
-async function loadUserData() {
-    try {
-        const userData = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
-        currentState.user = userData;
-        
-        document.querySelectorAll("[data-user-name]").forEach(el => el.textContent = userData.first_name);
-        document.getElementById("profile-username").textContent = "@" + (window.Telegram?.WebApp?.initDataUnsafe?.user?.username || "user");
-        document.getElementById("profile-telegram-id").textContent = userData.telegram_id;
-        document.getElementById("sanad-id").textContent = userData.sanad_id;
-        document.getElementById("account-deposits").innerHTML = formatMoney(userData.total_deposits || 0);
-        document.getElementById("account-balance").innerHTML = formatMoney(userData.balance);
-        document.getElementById("home-balance").innerHTML = formatMoney(userData.balance);
-        
-        if (userData.is_verified) document.getElementById("verified-badge").style.display = "inline-flex";
-        
-        // Referral link
-        document.getElementById("referral-url").value = `https://t.me/Sa3pls1_bot?start=ref_${userData.sanad_id}`;
-    } catch (err) {
-        document.getElementById("home-balance").textContent = "خطأ في التحميل";
-        console.error(err);
-    }
+    if (route === 'home') renderHome(app);
+    else if (route === 'orders') renderOrders(app);
+    else if (route === 'deposits') renderDeposits(app);
+    else if (route === 'account') renderAccount(app);
+    else if (route === 'charge') renderCharge(app);
 }
 
-async function loadCategories() {
+// ═══════════════════════════════════════════════════════════
+// الصفحات (Rendering)
+// ═══════════════════════════════════════════════════════════
+
+async function renderHome(container) {
+    container.innerHTML = `
+        <section class="page active">
+            <header class="page-head">
+                <div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div>
+            </header>
+            <div class="search-bar-container" style="padding-bottom:15px;">
+                <input type="text" class="search-bar" placeholder="ابحث عن خدمة أو منتج..." style="width:100%; padding:12px; border-radius:12px; background:var(--surface); border:1px solid var(--border); color:white;" id="search-input">
+            </div>
+            <p class="welcome">أهلًا، <span>${escapeHtml(state.user?.first_name || 'عميلنا')}</span></p>
+            <section class="balance-card card">
+                <div class="balance-top"><span>الرصيد الحالي</span></div>
+                <div class="balance-amount">${formatMoney(state.user?.balance)}</div>
+                <div class="balance-bottom">
+                    <span class="balance-note">رصيدك المتاح</span>
+                    <button class="small-action" data-route="charge">شحن +</button>
+                </div>
+            </section>
+            <div class="section-heading"><h2>اكتشف خدماتنا</h2></div>
+            <section class="categories" id="home-categories"><div style="text-align:center;padding:20px;color:var(--muted)">جاري التحميل...</div></section>
+        </section>
+    `;
+
     try {
-        currentState.categories = await apiFetch('/api/categories/');
-        const container = document.getElementById("home-categories");
-        if (currentState.categories.length === 0) {
-            container.innerHTML = '<div class="empty" style="padding:20px;">لا توجد أقسام متاحة حالياً. يرجى إضافتها من لوحة التحكم.</div>';
-            return;
+        const cats = await apiFetch('/api/categories/');
+        const catContainer = document.getElementById('home-categories');
+        if (cats && cats.length > 0) {
+            catContainer.innerHTML = cats.map(cat => `
+                <button class="category" onclick="showToast('قريباً')">
+                    <span class="category-icon">${cat.image ? `<img src="${escapeHtml(cat.image)}" style="border-radius:15px;width:100%;height:100%;object-fit:cover;">` : '📦'}</span>
+                    <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
+                </button>
+            `).join('');
+        } else {
+            catContainer.innerHTML = '<div class="empty">لا توجد أقسام متاحة حالياً.</div>';
         }
-        container.innerHTML = currentState.categories.map(cat => `
-            <button class="category" data-category="${escapeHtml(cat.id)}" data-name="${escapeHtml(cat.name)}">
-                <span class="category-icon">
-                    ${cat.image ? `<img src="${escapeHtml(cat.image)}" style="width:100%;height:100%;border-radius:15px;object-fit:cover;">` : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4"/></svg>'}
-                </span>
-                <span><strong>${escapeHtml(cat.name)}</strong><small>خدمات رقمية</small></span>
-            </button>
-        `).join('');
-        
-        container.querySelectorAll('.category').forEach(btn => {
-            btn.onclick = () => {
-                showToast("صفحة المنتجات ستتوفر قريباً");
-            };
-        });
-    } catch (err) {
-        console.error(err);
+    } catch (e) {
+        document.getElementById('home-categories').innerHTML = '<div class="empty" style="color:red;">تعذر تحميل الأقسام</div>';
     }
 }
 
-async function loadOrders() {
+async function renderOrders(container) {
+    container.innerHTML = `<section class="page active"><h1 class="page-title">طلباتي</h1><div class="list" id="orders-list">جاري التحميل...</div></section>`;
     try {
         const res = await apiFetch('/api/orders/');
-        currentState.orders = res.items || [];
-        renderOrders(currentState.orders);
-        renderRecent();
-    } catch (err) { console.error(err); }
+        const list = document.getElementById('orders-list');
+        const items = res.items || [];
+        if (items.length === 0) { list.innerHTML = '<div class="empty">لا توجد طلبات.</div>'; return; }
+        
+        const getBadge = (s) => {
+            const map = { completed: 'badge-success', pending: 'badge-warning', rejected: 'badge-danger' };
+            const label = { completed: 'مكتمل', pending: 'معلق', rejected: 'مرفوض' };
+            return `<span class="badge ${map[s] || ''}">${label[s] || s}</span>`;
+        };
+
+        list.innerHTML = items.map(o => `
+            <div class="list-item">
+                <span class="item-main">
+                    <span class="item-title">${escapeHtml(o.product_name)}</span>
+                    <span class="item-desc">${escapeHtml(o.order_number)}</span>
+                    <span class="item-meta">${getBadge(o.status)} <strong>${formatMoney(o.amount)}</strong></span>
+                </span>
+            </div>
+        `).join('');
+    } catch (e) { document.getElementById('orders-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
 }
 
-function renderOrders(orders) {
-    const list = document.getElementById("orders-list");
-    if (!orders || orders.length === 0) {
-        list.innerHTML = `<div class="empty"><strong>لا توجد طلبات</strong></div>`;
-        return;
-    }
-    list.innerHTML = orders.map(o => `
-        <button class="list-item" data-order-id="${o.id}">
-            <span class="category-icon" style="width:44px;height:44px;border-radius:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8"/></svg></span>
-            <span class="item-main"><span class="item-title">${escapeHtml(o.product_name)}</span><span class="item-desc">${escapeHtml(o.order_number)} · ${new Date(o.date).toLocaleDateString('ar-EG')}</span><span class="item-meta">${statusPill(o.status)}<strong class="item-amount">${formatMoney(o.amount)}</strong></span></span><span class="chevron">‹</span>
-        </button>
-    `).join('');
-}
-
-async function loadDeposits() {
+async function renderDeposits(container) {
+    container.innerHTML = `<section class="page active"><h1 class="page-title">الإيداعات</h1><div class="list" id="dep-list">جاري التحميل...</div></section>`;
     try {
         const res = await apiFetch('/api/deposits/');
-        currentState.deposits = res.items || [];
-        renderDeposits(currentState.deposits);
-        renderRecent();
-    } catch (err) { console.error(err); }
-}
-
-function renderDeposits(deposits) {
-    const list = document.getElementById("deposits-list");
-    if (!deposits || deposits.length === 0) {
-        list.innerHTML = `<div class="empty"><strong>لا توجد إيداعات</strong></div>`;
-        return;
-    }
-    list.innerHTML = deposits.map(d => `
-        <button class="list-item" data-deposit-id="${d.id}">
-            <span class="category-icon" style="width:44px;height:44px;border-radius:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m-5-5 5 5 5-5"/><path d="M4 17v3h16v-3"/></svg></span>
-            <span class="item-main"><span class="item-title">${escapeHtml(d.reference || 'إيداع')}</span><span class="item-desc">${new Date(d.date).toLocaleDateString('ar-EG')}</span><span class="item-meta">${statusPill(d.status)}<strong class="item-amount">${formatMoney(d.amount)}</strong></span></span><span class="chevron">‹</span>
-        </button>
-    `).join('');
-}
-
-function renderRecent() {
-    const recent = [
-        ...currentState.orders.slice(0, 2).map(o => ({ kind: 'order', data: o })),
-        ...currentState.deposits.slice(0, 1).map(d => ({ kind: 'deposit', data: d }))
-    ];
-    const container = document.getElementById("home-recent");
-    if (recent.length === 0) {
-        container.innerHTML = `<div class="empty"><strong>لا توجد عمليات حديثة</strong></div>`;
-        return;
-    }
-    container.innerHTML = recent.map(x => {
-        if (x.kind === 'order') {
-            return `<button class="list-item" data-order-id="${x.data.id}"><span class="item-main"><span class="item-title">${escapeHtml(x.data.product_name)}</span><span class="item-meta">${statusPill(x.data.status)}<strong class="item-amount">${formatMoney(x.data.amount)}</strong></span></span><span class="chevron">‹</span></button>`;
-        } else {
-            return `<button class="list-item" data-deposit-id="${x.data.id}"><span class="item-main"><span class="item-title">إيداع ${escapeHtml(x.data.reference || '')}</span><span class="item-meta">${statusPill(x.data.status)}<strong class="item-amount">${formatMoney(x.data.amount)}</strong></span></span><span class="chevron">‹</span></button>`;
-        }
-    }).join('');
-}
-
-async function loadHistory() {
-    // We can reuse the loaded orders/deposits or reload
-    document.getElementById("history-deposits").innerHTML = document.getElementById("deposits-list").innerHTML;
-    document.getElementById("history-orders").innerHTML = document.getElementById("orders-list").innerHTML;
-}
-
-async function loadKycStatus() {
-    try {
-        const res = await apiFetch('/api/kyc/status');
-        const statusEl = document.getElementById("kyc-status");
-        const msgEl = document.getElementById("kyc-message");
-        if (res.status === 'approved') {
-            statusEl.className = 'pill status-success'; statusEl.textContent = 'موثق';
-            msgEl.textContent = `الاسم: ${res.full_name}`;
-        } else if (res.status === 'pending') {
-            statusEl.className = 'pill status-pending'; statusEl.textContent = 'قيد المراجعة';
-            msgEl.textContent = 'سيتم مراجعة طلبك قريباً.';
-        } else {
-            statusEl.className = 'pill'; statusEl.textContent = 'غير موثق';
-            msgEl.textContent = 'يرجى إرسال طلب توثيق جديد (الميزة قادمة).';
-        }
-    } catch (err) { console.error(err); }
-}
-
-// Modal Receipts
-document.addEventListener("click", e => {
-    const orderBtn = e.target.closest("[data-order-id]");
-    if (orderBtn) return openOrderReceipt(orderBtn.dataset.orderId);
-    
-    const depBtn = e.target.closest("[data-deposit-id]");
-    if (depBtn) return openDepositReceipt(depBtn.dataset.depositId);
-});
-
-function openOrderReceipt(id) {
-    const o = currentState.orders.find(x => x.id == id);
-    if (!o) return;
-    document.getElementById("modal-title").textContent = "تفاصيل الطلب";
-    document.getElementById("modal-content").innerHTML = `
-        <article class="receipt">
-            <div class="receipt-brand"><div class="receipt-logo">SP⁺</div><h2>SANAD PLUS⁺</h2><p>تفاصيل طلب</p></div>
-            <div class="receipt-state">${statusPill(o.status)}</div><div class="receipt-amount">${formatMoney(o.amount)}</div><p class="receipt-amount-label">قيمة الطلب</p>
-            <div class="receipt-rows">
-                <div class="receipt-row"><span>رقم الطلب</span><strong>${escapeHtml(o.order_number)}</strong></div>
-                <div class="receipt-row"><span>الخدمة</span><strong>${escapeHtml(o.product_name)}</strong></div>
-                <div class="receipt-row"><span>الكمية</span><strong>${o.quantity}</strong></div>
-                <div class="receipt-row"><span>التاريخ</span><strong>${new Date(o.date).toLocaleString('ar-EG')}</strong></div>
-                <div class="receipt-row"><span>بيانات الاستلام</span><strong>${escapeHtml(o.delivery_data)}</strong></div>
+        const list = document.getElementById('dep-list');
+        if (!res.items || res.items.length === 0) { list.innerHTML = '<div class="empty">لا توجد إيداعات.</div>'; return; }
+        list.innerHTML = res.items.map(d => `
+            <div class="list-item">
+                <span class="item-main">
+                    <span class="item-title">${escapeHtml(d.reference || 'إيداع')}</span>
+                    <span class="item-meta"><strong>${formatMoney(d.amount)}</strong></span>
+                </span>
             </div>
-            <div class="btn-row"><button class="secondary-btn" onclick="copyText('${escapeHtml(o.order_number)}')">نسخ رقم الطلب</button></div>
-        </article>
-    `;
-    document.getElementById("modal-backdrop").classList.add("show");
+        `).join('');
+    } catch (e) { document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:red;">${e.message}</div>`; }
 }
 
-function openDepositReceipt(id) {
-    const d = currentState.deposits.find(x => x.id == id);
-    if (!d) return;
-    document.getElementById("modal-title").textContent = "إيصال الإيداع";
-    document.getElementById("modal-content").innerHTML = `
-        <article class="receipt">
-            <div class="receipt-brand"><div class="receipt-logo">SP⁺</div><h2>SANAD PLUS⁺</h2><p>إيصال إيداع رقمي</p></div>
-            <div class="receipt-state">${statusPill(d.status)}</div><div class="receipt-amount">${formatMoney(d.amount)}</div><p class="receipt-amount-label">مبلغ الإيداع</p>
-            <div class="receipt-rows">
-                <div class="receipt-row"><span>رقم العملية</span><strong>${escapeHtml(d.reference)}</strong></div>
-                <div class="receipt-row"><span>التاريخ</span><strong>${new Date(d.date).toLocaleString('ar-EG')}</strong></div>
-                ${d.receipt_image ? `<div class="receipt-row"><span>الصورة</span><a href="${d.receipt_image}" target="_blank" style="color:var(--blue)">عرض</a></div>` : ''}
+async function renderAccount(container) {
+    container.innerHTML = `
+        <section class="page active">
+            <div class="profile-hero">
+                <div class="profile-head">
+                    <div class="profile-copy">
+                        <h1 class="profile-name">${escapeHtml(state.user?.first_name || 'مستخدم')}</h1>
+                        <p class="profile-username">@${escapeHtml(tg?.initDataUnsafe?.user?.username || 'user')}</p>
+                    </div>
+                    <div class="avatar">
+                        ${state.user?.photo_url ? `<img src="${escapeHtml(state.user.photo_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:21px;">` : '👤'}
+                    </div>
+                </div>
             </div>
-            <div class="btn-row"><button class="secondary-btn" onclick="copyText('${escapeHtml(d.reference)}')">نسخ رقم العملية</button></div>
-        </article>
+            <div class="sanad-id">
+                <div class="sanad-label"><span>معرّف SANAD ID</span></div>
+                <div class="sanad-line"><strong class="sanad-value">${escapeHtml(state.user?.sanad_id || '---')}</strong></div>
+            </div>
+            <section class="stats">
+                <article class="stat"><p class="stat-label">الرصيد الحالي</p><div class="stat-value">${formatMoney(state.user?.balance)}</div></article>
+                <article class="stat"><p class="stat-label">إجمالي الإيداعات</p><div class="stat-value">${formatMoney(state.user?.total_deposits)}</div></article>
+            </section>
+        </section>
     `;
-    document.getElementById("modal-backdrop").classList.add("show");
 }
 
-// Actions
-document.getElementById("toggle-balance").addEventListener("click", () => {
-    const node = document.getElementById("home-balance");
-    if (node.dataset.hidden === "true") {
-        node.innerHTML = formatMoney(currentState.user?.balance || 0); node.dataset.hidden = "false";
-    } else {
-        node.textContent = "••••••"; node.dataset.hidden = "true";
-    }
-});
-document.getElementById("copy-sanad").addEventListener("click", () => copyText(currentState.user?.sanad_id));
-document.getElementById("copy-referral").addEventListener("click", () => copyText(document.getElementById("referral-url").value));
-document.getElementById("share-referral").addEventListener("click", () => {
-    const url = document.getElementById("referral-url").value;
-    if (navigator.share) navigator.share({ title: 'SANAD PLUS+', url }).catch(()=>copyText(url));
-    else copyText(url);
-});
-
-document.getElementById("submit-deposit").addEventListener("click", async () => {
-    const amount = document.getElementById("charge-amount").value;
-    const reference = document.getElementById("charge-reference").value;
-    const file = document.getElementById("charge-receipt").files[0];
-    if (!amount || !reference || !file) return showToast("يرجى تعبئة الحقول واختيار صورة");
-    
-    const btn = document.getElementById("submit-deposit");
-    btn.disabled = true; btn.textContent = "جاري الإرسال...";
-    
-    const formData = new FormData();
-    formData.append('amount', amount);
-    formData.append('reference', reference);
-    formData.append('receipt', file);
-    
-    try {
-        await apiFetch('/api/deposits/create', { method: 'POST', body: formData });
-        showToast("تم إرسال الطلب بنجاح");
-        go('deposits');
-    } catch (err) {
-        showToast(err.message);
-    } finally {
-        btn.disabled = false; btn.textContent = "إرسال طلب الإيداع";
-    }
-});
-
-document.getElementById("support-send").addEventListener("click", async () => {
-    const msg = document.getElementById("support-message").value;
-    if (!msg) return showToast("اكتب رسالتك أولاً");
-    
-    const btn = document.getElementById("support-send");
-    btn.disabled = true; btn.textContent = "جاري الإرسال...";
-    
-    try {
-        await apiFetch('/api/support/send', { method: 'POST', body: JSON.stringify({ message: msg }) });
-        showToast("تم إرسال الرسالة");
-        document.getElementById("support-message").value = "";
-    } catch (err) {
-        showToast(err.message);
-    } finally {
-        btn.disabled = false; btn.textContent = "إرسال";
-    }
-});
-
-document.getElementById("orders-filter").addEventListener("change", (e) => {
-    const filter = e.target.value;
-    const filtered = filter === 'all' ? currentState.orders : currentState.orders.filter(o => o.status === filter);
-    renderOrders(filtered);
-});
-
-// Init
-async function init() {
-    if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        window.Telegram.WebApp.setHeaderColor('#080E1B');
-    }
-    
-    // Wait for initData
-    let initData = window.Telegram?.WebApp?.initData;
-    let retries = 0;
-    while (!initData && retries < 20) {
-        await new Promise(r => setTimeout(r, 100));
-        initData = window.Telegram?.WebApp?.initData;
-        retries++;
-    }
-
-    await loadUserData();
-    await loadCategories();
-    await loadOrders();
-    await loadDeposits();
-    
-    // Hide loader if exists (we don't have a dedicated loader in new HTML, but we can add one if needed)
+function renderCharge(container) {
+    container.innerHTML = `<section class="page active"><h1 class="page-title">شحن الرصيد</h1><div class="panel"><p>يرجى تحويل المبلغ إلى محفظة Sham Cash وإرفاق الإيصال.</p></div></section>`;
 }
-document.addEventListener("DOMContentLoaded", init);
 
-// حقن شريط البحث تلقائياً عند فتح الرئيسية
-setInterval(() => {
-    const homePage = document.querySelector('[data-page="home"]');
-    if (homePage && !document.getElementById('global-search')) {
-        const searchDiv = document.createElement('div');
-        searchDiv.className = 'search-bar-container';
-        searchDiv.innerHTML = '<input type="text" class="search-bar" placeholder="ابحث عن خدمة أو منتج..." id="global-search">';
+// ═══════════════════════════════════════════════════════════
+// التهيئة الأساسية (Init) - آمنة ضد التجمد
+// ═══════════════════════════════════════════════════════════
+async function initApp() {
+    if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#080E1B'); }
+
+    // مستمع الأزرار (Event Delegation) لضمان عملها دائماً
+    document.body.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-route]');
+        if (btn) { e.preventDefault(); showPage(btn.dataset.route); }
+        if (e.target.id === 'modal-close') document.getElementById('modal-backdrop').classList.remove('show');
+    });
+
+    try {
+        const initData = tg?.initData;
+        if (!initData) throw new Error("يرجى فتح التطبيق من داخل تيليجرام.");
         
-        const welcome = homePage.querySelector('.welcome');
-        if (welcome) {
-            welcome.parentNode.insertBefore(searchDiv, welcome);
-        } else {
-            homePage.prepend(searchDiv);
-        }
+        // جلب بيانات المستخدم
+        state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
+        
+        // إخفاء شاشة التحميل وعرض الرئيسية
+        document.getElementById('app-loading').remove();
+        showPage('home');
+    } catch (err) {
+        console.error(err);
+        document.getElementById('app-loading').innerHTML = `<div style="text-align:center;color:red;padding:20px;">
+            <h2>حدث خطأ</h2><p>${escapeHtml(err.message)}</p>
+            <button onclick="window.location.reload()" style="margin-top:10px;padding:10px;background:#38BDF8;color:black;border:none;border-radius:8px;">إعادة المحاولة</button>
+        </div>`;
     }
-}, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', initApp);

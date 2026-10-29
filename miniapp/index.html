@@ -1,184 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#080E1B">
-<title>SANAD PLUS⁺ | منصتك الرقمية الموثوقة</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#080E1B">
+    <title>SANAD PLUS⁺</title>
+    <!-- حماية عالية: منع تحميل أي سكربت خارجي غير مصرح به -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://res.cloudinary.com https://placehold.co https://t.me; connect-src 'self' https://sanad-plus-backend.onrender.com;">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<div class="app">
-  <main>
-    <section class="page active" id="page-home" data-page="home">
-      <header class="page-head">
-        <div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div>
-        <button class="icon-btn" data-go="notifications" aria-label="الإشعارات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button>
-      </header>
-      <p class="welcome">أهلًا، <span data-user-name>مستخدم</span></p>
-      <section class="balance-card card">
-        <div class="balance-top"><span>الرصيد الحالي</span><button class="icon-btn" style="width:36px;height:36px;background:#ffffff08;border-color:#ffffff16" id="toggle-balance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
-        <div class="balance-amount" id="home-balance">... <span class="currency">ل.س</span></div>
-        <div class="balance-bottom"><span class="balance-note">رصيدك المتاح للاستخدام</span><button class="small-action" data-go="charge">شحن الرصيد +</button></div>
-      </section>
-      <div class="section-heading"><h2>اكتشف خدماتنا</h2><button class="text-link" data-go="orders">طلباتي ←</button></div>
-      <section class="categories" id="home-categories">
-        <div style="grid-column:1/-1;text-align:center;color:var(--muted)">جاري التحميل...</div>
-      </section>
-      <div class="section-heading"><h2>آخر العمليات</h2><button class="text-link" data-go="orders">عرض الكل</button></div>
-      <div class="list" id="home-recent"></div>
-    </section>
+    <div class="app">
+        <main id="app-content">
+            <div id="app-loading" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#080E1B; color:#38BDF8; font-size:20px; font-weight:bold; z-index:9999;">SANAD PLUS⁺</div>
+        </main>
 
-    <section class="page" id="page-account" data-page="account">
-      <div class="profile-hero">
-        <div class="profile-head">
-          <div class="profile-copy">
-            <h1 class="profile-name"><span data-user-name>مستخدم</span><span class="verify-mark" id="verified-badge" style="display:none;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg></span></h1>
-            <p class="profile-username" id="profile-username">@user</p>
-            <p class="telegram-id">Telegram ID: <bdi id="profile-telegram-id">---</bdi></p>
-          </div>
-          <div class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg></div>
-        </div>
-      </div>
-      <section class="sanad-id">
-        <div class="sanad-label"><span>معرّف SANAD ID</span><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.8"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.3 2.3 4.7-5"/></svg></div>
-        <div class="sanad-line"><strong class="sanad-value" id="sanad-id">---</strong><button class="copy-icon" id="copy-sanad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg></button></div>
-      </section>
-      <section class="stats">
-        <article class="stat"><p class="stat-label">إجمالي الإيداعات</p><div class="stat-value" id="account-deposits">... <span class="currency">ل.س</span></div></article>
-        <article class="stat"><p class="stat-label">الرصيد الحالي</p><div class="stat-value" id="account-balance">... <span class="currency">ل.س</span></div></article>
-      </section>
-      <section class="service-list">
-        <button class="service-row" data-go="verification"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span><span><span class="service-title">توثيق الحساب</span><span class="service-desc">حالة التوثيق وإجراءاته</span></span><span class="chevron">‹</span></button>
-        <button class="service-row" data-go="history"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span><span><span class="service-title">السجل المالي</span><span class="service-desc">جميع عملياتك المالية</span></span><span class="chevron">‹</span></button>
-        <button class="service-row" data-go="support"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span><span><span class="service-title">الدعم الفني</span><span class="service-desc">المساعدة والاستفسارات</span></span><span class="chevron">‹</span></button>
-        <button class="service-row" data-go="favorites"><span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/></svg></span><span><span class="service-title">المفضلة</span><span class="service-desc">خدماتك المحفوظة</span></span><span class="chevron">‹</span></button>
-      </section>
-      <h2 class="extra-title">الخدمات الإضافية</h2>
-      <section class="extra-list">
-        <button class="extra-row" data-go="referral"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span><span><span class="service-title">الإحالة</span><span class="service-desc">رابط دعوة شخصي مع زر نسخ ومشاركة.</span></span><span class="chevron">‹</span></button>
-        <button class="extra-row" data-go="notifications"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span><span><span class="service-title">الإشعارات</span><span class="service-desc">حالات الطلبات والإيداعات وتحديثاتها.</span></span><span class="chevron">‹</span></button>
-        <button class="extra-row" data-go="security"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><span><span class="service-title">الأمان والخصوصية</span><span class="service-desc">عرض حالة حماية الحساب ومعلوماته.</span></span><span class="chevron">‹</span></button>
-        <button class="extra-row" data-go="help"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span><span><span class="service-title">مركز المساعدة</span><span class="service-desc">الأسئلة الشائعة وطريقة الشحن والشراء.</span></span><span class="chevron">‹</span></button>
-        <button class="extra-row" data-go="settings"><span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="#142A43"/><circle cx="15" cy="12" r="2" fill="#142A43"/><circle cx="11" cy="18" r="2" fill="#142A43"/></svg></span><span><span class="service-title">إعدادات الحساب</span><span class="service-desc">تفضيلات الواجهة واللغة إن كانت مدعومة.</span></span><span class="chevron">‹</span></button>
-      </section>
-    </section>
+        <nav class="bottom-nav" id="main-nav" aria-label="التنقل الرئيسي">
+            <button class="nav-item active" data-route="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1Z"/></svg><span>الرئيسية</span></button>
+            <button class="nav-item" data-route="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2Z"/><path d="M9 8h6M9 12h6"/></svg><span>طلباتي</span></button>
+            <button class="nav-charge" data-route="charge" aria-label="شحن الرصيد"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button class="nav-item" data-route="deposits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16a2 2 0 0 1 2 2v10H2V9a2 2 0 0 1 2-2Z"/><path d="M4 7V5a2 2 0 0 1 2-2h12M2 12h20M16 15h3"/></svg><span>الإيداعات</span></button>
+            <button class="nav-item" data-route="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>حسابي</span></button>
+        </nav>
+    </div>
 
-    <section class="page" id="page-orders" data-page="orders">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">طلباتي</h1><p class="page-subtitle">تابع تفاصيل طلباتك وحالاتها.</p>
-      <div class="panel"><label class="input-label" for="orders-filter">تصفية الطلبات</label><select id="orders-filter" class="field"><option value="all">كل الطلبات</option><option value="completed">مكتمل</option><option value="pending">قيد المعالجة</option><option value="rejected">مرفوض</option></select></div>
-      <div class="list" id="orders-list"></div>
-    </section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true">
+        <div class="modal"><div class="modal-head"><h2 id="modal-title">التفاصيل</h2><button class="modal-close" id="modal-close" aria-label="إغلاق">×</button></div><div id="modal-content"></div></div>
+    </div>
 
-    <section class="page" id="page-deposits" data-page="deposits">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div><button class="icon-btn" data-go="charge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button></header>
-      <h1 class="page-title">الإيداعات</h1><p class="page-subtitle">اضغط على أي عملية لعرض إيصال الإيداع الكامل.</p>
-      <div class="list" id="deposits-list"></div>
-    </section>
-
-    <section class="page" id="page-charge" data-page="charge">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">شحن الرصيد</h1><p class="page-subtitle">اختر الطريقة واتبع تعليمات النظام.</p>
-      <div class="panel">
-        <h2 class="panel-title">طلب إيداع جديد</h2>
-        <label class="input-label" for="charge-method">طريقة الإيداع</label><select class="field" id="charge-method"><option>Sham Cash</option></select>
-        <label class="input-label" for="charge-amount">المبلغ (ل.س)</label><input class="field" id="charge-amount" type="number" min="1" step="1" placeholder="أدخل المبلغ">
-        <label class="input-label" for="charge-reference">رقم التحويل</label><input class="field" id="charge-reference" placeholder="أدخل رقم التحويل">
-        <label class="input-label" for="charge-receipt">صورة الإيصال</label><input type="file" id="charge-receipt" class="field" accept="image/*">
-        <button class="primary-btn full" id="submit-deposit" style="margin-top:16px">إرسال طلب الإيداع</button>
-      </div>
-    </section>
-
-    <section class="page" id="page-history" data-page="history">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">السجل المالي</h1><p class="page-subtitle">عرض مختصر للطلبات والإيداعات.</p>
-      <div class="section-heading"><h2>الإيداعات</h2><button class="text-link" data-go="deposits">عرض الكل</button></div><div class="list" id="history-deposits"></div>
-      <div class="section-heading"><h2>الطلبات</h2><button class="text-link" data-go="orders">عرض الكل</button></div><div class="list" id="history-orders"></div>
-    </section>
-
-    <section class="page" id="page-referral" data-page="referral">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">الإحالة</h1><p class="page-subtitle">شارك رابط الدعوة الشخصي مع أصدقائك.</p>
-      <div class="panel">
-        <h2 class="panel-title">رابط الدعوة الشخصي</h2>
-        <label class="input-label" for="referral-url">رابط الدعوة</label><input id="referral-url" class="field referral-link" readonly value="جاري التحميل...">
-        <div class="btn-row"><button class="secondary-btn" id="copy-referral">نسخ الرابط</button><button class="primary-btn" id="share-referral">مشاركة الرابط</button></div>
-      </div>
-      <div class="stats">
-        <article class="stat"><p class="stat-label">المسجلون عبر الرابط</p><div class="stat-value">—</div></article>
-        <article class="stat"><p class="stat-label">الدعوات المكتملة</p><div class="stat-value">—</div></article>
-        <article class="stat" style="grid-column:1/-1"><p class="stat-label">المكافآت</p><div class="stat-value">غير مفعّلة</div></article>
-      </div>
-      <div class="notice">سيتم تفعيل نظام المكافآت قريباً.</div>
-    </section>
-
-    <section class="page" id="page-notifications" data-page="notifications">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">الإشعارات</h1><p class="page-subtitle">تحديثات الطلبات والإيداعات.</p>
-      <div class="empty"><strong>لا توجد إشعارات حقيقية</strong>عند الربط، اعرض إشعارات النظام الفعلية هنا.</div>
-    </section>
-
-    <section class="page" id="page-verification" data-page="verification">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">توثيق الحساب</h1><p class="page-subtitle">حالة التوثيق وإجراءاته.</p>
-      <div class="panel"><span class="pill" id="kyc-status">جاري التحميل...</span><p id="kyc-message">يرجى الانتظار.</p></div>
-    </section>
-
-    <section class="page" id="page-favorites" data-page="favorites">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">المفضلة</h1><p class="page-subtitle">خدماتك المحفوظة.</p><div class="empty"><strong>قائمة المفضلة فارغة</strong>ستظهر الخدمات المحفوظة بعد ربطها ببيانات الحساب.</div>
-    </section>
-
-    <section class="page" id="page-support" data-page="support">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">الدعم الفني</h1><p class="page-subtitle">أرسل استفسارك إلى فريق الدعم.</p>
-      <div class="panel"><label class="input-label" for="support-message">رسالتك</label><textarea class="field" id="support-message" placeholder="اكتب استفسارك هنا"></textarea><button class="primary-btn full" id="support-send" style="margin-top:14px">إرسال</button></div>
-    </section>
-
-    <section class="page" id="page-security" data-page="security">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">الأمان والخصوصية</h1><p class="page-subtitle">معلومات عامة عن حماية الحساب.</p>
-      <div class="panel"><h2 class="panel-title">حماية بياناتك</h2><p>لا تشارك رموز تسجيل الدخول أو معلومات الدفع الحساسة مع أي شخص.</p></div>
-    </section>
-
-    <section class="page" id="page-help" data-page="help">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">مركز المساعدة</h1><p class="page-subtitle">إجابات سريعة حول استخدام المنصة.</p>
-      <div class="list">
-        <details class="panel"><summary class="panel-title">كيف أشحن رصيدي؟</summary><p class="item-desc">افتح زر الشحن واتبع تعليمات وسيلة الدفع المعتمدة في التطبيق.</p></details>
-        <details class="panel"><summary class="panel-title">أين أجد إيصال الإيداع؟</summary><p class="item-desc">افتح الإيداعات ثم اضغط على العملية المطلوبة لعرض تفاصيلها.</p></details>
-        <details class="panel"><summary class="panel-title">كيف أتواصل مع الدعم؟</summary><p class="item-desc">افتح قسم الدعم الفني. يجب ربطه بقناة الدعم المعتمدة في النظام.</p></details>
-      </div>
-    </section>
-
-    <section class="page" id="page-settings" data-page="settings">
-      <header class="page-head"><div><div class="brand">SANAD PLUS<sup>⁺</sup></div><div class="tagline">منصتك الرقمية الموثوقة</div></div></header>
-      <h1 class="page-title">إعدادات الحساب</h1><p class="page-subtitle">تفضيلات الواجهة المتاحة في هذا النموذج.</p>
-      <div class="panel"><label class="input-label" for="settings-language">اللغة</label><select class="field" id="settings-language"><option value="ar">العربية</option></select><p class="item-desc" style="margin-top:12px">اسم المستخدم وTelegram ID وSANAD ID للعرض فقط ولا يمكن تعديلها من هذه الصفحة.</p></div>
-    </section>
-  </main>
-
-  <nav class="bottom-nav" aria-label="التنقل الرئيسي">
-    <button class="nav-item active" data-go="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1Z"/></svg><span>الرئيسية</span></button>
-    <button class="nav-item" data-go="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2Z"/><path d="M9 8h6M9 12h6"/></svg><span>طلباتي</span></button>
-    <button class="nav-charge" data-go="charge" aria-label="شحن الرصيد"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 5v14M5 12h14"/></svg></button>
-    <button class="nav-item" data-go="deposits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16a2 2 0 0 1 2 2v10H2V9a2 2 0 0 1 2-2Z"/><path d="M4 7V5a2 2 0 0 1 2-2h12M2 12h20M16 15h3"/></svg><span>الإيداعات</span></button>
-    <button class="nav-item" data-go="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>حسابي</span></button>
-  </nav>
-</div>
-
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-  <div class="modal"><div class="modal-head"><h2 id="modal-title">التفاصيل</h2><button class="modal-close" id="modal-close" aria-label="إغلاق">×</button></div><div id="modal-content"></div></div>
-</div>
-
-
-
-<script type="module" src="js/main.js?v=100"></script>
+    <script type="module" src="js/main.js?v=200"></script>
 </body>
 </html>
