@@ -56,10 +56,14 @@ window.showModal = function(type, data) {
 
   if (type === 'deposit') {
     title.textContent = `تفاصيل الإيداع #${data.id}`;
+    let imgHtml = data.receipt_image ? `<div style="text-align:center; margin-top:15px;"><p style="font-size:12px; color:var(--text-muted); margin-bottom:5px;">صورة الإيصال:</p><img src="${data.receipt_image}" style="width:100%; max-height:200px; object-fit:contain; border-radius:8px; background:#000;"></div>` : '';
+    
     body.innerHTML = `
       <div class="modal-row"><span>المبلغ</span><strong style="color:var(--success);">$${Number(data.amount).toFixed(2)}</strong></div>
       <div class="modal-row"><span>رقم العملية</span><strong>${data.reference || 'غير متوفر'}</strong></div>
       <div class="modal-row"><span>التاريخ</span><strong>${data.date ? new Date(data.date).toLocaleDateString('en-GB') : 'غير متوفر'}</strong></div>
+      <div class="modal-row"><span>الحالة</span><strong class="status-badge ${data.status === 'approved' ? 'status-approved' : data.status === 'rejected' ? 'status-rejected' : 'status-pending'}">${data.status === 'approved' ? 'مكتمل' : data.status === 'rejected' ? 'مرفوض' : 'قيد المراجعة'}</strong></div>
+      ${imgHtml}
     `;
   }
   modal.classList.add('active');

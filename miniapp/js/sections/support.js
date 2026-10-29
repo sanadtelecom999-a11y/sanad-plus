@@ -4,17 +4,18 @@ let chatInterval = null;
 
 export async function openSupport() {
   const tgId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-  const screen = document.getElementById('support-screen');
-  if (!screen) { console.error('Support screen not found'); return; }
-  screen.classList.add('active');
+  const modal = document.getElementById('support-modal');
+  if (!modal) return console.error('Support modal not found');
+  
+  modal.classList.add('active');
+  const messagesArea = document.getElementById('chat-messages');
+  if (messagesArea) messagesArea.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">جاري التحميل...</div>';
   
   await loadMessages(tgId);
   
-  // إيقاف أي تحديث سابق قبل بدء جديد
   if (chatInterval) clearInterval(chatInterval);
   chatInterval = setInterval(() => {
-    // تحديث فقط إذا كانت الشاشة مفتوحة
-    if (document.getElementById('support-screen').classList.contains('active')) {
+    if (document.getElementById('support-modal').classList.contains('active')) {
       loadMessages(tgId);
     }
   }, 5000);
@@ -35,34 +36,24 @@ export async function openSupport() {
   };
 }
 
-window.closeSupport = function() {
-  document.getElementById('support-screen').classList.remove('active');
-  if (chatInterval) {
-    clearInterval(chatInterval);
-    chatInterval = null;
-  }
-};
-
 async function loadMessages(tgId) {
   const msgs = await safeFetch(`/api/support/messages?telegram_id=${tgId}`);
   const container = document.getElementById('chat-messages');
+  if (!container) return;
   
   if (!msgs || msgs.length === 0) {
     container.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">مرحباً! كيف يمكننا مساعدتك؟</div>`;
     return;
   }
 
-  // حماية XSS: مسح المحتوى السابق وإعادة بنائه
   container.innerHTML = '';
-  msgs.forEach(m => {
-    appendMessage(m.sender, m.message);
-  });
+  msgs.forEach(m => appendMessage(m.sender, m.message));
   container.scrollTop = container.scrollHeight;
 }
 
-// حماية XSS: استخدام textContent بدلاً من innerHTML
 function appendMessage(sender, text) {
   const container = document.getElementById('chat-messages');
+  if (!container) return;
   const div = document.createElement('div');
   div.className = `chat-bubble ${sender}`;
   div.textContent = text; 
