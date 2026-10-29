@@ -198,6 +198,7 @@ def get_user_deposits():
             "amount": float(d.amount),
             "status": getattr(d, 'status', 'pending'),
             "reference": getattr(d, 'transaction_id', ''),
+            "receipt_image": getattr(d, 'receipt_image', ''),
             "date": d.created_at.isoformat() if hasattr(d, 'created_at') and d.created_at else ''
         } for d in deposits])
     except Exception as e:

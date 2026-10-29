@@ -30,6 +30,20 @@ export async function loadOrders() {
   }
 }
 
+
+function formatDeliveryData(data) {
+  if (!data) return 'غير متوفر';
+  try {
+    const parsed = JSON.parse(data);
+    if (typeof parsed === 'object') {
+      return parsed.player_id || parsed.id || Object.values(parsed).join(' - ');
+    }
+  } catch (e) {
+    // ليس JSON، أعد النص كما هو
+  }
+  return data;
+}
+
 window.openOrderDetails = function(id) {
   const o = allOrders.find(x => x.id == id);
   if(!o) return;
@@ -66,7 +80,7 @@ window.openOrderDetails = function(id) {
       <div class="receipt-divider"></div>
       <div class="receipt-row"><span>المنتج:</span><strong>${o.product_name || 'غير متوفر'}</strong></div>
       <div class="receipt-row"><span>الكمية:</span><strong style="font-family: monospace;">${o.quantity || 1}</strong></div>
-      <div class="receipt-row"><span>بيانات الاستلام:</span><strong style="color: var(--primary); font-family: monospace;">${o.delivery_data || 'غير متوفر'}</strong></div>
+      <div class="receipt-row"><span>بيانات الاستلام:</span><strong style="color: var(--primary); font-family: monospace;">${formatDeliveryData(o.delivery_data)}</strong></div>
       <div class="receipt-divider"></div>
       <div class="receipt-total"><span>الإجمالي المدفوع:</span><strong>$${Number(o.amount || 0).toFixed(2)}</strong></div>
       <div class="receipt-footer">شكراً لثقتك بـ SANAD PLUS⁺<br>هذا الإيصال صادر إلكترونياً.</div>
