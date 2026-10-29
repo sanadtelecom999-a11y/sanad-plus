@@ -1,5 +1,5 @@
-import html
 import os
+import html
 import logging
 import requests
 
@@ -30,7 +30,7 @@ def _send_telegram_message(chat_id, text, parse_mode="HTML"):
 
 def notify_order_approved(user, order):
     product_name = order.product.name if getattr(order, "product", None) else "—"
-    text = f"✅ <b>تمت الموافقة على طلبك</b>\n\n🔖 رقم الطلب: <code>{_safe(order.order_number)}</code>\n📦 المنتج: {_safe(product_name)}\n🔢 الكمية: {order.quantity}\n💵 الإجمالي: ${_safe(order.total_price)}\n"
+    text = f"✅ <b>تمت الموافقة على طلبك</b>\n\n🔖 رقم الطلب: <code>{_safe(order.order_number)}</code>\n📦 المنتج: {_safe(product_name)}\n🔢 الكمية: {_safe(order.quantity)}\n💵 الإجمالي: ${_safe(order.total_price)}\n"
     if getattr(order, "delivery_data", None):
         text += f"\n🎁 التسليم:\n<code>{_safe(order.delivery_data)}</code>\n"
     text += "\nشكراً لثقتك بـ <b>SANAD PLUS⁺</b>"
@@ -65,6 +65,6 @@ def notify_kyc_rejected(user, reason=None):
 
 def notify_balance_adjusted(user, amount, reason=None):
     sign = "➕" if amount >= 0 else "➖"
-    text = f"{sign} <b>تم تعديل رصيدك</b>\n\n💵 المبلغ: ${abs(amount)}\n📊 رصيدك الجديد: <b>${_safe(user.balance)}</b>\n"
+    text = f"{sign} <b>تم تعديل رصيدك</b>\n\n💵 المبلغ: ${_safe(abs(amount))}\n📊 رصيدك الجديد: <b>${_safe(user.balance)}</b>\n"
     if reason: text += f"\n📝 السبب: {_safe(reason)}\n"
     return _send_telegram_message(user.telegram_id, text)
