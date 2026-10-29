@@ -146,6 +146,35 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=140"></script>
+  <script type="module" src="js/main.js?v=155"></script>
+
+  <!-- DEBUG ERROR CATCHER & RESCUE -->
+  <script>
+    window.addEventListener('error', function(e) {
+      var el = document.getElementById('debug-error') || document.createElement('div');
+      el.id = 'debug-error';
+      el.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#ef4444; color:white; z-index:999999; padding:15px; font-size:13px; font-family:monospace; direction:ltr; text-align:left; word-wrap:break-word;';
+      el.innerHTML += '<b>ERROR:</b> ' + e.message + '<br><b>File:</b> ' + (e.filename || 'unknown') + '<br><b>Line:</b> ' + (e.lineno || 'unknown') + '<br><br>';
+      document.body.appendChild(el);
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var el = document.getElementById('debug-error') || document.createElement('div');
+      el.id = 'debug-error';
+      el.style.cssText = 'position:fixed; top:0; left:0; right:0; background:#b91c1c; color:white; z-index:999999; padding:15px; font-size:13px; font-family:monospace; direction:ltr; text-align:left; word-wrap:break-word;';
+      var msg = e.reason && e.reason.message ? e.reason.message : String(e.reason);
+      el.innerHTML += '<b>UNHANDLED REJECTION:</b> ' + msg + '<br><br>';
+      document.body.appendChild(el);
+    });
+
+    // كود الإنقاذ: إخفاء شاشة التحميل قسرياً بعد 3 ثوانٍ
+    setTimeout(function() {
+      var loader = document.getElementById('loading-screen');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function() { loader.remove(); }, 300);
+      }
+    }, 3000);
+  </script>
+
 </body>
 </html>
