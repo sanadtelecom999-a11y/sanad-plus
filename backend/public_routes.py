@@ -350,6 +350,27 @@ def create_order():
         print("Buy Error:", e, flush=True)
         return jsonify({"error": str(e)}), 500
 
+
+@public_bp.route('/deposits/', methods=['GET', 'OPTIONS'])
+@require_telegram_auth
+def get_user_deposits():
+    if request.method == 'OPTIONS': return jsonify({}), 200
+    user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
+    if not user: return jsonify({"items": [], "total": 0}), 200
+    try:
+        page = request.args.get('page', 1, type=int)
+        pagination = db.session.query(Deposit).filter_by(user_id=user.id).order_by(Deposit.id.desc()).paginate(page=page, per_page=10, error_out=False)
+        return jsonify({
+            "items": [{
+                "id": d.id, "amount": float(d.amount), "status": d.status,
+                "reference": getattr(d, 'transaction_id', ''),
+                "date": d.created_at.isoformat() if d.created_at else ''
+            } for d in pagination.items],
+            "has_next": pagination.has_next, "total": pagination.total
+        })
+    except Exception as e:
+        return jsonify({"items": [], "total": 0}), 500
+
 @public_bp.route('/ledger', methods=['GET', 'OPTIONS'])
 @require_telegram_auth
 def get_user_ledger():

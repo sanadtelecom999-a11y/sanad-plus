@@ -145,9 +145,14 @@ async function renderDeposits(container) {
         `).join('');
     } catch (e) { 
         console.error("Deposits error:", e);
-        document.getElementById('dep-list').innerHTML = `<div class="empty" style="color:var(--danger);text-align:center;">تعذر جلب الإيداعات. يرجى المحاولة لاحقاً.</div>`; 
+        document.getElementById('dep-list').innerHTML = `
+            <div class="empty" style="color:var(--danger);text-align:center;padding:20px;">
+                <p>تعذر جلب الإيداعات. قد يكون السيرفر في وضع النوم (Cold Start).</p>
+                <button onclick="showPage('deposits')" class="primary-btn" style="margin-top:10px;">إعادة المحاولة 🔄</button>
+            </div>`; 
     }
 }
+
 
 
 async function renderAccount(container) {
@@ -167,7 +172,7 @@ async function renderAccount(container) {
                         <img src="${escapeHtml(state.user?.photo_url || '')}" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
                              style="width:100%;height:100%;object-fit:cover; ${state.user?.photo_url ? '' : 'display:none;'}">
-                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
+                        <svg style="display:${state.user?.photo_url ? 'none' : 'block'}; width:100%; height:100%; padding:15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="7.5" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>
                     </div>
                 </div>
             </div>
@@ -197,26 +202,49 @@ async function renderAccount(container) {
             </section>
 
             <section class="service-list">
-                <button class="service-row" onclick="alert('قريباً: توثيق الحساب')">
+                <button class="service-row" onclick="alert('قريباً')">
                     <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg></span>
                     <span><span class="service-title">توثيق الحساب</span><span class="service-desc">حالة التوثيق وإجراءاته</span></span>
                     <span class="chevron">‹</span>
                 </button>
-                <button class="service-row" onclick="alert('قريباً: السجل المالي')">
+                <button class="service-row" onclick="alert('قريباً')">
                     <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12a2 2 0 0 1 2 2v17l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h4"/></svg></span>
                     <span><span class="service-title">السجل المالي</span><span class="service-desc">جميع عملياتك المالية</span></span>
                     <span class="chevron">‹</span>
                 </button>
-                <button class="service-row" onclick="alert('قريباً: الدعم الفني')">
+                <button class="service-row" onclick="alert('قريباً')">
                     <span class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/><path d="M17 19c0 2-2 3-5 3"/></svg></span>
                     <span><span class="service-title">الدعم الفني</span><span class="service-desc">المساعدة والاستفسارات</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+            </section>
+
+            <h2 class="extra-title">الخدمات الإضافية</h2>
+            <section class="extra-list">
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4M8.7 13.3l6.6 4.4"/></svg></span>
+                    <span><span class="service-title">الإحالة</span><span class="service-desc">رابط دعوة شخصي</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>
+                    <span><span class="service-title">الإشعارات</span><span class="service-desc">حالات الطلبات والإيداعات</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2 20 5v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+                    <span><span class="service-title">الأمان والخصوصية</span><span class="service-desc">حالة حماية الحساب</span></span>
+                    <span class="chevron">‹</span>
+                </button>
+                <button class="extra-row" onclick="alert('قريباً')">
+                    <span class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.6 9a2.5 2.5 0 1 1 4.4 1.6c-1.2 1.1-2 1.4-2 3M12 17h.01"/></svg></span>
+                    <span><span class="service-title">مركز المساعدة</span><span class="service-desc">الأسئلة الشائعة</span></span>
                     <span class="chevron">‹</span>
                 </button>
             </section>
         </section>
     `;
 }
-
 
 function renderCharge(container) {
     container.innerHTML = `
