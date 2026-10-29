@@ -81,13 +81,15 @@ def miniapp_init():
     from sqlalchemy import func
     total_deps = db.session.query(func.sum(Deposit.amount)).filter_by(user_id=user.id, status='approved').scalar()
     
+    photo_url = g.telegram_user.get('photo_url', '')
     return jsonify({
         "balance": float(user.balance) if user.balance else 0.0,
         "first_name": getattr(user, 'first_name', 'مستخدم'),
         "sanad_id": f"SN-{user.id:03d}",
         "is_verified": getattr(user, 'is_verified', False),
         "total_deposits": float(total_deps) if total_deps else 0.0,
-        "telegram_id": str(user.telegram_id)
+        "telegram_id": str(user.telegram_id),
+        "photo_url": photo_url
     })
 
 @public_bp.route('/orders/', methods=['GET', 'OPTIONS'])
