@@ -61,41 +61,55 @@ def admin_required(fn):
 @admin_bp.route("/login", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def login():
-    data = request.get_json(silent=True) or {}
-    password = (data.get("password") or "").strip()
-    if not password: return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
-    
-    admin = db.session.query(AdminUser).filter_by(is_active=True).first()
-    if not admin or not check_password_hash(admin.password_hash, password):
-        return jsonify({"success": False, "error": "كلمة المرور غير صحيحة"}), 401
-        
-    session_id = str(uuid.uuid4())
-    otp_code = _generate_otp()
-    otp_hash = _hash_otp(otp_code)
-    expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
-    
     try:
-        db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_hash=otp_hash, expires_at=expires_at))
-        db.session.commit()
-    except SQLAlchemyError:
-        db.session.rollback()
-        current_app.logger.exception("Failed to persist admin OTP session")
-        return jsonify({"error": "تعذر إكمال تسجيل الدخول حالياً"}), 503
+        data = request.get_json(silent=True) or {}
+        password = (data.get("password") or "").strip()
+        if not password: return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
         
-    bot_token = os.environ.get("BOT_TOKEN", "")
-    admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
-    if not bot_token or not admin_telegram_id:
-        return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة"}), 500
+        admin = db.session.query(AdminUser).filter_by(is_active=True).first()
+        if not admin:
+            print("LOGIN ERROR: No active admin found in database.", flush=True)
+            return jsonify({"success": False, "error": "لا يوجد حساب أدمن نشط"}), 401
+            
+        if not check_password_hash(admin.password_hash, password):
+            print("LOGIN ERROR: Password hash mismatch.", flush=True)
+            return jsonify({"success": False, "error": "كلمة المرور غير صحيحة"}), 401
+            
+        session_id = str(uuid.uuid4())
+        otp_code = _generate_otp()
+        otp_hash = _hash_otp(otp_code)
+        expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
         
-    try:
-        res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={"chat_id": admin_telegram_id, "text": f"رمز الدخول: {otp_code}"}, timeout=5)
-        if res.status_code != 200: return jsonify({"success": False, "error": "فشل إرسال الرمز"}), 500
-    except Exception:
-        return jsonify({"success": False, "error": "فشل الاتصال بتيليجرام"}), 500
+        try:
+            db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_hash=otp_hash, expires_at=expires_at))
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"LOGIN DB ERROR: {str(e)}", flush=True)
+            return jsonify({"error": "تعذر الحفظ في قاعدة البيانات"}), 503
+            
+        bot_token = os.environ.get("BOT_TOKEN", "")
+        admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
+        if not bot_token or not admin_telegram_id:
+            print("LOGIN ERROR: Missing BOT_TOKEN or ADMIN_TELEGRAM_ID in Render.", flush=True)
+            return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة"}), 500
+            
+        try:
+            res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={"chat_id": admin_telegram_id, "text": f"رمز الدخول: {otp_code}"}, timeout=5)
+            if res.status_code != 200:
+                print(f"LOGIN TELEGRAM ERROR: {res.text}", flush=True)
+                return jsonify({"success": False, "error": "فشل إرسال الرمز لتيليجرام"}), 500
+        except Exception as e:
+            print(f"LOGIN TELEGRAM EXCEPTION: {str(e)}", flush=True)
+            return jsonify({"success": False, "error": "فشل الاتصال بتيليجرام"}), 500
+            
+        return jsonify({"success": True, "require_otp": True, "session_id": session_id})
         
-    return jsonify({"success": True, "require_otp": True, "session_id": session_id})
+    except Exception as e:
+        print(f"LOGIN FATAL ERROR: {str(e)}", flush=True)
+        return jsonify({"error": "حدث خطأ غير متوقع"}), 500
 
-@admin_bp.route("/verify-otp", methods=["POST"])
+@admin_bp.route("/verify-otp", methods=["POST"])@admin_bp.route("/verify-otp", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def verify_otp():
     data = request.get_json(silent=True) or {}
