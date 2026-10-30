@@ -1,101 +1,106 @@
 import { api } from '../core/api.js';
-import { escapeHtml, formatDate } from '../core/utils.js';
 
+let ticketsData = [];
 let currentTicketId = null;
 
 export async function renderSupport() {
-  const container = document.getElementById('dashboard-container');
-  container.innerHTML = `
-    <div class="chat-container">
-      <div class="sanad-card chat-sidebar">
-        <div style="padding:16px; border-bottom:1px solid rgba(255,255,255,0.05);"><h3 style="margin:0; font-size:15px;">التذاكر النشطة</h3></div>
-        <div id="tickets-list" style="flex:1; overflow-y:auto; padding:8px;"></div>
-      </div>
-      <div class="sanad-card chat-main">
-        <div id="chat-header" style="display:none; padding:16px; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
-          <h3 id="chat-user-name" style="margin:0; font-size:15px;"></h3>
-          <button onclick="window.closeTicket()" class="sanad-btn sanad-btn-danger" style="font-size:11px; padding:4px 8px;">إغلاق</button>
-        </div>
-        <div id="chat-messages" class="chat-messages">
-          <div style="text-align:center; color:#91a7c2; margin-top:50px;">اختر تذكرة من القائمة لعرض المحادثة</div>
-        </div>
-        <div id="chat-input-area" style="display:none; padding:16px; border-top:1px solid rgba(255,255,255,0.05);">
-          <form id="reply-form" style="display:flex; gap:8px;">
-            <input type="text" id="reply-text" placeholder="اكتب ردك..." required class="sanad-input" style="flex:1;">
-            <button type="submit" class="sanad-btn sanad-btn-primary">إرسال</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  `;
-  await loadTickets();
-}
-
-async function loadTickets() {
-  const res = await api.safeFetch('/api/admin/support/tickets');
-  const list = document.getElementById('tickets-list');
-  if (!res.ok || !res.data) { list.innerHTML = `<div style="text-align:center; color:#fb7185; padding:20px;">فشل الجلب</div>`; return; }
-  const tickets = res.data;
-  if (tickets.length === 0) { list.innerHTML = `<div style="text-align:center; color:#91a7c2; padding:20px;">لا توجد تذاكر</div>`; return; }
-  
-  list.innerHTML = tickets.map(t => `
-    <div onclick="window.openTicket(${t.id}, '${escapeHtml(t.user_name)}')" style="padding:12px; border-radius:8px; cursor:pointer; margin-bottom:4px; border:1px solid ${currentTicketId === t.id ? '#38bdf8' : 'transparent'}; background:${currentTicketId === t.id ? 'rgba(56,189,248,0.1)' : 'transparent'}; transition:0.2s;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-        <strong style="font-size:13px; color:${currentTicketId === t.id ? '#38bdf8' : 'white'};">${escapeHtml(t.user_name)}</strong>
-        <span style="font-size:10px; color:${t.status === 'open' ? '#34d399' : '#91a7c2'};">${t.status === 'open' ? 'مفتوحة' : 'مغلقة'}</span>
-      </div>
-      <div style="font-size:11px; color:#91a7c2;">تذكرة #${t.id}</div>
-    </div>
-  `).join('');
-}
-
-window.openTicket = async function(id, userName) {
-  currentTicketId = id;
-  await loadTickets();
-  
-  document.getElementById('chat-header').style.display = 'flex';
-  document.getElementById('chat-input-area').style.display = 'block';
-  document.getElementById('chat-user-name').textContent = userName;
-  
-  const messagesArea = document.getElementById('chat-messages');
-  messagesArea.innerHTML = `<div style="text-align:center; color:#91a7c2; margin-top:20px;">جاري تحميل الرسائل...</div>`;
-  const res = await api.safeFetch(`/api/admin/support/tickets/${id}/messages`);
-  
-  if (!res.ok || !res.data || res.data.length === 0) {
-    messagesArea.innerHTML = `<div style="text-align:center; color:#91a7c2; margin-top:20px;">لا توجد رسائل.</div>`;
-    return;
-  }
-
-  messagesArea.innerHTML = res.data.map(m => {
-    const isAdmin = m.sender_type === 'admin';
-    return `
-      <div class="chat-bubble ${isAdmin ? 'admin' : 'user'}">
-        <p style="margin:0;">${escapeHtml(m.text)}</p>
-        <span class="chat-time">${formatDate(m.created_at)}</span>
-      </div>
+    const container = document.getElementById('dashboard-container');
+    container.innerHTML = `
+        <section class="support-page">
+            <header class="section-header">
+                <h2 class="section-title">تذاكر الدعم</h2>
+            </header>
+            <div style="display:flex; gap:20px; height:calc(100vh - 250px);">
+                <div class="content-card" style="width:300px; overflow-y:auto; padding:10px;">
+                    <div id="tickets-list"><div class="loading-state"><div class="spinner"></div>جاري التحميل...</div></div>
+                </div>
+                <div class="content-card" style="flex:1; display:flex; flex-direction:column;">
+                    <div id="chat-header" style="display:none; padding-bottom:10px; border-bottom:1px solid var(--color-border); margin-bottom:10px;">
+                        <h3 id="chat-user-name"></h3>
+                    </div>
+                    <div id="chat-messages" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
+                        <div class="empty-state">اختر تذكرة لعرض المحادثة</div>
+                    </div>
+                    <form id="reply-form" style="display:none; gap:10px; margin-top:10px;">
+                        <input type="text" id="reply-input" class="sanad-input" placeholder="اكتب ردك..." required>
+                        <button type="submit" class="sanad-btn primary">إرسال</button>
+                    </form>
+                </div>
+            </div>
+        </section>
     `;
-  }).join('');
-  messagesArea.scrollTop = messagesArea.scrollHeight;
-  
-  document.getElementById('reply-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const input = document.getElementById('reply-text');
-    if (!input.value.trim()) return;
-    input.disabled = true;
-    const response = await api.safeFetch(`/api/admin/support/tickets/${id}/reply`, { method: 'POST', body: { text: input.value.trim() } });
-    input.disabled = false;
-    if (response.ok) { input.value = ''; window.openTicket(id, userName); } else { alert('فشل الإرسال'); }
-  };
-};
 
-window.closeTicket = async function() {
-  if (!currentTicketId || !confirm('إغلاق التذكرة؟')) return;
-  const res = await api.safeFetch(`/api/admin/support/tickets/${currentTicketId}/close`, { method: 'POST' });
-  if (res.ok) {
-    currentTicketId = null;
-    document.getElementById('chat-header').style.display = 'none';
-    document.getElementById('chat-input-area').style.display = 'none';
-    document.getElementById('chat-messages').innerHTML = `<div style="text-align:center; color:#91a7c2; margin-top:50px;">اختر تذكرة</div>`;
-    loadTickets();
-  }
+    try {
+        const res = await api.safeFetch('/api/admin/support/tickets');
+        if (!res.ok) throw new Error(res.error);
+        ticketsData = res.data || [];
+        
+        const list = document.getElementById('tickets-list');
+        if (ticketsData.length === 0) {
+            list.innerHTML = `<div class="empty-state">لا توجد تذاكر.</div>`;
+            return;
+        }
+
+        list.innerHTML = ticketsData.map(t => `
+            <div class="inbox-item-card" style="cursor:pointer; margin-bottom:8px; padding:12px;" onclick="window.openTicket(${t.id}, '${t.user_name}')">
+                <div class="inbox-item-top">
+                    <span class="status-pill ${t.status === 'open' ? 'success' : 'danger'}">${t.status === 'open' ? 'مفتوحة' : 'مغلقة'}</span>
+                    <small>#${t.id}</small>
+                </div>
+                <h4 style="margin:5px 0;">${t.user_name}</h4>
+            </div>
+        `).join('');
+    } catch (error) {
+        document.getElementById('tickets-list').innerHTML = `<div class="empty-state" style="color:red;">${error.message}</div>`;
+    }
+}
+
+window.openTicket = async function(id, name) {
+    currentTicketId = id;
+    document.getElementById('chat-header').style.display = 'block';
+    document.getElementById('chat-user-name').textContent = name;
+    document.getElementById('reply-form').style.display = 'flex';
+    
+    const chat = document.getElementById('chat-messages');
+    chat.innerHTML = `<div class="loading-state"><div class="spinner"></div>جاري التحميل...</div>`;
+
+    try {
+        const res = await api.safeFetch(`/api/admin/support/tickets/${id}/messages`);
+        if (!res.ok) throw new Error(res.error);
+        const msgs = res.data || [];
+        
+        if (msgs.length === 0) {
+            chat.innerHTML = `<div class="empty-state">لا توجد رسائل.</div>`;
+        } else {
+            chat.innerHTML = msgs.map(m => `
+                <div class="support-message ${m.sender_type === 'admin' ? 'admin' : 'user'}">
+                    <strong>${m.sender_type === 'admin' ? 'الإدارة' : 'المستخدم'}</strong>
+                    <p>${m.text}</p>
+                    <small>${new Date(m.created_at).toLocaleString('ar-EG')}</small>
+                </div>
+            `).join('');
+            chat.scrollTop = chat.scrollHeight;
+        }
+    } catch (error) {
+        chat.innerHTML = `<div class="empty-state" style="color:red;">${error.message}</div>`;
+    }
+
+    document.getElementById('reply-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('reply-input');
+        const text = input.value.trim();
+        if (!text) return;
+        
+        try {
+            const res = await api.safeFetch(`/api/admin/support/tickets/${id}/reply`, {
+                method: 'POST',
+                body: { text }
+            });
+            if (!res.ok) throw new Error(res.error);
+            input.value = '';
+            window.openTicket(id, name); // Reload
+        } catch (error) {
+            alert('فشل الإرسال: ' + error.message);
+        }
+    };
 };

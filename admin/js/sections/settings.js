@@ -1,55 +1,69 @@
 import { api } from '../core/api.js';
 
 export async function renderSettings() {
-  const container = document.getElementById('dashboard-container');
-  container.innerHTML = `
-    <div style="max-width:600px; margin:0 auto;">
-      <h2 style="font-size:18px; margin-bottom:20px;">إعدادات المتجر</h2>
-      <div class="sanad-card" style="padding:24px;">
-        <form id="settings-form" style="display:flex; flex-direction:column; gap:20px;">
-          <div>
-            <label style="display:block; font-size:13px; color:#91a7c2; margin-bottom:8px;">اسم المتجر</label>
-            <input type="text" id="set-store-name" class="sanad-input" placeholder="SANAD+ Store">
-          </div>
-          <div>
-            <label style="display:block; font-size:13px; color:#91a7c2; margin-bottom:8px;">سعر صرف الليرة السورية</label>
-            <input type="number" id="set-exchange-rate" class="sanad-input" placeholder="15000">
-          </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; background:#0b1b2f; padding:16px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);">
-            <div>
-              <h4 style="margin:0 0 4px 0; font-size:14px;">وضع الصيانة</h4>
-              <p style="margin:0; font-size:12px; color:#91a7c2;">إغلاق واجهة المستخدم مؤقتاً.</p>
-            </div>
-            <input type="checkbox" id="set-maintenance" style="width:20px; height:20px; accent-color:#38bdf8;">
-          </div>
-          <div id="settings-msg" style="font-size:13px; display:none;"></div>
-          <button type="submit" id="settings-save-btn" class="sanad-btn sanad-btn-primary" style="padding:12px;">حفظ الإعدادات</button>
-        </form>
-      </div>
-    </div>
-  `;
+    const container = document.getElementById('dashboard-container');
+    container.innerHTML = `<div class="loading-state"><div class="spinner"></div>جاري تحميل الإعدادات...</div>`;
 
-  await loadSettings();
+    try {
+        const res = await api.safeFetch('/api/admin/settings');
+        if (!res.ok) throw new Error(res.error);
+        const settings = res.data;
 
-  document.getElementById('settings-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('settings-save-btn');
-    const msg = document.getElementById('settings-msg');
-    btn.disabled = true; btn.textContent = 'جاري الحفظ...'; msg.style.display = 'none';
+        container.innerHTML = `
+            <section class="settings-page">
+                <header class="section-header">
+                    <h2 class="section-title">الإعدادات العامة</h2>
+                </header>
+                <form id="settings-form" class="admin-form" style="max-width:600px;">
+                    <div class="content-card">
+                        <label>اسم المتجر</label>
+                        <input type="text" id="set-name" class="sanad-input" value="${settings.store_name || ''}" required>
 
-    const res = await api.safeFetch('/api/admin/settings', { method: 'PUT', body: { store_name: document.getElementById('set-store-name').value, exchange_rate: parseFloat(document.getElementById('set-exchange-rate').value), maintenance_mode: document.getElementById('set-maintenance').checked } });
-    btn.disabled = false; btn.textContent = 'حفظ الإعدادات';
+                        <label style="margin-top:15px; display:block;">سعر الصرف (1 دولار = ؟ ل.س)</label>
+                        <input type="number" id="set-rate" class="sanad-input" value="${settings.exchange_rate || 130}" required>
 
-    if (res.ok) { msg.textContent = 'تم الحفظ بنجاح.'; msg.style.color = '#34d399'; msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
-    else { msg.textContent = 'فشل: ' + res.error; msg.style.color = '#fb7185'; msg.style.display = 'block'; }
-  };
-}
+                        <div class="detail-row settings-toggle-row" style="margin-top:15px;">
+                            <div>
+                                <strong>وضع الصيانة</strong>
+                                <p class="section-description">إغلاق المتجر للمستخدمين مؤقتاً.</p>
+                            </div>
+                            <label class="settings-switch">
+                                <input type="checkbox" id="set-maintenance" ${settings.maintenance_mode ? 'checked' : ''}>
+                                <span class="settings-switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="sanad-btn primary" style="margin-top:15px;">حفظ الإعدادات</button>
+                </form>
+            </section>
+        `;
 
-async function loadSettings() {
-  const res = await api.safeFetch('/api/admin/settings');
-  if (res.ok && res.data) {
-    document.getElementById('set-store-name').value = res.data.store_name || '';
-    document.getElementById('set-exchange-rate').value = res.data.exchange_rate || '';
-    document.getElementById('set-maintenance').checked = res.data.maintenance_mode === true;
-  }
+        document.getElementById('settings-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            btn.disabled = true; btn.textContent = 'جاري الحفظ...';
+
+            try {
+                const payload = {
+                    store_name: document.getElementById('set-name').value,
+                    exchange_rate: parseFloat(document.getElementById('set-rate').value),
+                    maintenance_mode: document.getElementById('set-maintenance').checked
+                };
+                
+                const updateRes = await api.safeFetch('/api/admin/settings', {
+                    method: 'PUT',
+                    body: payload
+                });
+                
+                if (!updateRes.ok) throw new Error(updateRes.error);
+                alert('تم حفظ الإعدادات بنجاح');
+            } catch (error) {
+                alert('فشل الحفظ: ' + error.message);
+            } finally {
+                btn.disabled = false; btn.textContent = 'حفظ الإعدادات';
+            }
+        };
+    } catch (error) {
+        container.innerHTML = `<div class="empty-state" style="color:red;"><strong>فشل تحميل الإعدادات</strong><span>${error.message}</span></div>`;
+    }
 }
