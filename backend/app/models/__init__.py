@@ -17,13 +17,6 @@ class User(db.Model):
     is_verified = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     created_at = db.Column(db.DateTime, default=_now)
 
-class AdminOTPSession(db.Model):
-    __tablename__ = 'admin_otp_sessions'
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.String(64), unique=True, nullable=False)
-    code_hash = db.Column(db.String(255), nullable=False)
-    expires_at = db.Column(db.DateTime, nullable=False)
-    created_at = db.Column(db.DateTime, default=_now)
 
 class Setting(db.Model):
     __tablename__ = 'settings'
@@ -202,4 +195,14 @@ class AdminAuditLog(db.Model):
     target_type = db.Column(db.String(50))
     target_id = db.Column(db.Integer)
     details = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=_now)
+
+class AdminOTPSession(db.Model):
+    __tablename__ = 'admin_otp_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('admin_users.id'), nullable=False)
+    session_id = db.Column(db.String(100), unique=True, nullable=False)
+    otp_code = db.Column(db.String(6), nullable=False)
+    attempts = db.Column(db.Integer, default=0)
+    expires_at = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=_now)
