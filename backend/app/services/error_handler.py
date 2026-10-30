@@ -1,10 +1,10 @@
 """تشخيص أخطاء قيود قاعدة البيانات (IntegrityError)."""
-from sqlalchemy.exc import IntegrityError, FlushError
+from sqlalchemy.exc import IntegrityError
 import re
 
 def diagnose_integrity_error(error):
     """يرجع اسم القيد المنتهك، أو None."""
-    if not isinstance(error, (IntegrityError, FlushError)):
+    if not isinstance(error, IntegrityError):
         return None
     orig = getattr(error, 'orig', None)
     if orig is None:
