@@ -183,35 +183,100 @@ def get_faq():
 @public_bp.route('/orders/create', methods=['POST'])
 @require_telegram_auth
 def create_order():
+    from app.services.error_handler import diagnose_integrity_error
+    from sqlalchemy.exc import IntegrityError
+
     data = request.get_json(silent=True) or {}
     product_id = data.get('product_id')
     raw_quantity = data.get('quantity', 1)
+    idempotency_key = data.get('idempotency_key')
     customer_note = str(data.get('customer_note', '') or '').strip()[:1000]
-    if not product_id: return jsonify({"error": "بيانات ناقصة"}), 400
-    try: quantity = int(raw_quantity)
-    except: return jsonify({"error": "الكمية غير صالحة"}), 400
-    if quantity < 1 or quantity > 1000: return jsonify({"error": "الكمية يجب أن تكون بين 1 و1000"}), 400
+
+    if not idempotency_key or len(idempotency_key) > 100:
+        return jsonify({"error": "Missing idempotency_key"}), 400
+
+    try:
+        quantity = int(raw_quantity)
+        if quantity < 1 or quantity > 1000:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"error": "الكمية غير صالحة"}), 400
+
     try:
         user = db.session.query(User).filter_by(telegram_id=g.telegram_id).with_for_update().first()
-        product = db.session.query(Product).filter_by(id=product_id, is_active=True, deleted_at=None).with_for_update().first()
-        if not user or not product: return jsonify({"error": "المستخدم أو المنتج غير متاح"}), 404
-        if user.is_banned: return jsonify({"error": "الحساب موقوف"}), 403
-        unit_price = Decimal(str(product.base_price))
-        total_price = (unit_price * quantity).quantize(Decimal("0.0001"))
-        old_balance = Decimal(str(user.balance or "0")).quantize(Decimal("0.0001"))
-        if old_balance < total_price: return jsonify({"error": "رصيدك غير كافٍ"}), 400
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        if user.is_banned:
+            return jsonify({"error": "الحساب موقوف"}), 403
+
+        existing = db.session.query(Order).filter_by(
+            user_id=user.id, idempotency_key=idempotency_key
+        ).first()
+        if existing:
+            if existing.product_id != product_id or existing.quantity != quantity:
+                return jsonify({
+                    "error": "المفتاح مستخدم لطلب مختلف",
+                    "existing_order_id": existing.id
+                }), 409
+            return jsonify({
+                "success": True,
+                "order_id": existing.id,
+                "order_number": existing.order_number,
+                "message": "طلب مكرر - أُعيدت النتيجة"
+            }), 200
+
+        product = db.session.query(Product).filter_by(
+            id=product_id, is_active=True
+        ).with_for_update().first()
+        if not product:
+            return jsonify({"error": "المنتج غير متوفر"}), 404
+        if product.base_price is None or product.base_price <= 0:
+            return jsonify({"error": "سعر المنتج غير صالح"}), 400
+
+        total_price = (product.base_price * quantity).quantize(Decimal("0.0001"))
+        if user.balance is None or user.balance < total_price:
+            return jsonify({"error": "رصيدك غير كافٍ"}), 400
+
         order_number = f"ORD-{uuid4().hex[:8].upper()}"
-        new_balance = old_balance - total_price
-        user.balance = new_balance
-        new_order = Order(order_number=order_number, user_id=user.id, product_id=product.id, quantity=quantity, unit_price=unit_price, total_price=total_price, status="pending", customer_note=customer_note)
+        old_balance = user.balance
+        user.balance = old_balance - total_price
+
+        new_order = Order(
+            order_number=order_number, idempotency_key=idempotency_key,
+            user_id=user.id, product_id=product.id, quantity=quantity,
+            total_price=total_price, status="pending", customer_note=customer_note
+        )
         db.session.add(new_order)
         db.session.flush()
-        record_transaction(user.id, "purchase", -total_price, old_balance, new_balance, reference=order_number, description=f"شراء {product.name}")
+        record_transaction(user.id, "purchase", -total_price, old_balance, user.balance, reference=order_number)
         db.session.commit()
-        return jsonify({"success": True, "order_id": new_order.id, "new_balance": float(new_balance)})
-    except Exception as e:
+        return jsonify({"success": True, "order_id": new_order.id, "new_balance": float(user.balance)}), 201
+
+    except IntegrityError as exc:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        constraint = diagnose_integrity_error(exc)
+        if constraint == 'unique_user_idempotency':
+            user = db.session.query(User).filter_by(telegram_id=g.telegram_id).first()
+            if user:
+                existing = db.session.query(Order).filter_by(
+                    user_id=user.id, idempotency_key=idempotency_key
+                ).first()
+                if existing:
+                    if existing.product_id != product_id or existing.quantity != quantity:
+                        return jsonify({"error": "المفتاح مستخدم لطلب مختلف"}), 409
+                    return jsonify({
+                        "success": True, "order_id": existing.id,
+                        "order_number": existing.order_number,
+                        "message": "تعارض متزامن - أُعيدت النتيجة"
+                    }), 200
+            return jsonify({"error": "تعارض - أعد المحاولة"}), 503
+        print(f"Unexpected IntegrityError: {constraint}", flush=True)
+        return jsonify({"error": "حدث خطأ داخلي"}), 500
+    except Exception as exc:
+        db.session.rollback()
+        print(f"Order error: {exc}", flush=True)
+        return jsonify({"error": "حدث خطأ داخلي"}), 500
+
 
 @public_bp.route('/payment-methods/', methods=['GET', 'OPTIONS'])
 def get_payment_methods():

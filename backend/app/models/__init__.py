@@ -170,3 +170,25 @@ class FinancialLedger(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=_now, server_default=db.func.current_timestamp())
     user = db.relationship("User", foreign_keys=[user_id])
     __table_args__ = (db.Index("uq_financial_ledger_action_reference", "action_type", "reference", unique=True),)
+
+
+class AdminUser(db.Model):
+    __tablename__ = 'admin_users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default='admin', nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=_now)
+
+class AdminOperation(db.Model):
+    __tablename__ = 'admin_operations'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, nullable=False)
+    idempotency_key = db.Column(db.String(100), nullable=False)
+    operation_type = db.Column(db.String(50), nullable=False)
+    target_id = db.Column(db.Integer)
+    payload_fingerprint = db.Column(db.String(64), nullable=False)
+    result_json = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=_now)
+    __table_args__ = (db.UniqueConstraint('admin_id', 'idempotency_key', name='unique_admin_idem'),)
