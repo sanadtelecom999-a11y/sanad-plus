@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, g
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.models import User, Order, Deposit, KYCRequest, AdminUser, AdminOperation, AdminAuditLog, Product, Category, PaymentMethod, SupportTicket, SupportMessage
+from app.models import User, Order, Deposit, KYCRequest, AdminUser, AdminOperation, AdminAuditLog, AdminOTPSession, Product, Category, PaymentMethod, SupportTicket, SupportMessage
 from app.services.ledger_service import record_transaction
 from app.services.error_handler import diagnose_integrity_error
 from app.decorators import rate_limit
@@ -63,33 +63,26 @@ def admin_required(fn):
 @admin_bp.route("/login", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def login():
-    from werkzeug.security import check_password_hash
     data = request.get_json(silent=True) or {}
     password = (data.get("password") or "").strip()
-
-    if not password:
-        return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
-
+    if not password: return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
     admin = db.session.query(AdminUser).filter_by(is_active=True).first()
     if not admin or not check_password_hash(admin.password_hash, password):
         return jsonify({"success": False, "error": "كلمة المرور غير صحيحة"}), 401
-
     session_id = str(uuid.uuid4())
     otp_code = _generate_otp()
-
+    expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
+    db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_code=otp_code, expires_at=expires_at))
+    db.session.commit()
     bot_token = os.environ.get("BOT_TOKEN", "")
     admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
     if not bot_token or not admin_telegram_id:
         return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة"}), 500
-
     try:
         res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={"chat_id": admin_telegram_id, "text": f"رمز الدخول: {otp_code}"}, timeout=5)
-        if res.status_code != 200:
-            return jsonify({"success": False, "error": "فشل إرسال الرمز"}), 500
+        if res.status_code != 200: return jsonify({"success": False, "error": "فشل إرسال الرمز"}), 500
     except Exception:
         return jsonify({"success": False, "error": "فشل الاتصال بتيليجرام"}), 500
-
-    _admin_sessions[session_id] = {"otp_code": otp_code, "created_at": _utcnow(), "attempts": 0}
     return jsonify({"success": True, "require_otp": True, "session_id": session_id})
 
 @admin_bp.route("/verify-otp", methods=["POST"])
@@ -98,28 +91,32 @@ def verify_otp():
     data = request.get_json(silent=True) or {}
     session_id = (data.get("session_id") or "").strip()
     otp_code = (data.get("otp_code") or "").strip()
+    try:
+        session = db.session.query(AdminOTPSession).filter_by(session_id=session_id).with_for_update().first()
+        if not session: return jsonify({"success": False, "error": "جلسة غير صالحة"}), 400
+        if session.expires_at.replace(tzinfo=timezone.utc) < _utcnow():
+            db.session.delete(session)
+            db.session.commit()
+            return jsonify({"success": False, "error": "انتهت الصلاحية"}), 400
+        if session.attempts >= MAX_OTP_ATTEMPTS:
+            db.session.delete(session)
+            db.session.commit()
+            return jsonify({"success": False, "error": "عدد محاولات كبير"}), 429
+        if session.otp_code != otp_code:
+            session.attempts += 1
+            db.session.commit()
+            return jsonify({"success": False, "error": "رمز خاطئ"}), 400
+        db.session.delete(session)
+        db.session.commit()
+        admin = db.session.query(AdminUser).filter_by(id=session.admin_id).first()
+        now = _utcnow()
+        token = jwt.encode({"sub": "admin", "admin_id": admin.id, "role": admin.role, "iat": now, "exp": now + timedelta(hours=JWT_EXPIRY_HOURS)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        return jsonify({"token": token, "access_token": token})
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "حدث خطأ داخلي"}), 500
 
-    session = _admin_sessions.get(session_id)
-    if not session: return jsonify({"success": False, "error": "جلسة غير صالحة"}), 400
-    if _utcnow() - session["created_at"] > timedelta(minutes=OTP_TTL_MINUTES):
-        _admin_sessions.pop(session_id, None)
-        return jsonify({"success": False, "error": "انتهت الصلاحية"}), 400
-    session["attempts"] += 1
-    if session["attempts"] > MAX_OTP_ATTEMPTS:
-        _admin_sessions.pop(session_id, None)
-        return jsonify({"success": False, "error": "عدد محاولات كبير"}), 429
-    if otp_code != session["otp_code"]:
-        return jsonify({"success": False, "error": "رمز خاطئ"}), 400
-
-    _admin_sessions.pop(session_id, None)
-    admin = db.session.query(AdminUser).filter_by(is_active=True).first()
-    
-    now = _utcnow()
-    payload = {"sub": "admin", "admin_id": admin.id, "role": admin.role, "iat": now, "exp": now + timedelta(hours=JWT_EXPIRY_HOURS)}
-    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return jsonify({"token": token, "access_token": token})
-
-@admin_bp.route("/stats", methods=["GET"])
+@admin_bp.route("/stats", methods=["GET"])@admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def stats():
     try:

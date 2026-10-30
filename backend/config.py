@@ -1,30 +1,25 @@
 import os
-class Config:
-    # إعدادات SQLAlchemy لمنع انقطاع اتصال Neon
-    _db_url = os.getenv("DATABASE_URL", "")
-    _is_postgres = _db_url.startswith(("postgresql://", "postgres://"))
-    
-    if _is_postgres:
-        # استخدام NullPool لإجبار SQLAlchemy على فتح وإغلاق الاتصال لكل طلب
-        # هذا يمنع Neon من إغلاق الاتصال الخامل
-        from sqlalchemy.pool import NullPool
-        
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            "poolclass": NullPool,  # إجباري: لا نستخدم Pool
-            "pool_pre_ping": True,  # اختبار الاتصال قبل الاستخدام
-            "connect_args": {
-                "sslmode": "require",
-                "keepalives": 1,
-                "keepalives_idle": 30,
-                "keepalives_interval": 10,
-                "keepalives_count": 5,
-            },
-        }
-    else:
-        SQLALCHEMY_ENGINE_OPTIONS = {}
+from dotenv import load_dotenv
 
+load_dotenv()
+
+class Config:
+    _secret = os.environ.get("JWT_SECRET", "")
+    # التحقق من قوة السر: 32 حرفاً على الأقل، وليس من القيم الشائعة
+    if len(_secret) < 32 or _secret in ["super-secret-key", "dev-only-change-me", "admin123"]:
+        if os.environ.get("FLASK_ENV") != "testing":
+            raise ValueError("CRITICAL: JWT_SECRET must be cryptographically strong (min 32 bytes).")
+    
+    SECRET_KEY = _secret
+    JWT_SECRET_KEY = _secret
+    
+    _db_url = os.environ.get("DATABASE_URL", "")
+    if not _db_url and os.environ.get("FLASK_ENV") != "testing":
+        raise ValueError("CRITICAL: DATABASE_URL is missing. SQLite fallback is disabled for production.")
+        
+    if _db_url.startswith("postgres://"):
+        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+        
     SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "prod-jwt-secret")
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+    JWT_ACCESS_TOKEN_EXPIRES = 86400
