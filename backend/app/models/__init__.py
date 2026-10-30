@@ -128,6 +128,9 @@ class PaymentMethod(db.Model):
     max_amount = db.Column(MONEY, default=Decimal('500.0000'))
     is_active = db.Column(db.Boolean, default=True)
     deleted_at = db.Column(db.DateTime)
+    image = db.Column(db.Text)
+    notes = db.Column(db.Text)
+
 
 class SupportTicket(db.Model):
     __tablename__ = 'support_tickets'

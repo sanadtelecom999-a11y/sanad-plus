@@ -39,7 +39,48 @@ a { text-decoration: none; color: inherit; } img { max-width: 100%; } .app { min
 
 /* أقسام الخدمات */
 .categories-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 20px 20px; }
-.category-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 19px; background: linear-gradient(145deg, var(--surface), rgba(16,37,59,.7)); transition: transform .15s ease, border-color .15s ease; cursor: pointer; }
+.category-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
+    border: 1px solid var(--border);
+    border-radius: 19px;
+    background: linear-gradient(145deg, var(--surface), rgba(16,37,59,.7));
+    transition: transform .15s ease, border-color .15s ease;
+    cursor: pointer;
+    text-align: center;
+}
+.category-card:active {
+    transform: scale(.98);
+    border-color: var(--blue);
+}
+.category-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 55px;
+    height: 55px;
+    overflow: hidden;
+    border-radius: 15px;
+    background: var(--surface-light);
+}
+.category-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.category-info strong {
+    display: block;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+}
+.category-info span {
+    display: none; /* إخفاء كلمة "خدمات رقمية" لأنها تزدحم في المربع */
+}
 .category-card:active { transform: scale(.98); border-color: var(--blue); }
 .category-icon { display: flex; align-items: center; justify-content: center; flex: 0 0 52px; width: 52px; height: 52px; overflow: hidden; border: 1px solid rgba(127,224,255,.12); border-radius: 15px; background: var(--surface-light); }
 .category-icon img { width: 100%; height: 100%; object-fit: cover; }
@@ -112,4 +153,43 @@ a { text-decoration: none; color: inherit; } img { max-width: 100%; } .app { min
     .category-card { flex-direction: column; align-items: flex-start; }
     .home-header, .section-title { padding-right: 14px; padding-left: 14px; }
     .nav-btn { font-size: 9px; } .nav-btn svg { width: 21px; height: 21px; }
+}
+
+/* تنسيق شبكة المنتجات */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 0 20px 20px;
+}
+.product-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+}
+.product-card:active { background: var(--surface-light); }
+.product-card img {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    object-fit: cover;
+    margin-bottom: 10px;
+}
+.product-card strong {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: var(--text);
+}
+.product-card .price {
+    color: var(--cyan);
+    font-weight: bold;
+    font-size: 13px;
 }

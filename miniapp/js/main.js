@@ -196,17 +196,21 @@ window.openCategory = async function(catId, catName) {
     showToast('جاري جلب المنتجات...');
     try {
         const products = await apiFetch(`/api/products/?category_id=${catId}`);
-        const html = `
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
-                ${products.length ? products.map(p => `
-                    <div class="category-card" style="flex-direction:column; padding:15px; text-align:center;" onclick="openProduct(${p.id}, '${escapeHtml(p.name)}', ${p.price}, '${escapeHtml(p.image)}')">
-                        <img src="${escapeHtml(p.image || 'https://placehold.co/100')}" style="width:60px; height:60px; border-radius:12px; margin-bottom:10px;">
-                        <strong style="font-size:13px; display:block; margin-bottom:5px;">${escapeHtml(p.name)}</strong>
-                        <span style="color:var(--blue); font-weight:bold; font-size:14px;">${formatMoney(p.price)}</span>
-                    </div>
-                `).join('') : '<p style="grid-column:1/-1; text-align:center;">لا توجد منتجات.</p>'}
-            </div>
-        `;
+        let html = `<div class="product-grid">`;
+        
+        if (products && products.length > 0) {
+            html += products.map(p => `
+                <div class="product-card" onclick="openProduct(${p.id}, '${escapeHtml(p.name)}', ${p.price}, '${escapeHtml(p.image)}')">
+                    <img src="${escapeHtml(p.image || 'https://placehold.co/100')}">
+                    <strong>${escapeHtml(p.name)}</strong>
+                    <span class="price">${formatMoney(p.price)}</span>
+                </div>
+            `).join('');
+        } else {
+            html += '<p style="grid-column:1/-1; text-align:center; color:var(--muted);">لا توجد منتجات.</p>';
+        }
+        html += `</div>`;
+        
         openFullScreen('cat-screen', catName, html);
     } catch(e) { showToast('خطأ في الجلب'); }
 };
@@ -415,15 +419,16 @@ async function renderCharge(container) {
         const list = document.getElementById('payment-methods-list');
         if (!state.paymentMethods || state.paymentMethods.length === 0) { list.innerHTML = '<div style="color:var(--muted);">لا توجد طرق دفع.</div>'; return; }
         list.innerHTML = state.paymentMethods.map(pm => `
-            <div style="min-width:100px; background:var(--surface); border:2px solid var(--border); border-radius:16px; padding:15px; display:flex; flex-direction:column; align-items:center; cursor:pointer;" onclick="
+            <div style="min-width:110px; background:var(--surface); border:2px solid var(--border); border-radius:16px; padding:15px; display:flex; flex-direction:column; align-items:center; cursor:pointer; gap:8px;" onclick="
                 document.querySelectorAll('#payment-methods-list > div').forEach(c => c.style.borderColor='var(--border)');
                 this.style.borderColor='var(--blue)';
                 document.getElementById('selected-pm-name').textContent = '${escapeHtml(pm.name)}';
                 document.getElementById('selected-pm-account').textContent = '${escapeHtml(pm.account)}';
                 document.getElementById('payment-form-container').style.display = 'block';
+                ${pm.notes ? `document.getElementById('payment-notes').textContent = '${escapeHtml(pm.notes)}'; document.getElementById('payment-notes').style.display = 'block';` : `document.getElementById('payment-notes').style.display = 'none';`}
             ">
-                <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(pm.name)}&background=random&color=fff&size=100" style="width:40px; height:40px; border-radius:50%; margin-bottom:10px;">
-                <span style="font-size:12px; font-weight:bold;">${escapeHtml(pm.name)}</span>
+                ${pm.image ? `<img src="${escapeHtml(pm.image)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : `<img src="https://ui-avatars.com/api/?name=${encodeURIComponent(pm.name)}&background=random&color=fff&size=100" style="width:40px; height:40px; border-radius:50%;">`}
+                <span style="font-size:12px; font-weight:bold; text-align:center;">${escapeHtml(pm.name)}</span>
             </div>
         `).join('');
         document.getElementById('charge-form').onsubmit = async (e) => {
