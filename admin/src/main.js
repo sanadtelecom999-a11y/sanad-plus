@@ -1,9 +1,14 @@
 import { apiFetch, TOKEN_KEY } from './api.js';
+import { renderDashboard } from './pages/dashboard.js';
+import { renderInbox } from './pages/inbox.js';
 import { renderUsers } from './pages/users.js';
+import { renderSupport } from './pages/support.js';
 import { renderStore } from './pages/store.js';
+import { renderBroadcast } from './pages/broadcast.js';
+import { renderAudit } from './pages/audit.js';
 import { renderSettings } from './pages/settings.js';
 
-// --- الإعدادات العامة ---
+// --- الإعدادات العامة والثيم ---
 window.showToast = (msg, type = 'success') => {
   const t = document.getElementById('toast');
   t.innerText = msg; t.style.background = type === 'error' ? 'var(--error)' : 'var(--success)';
@@ -17,6 +22,7 @@ window.toggleTheme = () => {
   localStorage.setItem('theme', next);
   document.getElementById('theme-icon').setAttribute('data-lucide', next === 'dark' ? 'sun' : 'moon');
   lucide.createIcons();
+  if(window.switchPage) window.switchPage(document.querySelector('.nav-item.active').dataset.page); // إعادة رسم الصفحة لتحديث الألوان
 };
 
 window.togglePrivacy = () => {
@@ -27,7 +33,7 @@ window.togglePrivacy = () => {
   showToast(isPrivacy ? 'تم إخفاء البيانات' : 'تم إظهار البيانات');
 };
 
-// --- مودال الإشعارات ---
+// --- الإشعارات ---
 window.toggleNotifications = (e) => {
   e.stopPropagation();
   const dd = document.getElementById('notif-dropdown');
@@ -47,16 +53,17 @@ window.switchPage = (pageId) => {
   if (titles[pageId]) document.getElementById('page-title').innerText = titles[pageId];
 
   const container = document.getElementById('page-content');
-  container.innerHTML = '<div class="skeleton sk-line"></div>';
-
-  // استدعاء الملف المخصص لكل صفحة
-  if (pageId === 'users') renderUsers(container);
+  
+  // التوجيه لملفات الصفحات
+  if (pageId === 'dashboard') renderDashboard(container);
+  else if (pageId === 'inbox') renderInbox(container, false);
+  else if (pageId === 'archive') renderInbox(container, true);
+  else if (pageId === 'users') renderUsers(container);
+  else if (pageId === 'support') renderSupport(container);
   else if (pageId === 'store') renderStore(container);
+  else if (pageId === 'broadcast') renderBroadcast(container);
+  else if (pageId === 'audit') renderAudit(container);
   else if (pageId === 'settings') renderSettings(container);
-  else {
-    // باقي الصفحات (مؤقتاً)
-    container.innerHTML = `<div class="card-glass">قسم ${titles[pageId]} قيد التطوير...</div>`;
-  }
 };
 
 // --- المصادقة ---
