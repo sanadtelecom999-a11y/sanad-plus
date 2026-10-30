@@ -60,52 +60,41 @@ def admin_required(fn):
 @admin_bp.route("/login", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def login():
+    data = request.get_json(silent=True) or {}
+    password = (data.get("password") or "").strip()
+    if not password: return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
+    
+    admin = db.session.query(AdminUser).filter_by(is_active=True).first()
+    if not admin or not check_password_hash(admin.password_hash, password):
+        return jsonify({"success": False, "error": "كلمة المرور غير صحيحة"}), 401
+        
+    session_id = str(uuid.uuid4())
+    otp_code = _generate_otp()
+    expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
+    
+    db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_code=otp_code, expires_at=expires_at))
+    db.session.commit()
+    
+    bot_token = os.environ.get("BOT_TOKEN", "")
+    admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
+    if not bot_token or not admin_telegram_id:
+        return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة"}), 500
+        
     try:
-        data = request.get_json(silent=True) or {}
-        password = (data.get("password") or "").strip()
-        if not password: return jsonify({"success": False, "error": "كلمة المرور مطلوبة"}), 400
+        res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={"chat_id": admin_telegram_id, "text": f"رمز الدخول: {otp_code}"}, timeout=5)
+        if res.status_code != 200: return jsonify({"success": False, "error": "فشل إرسال الرمز"}), 500
+    except Exception:
+        return jsonify({"success": False, "error": "فشل الاتصال بتيليجرام"}), 500
         
-        admin = db.session.query(AdminUser).filter_by(is_active=True).first()
-        if not admin or not check_password_hash(admin.password_hash, password):
-            return jsonify({"success": False, "error": "كلمة المرور غير صحيحة"}), 401
-            
-        session_id = str(uuid.uuid4())
-        otp_code = _generate_otp()
-        expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
-        
-        db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_code=otp_code, expires_at=expires_at))
-        db.session.commit()
-        
-        bot_token = os.environ.get("BOT_TOKEN", "")
-        admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
-        if not bot_token or not admin_telegram_id:
-            print("LOGIN ERROR: Missing BOT_TOKEN or ADMIN_TELEGRAM_ID", flush=True)
-            return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة في السيرفر"}), 500
-            
-        try:
-            res = requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage", json={"chat_id": admin_telegram_id, "text": f"رمز الدخول: {otp_code}"}, timeout=5)
-            if res.status_code != 200:
-                print(f"LOGIN ERROR: Telegram responded {res.status_code} - {res.text}", flush=True)
-                return jsonify({"success": False, "error": "فشل إرسال الرمز من تيليجرام"}), 500
-        except Exception as e:
-            print(f"LOGIN ERROR: Telegram exception - {str(e)}", flush=True)
-            return jsonify({"success": False, "error": "فشل الاتصال بتيليجرام"}), 500
-            
-        return jsonify({"success": True, "require_otp": True, "session_id": session_id})
-        
-    except Exception as e:
-        print(f"LOGIN FATAL ERROR: {str(e)}", flush=True)
-        db.session.rollback()
-        return jsonify({"success": False, "error": "حدث خطأ داخلي في السيرفر"}), 500
+    return jsonify({"success": True, "require_otp": True, "session_id": session_id})
 
 @admin_bp.route("/verify-otp", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def verify_otp():
+    data = request.get_json(silent=True) or {}
+    session_id = (data.get("session_id") or "").strip()
+    otp_code = (data.get("otp_code") or "").strip()
     try:
-        data = request.get_json(silent=True) or {}
-        session_id = (data.get("session_id") or "").strip()
-        otp_code = (data.get("otp_code") or "").strip()
-        
         session = db.session.query(AdminOTPSession).filter_by(session_id=session_id).with_for_update().first()
         if not session: return jsonify({"success": False, "error": "جلسة غير صالحة"}), 400
         if session.expires_at.replace(tzinfo=timezone.utc) < _utcnow():
@@ -133,7 +122,7 @@ def verify_otp():
         db.session.rollback()
         return jsonify({"error": "حدث خطأ داخلي"}), 500
 
-@admin_bp.route("/stats", methods=["GET"])
+@admin_bp.route("/stats", methods=["GET"])@admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def stats():
     try:
