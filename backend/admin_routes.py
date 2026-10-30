@@ -89,7 +89,8 @@ def login():
             return jsonify({"error": "تعذر الحفظ في قاعدة البيانات"}), 503
             
         bot_token = os.environ.get("BOT_TOKEN", "")
-        admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
+        admin_telegram_ids = os.environ.get("TELEGRAM_ADMIN_IDS", "") or os.environ.get("ADMIN_TELEGRAM_ID", "")
+        admin_telegram_id = admin_telegram_ids.split(",")[0].strip() if admin_telegram_ids else ""
         if not bot_token or not admin_telegram_id:
             print("LOGIN ERROR: Missing BOT_TOKEN or ADMIN_TELEGRAM_ID in Render.", flush=True)
             return jsonify({"success": False, "error": "إعدادات الإشعار غير مكتملة"}), 500
