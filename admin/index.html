@@ -1,13 +1,553 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لوحة التحكم — SANAD PLUS⁺</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سند بلس⁺ | لوحة تحكم المشرفين</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+/* ================= Design System 2.0 ================= */
+:root {
+  --primary-500: #00A0E9; --primary-600: #0284C7;
+  --accent: #7FE0FF; --purple: #A855F7;
+  --success: #22C55E; --success-bg: rgba(34,197,94,0.15);
+  --warning: #F59E0B; --warning-bg: rgba(245,158,11,0.15);
+  --error: #FF7F96; --error-bg: rgba(255,127,150,0.15);
+  /* Dark Mode Defaults */
+  --bg-base: #0A1B2E; --bg-surface: rgba(16, 37, 59, 0.85); --bg-elevated: rgba(23, 51, 78, 0.9);
+  --border-soft: rgba(36, 66, 93, 0.5);
+  --text-main: #F5FAFF; --text-muted: #A9BED0; --text-dim: #6B8299;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3); --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+[data-theme="light"] {
+  --bg-base: #F8FAFC; --bg-surface: #FFFFFF; --bg-elevated: #F1F5F9;
+  --border-soft: #E2E8F0; --text-main: #0F172A; --text-muted: #64748B; --text-dim: #94A3B8;
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05); --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; transition: background-color 0.3s, border-color 0.3s; }
+body { background: var(--bg-base); color: var(--text-main); overflow-x: hidden; min-height: 100vh; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+
+/* Layout */
+.app { display: flex; min-height: 100vh; }
+.sidebar { width: 280px; background: var(--bg-surface); backdrop-filter: blur(24px); border-left: 1px solid var(--border-soft); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; z-index: 10; }
+.brand { padding: 24px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--border-soft); }
+.brand-logo { width: 44px; height: 44px; border-radius: 14px; background: linear-gradient(135deg, var(--primary-500), var(--accent)); display: flex; align-items: center; justify-content: center; color: white; }
+.brand h1 { font-size: 18px; font-weight: 700; }
+.nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+.nav-label { font-size: 11px; font-weight: 700; color: var(--text-dim); padding: 8px 14px; margin-top: 10px; }
+.nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 12px; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 4px; transition: 0.2s; }
+.nav-item:hover, .nav-item.active { background: var(--bg-elevated); color: var(--primary-500); }
+
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; }
+.topbar { background: var(--bg-surface); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-soft); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 20; }
+.topbar-title h2 { font-size: 20px; font-weight: 700; }
+.topbar-title p { font-size: 12px; color: var(--text-muted); }
+.topbar-actions { display: flex; gap: 12px; align-items: center; }
+.icon-btn { background: var(--bg-elevated); border: 1px solid var(--border-soft); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+.icon-btn:hover { color: var(--primary-500); border-color: var(--primary-500); }
+
+.content { padding: 24px; flex: 1; }
+.page { display: none; animation: fadeIn 0.35s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Components */
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.card-glass { background: var(--bg-surface); backdrop-filter: blur(16px); border: 1px solid var(--border-soft); border-radius: 20px; padding: 22px; box-shadow: var(--shadow-md); transition: 0.3s; }
+.card-glass:hover { border-color: rgba(0,160,233,0.4); transform: translateY(-2px); box-shadow: 0 0 40px rgba(0,160,233,0.15); }
+.stat-title { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between; }
+.stat-value { font-size: 32px; font-weight: 700; color: var(--primary-500); font-family: var(--font-mono); }
+
+/* Buttons & Inputs */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; transition: 0.2s; color: white; }
+.btn-primary { background: linear-gradient(135deg, var(--primary-500), var(--primary-600)); }
+.btn-danger { background: linear-gradient(135deg, #FF7F96, #E11D48); }
+.btn-success { background: linear-gradient(135deg, #22C55E, #16A34A); }
+.btn-secondary { background: var(--bg-elevated); border: 1px solid var(--border-soft); color: var(--text-main); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.input { width: 100%; padding: 12px; background: var(--bg-base); border: 1px solid var(--border-soft); border-radius: 12px; color: var(--text-main); margin-bottom: 10px; font-family: inherit; }
+.input:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(0,160,233,0.15); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; border-radius: 20px; border: 1px solid var(--border-soft); background: var(--bg-surface); }
+table { width: 100%; border-collapse: collapse; text-align: right; }
+th { padding: 16px 18px; background: var(--bg-elevated); color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid var(--border-soft); }
+td { padding: 16px 18px; border-bottom: 1px solid var(--border-soft); font-size: 14px; }
+tr:hover { background: var(--bg-elevated); }
+
+/* Skeleton */
+.skeleton { background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--border-soft) 50%, var(--bg-elevated) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.sk-row { display: flex; gap: 16px; padding: 16px; border-bottom: 1px solid var(--border-soft); align-items: center; }
+.sk-circle { width: 40px; height: 40px; border-radius: 50%; }
+.sk-line { height: 14px; width: 100%; }
+
+/* Chat (WhatsApp Style) */
+.chat-container { display: grid; grid-template-columns: 300px 1fr; gap: 20px; height: calc(100vh - 120px); }
+.tickets-list { background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: 20px; overflow-y: auto; padding: 10px; }
+.ticket-item { padding: 15px; border-radius: 12px; border: 1px solid transparent; cursor: pointer; margin-bottom: 8px; transition: 0.2s; }
+.ticket-item:hover, .ticket-item.active { background: var(--bg-elevated); border-color: var(--border-soft); }
+.chat-box { background: var(--bg-surface); border: 1px solid var(--border-soft); border-radius: 20px; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg-base); }
+.msg { max-width: 75%; padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.5; }
+.msg.user { align-self: flex-start; background: var(--bg-elevated); border-bottom-right-radius: 4px; }
+.msg.admin { align-self: flex-end; background: var(--primary-500); color: white; border-bottom-left-radius: 4px; }
+.chat-input { padding: 15px; display: flex; gap: 10px; background: var(--bg-surface); border-top: 1px solid var(--border-soft); }
+
+/* Modals & Toasts */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(5, 15, 25, 0.75); backdrop-filter: blur(8px); z-index: 999; display: none; align-items: center; justify-content: center; }
+.modal-backdrop.active { display: flex; }
+.modal { background: var(--bg-surface); width: 100%; max-width: 560px; border-radius: 24px; border: 1px solid var(--border-soft); padding: 24px; box-shadow: var(--shadow-lg); animation: scaleIn 0.3s; max-height: 90vh; overflow-y: auto; }
+@keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); padding: 12px 24px; border-radius: 12px; font-weight: bold; color: white; transition: 0.3s; z-index: 10000; opacity: 0; }
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* Utility */
+.mono { font-family: var(--font-mono); font-size: 13px; }
+.action-icon { background: transparent; border: none; cursor: pointer; padding: 8px; border-radius: 8px; color: var(--text-muted); transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; }
+.action-icon:hover { background: var(--bg-elevated); color: var(--primary-500); }
+.action-icon.danger:hover { color: var(--error); }
+.tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<!-- شاشة الدخول -->
+<div id="login-screen" style="position: fixed; inset: 0; background: var(--bg-base); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+  <div class="card-glass" style="width: 100%; max-width: 400px; text-align: center;">
+    <div class="brand-logo" style="margin: 0 auto 20px; width: 60px; height: 60px;"><i data-lucide="shield-check" size="32"></i></div>
+    <h1 style="color: var(--primary-500); margin-bottom: 20px; font-size: 24px;">SANAD PLUS⁺</h1>
+    <div id="login-step-1">
+      <input type="text" id="login-username" class="input" placeholder="اسم المستخدم (اختياري)">
+      <input type="password" id="login-password" class="input" placeholder="كلمة المرور">
+      <button class="btn btn-primary" onclick="handleLogin()" style="width: 100%;">دخول</button>
+    </div>
+    <div id="login-step-2" style="display: none;">
+      <input type="text" id="login-otp" class="input" placeholder="------" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-family: var(--font-mono);">
+      <button class="btn btn-primary" onclick="handleVerifyOtp()" style="width: 100%;">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- التطبيق الرئيسي -->
+<div class="app" id="main-app" style="display: none;">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo"><i data-lucide="shield-check"></i></div>
+      <div><h1>سند بلس⁺</h1><p style="font-size: 11px; color: var(--text-muted);">لوحة التحكم</p></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">الرئيسية</div>
+      <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')"><i data-lucide="layout-dashboard"></i> لوحة المعلومات</div>
+      <div class="nav-item" data-page="inbox" onclick="switchPage('inbox')"><i data-lucide="inbox"></i> الواردات</div>
+      <div class="nav-item" data-page="archive" onclick="switchPage('archive')"><i data-lucide="archive"></i> الأرشيف</div>
+      <div class="nav-item" data-page="users" onclick="switchPage('users')"><i data-lucide="users"></i> المستخدمون</div>
+      <div class="nav-item" data-page="support" onclick="switchPage('support')"><i data-lucide="message-square"></i> الدعم الفني</div>
+      <div class="nav-item" data-page="store" onclick="switchPage('store')"><i data-lucide="shopping-bag"></i> واجهة المتجر</div>
+      <div class="nav-label">النظام</div>
+      <div class="nav-item" data-page="audit" onclick="switchPage('audit')"><i data-lucide="shield-alert"></i> سجل التدقيق</div>
+      <div class="nav-item" data-page="settings" onclick="switchPage('settings')"><i data-lucide="settings"></i> الإعدادات</div>
+    </nav>
+    <div style="padding: 16px; border-top: 1px solid var(--border-soft);">
+      <button class="btn btn-danger" onclick="logout()" style="width: 100%;"><i data-lucide="log-out"></i> خروج</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-title"><h2 id="page-title">لوحة المعلومات</h2><p id="page-date"></p></div>
+      <div class="topbar-actions">
+        <button class="icon-btn" onclick="toggleTheme()" title="تبديل المظهر"><i data-lucide="sun-moon" id="theme-icon"></i></button>
+        <button class="icon-btn"><i data-lucide="bell"></i></button>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- 1. لوحة المعلومات -->
+      <div class="page active" id="page-dashboard">
+        <div class="grid-3">
+          <div class="card-glass">
+            <div class="stat-title"><span>إجمالي المستخدمين</span><i data-lucide="users" style="color: var(--primary-500);"></i></div>
+            <div class="stat-value" id="stat-users">0</div>
+          </div>
+          <div class="card-glass">
+            <div class="stat-title"><span>إجمالي الطلبات</span><i data-lucide="shopping-cart" style="color: var(--warning);"></i></div>
+            <div class="stat-value" id="stat-orders">0</div>
+          </div>
+          <div class="card-glass">
+            <div class="stat-title"><span>إجمالي الإيداعات</span><i data-lucide="credit-card" style="color: var(--success);"></i></div>
+            <div class="stat-value" id="stat-deposits">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. الواردات -->
+      <div class="page" id="page-inbox">
+        <div class="tabs">
+          <button class="btn btn-primary" onclick="switchInboxTab('orders', this, 'inbox')">الطلبات</button>
+          <button class="btn btn-secondary" onclick="switchInboxTab('deposits', this, 'inbox')">الإيداعات</button>
+          <button class="btn btn-secondary" onclick="switchInboxTab('kyc', this, 'inbox')">التوثيق</button>
+        </div>
+        <div class="grid-3" id="inbox-grid"></div>
+      </div>
+
+      <!-- 3. الأرشيف -->
+      <div class="page" id="page-archive">
+        <div class="tabs">
+          <button class="btn btn-primary" onclick="switchInboxTab('orders', this, 'archive')">الطلبات المنتهية</button>
+          <button class="btn btn-secondary" onclick="switchInboxTab('deposits', this, 'archive')">الإيداعات المنتهية</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>المعرف</th><th>المستخدم</th><th>التفاصيل</th><th>الحالة</th><th>إجراء</th></tr></thead>
+            <tbody id="archive-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. المستخدمون -->
+      <div class="page" id="page-users">
+        <div style="margin-bottom: 20px; position: relative;">
+          <i data-lucide="search" style="position: absolute; right: 14px; top: 14px; color: var(--text-muted);"></i>
+          <input type="text" id="user-search" class="input" placeholder="بحث بالاسم أو المعرف... (Ctrl+K)" style="padding-right: 40px;">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>المستخدم</th><th>معرف SN</th><th>الرصيد</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+            <tbody id="users-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. الدعم الفني -->
+      <div class="page" id="page-support">
+        <div class="chat-container">
+          <div class="tickets-list" id="tickets-list"></div>
+          <div class="chat-box" id="chat-box" style="display: none;">
+            <div style="padding: 15px; border-bottom: 1px solid var(--border-soft); background: var(--bg-surface); font-weight: bold; display: flex; justify-content: space-between; align-items: center;" id="chat-header">
+              <span>محادثة</span>
+              <button class="btn btn-danger btn-sm" onclick="closeTicket()">إغلاق</button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input">
+              <input type="text" id="chat-input" class="input" placeholder="اكتب ردك هنا..." style="margin: 0;">
+              <button class="btn btn-primary" onclick="sendReply()"><i data-lucide="send" size="18"></i></button>
+            </div>
+          </div>
+          <div class="chat-box" id="chat-empty" style="display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+            <p>اختر تذكرة من القائمة لبدء المحادثة</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. واجهة المتجر -->
+      <div class="page" id="page-store">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+          <div class="tabs" style="margin-bottom: 0;">
+            <button class="btn btn-primary" onclick="switchStoreTab('products', this)">المنتجات</button>
+            <button class="btn btn-secondary" onclick="switchStoreTab('categories', this)">الأقسام</button>
+            <button class="btn btn-secondary" onclick="switchStoreTab('methods', this)">طرق الدفع</button>
+          </div>
+          <button class="btn btn-primary" onclick="document.getElementById('modal-store').classList.add('active')"><i data-lucide="plus"></i> إضافة جديد</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="store-thead"></thead>
+            <tbody id="store-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 7. سجل التدقيق -->
+      <div class="page" id="page-audit"><div class="card-glass" id="audit-list"></div></div>
+      <!-- 8. الإعدادات -->
+      <div class="page" id="page-settings"><div class="card-glass" id="settings-data">قيد التطوير</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- المودالات -->
+<div class="modal-backdrop" id="modal-user">
+  <div class="modal">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+      <h3 style="font-size: 18px; font-weight: 700;">ملف المستخدم</h3>
+      <button class="action-icon" onclick="closeModal('modal-user')"><i data-lucide="x"></i></button>
+    </div>
+    <div id="user-modal-content"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-balance">
+  <div class="modal">
+    <h3 style="margin-bottom: 20px;">تعديل الرصيد</h3>
+    <input type="number" id="b-amount" class="input" placeholder="المبلغ">
+    <input type="hidden" id="b-user-id">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="alert('تم التعديل')">حفظ</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-balance')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-store">
+  <div class="modal">
+    <h3 style="margin-bottom: 20px;">إضافة عنصر للمتجر</h3>
+    <input type="text" class="input" placeholder="الاسم">
+    <input type="text" class="input" placeholder="التفاصيل / السعر">
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-primary" onclick="alert('تمت الإضافة'); closeModal('modal-store');">حفظ</button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-store')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">تمت العملية</div>
+
+<script>
+// ================= المتغيرات =================
+const API_BASE = 'https://sanad-plus-backend.onrender.com';
+const TOKEN_KEY = 'sanad_admin_token';
+let currentInboxTab = 'orders', currentContext = 'inbox', currentStoreTab = 'products', activeTicketId = null, allUsersData = [];
+
+// ================= الإعدادات والثيم =================
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('theme-icon').setAttribute('data-lucide', next === 'dark' ? 'sun' : 'moon');
+  lucide.createIcons();
+}
+if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.innerText = msg; t.style.background = type === 'error' ? 'var(--error)' : 'var(--success)';
+  t.className = 'show'; setTimeout(() => t.className = '', 3000);
+}
+
+// ================= الاتصال بالخادم =================
+async function apiFetch(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  if (sessionStorage.getItem(TOKEN_KEY)) headers['Authorization'] = `Bearer ${sessionStorage.getItem(TOKEN_KEY)}`;
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    if (res.status === 401) { sessionStorage.removeItem(TOKEN_KEY); checkAuth(); throw new Error('انتهت الجلسة'); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'خطأ');
+    return data;
+  } catch (err) { showToast(err.message, 'error'); throw err; }
+}
+
+// ================= التنقل =================
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${pageId}`)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${pageId}"]`)?.classList.add('active');
+  
+  const titles = { dashboard: 'لوحة المعلومات', inbox: 'الواردات', archive: 'الأرشيف', users: 'المستخدمون', support: 'الدعم', store: 'المتجر', audit: 'سجل التدقيق', settings: 'الإعدادات' };
+  if (titles[pageId]) document.getElementById('page-title').innerText = titles[pageId];
+
+  if (pageId === 'dashboard') loadStats();
+  if (pageId === 'inbox') loadInbox('inbox', 'orders');
+  if (pageId === 'archive') loadInbox('archive', 'orders');
+  if (pageId === 'users') loadUsers();
+  if (pageId === 'support') loadTickets();
+  if (pageId === 'store') loadStore('products');
+  if (pageId === 'audit') loadAudit();
+}
+
+// ================= المصادقة =================
+function checkAuth() {
+  if (sessionStorage.getItem(TOKEN_KEY)) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'flex';
+    switchPage('dashboard');
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display = 'none';
+  }
+}
+let tempSession = null;
+async function handleLogin() {
+  const p = document.getElementById('login-password').value;
+  try {
+    const res = await apiFetch('/api/admin/login', { method: 'POST', body: JSON.stringify({ username: document.getElementById('login-username').value || undefined, password: p }) });
+    if (res.require_otp) {
+      tempSession = res.session_id;
+      document.getElementById('login-step-1').style.display = 'none';
+      document.getElementById('login-step-2').style.display = 'block';
+    }
+  } catch (e) {}
+}
+async function handleVerifyOtp() {
+  try {
+    const res = await apiFetch('/api/admin/verify-otp', { method: 'POST', body: JSON.stringify({ session_id: tempSession, otp_code: document.getElementById('login-otp').value }) });
+    sessionStorage.setItem(TOKEN_KEY, res.token || res.access_token);
+    checkAuth();
+  } catch (e) {}
+}
+function logout() { sessionStorage.removeItem(TOKEN_KEY); checkAuth(); }
+
+// ================= الوظائف الأساسية =================
+async function loadStats() {
+  try { const s = await apiFetch('/api/admin/stats'); document.getElementById('stat-users').innerText = s.total_users||0; document.getElementById('stat-orders').innerText = s.total_orders||0; document.getElementById('stat-deposits').innerText = s.total_deposits||0; } catch(e){}
+}
+
+function switchInboxTab(tab, el, context) {
+  currentInboxTab = tab; currentContext = context;
+  el.closest('.tabs').querySelectorAll('.btn').forEach(t => t.className = 'btn btn-secondary');
+  el.className = 'btn btn-primary';
+  loadInbox(context, tab);
+}
+async function loadInbox(context, type) {
+  const isArchive = context === 'archive';
+  const container = document.getElementById(isArchive ? 'archive-table' : 'inbox-grid');
+  
+  if (isArchive) container.innerHTML = `<tr><td colspan="5"><div class="skeleton sk-line"></div></td></tr>`;
+  else container.innerHTML = `<div class="card-glass"><div class="skeleton sk-line"></div></div>`;
+
+  try {
+    const data = await apiFetch(isArchive ? `/api/admin/archive/${type}` : `/api/admin/${type}`).catch(() => []);
+    const items = Array.isArray(data) ? data : [];
+    container.innerHTML = '';
+    if (items.length === 0) return container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;">لا توجد عناصر</div>`;
+
+    items.forEach(item => {
+      if (isArchive) {
+        container.innerHTML += `<tr><td>#${item.id}</td><td>${item.user_name}</td><td>${item.total_price||item.amount}</td><td>${item.status}</td><td></td></tr>`;
+      } else {
+        const card = document.createElement('div');
+        card.className = 'card-glass';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span class="mono" style="color:var(--primary-500);">#${item.id}</span><span style="color:var(--warning);font-size:12px;">معلق</span></div>
+          <p>المستخدم: <strong>${item.user_name||item.full_name}</strong></p>
+          <p style="margin-bottom:15px;">المبلغ: <span class="mono">${item.total_price||item.amount||'—'}</span></p>
+          <div style="display:flex; gap:10px;">
+             <button class="btn btn-success btn-sm" style="flex:1;" onclick="handleInboxAction('${type}', ${item.id}, 'approve')">قبول</button>
+             <button class="btn btn-danger btn-sm" style="flex:1;" onclick="handleInboxAction('${type}', ${item.id}, 'reject')">رفض</button>
+          </div>`;
+        container.appendChild(card);
+      }
+    });
+  } catch(e) {}
+}
+async function handleInboxAction(type, id, action) {
+  if (!confirm('هل أنت متأكد؟')) return;
+  try { await apiFetch(`/api/admin/${type}/${id}/${action}`, { method: 'POST' }); showToast('تمت العملية'); loadInbox(currentContext, currentInboxTab); } catch(e){}
+}
+
+// ================= المستخدمون =================
+async function loadUsers() {
+  document.getElementById('users-table').innerHTML = `<tr><td colspan="5"><div class="skeleton sk-line"></div></td></tr>`;
+  try { const data = await apiFetch('/api/admin/users'); allUsersData = Array.isArray(data) ? data : []; renderUsersTable(allUsersData); } catch(e){}
+}
+function renderUsersTable(users) {
+  const tbody = document.getElementById('users-table'); tbody.innerHTML = '';
+  users.forEach(u => {
+    tbody.innerHTML += `
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;background:var(--primary-500);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;">${u.first_name[0]}</div><div><div style="font-weight:700;">${u.first_name}</div><div style="font-size:11px;color:var(--text-muted);">@${u.username||'لا يوجد'}</div></div></div></td>
+        <td><span class="mono" style="color:var(--accent);">SN-${u.telegram_id}</span></td>
+        <td><span class="mono" style="color:var(--success);font-weight:700;">${u.balance} ل.س</span></td>
+        <td>${u.is_banned ? '<span style="color:var(--error);">محظور</span>' : '<span style="color:var(--success);">نشط</span>'}</td>
+        <td><div style="display:flex;gap:5px;"><button class="action-icon" onclick='showUserProfile(${JSON.stringify(u)})'><i data-lucide="eye"></i></button><button class="action-icon" onclick="document.getElementById('modal-balance').classList.add('active')"><i data-lucide="wallet"></i></button><button class="action-icon danger" onclick="toggleBan(${u.id}, ${!u.is_banned})"><i data-lucide="${u.is_banned ? 'shield-check' : 'shield-ban'}"></i></button></div></td>
+      </tr>`;
+  });
+  lucide.createIcons();
+}
+document.getElementById('user-search').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  renderUsersTable(allUsersData.filter(u => String(u.telegram_id).includes(q) || (u.first_name && u.first_name.toLowerCase().includes(q))));
+});
+function showUserProfile(user) {
+  document.getElementById('user-modal-content').innerHTML = `
+    <div style="text-align:center;margin-bottom:20px;"><div style="width:64px;height:64px;background:var(--primary-500);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;margin:0 auto 10px;">${user.first_name[0]}</div><h2 style="font-size:20px;">${user.first_name}</h2><p class="mono" style="color:var(--accent);">SN-${user.telegram_id}</p></div>
+    <div style="border-top:1px solid var(--border-soft);padding-top:15px;"><p style="display:flex;justify-content:space-between;margin-bottom:10px;"><span>الرصيد:</span><span class="mono" style="color:var(--success);">${user.balance} ل.س</span></p><p style="display:flex;justify-content:space-between;"><span>التوثيق:</span><span>${user.is_verified ? 'موثق ✅' : 'غير موثق ❌'}</span></p></div>
+    <button class="btn btn-primary" onclick="closeModal('modal-user');switchPage('support');" style="width:100%;margin-top:20px;">فتح تذكرة دعم</button>`;
+  document.getElementById('modal-user').classList.add('active');
+}
+async function toggleBan(id, status) {
+  if (!confirm('تأكيد الإجراء؟')) return;
+  try { await apiFetch(`/api/admin/users/${id}/ban`, { method: 'POST', body: JSON.stringify({ is_banned: status }) }); showToast('تم التحديث'); loadUsers(); } catch(e){}
+}
+
+// ================= الدعم الفني (Chat) =================
+async function loadTickets() {
+  const list = document.getElementById('tickets-list'); list.innerHTML = '<div class="skeleton sk-line"></div>';
+  try {
+    const data = await apiFetch('/api/admin/support/tickets'); const tickets = Array.isArray(data) ? data : [];
+    list.innerHTML = tickets.length ? '' : '<p style="text-align:center;">لا توجد تذاكر</p>';
+    tickets.forEach(t => {
+      list.innerHTML += `<div class="ticket-item ${activeTicketId===t.id?'active':''}" onclick="openTicket(${t.id}, '${t.user_name}')"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><strong>#${t.id}</strong><span style="font-size:10px;color:var(--success);">مفتوح</span></div><div style="font-size:12px;color:var(--text-muted);">${t.last_message||'لا توجد رسائل'}</div></div>`;
+    });
+  } catch(e){}
+}
+async function openTicket(id, name) {
+  activeTicketId = id;
+  document.getElementById('chat-header').innerHTML = `<span>#${id} - ${name}</span><button class="btn btn-danger btn-sm" onclick="closeTicket()">إغلاق</button>`;
+  document.getElementById('chat-empty').style.display = 'none'; document.getElementById('chat-box').style.display = 'flex';
+  loadTickets();
+  const msgContainer = document.getElementById('chat-messages'); msgContainer.innerHTML = '<div class="skeleton sk-line"></div>';
+  try {
+    const data = await apiFetch(`/api/admin/support/tickets/${id}/messages`); const msgs = Array.isArray(data) ? data : [];
+    msgContainer.innerHTML = '';
+    msgs.forEach(m => { msgContainer.innerHTML += `<div class="msg ${m.is_admin?'admin':'user'}">${m.text||m.message}</div>`; });
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+  } catch(e){}
+}
+async function sendReply() {
+  const text = document.getElementById('chat-input').value.trim(); if (!text || !activeTicketId) return;
+  try { await apiFetch(`/api/admin/support/tickets/${activeTicketId}/reply`, { method: 'POST', body: JSON.stringify({ text }) }); document.getElementById('chat-input').value = ''; openTicket(activeTicketId, 'مستخدم'); } catch(e){}
+}
+async function closeTicket() { if(!activeTicketId) return; await apiFetch(`/api/admin/support/tickets/${activeTicketId}/close`, {method:'POST'}); document.getElementById('chat-box').style.display='none'; document.getElementById('chat-empty').style.display='flex'; activeTicketId=null; loadTickets(); }
+
+// ================= المتجر =================
+function switchStoreTab(tab, el) {
+  currentStoreTab = tab; el.closest('.tabs').querySelectorAll('.btn').forEach(b => b.className='btn btn-secondary'); el.className='btn btn-primary'; loadStore(tab);
+}
+async function loadStore(type) {
+  const thead = document.getElementById('store-thead'), tbody = document.getElementById('store-table');
+  tbody.innerHTML = `<tr><td colspan="4"><div class="skeleton sk-line"></div></td></tr>`;
+  try {
+    const endpoint = type === 'products' ? '/api/admin/products' : type === 'categories' ? '/api/admin/categories' : '/api/admin/payment-methods';
+    thead.innerHTML = type==='products' ? '<tr><th>ID</th><th>الاسم</th><th>السعر</th><th>إجراء</th></tr>' : type==='categories' ? '<tr><th>ID</th><th>الاسم</th><th>إجراء</th></tr>' : '<tr><th>ID</th><th>الاسم</th><th>الحساب</th><th>إجراء</th></tr>';
+    const data = await apiFetch(endpoint); const items = Array.isArray(data) ? data : []; tbody.innerHTML = '';
+    items.forEach(item => {
+      tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.name}</td><td>${item.price || item.account || '—'}</td><td><button class="action-icon"><i data-lucide="edit"></i></button></td></tr>`;
+    });
+    lucide.createIcons();
+  } catch(e){}
+}
+
+// ================= سجل التدقيق والإعدادات =================
+async function loadAudit() {
+  const container = document.getElementById('audit-list'); container.innerHTML = '<div class="skeleton sk-line"></div>';
+  try { const data = await apiFetch('/api/admin/audit-logs'); const logs = Array.isArray(data) ? data : [];
+    container.innerHTML = logs.length ? '' : '<p>لا توجد سجلات</p>';
+    logs.forEach(l => { container.innerHTML += `<div style="padding:15px 0;border-bottom:1px solid var(--border-soft);"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><strong style="color:var(--primary-500);">${l.action}</strong><span style="font-size:12px;color:var(--text-muted);">${new Date(l.created_at).toLocaleString('ar-SY')}</span></div><div style="font-size:13px;">المشرف: ${l.admin_id} | الهدف: ${l.target_type} #${l.target_id}</div></div>`; });
+  } catch(e){}
+}
+
+// ================= أدوات =================
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); document.getElementById('user-search')?.focus(); }
+  if (e.key === 'Escape') { document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('active')); }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  document.getElementById('page-date').innerText = new Date().toLocaleDateString('ar-SY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  lucide.createIcons();
+});
+</script>
+</body>
 </html>
