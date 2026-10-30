@@ -109,7 +109,7 @@ def login():
         print(f"LOGIN FATAL ERROR: {str(e)}", flush=True)
         return jsonify({"error": "حدث خطأ غير متوقع"}), 500
 
-@admin_bp.route("/verify-otp", methods=["POST"])@admin_bp.route("/verify-otp", methods=["POST"])
+@admin_bp.route("/verify-otp", methods=["POST"])
 @rate_limit(max_requests=5, window_seconds=60)
 def verify_otp():
     data = request.get_json(silent=True) or {}
