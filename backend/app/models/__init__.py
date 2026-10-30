@@ -192,3 +192,14 @@ class AdminOperation(db.Model):
     result_json = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=_now)
     __table_args__ = (db.UniqueConstraint('admin_id', 'idempotency_key', name='unique_admin_idem'),)
+
+
+class AdminAuditLog(db.Model):
+    __tablename__ = 'admin_audit_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, nullable=False)
+    action = db.Column(db.String(100))
+    target_type = db.Column(db.String(50))
+    target_id = db.Column(db.Integer)
+    details = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=_now)
