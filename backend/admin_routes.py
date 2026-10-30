@@ -451,3 +451,103 @@ def get_audit_logs():
         } for log in logs]), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
+# ==========================================
+# 1. مسارات الأرشيف (جلب الطلبات والإيداعات المنتهية)
+# ==========================================
+@admin_bp.route('/archive/<item_type>', methods=['GET'])
+@admin_required
+def get_archive_items(item_type):
+    try:
+        if item_type == 'orders':
+            items = Order.query.filter(Order.status != 'pending').order_by(Order.id.desc()).limit(100).all()
+            return jsonify([{
+                "id": i.id, "user_name": i.user.first_name if i.user else "مستخدم",
+                "total_price": float(i.total_price) if i.total_price else 0,
+                "status": i.status, "updated_at": i.created_at.isoformat() if i.created_at else None
+            } for i in items]), 200
+
+        elif item_type == 'deposits':
+            items = Deposit.query.filter(Deposit.status != 'pending').order_by(Deposit.id.desc()).limit(100).all()
+            return jsonify([{
+                "id": i.id, "user_name": i.user.first_name if i.user else "مستخدم",
+                "amount": float(i.amount) if i.amount else 0,
+                "status": i.status, "updated_at": i.created_at.isoformat() if i.created_at else None
+            } for i in items]), 200
+
+        return jsonify({"error": "نوع غير معروف"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 2. مسارات إضافة المتجر
+# ==========================================
+@admin_bp.route('/products', methods=['POST'])
+@admin_required
+def create_product():
+    try:
+        data = request.json
+        new_product = Product(
+            name=data.get('name'), price=data.get('price'),
+            description=data.get('description'), category_id=data.get('category_id', 1)
+        )
+        db.session.add(new_product)
+        db.session.commit()
+        log = AdminAuditLog(admin_id=g.admin_id, action='إضافة منتج', target_type='Product', target_id=new_product.id)
+        db.session.add(log)
+        db.session.commit()
+        return jsonify({"success": True, "message": "تم إضافة المنتج"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route('/categories', methods=['POST'])
+@admin_required
+def create_category():
+    try:
+        new_cat = Category(name=request.json.get('name'))
+        db.session.add(new_cat)
+        db.session.commit()
+        return jsonify({"success": True}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@admin_bp.route('/payment-methods', methods=['POST'])
+@admin_required
+def create_payment_method():
+    try:
+        data = request.json
+        new_method = PaymentMethod(
+            name=data.get('name'), account=data.get('account'),
+            min_amount=data.get('min_amount', 1), max_amount=data.get('max_amount', 10000)
+        )
+        db.session.add(new_method)
+        db.session.commit()
+        return jsonify({"success": True}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+# ==========================================
+# 3. تحديث مسار الحظر (مع السبب)
+# ==========================================
+@admin_bp.route('/users/<int:user_id>/ban', methods=['POST'])
+@admin_required
+def ban_user(user_id):
+    try:
+        data = request.json
+        user = User.query.get_or_404(user_id)
+        user.is_banned = data.get('is_banned', False)
+        reason = data.get('reason', 'بدون سبب')
+        action_text = f"حظر المستخدم - السبب: {reason}" if user.is_banned else "فك الحظر"
+        
+        log = AdminAuditLog(admin_id=g.admin_id, action=action_text, target_type='User', target_id=user.id)
+        db.session.add(log)
+        db.session.commit()
+        return jsonify({"success": True, "is_banned": user.is_banned}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
