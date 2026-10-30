@@ -116,7 +116,7 @@ def verify_otp():
         db.session.rollback()
         return jsonify({"error": "حدث خطأ داخلي"}), 500
 
-@admin_bp.route("/stats", methods=["GET"])@admin_bp.route("/stats", methods=["GET"])
+@admin_bp.route("/stats", methods=["GET"])
 @admin_required
 def stats():
     try:
