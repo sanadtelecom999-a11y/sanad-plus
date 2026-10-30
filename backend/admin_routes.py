@@ -595,3 +595,28 @@ def send_broadcast():
         return jsonify({"success": True, "message": "بدأ إرسال الحملة"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# حفظ الإعدادات (PUT)
+# ==========================================
+@admin_bp.route('/settings', methods=['PUT'])
+@admin_required
+def update_settings():
+    try:
+        data = request.json
+        from app.models import AppSettings
+        settings = AppSettings.query.first()
+        if not settings:
+            settings = AppSettings()
+            db.session.add(settings)
+        
+        if 'store_name' in data: settings.store_name = data['store_name']
+        if 'exchange_rate' in data: settings.exchange_rate = data['exchange_rate']
+        if 'maintenance_mode' in data: settings.maintenance_mode = data['maintenance_mode']
+        
+        db.session.commit()
+        return jsonify({"success": True, "message": "تم حفظ الإعدادات"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500

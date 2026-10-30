@@ -11,7 +11,12 @@ export function renderStore(container) {
       </div>
       <button class="btn btn-primary" onclick="window.openStoreModal()"><i data-lucide="plus"></i> إضافة جديد</button>
     </div>
-    <div class="grid-3" id="store-grid"><div class="skeleton sk-line" style="height:100px;"></div></div>`;
+    <div class="table-wrap">
+      <table>
+        <thead id="store-thead"></thead>
+        <tbody id="store-tbody"><tr><td colspan="4"><div class="skeleton sk-line"></div></td></tr></tbody>
+      </table>
+    </div>`;
   lucide.createIcons();
   window.switchStoreTab('products');
 }
@@ -22,23 +27,21 @@ window.switchStoreTab = async (tab) => {
   document.getElementById('tab-categories').className = tab === 'categories' ? 'btn btn-primary' : 'btn btn-secondary';
   document.getElementById('tab-methods').className = tab === 'methods' ? 'btn btn-primary' : 'btn btn-secondary';
   
-  const grid = document.getElementById('store-grid'); grid.innerHTML = '<div class="skeleton sk-line" style="height:100px;"></div>';
+  const thead = document.getElementById('store-thead'), tbody = document.getElementById('store-tbody');
+  tbody.innerHTML = `<tr><td colspan="4"><div class="skeleton sk-line"></div></td></tr>`;
+  
   try {
     const endpoint = tab === 'products' ? '/api/admin/products' : tab === 'categories' ? '/api/admin/categories' : '/api/admin/payment-methods';
-    const data = await apiFetch(endpoint); const items = Array.isArray(data) ? data : [];
-    grid.innerHTML = '';
-    if(items.length === 0) return grid.innerHTML = '<p style="grid-column:1/-1; text-align:center;">لا توجد بيانات</p>';
+    thead.innerHTML = tab==='products' ? '<tr><th>ID</th><th>الاسم</th><th>السعر</th><th>إجراء</th></tr>' : tab==='categories' ? '<tr><th>ID</th><th>الاسم</th><th>إجراء</th></tr>' : '<tr><th>ID</th><th>الاسم</th><th>الحساب</th><th>إجراء</th></tr>';
+    
+    const data = await apiFetch(endpoint); 
+    const items = Array.isArray(data) ? data : []; 
+    tbody.innerHTML = '';
+    
+    if (items.length === 0) return tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">لا توجد بيانات</td></tr>';
     
     items.forEach(item => {
-      grid.innerHTML += `
-        <div class="card-glass" style="display:flex; flex-direction:column; gap:10px;">
-          <div style="display:flex; justify-content:space-between;">
-            <div style="width:40px; height:40px; background:var(--primary-500); border-radius:10px; display:flex; align-items:center; justify-content:center; color:white;"><i data-lucide="${tab==='products'?'package':tab==='categories'?'folder':'credit-card'}"></i></div>
-            <button class="action-icon" onclick="alert('قيد التطوير')"><i data-lucide="edit"></i></button>
-          </div>
-          <h3 style="font-weight:700;">${item.name}</h3>
-          <p style="color:var(--accent); font-weight:700;">${item.price ? item.price + ' ل.س' : item.account || '—'}</p>
-        </div>`;
+      tbody.innerHTML += `<tr><td>${item.id}</td><td>${item.name}</td><td>${item.price || item.account || '—'}</td><td><button class="action-icon" onclick="alert('سيتم تفعيل التعديل قريباً')"><i data-lucide="edit"></i></button></td></tr>`;
     });
     lucide.createIcons();
   } catch(e){}
@@ -46,17 +49,39 @@ window.switchStoreTab = async (tab) => {
 
 window.openStoreModal = () => {
   const modals = document.getElementById('modals-container');
+  const isProduct = currentTab === 'products';
+  const isCategory = currentTab === 'categories';
+  
   modals.innerHTML = `
     <div class="modal-backdrop active" id="modal-store">
       <div class="modal">
-        <h3 style="margin-bottom:20px;">إضافة ${currentTab === 'products' ? 'منتج' : currentTab === 'categories' ? 'قسم' : 'طريقة دفع'}</h3>
-        <input type="text" class="input" placeholder="الاسم">
-        <input type="text" class="input" placeholder="${currentTab === 'products' ? 'السعر' : currentTab === 'categories' ? 'الوصف' : 'رقم الحساب'}">
+        <h3 style="margin-bottom:20px;">إضافة ${isProduct ? 'منتج' : isCategory ? 'قسم' : 'طريقة دفع'}</h3>
+        <input type="text" id="st-name" class="input" placeholder="الاسم">
+        ${isProduct ? '<input type="number" id="st-price" class="input" placeholder="السعر">' : ''}
+        ${!isCategory && !isProduct ? '<input type="text" id="st-account" class="input" placeholder="رقم الحساب">' : ''}
+        
         <div style="display:flex; gap:10px; margin-top:15px;">
-          <button class="btn btn-primary" onclick="document.getElementById('modal-store').classList.remove('active'); window.showToast('تمت الإضافة (تجريبي)')">حفظ</button>
+          <button class="btn btn-primary" onclick="window.saveStoreItem('${currentTab}')">حفظ في الداتابيس</button>
           <button class="btn btn-secondary" onclick="document.getElementById('modal-store').classList.remove('active')">إلغاء</button>
         </div>
       </div>
     </div>`;
 };
 
+window.saveStoreItem = async (type) => {
+  const name = document.getElementById('st-name').value;
+  if(!name) return window.showToast('الاسم مطلوب', 'error');
+
+  let body = { name: name };
+  if(type === 'products') body.price = parseFloat(document.getElementById('st-price').value);
+  if(type === 'methods') body.account = document.getElementById('st-account').value;
+
+  const endpoint = type === 'products' ? '/api/admin/products' : type === 'categories' ? '/api/admin/categories' : '/api/admin/payment-methods';
+  
+  try {
+    await apiFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    window.showToast('تم الحفظ بنجاح!');
+    document.getElementById('modal-store').classList.remove('active');
+    window.switchStoreTab(type);
+  } catch(e) {}
+};
