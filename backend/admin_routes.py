@@ -7,6 +7,7 @@ import jwt
 from flask import Blueprint, jsonify, request, g
 from sqlalchemy.exc import IntegrityError
 
+from werkzeug.security import check_password_hash
 from app.extensions import db
 from app.models import User, Order, Deposit, KYCRequest, AdminUser, AdminOperation, AdminAuditLog, AdminOTPSession, Product, Category, PaymentMethod, SupportTicket, SupportMessage
 from app.services.ledger_service import record_transaction
