@@ -58,6 +58,7 @@ function showPage(route) {
     else if (route === 'account') renderAccount(app);
     else if (route === 'orders') renderOrders(app);
     else if (route === 'charge') renderCharge(app);
+    else if (route === 'deposits') renderDeposits(app);
 }
 
 // ── 1. الصفحة الرئيسية ──
@@ -72,7 +73,7 @@ async function renderHome(container) {
             </div>
             <div class="balance-card">
                 <div class="balance-info">
-                    <span class="balance-label">رصيدك الحالي</span>
+                    
                     <span class="balance-value">${formatMoney(state.user?.balance)}</span>
                 </div>
                 <button class="charge-btn" onclick="showPage('charge')">
@@ -101,6 +102,37 @@ async function renderHome(container) {
 }
 
 // ── 2. صفحة حسابي ──
+
+async function renderDeposits(container) {
+    container.innerHTML = `
+        <div class="section-title" style="padding-top:25px;">الإيداعات</div>
+        <div class="list" id="deposits-list" style="padding:0 20px;">جاري التحميل...</div>
+    `;
+    try {
+        const res = await apiFetch('/api/deposits/');
+        const list = document.getElementById('deposits-list');
+        if (!res.items || res.items.length === 0) { 
+            list.innerHTML = '<div style="text-align:center; color:var(--muted);">لا توجد إيداعات.</div>'; 
+            return; 
+        }
+        list.innerHTML = res.items.map(d => `
+            <div style="background:var(--surface); border:1px solid var(--border); padding:15px; border-radius:16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <strong style="display:block; font-size:14px;">${escapeHtml(d.reference || 'إيداع')}</strong>
+                    <span style="font-size:11px; color:var(--muted);">${new Date(d.date).toLocaleString('ar-EG')}</span>
+                </div>
+                <div style="text-align:left;">
+                    <strong style="color:var(--blue); font-size:15px; display:block;">${formatMoney(d.amount)}</strong>
+                    <span style="font-size:11px;">${d.status === 'approved' ? '✅ مكتمل' : (d.status === 'pending' ? '⏳ معلق' : '❌ مرفوض')}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) { 
+        document.getElementById('deposits-list').innerHTML = `<div style="color:var(--danger); text-align:center;">تعذر جلب الإيداعات.</div>`; 
+    }
+}
+
+
 async function renderAccount(container) {
     container.innerHTML = `
         <div class="profile-header">
@@ -329,10 +361,17 @@ window.openInfo = function(title, text) {
     openFullScreen('info-screen', title, `<div style="padding:20px; text-align:center; font-size:16px; line-height:1.6;">${text}</div>`);
 };
 
-window.toggleCurrency = function(isSYP) {
+window.toggleCurrency = function (isSYP) {
     state.currency = isSYP ? 'SYP' : 'USD';
-    showPage('account'); 
-    showToast(isSYP ? 'تم التحويل لليرة' : 'تم التحويل للدولار');
+    try {
+        localStorage.setItem('sanad_display_currency', state.currency);
+    } catch (error) {
+        console.warn('تعذر حفظ عملة العرض محليًا.');
+    }
+    showPage(state.currentPage || 'account');
+    showToast(
+        state.currency === 'SYP' ? 'عملة العرض: الليرة السورية' : 'عملة العرض: الدولار الأمريكي'
+    );
 };
 
 async function renderOrders(container) {
@@ -405,6 +444,11 @@ async function initApp() {
     });
 
     try {
+        const savedCurrency = localStorage.getItem('sanad_display_currency');
+        if (savedCurrency === 'SYP' || savedCurrency === 'USD') {
+            state.currency = savedCurrency;
+        }
+        
         if (!tg?.initData) throw new Error("يرجى فتح التطبيق من تيليجرام.");
         state.user = await apiFetch('/api/miniapp/init', { method: 'POST', body: JSON.stringify({}) });
         if(state.user.exchange_rate) state.exchangeRate = state.user.exchange_rate;
