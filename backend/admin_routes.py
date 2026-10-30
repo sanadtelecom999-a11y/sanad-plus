@@ -429,3 +429,25 @@ def get_settings():
 
 @admin_bp.route("/health", methods=["GET"])
 def health_check(): return jsonify({"status": "ok", "message": "Server is running"})
+
+# ==========================================
+# مسار سجل التدقيق (Audit Logs)
+# ==========================================
+@admin_bp.route('/audit-logs', methods=['GET'])
+@admin_required
+def get_audit_logs():
+    try:
+        # جلب آخر 100 عملية إدارية
+        logs = db.session.query(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(100).all()
+        
+        return jsonify([{
+            "id": log.id,
+            "admin_id": log.admin_id,
+            "action": log.action,
+            "target_type": log.target_type,
+            "target_id": log.target_id,
+            "details": log.details,
+            "created_at": log.created_at.isoformat() if log.created_at else None
+        } for log in logs]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
