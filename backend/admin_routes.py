@@ -551,3 +551,47 @@ def ban_user(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# إرسال رسالة جماعية (Broadcast)
+# ==========================================
+@admin_bp.route('/broadcast', methods=['POST'])
+@admin_required
+def send_broadcast():
+    try:
+        data = request.json
+        message = data.get('message')
+        if not message:
+            return jsonify({"error": "الرسالة فارغة"}), 400
+
+        # جلب جميع المستخدمين (الذين لم يحظروا البوت)
+        users = User.query.filter_by(is_banned=False).all()
+        
+        # هنا يجب استخدام threading حتى لا يتوقف الخادم
+        import threading
+        import requests
+        import os
+        
+        def send_messages():
+            token = os.environ.get("BOT_TOKEN")
+            if not token: return
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
+            
+            for user in users:
+                try:
+                    requests.post(url, json={"chat_id": user.telegram_id, "text": message}, timeout=5)
+                except Exception:
+                    pass # تجاهل الأخطاء إذا حظر المستخدم البوت
+        
+        # تشغيل الإرسال في الخلفية
+        threading.Thread(target=send_messages).start()
+        
+        # تسجيل في سجل التدقيق
+        log = AdminAuditLog(admin_id=g.admin_id, action='إرسال رسالة جماعية', target_type='Broadcast', target_id=0)
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "بدأ إرسال الحملة"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
