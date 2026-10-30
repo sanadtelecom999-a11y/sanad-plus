@@ -2,46 +2,313 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#0A1B2E">
-    <title>SANAD PLUS⁺</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://res.cloudinary.com https://t.me https://ui-avatars.com; connect-src 'self' https://sanad-plus-backend.onrender.com;">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>سند بلس⁺</title>
+    
+    <!-- خط Cairo -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- مكتبة الأيقونات -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <style>
+        :root {
+            --primary: #00A0E9;
+            --accent: #7FE0FF;
+            --bg-base: #0A1B2E;
+            --bg-surface: #10253B;
+            --text-main: #F5FAFF;
+            --text-muted: #A9BED0;
+            --border: rgba(36, 66, 93, 0.5);
+            --success: #22C55E;
+            --danger: #FF7F96;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg-base); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* شاشة التحميل */
+        #splash { position: fixed; inset: 0; background: var(--bg-base); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        .loader { width: 40px; height: 40px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* المحتوى */
+        #app { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 90px; display: none; }
+        
+        /* الشريط السفلي */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(16, 37, 59, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item svg { width: 22px; height: 22px; }
+
+        /* الصفحات */
+        .page { display: none; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* بطاقة الرصيد */
+        .balance-card { background: linear-gradient(135deg, var(--primary), var(--bg-surface)); border-radius: 20px; padding: 24px; text-align: center; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,160,233,0.2); margin-bottom: 24px; position: relative; overflow: hidden; }
+        .balance-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%); pointer-events: none; }
+        .balance-label { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 8px; }
+        .balance-value { font-size: 36px; font-weight: 700; color: white; }
+        .balance-id { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 10px; font-family: monospace; }
+
+        /* الأزرار السريعة */
+        .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+        .action-btn { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-main); font-weight: 600; font-size: 13px; }
+        .action-btn svg { color: var(--primary); }
+
+        /* شبكة المنتجات */
+        .section-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .products-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .product-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .product-img { width: 100%; height: 100px; background: var(--bg-base); border-radius: 12px; object-fit: cover; }
+        .product-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product-price { font-size: 16px; font-weight: 700; color: var(--accent); }
+
+        /* القوائم (الطلبات، الإيداعات) */
+        .list-item { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .list-info p:first-child { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .list-info p:last-child { font-size: 12px; color: var(--text-muted); }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .status-pending { background: rgba(245,158,11,0.15); color: #F59E0B; }
+        .status-approved { background: rgba(34,197,94,0.15); color: var(--success); }
+        .status-rejected { background: rgba(255,127,150,0.15); color: var(--danger); }
+
+        /* الملف الشخصي */
+        .profile-header { text-align: center; margin-bottom: 30px; }
+        .avatar { width: 80px; height: 80px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; margin: 0 auto 12px; color: white; box-shadow: 0 8px 20px rgba(0,160,233,0.3); }
+        .profile-name { font-size: 20px; font-weight: 700; }
+        .profile-id { font-size: 14px; color: var(--accent); font-family: monospace; margin-top: 4px; }
+        .menu-list { background: var(--bg-surface); border-radius: 16px; border: 1px solid var(--border); overflow: hidden; }
+        .menu-item { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; }
+        .menu-item:last-child { border-bottom: none; }
+    </style>
 </head>
 <body>
-    <div class="app">
-        <main id="app-content">
-            <div id="app-loading" class="app-loading">
-                <div class="loading-brand">سند بلس⁺</div>
-                <div class="loading-caption">خدماتك الرقمية في مكان واحد</div>
-            </div>
-        </main>
 
-        <nav class="bottom-nav" id="main-nav" aria-label="التنقل الرئيسي">
-            <button class="nav-btn active" data-route="home" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1Z"/></svg><span>الرئيسية</span>
-            </button>
-            <button class="nav-btn" data-route="orders" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 3h10a2 2 0 0 1 2 2v16l-7-3-7 3V5a2 2 0 0 1 2-2Z"/><path d="M9 8h6M9 12h6"/></svg><span>الطلبات</span>
-            </button>
-            <button class="nav-btn nav-charge-btn" data-route="charge" type="button" aria-label="شحن الرصيد">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M3 9h18M7 14h4"/></svg><span>شحن الرصيد</span>
-            </button>
-            <button class="nav-btn" data-route="deposits" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M4 17v3h16v-3"/></svg><span>الإيداعات</span>
-            </button>
-            <button class="nav-btn" data-route="account" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>حسابي</span>
-            </button>
-        </nav>
+    <!-- شاشة التحميل -->
+    <div id="splash">
+        <div class="loader"></div>
+        <div style="color: var(--primary); font-weight: 700; font-size: 20px;">SANAD PLUS⁺</div>
     </div>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    
-    <script type="module" src="js/main.js?v=202"></script>
+    <!-- المحتوى -->
+    <div id="app">
+        
+        <!-- 1. الصفحة الرئيسية -->
+        <div class="page active" id="page-home">
+            <div class="balance-card">
+                <div class="balance-label">رصيدك الحالي</div>
+                <div class="balance-value" id="user-balance">0.00 <span style="font-size: 16px;">ل.س</span></div>
+                <div class="balance-id" id="user-sanad-id">SN-0000000</div>
+            </div>
+
+            <div class="quick-actions">
+                <div class="action-btn" onclick="switchPage('charge')">
+                    <i data-lucide="credit-card"></i>
+                    شحن الرصيد
+                </div>
+                <div class="action-btn" onclick="switchPage('support')">
+                    <i data-lucide="headphones"></i>
+                    الدعم الفني
+                </div>
+            </div>
+
+            <div class="section-title">
+                <span>المنتجات المتاحة</span>
+                <i data-lucide="shopping-bag" style="color: var(--primary);"></i>
+            </div>
+            <div class="products-grid" id="home-products">
+                <!-- سيتم جلبها عبر JS -->
+            </div>
+        </div>
+
+        <!-- 2. الطلبات -->
+        <div class="page" id="page-orders">
+            <div class="section-title"><span>طلباتي</span></div>
+            <div id="orders-list">
+                <!-- سيتم جلبها عبر JS -->
+            </div>
+        </div>
+
+        <!-- 3. شحن الرصيد -->
+        <div class="page" id="page-charge">
+            <div class="section-title"><span>شحن الرصيد</span></div>
+            <div class="menu-list">
+                <div class="menu-item">
+                    <span>المبلغ المطلوب</span>
+                    <input type="number" placeholder="0.00" style="width: 100px; text-align: left; background: transparent; border: none; color: white; font-size: 16px; font-weight: bold; outline: none;">
+                </div>
+                <div class="menu-item">
+                    <span>رقم العملية / المرجع</span>
+                    <input type="text" placeholder="123456" style="width: 120px; text-align: left; background: transparent; border: none; color: white; font-size: 14px; outline: none;">
+                </div>
+            </div>
+            <button class="action-btn" style="width: 100%; margin-top: 20px; background: var(--primary); color: white; border: none;">
+                <i data-lucide="upload"></i> إرسال طلب الإيداع
+            </button>
+        </div>
+
+        <!-- 4. حسابي -->
+        <div class="page" id="page-account">
+            <div class="profile-header">
+                <div class="avatar" id="acc-avatar">U</div>
+                <div class="profile-name" id="acc-name">اسم المستخدم</div>
+                <div class="profile-id" id="acc-id">SN-0000000</div>
+            </div>
+            
+            <div class="menu-list">
+                <div class="menu-item" onclick="switchPage('kyc')">
+                    <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="shield-check" size="18"></i> توثيق الهوية</span>
+                    <i data-lucide="chevron-left" size="18"></i>
+                </div>
+                <div class="menu-item" onclick="switchPage('ledger')">
+                    <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="list" size="18"></i> سجل الحركات</span>
+                    <i data-lucide="chevron-left" size="18"></i>
+                </div>
+                <div class="menu-item" style="color: var(--danger);" onclick="closeApp()">
+                    <span style="display: flex; align-items: center; gap: 8px;"><i data-lucide="log-out" size="18"></i> إغلاق التطبيق</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- صفحات فرعية (قيد التطوير حالياً، سيتم تفعيلها لاحقاً) -->
+        <div class="page" id="page-support">
+            <div class="section-title"><span>الدعم الفني</span></div>
+            <p style="text-align: center; color: var(--text-muted); margin-top: 50px;">سيتم تفعيل المحادثة قريباً.</p>
+        </div>
+        <div class="page" id="page-kyc">
+            <div class="section-title"><span>توثيق الهوية</span></div>
+            <p style="text-align: center; color: var(--text-muted); margin-top: 50px;">سيتم تفعيل رفع الوثائق قريباً.</p>
+        </div>
+        <div class="page" id="page-ledger">
+            <div class="section-title"><span>سجل الحركات</span></div>
+            <p style="text-align: center; color: var(--text-muted); margin-top: 50px;">لا توجد حركات حالياً.</p>
+        </div>
+
+    </div>
+
+    <!-- الشريط السفلي -->
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchPage('home', this)">
+            <i data-lucide="home"></i><span>الرئيسية</span>
+        </div>
+        <div class="nav-item" onclick="switchPage('orders', this)">
+            <i data-lucide="shopping-bag"></i><span>طلباتي</span>
+        </div>
+        <div class="nav-item" onclick="switchPage('charge', this)">
+            <i data-lucide="plus-circle"></i><span>شحن</span>
+        </div>
+        <div class="nav-item" onclick="switchPage('account', this)">
+            <i data-lucide="user"></i><span>حسابي</span>
+        </div>
+    </div>
+
+    <script>
+        // إعدادات الخادم
+        const API_BASE = 'https://sanad-plus-backend.onrender.com';
+        const tg = window.Telegram.WebApp;
+        let userInitData = tg.initData || ''; // في حال التجربة المحلية قد يكون فارغاً
+        let currentUser = null;
+
+        // تهيئة التطبيق
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor('#0A1B2E'); // لون الهيدر
+
+        // دالة الاتصال بالـ API
+        async function apiFetch(endpoint, options = {}) {
+            const headers = { 
+                'Content-Type': 'application/json',
+                'X-Telegram-Init-Data': userInitData // التحقق الأمني عبر تيليجرام
+            };
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+                if(!res.ok) throw new Error('Network error');
+                return await res.json();
+            } catch(e) {
+                console.error(e);
+                return null;
+            }
+        }
+
+        // التنقل بين الصفحات
+        function switchPage(pageId, el = null) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            
+            // تحديث القائمة السفلية
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if (el) {
+                el.classList.add('active');
+            } else {
+                // إذا تم استدعاء الدالة من زر آخر، نبحث عن الأيقونة المناسبة
+                const navItem = document.querySelector(`.nav-item[onclick*="${pageId}"]`);
+                if(navItem) navItem.classList.add('active');
+            }
+        }
+
+        // إغلاق التطبيق
+        function closeApp() {
+            tg.close();
+        }
+
+        // جلب بيانات المستخدم والمنتجات
+        async function loadApp() {
+            // جلب بيانات المستخدم
+            const data = await apiFetch('/api/miniapp/init', { method: 'POST' });
+            
+            if(data && data.success) {
+                currentUser = data;
+                // تحديث الواجهة
+                document.getElementById('user-balance').innerHTML = `${data.balance} <span style="font-size: 16px;">ل.س</span>`;
+                document.getElementById('user-sanad-id').innerText = `SN-${data.telegram_id}`;
+                
+                document.getElementById('acc-name').innerText = data.first_name;
+                document.getElementById('acc-avatar').innerText = data.first_name[0];
+                document.getElementById('acc-id').innerText = `SN-${data.telegram_id}`;
+            } else {
+                // في حال فشل الاتصال (للتجربة المحلية)
+                document.getElementById('user-balance').innerHTML = `0.00 <span style="font-size: 16px;">ل.س</span>`;
+                document.getElementById('user-sanad-id').innerText = `SN-123456789`;
+                document.getElementById('acc-name').innerText = "مستخدم تجريبي";
+            }
+
+            // جلب المنتجات
+            const products = await apiFetch('/api/products/');
+            const homeGrid = document.getElementById('home-products');
+            homeGrid.innerHTML = '';
+            
+            if (products && Array.isArray(products) && products.length > 0) {
+                products.slice(0, 4).forEach(p => {
+                    homeGrid.innerHTML += `
+                        <div class="product-card" onclick="alert('سيتم تفعيل صفحة الشراء قريباً')">
+                            <img src="${p.image || 'https://via.placeholder.com/150'}" class="product-img" alt="${p.name}">
+                            <div class="product-name">${p.name}</div>
+                            <div class="product-price">${p.price} ل.س</div>
+                        </div>
+                    `;
+                });
+            } else {
+                homeGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color: var(--text-muted);">لا توجد منتجات متاحة حالياً.</p>';
+            }
+
+            // إخفاء شاشة التحميل وإظهار التطبيق
+            document.getElementById('splash').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            
+            // تهيئة الأيقونات
+            lucide.createIcons();
+        }
+
+        // التشغيل
+        window.onload = () => {
+            loadApp();
+        };
+    </script>
 </body>
 </html>
