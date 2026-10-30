@@ -197,12 +197,13 @@ class AdminAuditLog(db.Model):
     details = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=_now)
 
+
 class AdminOTPSession(db.Model):
     __tablename__ = 'admin_otp_sessions'
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('admin_users.id'), nullable=False)
     session_id = db.Column(db.String(100), unique=True, nullable=False)
-    otp_code = db.Column(db.String(6), nullable=False)
+    otp_hash = db.Column(db.String(64), nullable=False)
     attempts = db.Column(db.Integer, default=0)
     expires_at = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=_now)

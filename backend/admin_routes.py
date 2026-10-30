@@ -4,8 +4,8 @@ import os, secrets, uuid, hashlib, json, requests
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 import jwt
-from flask import Blueprint, jsonify, request, g
-from sqlalchemy.exc import IntegrityError
+from flask import Blueprint, jsonify, request, g, current_app
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.security import check_password_hash
 
 from app.extensions import db
@@ -27,12 +27,13 @@ MAX_OTP_ATTEMPTS = 5
 
 def _utcnow(): return datetime.now(timezone.utc)
 def _generate_otp(): return "{:06d}".format(secrets.randbelow(1000000))
+def _hash_otp(otp): return hashlib.sha256(otp.encode()).hexdigest()
 
 def log_admin_action(action, target_type, target_id, details=""):
     try:
         db.session.add(AdminAuditLog(admin_id=getattr(g, 'admin_id', 1), action=action, target_type=target_type, target_id=target_id, details=details))
     except Exception as e:
-        print("Audit Log Error:", e, flush=True)
+        current_app.logger.error(f"Audit Log Error: {e}")
 
 def admin_required(fn):
     @wraps(fn)
@@ -70,11 +71,17 @@ def login():
         
     session_id = str(uuid.uuid4())
     otp_code = _generate_otp()
+    otp_hash = _hash_otp(otp_code)
     expires_at = _utcnow() + timedelta(minutes=OTP_TTL_MINUTES)
     
-    db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_code=otp_code, expires_at=expires_at))
-    db.session.commit()
-    
+    try:
+        db.session.add(AdminOTPSession(admin_id=admin.id, session_id=session_id, otp_hash=otp_hash, expires_at=expires_at))
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("Failed to persist admin OTP session")
+        return jsonify({"error": "تعذر إكمال تسجيل الدخول حالياً"}), 503
+        
     bot_token = os.environ.get("BOT_TOKEN", "")
     admin_telegram_id = os.environ.get("ADMIN_TELEGRAM_ID", "")
     if not bot_token or not admin_telegram_id:
@@ -94,31 +101,41 @@ def verify_otp():
     data = request.get_json(silent=True) or {}
     session_id = (data.get("session_id") or "").strip()
     otp_code = (data.get("otp_code") or "").strip()
+    
     try:
         session = db.session.query(AdminOTPSession).filter_by(session_id=session_id).with_for_update().first()
         if not session: return jsonify({"success": False, "error": "جلسة غير صالحة"}), 400
+        
         if session.expires_at.replace(tzinfo=timezone.utc) < _utcnow():
             db.session.delete(session)
             db.session.commit()
             return jsonify({"success": False, "error": "انتهت الصلاحية"}), 400
+            
         if session.attempts >= MAX_OTP_ATTEMPTS:
             db.session.delete(session)
             db.session.commit()
             return jsonify({"success": False, "error": "عدد محاولات كبير"}), 429
-        if session.otp_code != otp_code:
+            
+        if session.otp_hash != _hash_otp(otp_code):
             session.attempts += 1
             db.session.commit()
             return jsonify({"success": False, "error": "رمز خاطئ"}), 400
-            
+
+        # حفظ admin_id قبل الحذف
+        admin_id = session.admin_id
         db.session.delete(session)
         db.session.commit()
         
-        admin = db.session.query(AdminUser).filter_by(id=session.admin_id).first()
+        admin = db.session.query(AdminUser).filter_by(id=admin_id).first()
         now = _utcnow()
         token = jwt.encode({"sub": "admin", "admin_id": admin.id, "role": admin.role, "iat": now, "exp": now + timedelta(hours=JWT_EXPIRY_HOURS)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
         return jsonify({"token": token, "access_token": token})
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.exception("DB error during OTP verification")
+        return jsonify({"error": "حدث خطأ في قاعدة البيانات"}), 503
     except Exception as e:
-        print(f"VERIFY OTP ERROR: {str(e)}", flush=True)
+        current_app.logger.exception(f"Unexpected OTP error: {e}")
         db.session.rollback()
         return jsonify({"error": "حدث خطأ داخلي"}), 500
 
@@ -132,7 +149,9 @@ def stats():
             "total_deposits": db.session.query(Deposit).filter_by(status='approved').count(),
             "revenue": float(db.session.query(db.func.sum(Order.total_price)).filter_by(status='completed').scalar() or 0)
         })
-    except Exception: return jsonify({"total_users": 0, "total_orders": 0, "total_deposits": 0, "revenue": 0.0})
+    except Exception:
+        current_app.logger.exception("Stats error")
+        return jsonify({"error": "فشل جلب الإحصائيات"}), 500
 
 @admin_bp.route("/inbox/counts", methods=["GET"])
 @admin_required
@@ -143,7 +162,9 @@ def inbox_counts():
             "deposits": db.session.query(Deposit).filter(Deposit.status.in_(['pending', 'معلق'])).count(),
             "kyc": db.session.query(KYCRequest).filter(KYCRequest.status.in_(['pending', 'معلق'])).count()
         })
-    except Exception: return jsonify({"orders": 0, "deposits": 0, "kyc": 0})
+    except Exception:
+        current_app.logger.exception("Inbox counts error")
+        return jsonify({"error": "فشل جلب العدادات"}), 500
 
 @admin_bp.route("/orders", methods=["GET"])
 @admin_required
@@ -151,7 +172,9 @@ def get_orders():
     try:
         orders = db.session.query(Order).filter(Order.status.in_(['pending', 'معلق'])).all()
         return jsonify([{"id": o.id, "order_number": o.order_number, "user_name": o.user.first_name if o.user else 'مستخدم', "product_name": o.product.name if o.product else 'منتج', "total_price": float(o.total_price), "status": o.status} for o in orders])
-    except Exception: return jsonify([])
+    except Exception:
+        current_app.logger.exception("Get orders error")
+        return jsonify({"error": "فشل جلب الطلبات"}), 500
 
 @admin_bp.route("/deposits", methods=["GET"])
 @admin_required
@@ -159,7 +182,9 @@ def get_deposits():
     try:
         deposits = db.session.query(Deposit).filter(Deposit.status.in_(['pending', 'معلق'])).all()
         return jsonify([{"id": d.id, "amount": float(d.amount), "user_name": d.user.first_name if d.user else 'مستخدم', "transaction_id": d.transaction_id, "status": d.status} for d in deposits])
-    except Exception: return jsonify([])
+    except Exception:
+        current_app.logger.exception("Get deposits error")
+        return jsonify({"error": "فشل جلب الإيداعات"}), 500
 
 @admin_bp.route("/kyc", methods=["GET"])
 @admin_required
@@ -167,7 +192,9 @@ def get_kyc():
     try:
         kycs = db.session.query(KYCRequest).filter(KYCRequest.status.in_(['pending', 'معلق'])).all()
         return jsonify([{"id": k.id, "full_name": k.full_name, "phone": k.phone, "user_name": k.user.first_name if k.user else 'مستخدم', "status": k.status} for k in kycs])
-    except Exception: return jsonify([])
+    except Exception:
+        current_app.logger.exception("Get KYC error")
+        return jsonify({"error": "فشل جلب التوثيق"}), 500
 
 @admin_bp.route("/<string:item_type>/<int:item_id>/full", methods=["GET"])
 @admin_required
@@ -186,7 +213,9 @@ def get_item_full(item_type, item_id):
             if not item: return jsonify({"error": "غير موجود"}), 404
             return jsonify({"id": item.id, "title": f"توثيق #{item.id}", "details": {"الاسم": item.full_name}, "image": item.id_image})
         return jsonify({"error": "نوع غير معروف"}), 400
-    except Exception: return jsonify({"error": "حدث خطأ داخلي"}), 500
+    except Exception:
+        current_app.logger.exception("Get item full error")
+        return jsonify({"error": "حدث خطأ داخلي"}), 500
 
 @admin_bp.route("/<string:item_type>/<int:item_id>/<string:action>", methods=["POST"])
 @admin_required
@@ -224,7 +253,7 @@ def handle_item_action(item_type, item_id, action):
         db.session.commit()
         return jsonify({"success": True, "new_status": item.status})
     except Exception as e:
-        print(f"ACTION ERROR: {str(e)}", flush=True)
+        current_app.logger.exception(f"Action error: {e}")
         db.session.rollback()
         return jsonify({"error": "حدث خطأ داخلي"}), 500
 
@@ -233,7 +262,9 @@ def handle_item_action(item_type, item_id, action):
 def get_users():
     try:
         return jsonify([{"id": u.id, "telegram_id": str(u.telegram_id), "first_name": u.first_name, "balance": float(u.balance or 0), "is_banned": bool(u.is_banned)} for u in db.session.query(User).all()])
-    except Exception: return jsonify([])
+    except Exception:
+        current_app.logger.exception("Get users error")
+        return jsonify({"error": "فشل جلب المستخدمين"}), 500
 
 @admin_bp.route("/users/<int:user_id>/balance", methods=["POST"])
 @admin_required
@@ -252,21 +283,26 @@ def update_balance(user_id):
         amount = amount.quantize(Decimal('0.0001'))
     except (ValueError, ArithmeticError):
         return jsonify({"error": "قيمة غير صالحة"}), 400
+        
     fingerprint = hashlib.sha256(json.dumps({"user_id": user_id, "amount": str(amount)}, sort_keys=True).encode()).hexdigest()
     try:
         existing = db.session.query(AdminOperation).filter_by(admin_id=g.admin_id, idempotency_key=idempotency_key).first()
         if existing:
             if existing.payload_fingerprint != fingerprint: return jsonify({"error": "المفتاح مستخدم لعملية مختلفة"}), 409
             return jsonify(json.loads(existing.result_json)), 200
+            
         user = db.session.query(User).filter_by(id=user_id).with_for_update().first()
         if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
+        
         old_balance = user.balance
         new_balance = old_balance + amount
         if new_balance < 0: return jsonify({"error": "الرصيد لا يمكن أن يكون سالباً"}), 400
+        
         user.balance = new_balance
         ref = f"ADMIN-{idempotency_key[:20]}"
         record_transaction(user.id, "admin_edit", amount, old_balance, new_balance, reference=ref)
         db.session.flush()
+        
         result = {"success": True, "new_balance": float(new_balance), "reference": ref}
         db.session.add(AdminOperation(admin_id=g.admin_id, idempotency_key=idempotency_key, operation_type="balance_edit", target_id=user_id, payload_fingerprint=fingerprint, result_json=json.dumps(result)))
         log_admin_action("تعديل رصيد", "user", user_id, f"من {old_balance} إلى {new_balance}")
@@ -290,8 +326,8 @@ def ban_user(user_id):
         user = db.session.query(User).filter_by(id=user_id).with_for_update().first()
         if not user: return jsonify({"error": "المستخدم غير موجود"}), 404
         user.is_banned = bool(is_banned)
-        db.session.commit()
         log_admin_action("حظر" if is_banned else "فك حظر", "user", user_id, f"حالة {is_banned}")
+        db.session.commit()
         return jsonify({"success": True, "is_banned": user.is_banned})
     except Exception:
         db.session.rollback()
@@ -350,13 +386,19 @@ def reply_ticket(ticket_id):
 @admin_required
 def close_ticket(ticket_id):
     try:
-        ticket = db.session.get(SupportTicket, ticket_id)
+        ticket = db.session.query(SupportTicket).filter_by(id=ticket_id).with_for_update().first()
         if not ticket: return jsonify({"error": "غير موجودة"}), 404
         ticket.status = 'closed'
+        log_admin_action("إغلاق تذكرة دعم", "support_ticket", ticket_id)
         db.session.commit()
-        return jsonify({"success": True})
-    except Exception: 
+        return jsonify({"success": True, "status": "closed"}), 200
+    except SQLAlchemyError:
         db.session.rollback()
+        current_app.logger.exception("Failed to close support ticket")
+        return jsonify({"error": "تعذر إغلاق التذكرة حالياً"}), 503
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Unexpected error while closing support ticket")
         return jsonify({"error": "حدث خطأ داخلي"}), 500
 
 @admin_bp.route("/settings", methods=["GET"])
